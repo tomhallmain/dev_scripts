@@ -1,12 +1,24 @@
 #!/bin/bash
 
 lbv() { # Generates a cross table of git repos vs branches
-  flags=$1
+  local flags=$1
   bash ~/dev_scripts/scripts/local_branch_view.sh "$flags"
 }
 
 plb() { # Purges a branch name from all git repos associated
   bash ~/dev_scripts/scripts/purge_local_branches.sh
+}
+
+env_refresh() { # Pulls latest master branch for all git repos
+  bash ~/dev_scripts/scripts/local_env_refresh.sh
+}
+
+all_status() {
+  bash ~/dev_scripts/scripts/all_repo_git_status.sh
+}
+
+all_branch() {
+  bash ~/dev_scripts/scripts/all_repo_git_branch.sh
 }
 
 join_by() { # Joins a shell array by a text argument provided
