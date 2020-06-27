@@ -1,8 +1,12 @@
 #!/bin/bash
 
 lbv() { # Generates a cross table of git repos vs branches
-  local flags=$1
-  bash ~/dev_scripts/scripts/local_branch_view.sh "$flags"
+  if [ -z $1 ] ; then
+    bash ~/dev_scripts/scripts/local_branch_view.sh
+  else
+    local flags=$1
+    bash ~/dev_scripts/scripts/local_branch_view.sh "$flags"
+  fi
 }
 
 plb() { # Purges a branch name from all git repos associated

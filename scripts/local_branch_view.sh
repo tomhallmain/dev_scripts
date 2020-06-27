@@ -49,7 +49,7 @@ associateKeyToArray() {
 rangeBind() {
   if (($1 < $3))   ; then echo "$3"
   elif (($1 > $5)) ; then echo "$5"
-  else             ; echo "$1"
+  else               echo "$1"
   fi
 }
 
@@ -75,7 +75,7 @@ generateSeqArgs() {
 for dir in ${HOME_DIRS[@]} ; do
   check_dir=$( git -C ${dir} rev-parse 2> /dev/null )
   check_dir=$( echo $? )
-  if ["${check_dir}" = "0"]; then ALL_REPOS=(" ${ALL_REPOS[@]} " "${dir}"); fi
+  if [ "${check_dir}" = "0" ]; then ALL_REPOS=(" ${ALL_REPOS[@]} " "${dir}"); fi
 done
 
 REPOS=( ${ALL_REPOS[@]} )
