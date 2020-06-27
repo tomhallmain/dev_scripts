@@ -1,6 +1,5 @@
 #!/bin/bash
 set -o pipefail
-# shellcheck disable=SC1009
 cd ~
 
 # Handle option flags and set conditional variables
@@ -13,14 +12,10 @@ fi
 
 while getopts ":a" opt; do
   case $opt in
-    a)
-      echo -e "\nAll option triggered: Running for all git repos in home directory"
-      INCLUDE_MASTER_ONLYS=true
-      ;;
-    \?)
-      echo -e "Invalid option: -$OPTARG \nValid options include -a" >&2
-      exit 1
-      ;;
+    a)  echo -e "\nAll option triggered: Running for all git repos in home directory"
+        INCLUDE_MASTER_ONLYS=true ;;
+    \?) echo -e "Invalid option: -$OPTARG \nValid options include -a" >&2
+        exit 1 ;;
   esac
 done
 
@@ -34,12 +29,13 @@ GRAY="\033[0:37m"
 WHITE="\033[1:35m"
 BLUE="\033[0;34m"
 NC="\033[0m" # No Color
-ALL_REPOS=()
+
 HOME_DIRS=( $(cd ~ ; ls -d */ | sed 's#/##') )
 TABLE_DATA="${WHITE}BRANCHES_____________\_____________REPOS${GRAY}"
+ALL_REPOS=()
+SORTED_REPOS=()
 ALL_BRANCHES=()
 UNIQ_BRANCHES=()
-SORTED_REPOS=()
 
 
 # Define methods
@@ -51,12 +47,9 @@ associateKeyToArray() {
 }
 
 rangeBind() {
-  if (($1 < $3)) ; then
-    echo "$3"
-  elif (($1 > $5)) ; then
-    echo "$5"
-  else
-    echo "$1"
+  if (($1 < $3))   ; then echo "$3"
+  elif (($1 > $5)) ; then echo "$5"
+  else             ; echo "$1"
   fi
 }
 
@@ -70,11 +63,8 @@ repeatString() {
 generateSeqArgs() {
   local n_fields="$1"
   for ((i = 1 ; i <= $n_fields ; i++)) ; do
-    if [[ i -ne $n_fields ]]; then
-      str="${str}\$${i},"
-    else
-      str="${str}\$${i}"
-    fi
+    str="${str}\$${i}"
+    if [[ i -ne $n_fields ]]; then str="${str},"; fi
   done
   printf '%s\n' "${str}"
 }
@@ -85,7 +75,7 @@ generateSeqArgs() {
 for dir in ${HOME_DIRS[@]} ; do
   check_dir=$( git -C ${dir} rev-parse 2> /dev/null )
   check_dir=$( echo $? )
-  if [ "${check_dir}" = "0" ] ; then ALL_REPOS=( " ${ALL_REPOS[@]} " "${dir}" ) ; fi
+  if ["${check_dir}" = "0"]; then ALL_REPOS=(" ${ALL_REPOS[@]} " "${dir}"); fi
 done
 
 REPOS=( ${ALL_REPOS[@]} )
@@ -95,13 +85,17 @@ for repo in ${ALL_REPOS[@]} ; do
   cd "${repo}"
   BRANCHES=()
 
-  eval "$(git for-each-ref --shell --format='BRANCHES+=(%(refname:lstrip=2))' refs/heads/)"
+  eval "$(git for-each-ref --shell \
+    --format='BRANCHES+=(%(refname:lstrip=2))' refs/heads/)"
 
-  if [[ "${BRANCHES[1]}" = '' && "${BRANCHES[@]}" =~ 'master' && ! "$INCLUDE_MASTER_ONLYS" = true ]] ; then
+  # exclude repos that are only master
+  if [[ "${BRANCHES[1]}" = '' && "${BRANCHES[@]}" =~ 'master' && \
+        ! "$INCLUDE_MASTER_ONLYS" = true ]] ; then
     REPOS=( ${REPOS[@]//"${repo}"} )
   else
-    # shell doesn't allow hyphens in variable names, and Bash 3 doesn't support associative arrays
-    repo_key="${repo//-/_}_key"
+    # shell doesn't allow some chars in var names, Bash 3 doesn't support hashes
+    repo_key="${repo//\./_DOT_}_key"
+    repo_key="${repo_key//-/_HYPHEN_}_key"
     associateKeyToArray $repo_key ${BRANCHES[@]}
 
     repo_branch_count_key="${repo//-/_}_branch_count"
@@ -115,9 +109,8 @@ for repo in ${ALL_REPOS[@]} ; do
 done
 
 # Sort the repos and branches by most combinations found
-UNIQ_BRANCHES=(
-  $(printf '%s\n' "${ALL_BRANCHES[@]}" | sort -r | uniq -c | sort -nr | awk '{print $2}')
-)
+UNIQ_BRANCHES=( $(printf '%s\n' "${ALL_BRANCHES[@]}" \
+                  | sort -r | uniq -c | sort -nr | awk '{print $2}') )
 REPOS=( $(printf '%s\n' "${REPOS[@]}") )
 
 for repo in ${REPOS[@]} ; do
@@ -133,11 +126,13 @@ REPOS=( $(printf '%s\n' "${REPOS[@]}" | sort -nr | awk -F "@@" '{print $2}') )
 let N_ROWS=1+${#UNIQ_BRANCHES[@]}
 let N_REPOS=${#REPOS[@]}
 let N_ALL_COLS=1+$N_REPOS
+
 TERMINAL_WIDTH=$( stty size | awk '{print $2}' )
 let REPO_SPACE=$( rangeBind $TERMINAL_WIDTH between 120 and 300 )
 let REPO_STR_LEN=$REPO_SPACE/$N_REPOS*3/7
 let STR_MAX=$( if (($N_REPOS < 10)) ; then echo '10'; else echo '7'; fi )
 REPO_STR_LEN=$( rangeBind $REPO_STR_LEN between 3 and $STR_MAX )
+
 let COL_WID=7/4*$REPO_SPACE/$N_REPOS
 let COL_MAX=$( if (($N_REPOS < 10)) ; then echo '30'; else echo '24'; fi )
 let COL_MIN=$( if (($N_REPOS < 10)) ; then echo '22'; else echo '20'; fi )
@@ -149,29 +144,23 @@ echo -e "\nRepos included: ${REPOS[@]}\n"
 # Build data into ordered table string
 
 for repo in ${REPOS[@]} ; do
-  if [ "${repo:0:7}" = 'expert-' ] ; then
-    cleaned_repo=${repo:7}
-  elif [ "${repo:0:9}" = 'internal-' ] ; then
-    cleaned_repo=${repo:9}
-  else
-    cleaned_repo=$repo
-  fi
-  short_repo_name=${cleaned_repo:0:$REPO_STR_LEN}
+  short_repo=${repo:0:$REPO_STR_LEN}
 
-  TABLE_DATA="${TABLE_DATA} ${WHITE}${short_repo_name}${GRAY}"
+  TABLE_DATA="${TABLE_DATA} ${WHITE}${short_repo}${GRAY}"
 done
 
 for branch in ${UNIQ_BRANCHES[@]} ; do
-  short_branch_name=${branch:0:45}
+  short_branch=${branch:0:45}
 
   if [[ " ${branch} " =~ " master " ]] ; then
-    TABLE_DATA="${TABLE_DATA}\n${BLUE}${short_branch_name}${GRAY}"
+    TABLE_DATA="${TABLE_DATA}\n${BLUE}${short_branch}${GRAY}"
   else
-    TABLE_DATA="${TABLE_DATA}\n${ORANGE}${short_branch_name}${GRAY}"
+    TABLE_DATA="${TABLE_DATA}\n${ORANGE}${short_branch}${GRAY}"
   fi
 
   for repo in ${REPOS[@]} ; do
-    repo_key="${repo//-/_}_key"
+    repo_key="${repo//\./_DOT_}_key"
+    repo_key="${repo_key//-/_HYPHEN_}_key"
     repo_branches="${!repo_key}"
 
     if [[ " ${repo_branches} " =~ " ${branch} " ]] ; then

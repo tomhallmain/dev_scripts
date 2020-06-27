@@ -1,6 +1,5 @@
 #!/bin/bash
 set -o pipefail
-# shellcheck disable=SC1009
 cd ~
 
 
@@ -11,8 +10,9 @@ RED="\033[0;31m"
 WHITE="\033[1:35m"
 BLUE="\033[0;34m"
 NC="\033[0m" # No Color
-ALL_REPOS=()
+
 HOME_DIRS=( $(cd ~ ; ls -d */ | sed 's#/##') )
+ALL_REPOS=()
 ALL_BRANCHES=()
 UNIQ_BRANCHES=()
 
@@ -76,8 +76,7 @@ let BRANCH_COUNT=${#UNIQ_BRANCHES[@]}
 
 # Initiate user interfacing
 
-echo ''
-echo ' To quit this script, press Ctrl+C'
+echo -e "\n To quit this script, press Ctrl+C"
 
 while [ ! "${confirmation}" = 'confirm' ]; do
   set_confirmed='false'
@@ -165,3 +164,4 @@ done
 echo ''
 echo -e "${BLUE} Successfully deleted selected local branches.${NC}"
 echo ''
+
