@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 set -o pipefail
 cd ~
 
@@ -16,7 +15,7 @@ REPOS=()
 for dir in ${HOME_DIRS[@]} ; do
   check_dir=$( git -C ${dir} rev-parse 2> /dev/null )
   check_dir=$( echo $? )
-  if ["${check_dir}" = "0"]; then REPOS=(" ${REPOS[@]} " "${dir}"); fi
+  if [ "${check_dir}" = "0" ]; then REPOS=(" ${REPOS[@]} " "${dir}"); fi
 done
 
 for repo in ${REPOS[@]}; do
@@ -26,7 +25,7 @@ for repo in ${REPOS[@]}; do
   git checkout master
   git pull
   wait
-  echo -e "${CYAN} Git Pull Done for" "${repo}" "${NC}"
+  echo -e "${CYAN} Git pull done for ${repo} ${NC}"
   if [ -f 'yarn.lock' ]; then
     echo -e "${MAGENTA} Running yarn for ${repo} ${NC}"
     yarn || continue > /dev/null
