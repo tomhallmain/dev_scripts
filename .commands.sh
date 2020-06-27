@@ -33,3 +33,9 @@ dup_in_dir() { # Reports duplicate files and gives option for deletion
   bash ~/dev_scripts/scripts/compare_files_in_dir.sh $1
 }
 
+gc() {
+  local args=$@
+  git commit "$args"
+};
+
+
