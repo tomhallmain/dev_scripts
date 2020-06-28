@@ -31,9 +31,7 @@ generateFilterString() {
   last_match=${matches[length-1]}
   for match in ${matches[@]} ; do
     str="${str}(NR==${match})"
-    if [ ! $match -eq $last_match ]; then
-      str="${str} || "
-    fi
+    if [ ! $match -eq $last_match ]; then str="${str} || "; fi
   done
   printf '%s\n' "${str}"
 }
@@ -81,9 +79,7 @@ echo -e "\n To quit this script, press Ctrl+C"
 while [ ! "${confirmation}" = 'confirm' ]; do
   set_confirmed='false'
   to_purge=()
-  echo ''
-  echo -e "${BLUE} Available-to-purge branches are listed below.${NC}"
-  echo ''
+  echo -e "\n${BLUE} Available-to-purge branches are listed below.${NC}\n"
   printf '%s\n' "${UNIQ_BRANCHES[@]}" | awk '{print " " int((NR)) " " $1}'
   echo ''
   read -p $'\e[37m Enter branch numbers to purge separated by spaces: \e[0m' to_purge
@@ -92,9 +88,7 @@ while [ ! "${confirmation}" = 'confirm' ]; do
 
   while [ ! "$set_confirmed" = 'true' ]; do
     while [[ -z "${to_purge[@]// }" ]]; do
-      echo ''
-      echo -e "${ORANGE} No value found, please try again. To quit the script, press Ctrl+C${NC}"
-      echo ''
+      echo -e "\n${ORANGE} No value found, please try again. To quit the script, press Ctrl+C${NC}\n"
       read -p $'\e[37m Enter branch numbers to purge separated by spaces: \e[0m' to_purge
     done
 
@@ -102,9 +96,7 @@ while [ ! "${confirmation}" = 'confirm' ]; do
       re='^[0-9]+$'
       while [[ -z $i || ! $i =~ $re || $i -gt $BRANCH_COUNT ]]; do
         to_purge=()
-        echo ''
-        echo -e "${ORANGE} Only input indices of the set provided. To quit the script, press Ctrl+C${NC}"
-        echo ''
+        echo -e "\n${ORANGE} Only input indices of the set provided. To quit the script, press Ctrl+C${NC}\n"
         read -p $'\e[37m Enter branch numbers to purge separated by spaces: \e[0m' to_purge
         to_purge=( $(printf '%s\n' "${to_purge[@]}") )
         break 2
@@ -117,17 +109,13 @@ while [ ! "${confirmation}" = 'confirm' ]; do
   filter="{ if(${conditional}) { print } }"
   PURGE_BRANCHES=($(printf '%s\n' "${UNIQ_BRANCHES[@]}" | awk "$filter"))
 
-  echo ''
-  echo -e "${ORANGE} Confirm branch purge selection below - BE CAREFUL, confirmation will attempt local deletion in all repos!${NC}"
-  echo ''
+  echo -e "\n${ORANGE} Confirm branch purge selection below - BE CAREFUL, confirmation will attempt local deletion in all repos!${NC}\n"
   printf '\e[31m%s\n\e[m' "${PURGE_BRANCHES[@]}" | awk '{print " " $1}'
   read -p $'\e[37m Enter "confirm" to delete branches: \e[0m' confirmation
 
   if [[ $(echo "${confirmation}" | tr "[:upper:]" "[:lower:]") = 'confirm' ]]; then continue; fi
 
-  echo ''
-  echo "${ORANGE} Selection not confirmed. Would you like to modify your selection?${NC}"
-  echo ''
+  echo -e "\n${ORANGE} Selection not confirmed. Would you like to modify your selection?${NC}\n"
   read -p $'\e[37m Enter "y" to modify selection or "continue" to proceed with current purge selection: \e[0m' modify
 
   modify=$(echo "${modify}" | tr "[:upper:]" "[:lower:]")
@@ -137,8 +125,7 @@ while [ ! "${confirmation}" = 'confirm' ]; do
   elif [ "${modify}" = 'continue' ]; then
     confirmation='confirm'
   else
-    echo ''
-    echo -e "${RED} Input not understood and selection unconfirmed. Exiting script.${NC}"
+    echo -e "\n${RED} Input not understood and selection unconfirmed. Exiting script.${NC}"
     exit 1
   fi
 done
@@ -158,10 +145,9 @@ for branch in ${PURGE_BRANCHES[@]}; do
   done
 done
 
+# TODO: Add check to be sure branch actually deleted
 
 # Report success
 
-echo ''
-echo -e "${BLUE} Successfully deleted selected local branches.${NC}"
-echo ''
+echo -e "\n${BLUE} Successfully deleted selected local branches.${NC}\n"
 
