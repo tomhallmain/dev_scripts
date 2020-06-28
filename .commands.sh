@@ -36,7 +36,7 @@ dup_in_dir() { # Reports duplicate files and gives option for deletion
 gc() {
   local args=$@
   git commit "$args"
-};
+}
 
 gcam() {
   local message="$1"
@@ -53,7 +53,7 @@ gpcurr() {
   git push origin "$CURRENT_BRANCH"
 };
 
-gacmp() {
+gacmp() { # Adds all untracked files, commits with messsage arg, pushes current branch
   gadd_all
   local message="$1"
   gcam "$message"
