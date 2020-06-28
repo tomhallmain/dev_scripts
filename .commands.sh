@@ -38,4 +38,26 @@ gc() {
   git commit "$args"
 };
 
+gcam() {
+  local message="$1"
+  git commit -am "$message"
+}
+
+gadd_all() {
+  ALL_FILES=$(git ls-files -o --exclude-standard)
+  git add "${ALL_FILES}"
+}
+
+gpcurr() {
+  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+  git push origin "$CURRENT_BRANCH"
+};
+
+gacmp() {
+  gadd_all
+  local message="$1"
+  gcam "$message"
+  gpcurr
+}
+
 
