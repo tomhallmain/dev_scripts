@@ -26,6 +26,15 @@ for repo in ${REPOS[@]}; do
   git pull
   wait
   echo -e "${CYAN} Git pull done for ${repo} ${NC}"
+  if [ -f 'Gemfile' ]; then
+    echo -e "${BLUE} Running bundle install for ${repo} ${NC}"
+    bundle install || continue > /dev/null
+    if [ -d 'db/migrate' ]; then
+      echo -e "${BLUE} Running db migration for ${repo} ${NC}"
+      rake db:migrate RAILS_ENV=development
+      rake db:migrate RAILS_ENV=test
+    fi
+  fi
   if [ -f 'yarn.lock' ]; then
     echo -e "${MAGENTA} Running yarn for ${repo} ${NC}"
     yarn || continue > /dev/null
