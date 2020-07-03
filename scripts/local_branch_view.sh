@@ -94,7 +94,7 @@ for repo in ${ALL_REPOS[@]} ; do
     REPOS=( ${REPOS[@]//"${repo}"} )
   else
     # shell doesn't allow some chars in var names, Bash 3 doesn't support hashes
-    repo_key="${repo//\./_DOT_}_key"
+    repo_key="${repo//\./_DOT_}"
     repo_key="${repo_key//-/_HYPHEN_}_key"
     associateKeyToArray $repo_key ${BRANCHES[@]}
 
@@ -159,7 +159,7 @@ for branch in ${UNIQ_BRANCHES[@]} ; do
   fi
 
   for repo in ${REPOS[@]} ; do
-    repo_key="${repo//\./_DOT_}_key"
+    repo_key="${repo//\./_DOT_}"
     repo_key="${repo_key//-/_HYPHEN_}_key"
     repo_branches="${!repo_key}"
 
