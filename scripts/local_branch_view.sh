@@ -98,9 +98,8 @@ generateSeqArgs() {
 # Find repos and unique branches, set up and sort more variables
 
 for dir in ${HOME_DIRS[@]} ; do
-  check_dir=$( git -C ${dir} rev-parse 2> /dev/null )
-  check_dir=$( echo $? )
-  if [ "${check_dir}" = "0" ]; then ALL_REPOS=(" ${ALL_REPOS[@]} " "${dir}"); fi
+  check_dir=$( git -C ${dir} rev-parse 2> /dev/null; echo $? )
+  if [ $check_dir = 0 ]; then ALL_REPOS=(" ${ALL_REPOS[@]} " "${dir}"); fi
 done
 
 REPOS=( ${ALL_REPOS[@]} )
@@ -112,10 +111,10 @@ for repo in ${ALL_REPOS[@]} ; do
 
   eval "$(git for-each-ref --shell \
     --format='BRANCHES+=(%(refname:lstrip=2))' refs/heads/)"
-  if [ "$DISPLAY_STATUS" = true ]; then
-    if [ $(git status --porcelain | wc -c) -gt 0 ]; then
-      untracked=1
-    fi
+
+  if [[ "$DISPLAY_STATUS" = true \
+        && $(git status --porcelain | wc -c) -gt 0 ]]; then
+    untracked=1
   fi
 
   # Exclude repos that are only master with no untracked changes
@@ -136,18 +135,16 @@ for repo in ${ALL_REPOS[@]} ; do
     
     ALL_BRANCHES=( "${ALL_BRANCHES[@]}" "${BRANCHES[@]}" )
 
-    if [ "$DISPLAY_STATUS" = true ] ; then
+    if [[ "$DISPLAY_STATUS" = true && $untracked ]] ; then
       # Assumes untracked files only exist on the current branch for now
-      if [ $untracked ]; then
-        active_branch=$(git branch --show-current)
-        branch_key_base=$(generateAllowedVarName "$active_branch")
-        branch_untracked_key="${branch_key_base}_untracked_key"
-        repo_untracked_key="${repo_key_base}_untracked_key"
-        repo_branch_untracked_key="${branch_key_base}_${repo_untracked_key}"
-        associateKeyToArray $branch_untracked_key $untracked
-        associateKeyToArray $repo_untracked_key $untracked
-        associateKeyToArray $repo_branch_untracked_key $untracked
-      fi
+      active_branch=$(git branch --show-current)
+      branch_key_base=$(generateAllowedVarName "$active_branch")
+      branch_untracked_key="${branch_key_base}_untracked_key"
+      repo_untracked_key="${repo_key_base}_untracked_key"
+      repo_branch_untracked_key="${branch_key_base}_${repo_untracked_key}"
+      associateKeyToArray $branch_untracked_key $untracked
+      associateKeyToArray $repo_untracked_key $untracked
+      associateKeyToArray $repo_branch_untracked_key $untracked
     fi
   fi
 

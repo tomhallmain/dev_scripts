@@ -7,8 +7,9 @@ cd ~
 
 ORANGE="\033[0;33m"
 RED="\033[0;31m"
-WHITE="\033[1:35m"
+WHITE="\033[1;37m"
 BLUE="\033[0;34m"
+GREEN="\033[0;32m"
 NC="\033[0m" # No Color
 
 HOME_DIRS=( $(cd ~ ; ls -d */ | sed 's#/##') )
@@ -61,23 +62,22 @@ generateFilterString() {
 # Find repos and unique branches, set up and sort more variables
 
 for dir in ${HOME_DIRS[@]} ; do
-  check_dir=$( git -C ${dir} rev-parse 2> /dev/null )
-  check_dir=$( echo $? )
-  if [ "${check_dir}" = "0" ] ; then ALL_REPOS=( " ${ALL_REPOS[@]} " "${dir}" ) ; fi
+  check_dir=$( git -C ${dir} rev-parse 2> /dev/null; echo $? )
+  if [ $check_dir = 0 ] ; then ALL_REPOS=( " ${ALL_REPOS[@]} " "${dir}" ) ; fi
 done
 
 REPOS=( ${ALL_REPOS[@]} )
 
 for repo in ${ALL_REPOS[@]} ; do
   cd ~
-  cd "${repo}"
+  cd "$repo"
   BRANCHES=()
 
   eval "$(git for-each-ref --shell --format='BRANCHES+=(%(refname:lstrip=2))' refs/heads/)"
 
   # Remove master and main branches to disallow their deletion
-  BRANCHES=( ${BRANCHES[@]//" master "} )
-  BRANCHES==( ${BRANCHES[@]//" main "} )
+  BRANCHES=( ${BRANCHES[@]//"master"} )
+  BRANCHES=( ${BRANCHES[@]//"main"} )
   ALL_BRANCHES=( " ${ALL_BRANCHES[@]} " " ${BRANCHES[@]} ")
 
   for branch in "${BRANCHES[@]}" ; do
@@ -95,12 +95,17 @@ let BRANCH_COUNT=${#UNIQ_BRANCHES[@]}
 
 # Initiate user interfacing
 
+if [ $BRANCH_COUNT = 0 ]; then
+  echo -e "\n${ORANGE} No purgeable branches found.${NC}\n"
+  exit 1
+fi
+
 echo -e "\n To quit this script, press Ctrl+C"
 
 while [ ! $confirmed ]; do
   unset selections_confirmed
   to_purge=()
-  echo -e "\n${BLUE} Available-to-purge branches are listed below.${NC}\n"
+  echo -e "\n${WHITE} Purgeable branches are listed below - you will be asked to confirm selection${NC}\n"
   printf '%s\n' "${UNIQ_BRANCHES[@]}" | awk '{print " " int((NR)) " " $1}'
   echo ''
   read -p $'\e[37m Enter branch numbers to purge separated by spaces: \e[0m' to_purge
@@ -115,7 +120,7 @@ while [ ! $confirmed ]; do
 
     for i in ${to_purge[@]}; do
       re='^[0-9]+$'
-      while [[ -z $i || ! $i =~ $re || $i -gt $BRANCH_COUNT ]]; do
+      while [[ -z $i || $i -lt 1 || ! $i =~ $re || $i -gt $BRANCH_COUNT ]]; do
         to_purge=()
         echo -e "\n${ORANGE} Only input indices of the set provided. To quit the script, press Ctrl+C${NC}\n"
         read -p $'\e[37m Enter branch numbers to purge separated by spaces: \e[0m' to_purge
@@ -134,7 +139,7 @@ while [ ! $confirmed ]; do
   printf '\e[31m%s\n\e[m' "${PURGE_BRANCHES[@]}" | awk '{print " " $1}'
   read -p $'\e[37m Enter "confirm" to delete branches: \e[0m' confirm_input
   confirm_input=$(echo "${confirm_input}" | tr "[:upper:]" "[:lower:]")
-  if [[ "$confirm_input" = 'confirm' ]]; then confirmed=true; fi
+  if [[ "$confirm_input" = 'confirm' ]]; then confirmed=true; continue; fi
 
   echo -e "\n${ORANGE} Selection not confirmed. Would you like to modify your selection?${NC}\n"
   read -p $'\e[37m Enter "y" to modify selection or "continue" to proceed with current purge selection: \e[0m' modify
@@ -144,11 +149,12 @@ while [ ! $confirmed ]; do
   if [ "${modify}" = 'y' ]; then continue
   elif [ "${modify}" = 'continue' ]; then confirmed=true
   else
-    echo -e "\n${RED} Input not understood and selection unconfirmed. Exiting script.${NC}"
+    echo -e "\n${RED} Input not understood and selection unconfirmed - exiting${NC}"
     exit 1
   fi
 done
 
+echo
 
 # Delete the branches
 
@@ -156,6 +162,7 @@ for branch in ${PURGE_BRANCHES[@]}; do
   branch_key_base=$(generateAllowedVarName "$branch")
   branch_key="${branch_key_base}_key"
   for repo in ${!branch_key}; do
+    echo -e "Deleting ${branch} from ${repo}"
     cd ~
     cd $repo
     git checkout master
@@ -167,5 +174,5 @@ done
 
 # Report success
 
-echo -e "\n${BLUE} Successfully deleted selected local branches.${NC}\n"
+echo -e "\n${GREEN} Successfully deleted selected local branches.${NC}\n"
 
