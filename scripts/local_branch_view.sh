@@ -1,20 +1,22 @@
 #!/bin/bash
 set -o pipefail
-cd ~
 
 # Handle option flags and set conditional variables
 
 if (($# == 0)); then
   echo -e "\nNo flags set: Running only for repos with non-master branches in home directory\n"
   echo -e "To run for all repos in home directory, run with opt -a"
+  BASE_DIR=~
   INCLUDE_MASTER_ONLYS=false
   DISPLAY_STATUS=false
 fi
 
-while getopts ":as" opt; do
+while getopts ":ad:s" opt; do
   case $opt in
-    a)  echo -e "\nAll option triggered: Running for all git repos in home directory"
+    a)  echo -e "\nAll option triggered: Running for all git repos found"
         INCLUDE_MASTER_ONLYS=true ;;
+    d)  echo -e "\nBase dir option triggered: Running with a base dir of ${OPTARG}"
+        BASE_DIR="$OPTARG" ;;
     s)  echo -e "\nStatus option triggered: Branches with uncommitted changes will be marked in red"
         DISPLAY_STATUS=true ;;
     \?) echo -e "Invalid option: -$OPTARG \nValid options include -a" >&2
@@ -33,7 +35,7 @@ WHITE="\033[1:35m"
 BLUE="\033[0;34m"
 NC="\033[0m" # No Color
 
-HOME_DIRS=( $(cd ~ ; ls -d */ | sed 's#/##') )
+HOME_DIRS=( $(cd $BASE_DIR ; ls -d */ | sed 's#/##') )
 TABLE_DATA="${WHITE}BRANCHES_____________\_____________REPOS${GRAY}"
 ALL_REPOS=()
 SORTED_REPOS=()
@@ -45,7 +47,7 @@ BRANCH_TRACKINGS=()
 # Define methods
 
 generateAllowedVarName() {
-  # shell doesn't allow some chars in var names
+  # Shell doesn't allow some chars in var names
   local unparsed="$1"
   var="${unparsed//\./_DOT_}"
   var="${var//-/_HYPHEN_}"
@@ -105,7 +107,7 @@ done
 REPOS=( ${ALL_REPOS[@]} )
 
 for repo in ${ALL_REPOS[@]} ; do
-  cd ~
+  cd $BASE_DIR
   cd "${repo}"
   BRANCHES=()
 
@@ -135,7 +137,7 @@ for repo in ${ALL_REPOS[@]} ; do
     
     ALL_BRANCHES=( "${ALL_BRANCHES[@]}" "${BRANCHES[@]}" )
 
-    if [[ "$DISPLAY_STATUS" = true && $untracked ]] ; then
+    if [ $untracked ] ; then
       # Assumes untracked files only exist on the current branch for now
       active_branch=$(git branch --show-current)
       branch_key_base=$(generateAllowedVarName "$active_branch")
@@ -157,8 +159,7 @@ UNIQ_BRANCHES=( $(printf '%s\n' "${ALL_BRANCHES[@]}" \
 REPOS=( $(printf '%s\n' "${REPOS[@]}") )
 
 for repo in ${REPOS[@]} ; do
-  repo_key_base=$(generateAllowedVarName "$repo")
-  repo_branch_count_key="${repo_key_base}_branch_count"
+  repo_branch_count_key="$(generateAllowedVarName "$repo")_branch_count"
 
   branch_count=$( echo ${!repo_branch_count_key} | tr -d '[:space:]' )
 
@@ -191,8 +192,7 @@ for repo in ${REPOS[@]} ; do
   short_repo=${repo:0:$REPO_STR_LEN}
   
   if [ "$DISPLAY_STATUS" = true ]; then
-    repo_key_base=$(generateAllowedVarName "$repo")
-    repo_untracked_key="${repo_key_base}_untracked_key"
+    repo_untracked_key="$(generateAllowedVarName "$repo")_untracked_key"
     untracked="${!repo_untracked_key}"
     if [ $untracked ]; then REPO_COLOR="$RED"
     else REPO_COLOR="$WHITE"; fi
@@ -250,9 +250,8 @@ done
 
 COL_FORMAT=$(repeatString "%-${COL_WID}s" $N_REPOS)
 COL_FIELDS_ARGS=$(generateSeqArgs $N_ALL_COLS)
-COL_FORMAT_STRING="{printf(\"%-60s${COL_FORMAT}\n\",${COL_FIELDS_ARGS})}"
+POSITIONING_STRING="{printf(\"%-60s${COL_FORMAT}\n\",${COL_FIELDS_ARGS})}"
 
-echo -e $TABLE_DATA | awk "${COL_FORMAT_STRING}"
+echo -e $TABLE_DATA | awk "$POSITIONING_STRING"
 echo -e "\n"
 
-unset TABLE_DATA REPOS UNIQ_BRANCHES COL_FORMAT_BASE COL_FIELDS_BASE COL_FORMAT_STRING
