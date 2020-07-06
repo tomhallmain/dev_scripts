@@ -17,11 +17,11 @@ env_refresh() { # Pulls latest master branch for all git repos
   bash ~/dev_scripts/scripts/local_env_refresh.sh
 }
 
-all_status() { # Runs git status for all repos
+git_status() { # Runs git status for all repos
   bash ~/dev_scripts/scripts/all_repo_git_status.sh
 }
 
-all_branch() { # Runs git branch for all repos
+git_branch() { # Runs git branch for all repos
   bash ~/dev_scripts/scripts/all_repo_git_branch.sh
 }
 
