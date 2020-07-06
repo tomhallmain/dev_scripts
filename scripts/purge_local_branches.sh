@@ -19,7 +19,28 @@ UNIQ_BRANCHES=()
 
 # Define methods
 
+generateAllowedVarName() {
+  # shell doesn't allow some chars in var names
+  local unparsed="$1"
+  var="${unparsed//\./_DOT_}"
+  var="${var//-/_HYPHEN_}"
+  var="${var//\//_FSLASH_}"
+  var="${var//\\/_BSLASH_}"
+  var="${var//1/_ONE_}"
+  var="${var//2/_TWO_}"
+  var="${var//3/_THREE_}"
+  var="${var//4/_FOUR_}"
+  var="${var//5/_FIVE_}"
+  var="${var//6/_SIX_}"
+  var="${var//7/_SEVEN_}"
+  var="${var//8/_EIGHT_}"
+  var="${var//9/_NINE_}"
+
+  printf '%s\n' "${var}"
+}
+
 extendAssociativeArray() {
+  # Bash 3 doesn't support hashes
   local key="${1}"
   local addvals="${@:2}"
   printf -v "${key}" %s " ${!key} ${addvals[@]} "
@@ -54,15 +75,15 @@ for repo in ${ALL_REPOS[@]} ; do
 
   eval "$(git for-each-ref --shell --format='BRANCHES+=(%(refname:lstrip=2))' refs/heads/)"
 
-  # Remove master branches to disallow their deletion
-  BRANCHES=( ${BRANCHES[@]//"master"} )
+  # Remove master and main branches to disallow their deletion
+  BRANCHES=( ${BRANCHES[@]//" master "} )
+  BRANCHES==( ${BRANCHES[@]//" main "} )
   ALL_BRANCHES=( " ${ALL_BRANCHES[@]} " " ${BRANCHES[@]} ")
 
   for branch in "${BRANCHES[@]}" ; do
     # shell doesn't allow hyphens in variable names, and Bash 3 doesn't support associative arrays
-    branch_cleaned="${branch//\//_FSLASH_}"
-    branch_cleaned="${branch_cleaned//\./_DOT_}"
-    branch_key="${branch_cleaned//-/_HYPHEN_}_key"
+    branch_key_base=$(generateAllowedVarName "$branch")
+    branch_key="${branch_key_base}_key"
 
     extendAssociativeArray $branch_key $repo
   done
@@ -76,8 +97,8 @@ let BRANCH_COUNT=${#UNIQ_BRANCHES[@]}
 
 echo -e "\n To quit this script, press Ctrl+C"
 
-while [ ! "${confirmation}" = 'confirm' ]; do
-  set_confirmed='false'
+while [ ! $confirmed ]; do
+  unset selections_confirmed
   to_purge=()
   echo -e "\n${BLUE} Available-to-purge branches are listed below.${NC}\n"
   printf '%s\n' "${UNIQ_BRANCHES[@]}" | awk '{print " " int((NR)) " " $1}'
@@ -86,7 +107,7 @@ while [ ! "${confirmation}" = 'confirm' ]; do
 
   to_purge=( $(printf '%s\n' "${to_purge[@]}") )
 
-  while [ ! "$set_confirmed" = 'true' ]; do
+  while [ ! $selections_confirmed ]; do
     while [[ -z "${to_purge[@]// }" ]]; do
       echo -e "\n${ORANGE} No value found, please try again. To quit the script, press Ctrl+C${NC}\n"
       read -p $'\e[37m Enter branch numbers to purge separated by spaces: \e[0m' to_purge
@@ -101,7 +122,7 @@ while [ ! "${confirmation}" = 'confirm' ]; do
         to_purge=( $(printf '%s\n' "${to_purge[@]}") )
         break 2
       done
-      set_confirmed='true'
+      selections_confirmed=true
     done
   done
 
@@ -111,19 +132,17 @@ while [ ! "${confirmation}" = 'confirm' ]; do
 
   echo -e "\n${ORANGE} Confirm branch purge selection below - BE CAREFUL, confirmation will attempt local deletion in all repos!${NC}\n"
   printf '\e[31m%s\n\e[m' "${PURGE_BRANCHES[@]}" | awk '{print " " $1}'
-  read -p $'\e[37m Enter "confirm" to delete branches: \e[0m' confirmation
-
-  if [[ $(echo "${confirmation}" | tr "[:upper:]" "[:lower:]") = 'confirm' ]]; then continue; fi
+  read -p $'\e[37m Enter "confirm" to delete branches: \e[0m' confirm_input
+  confirm_input=$(echo "${confirm_input}" | tr "[:upper:]" "[:lower:]")
+  if [[ "$confirm_input" = 'confirm' ]]; then confirmed=true; fi
 
   echo -e "\n${ORANGE} Selection not confirmed. Would you like to modify your selection?${NC}\n"
   read -p $'\e[37m Enter "y" to modify selection or "continue" to proceed with current purge selection: \e[0m' modify
 
   modify=$(echo "${modify}" | tr "[:upper:]" "[:lower:]")
 
-  if [ "${modify}" = 'y' ]; then
-    confirmation=''
-  elif [ "${modify}" = 'continue' ]; then
-    confirmation='confirm'
+  if [ "${modify}" = 'y' ]; then continue
+  elif [ "${modify}" = 'continue' ]; then confirmed=true
   else
     echo -e "\n${RED} Input not understood and selection unconfirmed. Exiting script.${NC}"
     exit 1
@@ -134,9 +153,8 @@ done
 # Delete the branches
 
 for branch in ${PURGE_BRANCHES[@]}; do
-  branch_cleaned="${branch//\//_FSLASH_}"
-  branch_cleaned="${branch_cleaned//\./_DOT_}"
-  branch_key="${branch_cleaned//-/_HYPHEN_}_key"
+  branch_key_base=$(generateAllowedVarName "$branch")
+  branch_key="${branch_key_base}_key"
   for repo in ${!branch_key}; do
     cd ~
     cd $repo
