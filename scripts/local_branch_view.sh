@@ -5,8 +5,9 @@ set -o pipefail
 
 if (($# == 0)); then
   echo -e "\nNo flags set: Running only for repos with non-master branches in home directory\n"
-  echo -e "To run for all repos in home directory, run with opt -a"
-  BASE_DIR=~
+  echo -e " -a -- Run for all repos in a base directory"
+  echo -e " -d -- Run this script on a custom base directory (requires dir arg)"
+  echo -e " -s -- Mark repos and branches with untracked changes"
   INCLUDE_MASTER_ONLYS=false
   DISPLAY_STATUS=false
 fi
@@ -16,14 +17,16 @@ while getopts ":ad:s" opt; do
     a)  echo -e "\nAll option triggered: Running for all git repos found"
         INCLUDE_MASTER_ONLYS=true ;;
     d)  echo -e "\nBase dir option triggered: Running with a base dir of ${OPTARG}"
-        BASE_DIR="$OPTARG" ;;
+        BASE_DIR=$(echo "$OPTARG" | sed 's/^ //g')
+        if [ "${BASE_DIR:0:1}" = '~' ]; then BASE_DIR="${HOME}${BASE_DIR:1}"; fi ;;
     s)  echo -e "\nStatus option triggered: Branches with uncommitted changes will be marked in red"
         DISPLAY_STATUS=true ;;
-    \?) echo -e "Invalid option: -$OPTARG \nValid options include -a" >&2
+    \?) echo -e "Invalid option: -$OPTARG \nValid options include -ad:s" >&2
         exit 1 ;;
   esac
 done
 
+[ -z "$BASE_DIR" ] && BASE_DIR=$HOME
 
 # Initialize variables
 
@@ -35,14 +38,15 @@ WHITE="\033[1:35m"
 BLUE="\033[0;34m"
 NC="\033[0m" # No Color
 
-HOME_DIRS=( $(cd $BASE_DIR ; ls -d */ | sed 's#/##') )
 TABLE_DATA="${WHITE}BRANCHES_____________\_____________REPOS${GRAY}"
+BASE_DIRS=()
 ALL_REPOS=()
 SORTED_REPOS=()
 ALL_BRANCHES=()
 UNIQ_BRANCHES=()
 BRANCH_TRACKINGS=()
 
+OLD_IFS=$IFS
 
 # Define methods
 
@@ -50,6 +54,7 @@ generateAllowedVarName() {
   # Shell doesn't allow some chars in var names
   local unparsed="$1"
   var="${unparsed//\./_DOT_}"
+  var="${var// /_SPACE_}"
   var="${var//-/_HYPHEN_}"
   var="${var//\//_FSLASH_}"
   var="${var//\\/_BSLASH_}"
@@ -97,17 +102,24 @@ generateSeqArgs() {
 }
 
 
-# Find repos and unique branches, set up and sort more variables
+# Find repos and unique branches, sort and set up more variables
 
-for dir in ${HOME_DIRS[@]} ; do
-  check_dir=$( git -C ${dir} rev-parse 2> /dev/null; echo $? )
-  if [ $check_dir = 0 ]; then ALL_REPOS=(" ${ALL_REPOS[@]} " "${dir}"); fi
+cd "$BASE_DIR"
+
+while IFS=$'\n' read -r line; do
+  BASE_DIRS+=( "$line" )
+done < <( cd "${BASE_DIR}"; find * -maxdepth 0 -type d )
+
+IFS=$'\n'; for dir in ${BASE_DIRS[@]}; do
+  [ -d "${dir}/.git" ] && ALL_REPOS=("${ALL_REPOS[@]} " "$dir")
 done
+
+IFS=$OLD_IFS
 
 REPOS=( ${ALL_REPOS[@]} )
 
 for repo in ${ALL_REPOS[@]} ; do
-  cd $BASE_DIR
+  cd "${BASE_DIR}"
   cd "${repo}"
   BRANCHES=()
 
@@ -152,6 +164,14 @@ for repo in ${ALL_REPOS[@]} ; do
 
   unset untracked
 done
+
+if [ ${#REPOS[@]} -eq 0 ]; then
+  echo -e "\n ${ORANGE}No repos found that match current settings - exiting\n"
+  exit
+elif [ ${#ALL_BRANCHES[@]} -eq 0 ]; then
+  echo -e "\n ${ORANGE}No branches found that match current settings - exiting\n"
+  exit
+fi
 
 # Sort the repos and branches by most combinations found
 UNIQ_BRANCHES=( $(printf '%s\n' "${ALL_BRANCHES[@]}" \

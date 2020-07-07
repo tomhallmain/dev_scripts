@@ -4,8 +4,8 @@ lbv() { # Generates a cross table of git repos vs branches
   if [ -z $1 ] ; then
     bash ~/dev_scripts/scripts/local_branch_view.sh
   else
-    local flags=$1
-    bash ~/dev_scripts/scripts/local_branch_view.sh "$flags"
+    local flags="${@}"
+    bash ~/dev_scripts/scripts/local_branch_view.sh "${flags}"
   fi
 }
 
