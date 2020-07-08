@@ -8,57 +8,67 @@
 set -o pipefail
 echo
 
+
+
+
 # Handle option flags and set conditional variables
 
 lbvHelp() {
-  echo "Script to print a view of local git branches."
+  echo "Script to print a view of local git repositories against branches."
   echo
   echo "Syntax: [-abdhmos]"
-  echo "a    Run for all local repos found, implies opt m"
+  echo "a    Run for all local repos found, implies opts d, m"
   echo "b    Run for a custom base directory filepath arg"
   echo "d    Deep search for all repos in base directory"
   echo "h    Print this help"
   echo "m    Include repos found with only master branch"
   echo "o    Override repos to run with filepath args"
   echo "s    Mark repos and branches with untracked changes"
+  echo "v    Run in verbose mode"
   echo
+  exit
 }
 
 if (($# == 0)); then
-  echo -e "No flags set: Running only for repos with non-master branches in top level of home"
+  echo "No flags set: Running only for repos with non-master branches in top level of home"
   echo "Add opt -h to print help"
 fi
 
 while getopts ":ab:dhmo:s" opt; do
   case $opt in
-    a)  echo "All opt set: Running for all git repos found"
-        RUN_ALL_REPOS=true ; DEEP=true ; INCLUDE_MASTER_ONLYS=true ;;
-    b)  echo "Base dir opt set: Running with a base dir of ${OPTARG}"
-        if [ -z $BASE_DIR ]; then
+    a)  RUN_ALL_REPOS=true ; DEEP=true ; INCLUDE_MASTER_ONLYS=true ;;
+    b)  if [ -z $BASE_DIR ]; then
           BASE_DIR=$(echo "$OPTARG" | sed 's/^ //g')
         else
-          echo -e "\nOpts -d and -o cannot be used together - exiting"
+          echo -e "\nOpts -b and -o cannot be used together - exiting"
         fi
         [ "${BASE_DIR:0:1}" = '~' ] && BASE_DIR="${HOME}${BASE_DIR:1}" ;;
     d)  DEEP=true ;;
-    h)  lbvHelp; exit ;;
-    m)  echo "Master opt set: Running for all repos with only master branch"
-        INCLUDE_MASTER_ONLYS=true ;;
-    o)  echo "Override repos opt set: All filepaths provided must be valid repos"
-        if [ -z $BASE_DIR ]; then
+    h)  lbvHelp ;;
+    m)  INCLUDE_MASTER_ONLYS=true ;;
+    o)  if [ -z $BASE_DIR ]; then
           OVERRIDE_REPOS=( $(echo "${OPTARG[@]}") )
         else
-          echo -e "\nOpts -d and -o cannot be used together - exiting"
+          echo -e "\nOpts -b and -o cannot be used together - exiting"
         fi ;;
-    s)  echo "Status opt set: Branches with untracked changes will be marked in red"
-        DISPLAY_STATUS=true ;;
-    \?) echo -e "\nInvalid option: -$opt \nValid options include [-abdhmos]" >&2
+    s)  DISPLAY_STATUS=true ;;
+    v)  VERBOSE=true ;;
+    \?) echo -e "\nInvalid option: -$opt \nValid options include [-abdhmosv]" >&2
         exit 1 ;;
   esac
 done
 
-if [[ $DEEP && ! ( $RUN_ALL_REPOS || $OVERRIDE_REPOS ) ]]; then
-  echo "Deep search opt set: Running for all repos found in base directory"
+[[ ! ( $RUN_ALL_REPOS || $OVERRIDE_REPOS ) ]] && BASE_DIR_CASE=true
+
+if [ $VERBOSE ]; then
+  [ $RUN_ALL_REPOS ] && echo "All opt set: Running for all git repos found"
+  [ $BASE_DIR ] && echo "Base dir opt set: Running with a base dir of ${OPTARG}"
+  if [[ $DEEP && $BASE_DIR_CASE ]]; then
+    echo "Deep search opt set: Running for all repos found in base directory"
+  fi
+  [ $OVERRIDE_REPOS ] && echo "Override repos opt set: All filepaths provided must be valid repos"
+  [ $DISPLAY_STATUS ] && echo "Status opt set: Branches with untracked changes will be marked in red"
+  [ $INCLUDE_MASTER_ONLYS ] && echo "Master opt set: Running for all repos with only master branch"
 fi
 
 # Initialize variables
@@ -82,6 +92,8 @@ UNIQ_BRANCHES=()
 BRANCH_TRACKINGS=()
 
 OLD_IFS=$IFS
+
+
 
 
 # Define methods
@@ -147,10 +159,12 @@ argIndex() {
 }
 
 
+
+
 # Find repos if unset and unique branches, sort and set more variables
 
-([ $DEEP ] && echo -e "\nGathering repo data...") || \
-([ $OVERRIDE_REPOS ] && echo -e "\nValidating override repos...") || \
+([[ $VERBOSE && $DEEP ]] && echo -e "\nGathering repo data...") || \
+([[ $VERBOSE && $OVERRIDE_REPOS ]] && echo -e "\nValidating override repos...") || \
 cd "$BASE_DIR"
 
 while IFS=$'\n' read -r line; do
@@ -166,10 +180,8 @@ done < <(
   fi
 )
 
-[ $OVERRIDE_REPOS ] && echo 'Override repos valid'
-
 IFS=$OLD_IFS
-
+[[ $VERBOSE && $OVERRIDE_REPOS ]] && echo 'Override repos valid'
 REPOS=( ${ALL_REPOS[@]} )
 let input_repo_count=${#REPOS[@]}
 
@@ -177,7 +189,6 @@ for repo in ${ALL_REPOS[@]} ; do
   spaceyRepo=$(spaceReplace $repo)
   [ $RUN_ALL_REPOS ] || [ $OVERRIDE_REPOS ] || cd "$BASE_DIR"
   cd "$spaceyRepo"
-
   BRANCHES=()
 
   if [ $(git rev-parse --is-inside-work-tree 2> /dev/null) ]; then
@@ -232,10 +243,14 @@ elif [ ${#ALL_BRANCHES[@]} -eq 0 ]; then
 else
   let output_repo_count=${#REPOS[@]}
   let repos_filtered_out=($input_repo_count - $output_repo_count)
-  echo -e "${repos_filtered_out} out of ${input_repo_count} repos found do not meet display criteria"
+  if [ $VERBOSE ]; then
+    echo -e "${repos_filtered_out} out of ${input_repo_count} repos found do not meet display criteria"
+  fi
 fi
 
+
 # Sort the repos and branches by most combinations found
+
 UNIQ_BRANCHES=( $(printf '%s\n' "${ALL_BRANCHES[@]}" \
                   | sort -r | uniq -c | sort -nr | awk '{print $2}') )
 REPOS=( $(printf '%s\n' "${REPOS[@]}") )
@@ -265,16 +280,24 @@ let COL_MAX=$( if (($N_REPOS < 10)) ; then echo '30'; else echo '24'; fi )
 let COL_MIN=$( if (($N_REPOS < 10)) ; then echo '22'; else echo '20'; fi )
 COL_WID=$( rangeBind $COL_WID between $COL_MIN and $COL_MAX )
 
-echo -e "\nRepos included:"
+
 
 
 # Build data into ordered table string
 
+if [ $VERBOSE ]; then
+  [ $BASE_DIR_CASE ] && echo -e "\nBase directory: ${BASE_DIR}"
+
+  echo -e "\nRepos included:"
+fi
+
 for repo in ${REPOS[@]} ; do
   repo="$(spaceReplace $repo)"
-  echo "$repo"
-  repo="$(basename "$repo")"
-  short_repo=${repo:0:$REPO_STR_LEN}
+  if [ $VERBOSE ]; then
+    [ $BASE_DIR_CASE ] && echo "${repo/$BASE_DIR\//}" || echo "$repo"
+  fi
+  repo_basename="$(basename "$repo")"
+  short_repo=${repo_basename:0:$REPO_STR_LEN}
   
   if [ $DISPLAY_STATUS ]; then
     repo_untracked_key="$(generateAllowedVarName "$repo")_untracked_key"
@@ -332,6 +355,7 @@ for branch in ${UNIQ_BRANCHES[@]} ; do
   done
   unset BRANCH_COLOR
 done
+
 
 
 # Build Awk format string and call it to display table in console
