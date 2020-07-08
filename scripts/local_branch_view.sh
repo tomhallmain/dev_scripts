@@ -13,44 +13,53 @@ echo
 lbvHelp() {
   echo "Script to print a view of local git branches."
   echo
-  echo "Syntax: [-adhmos]"
+  echo "Syntax: [-abdhmos]"
   echo "a    Run for all local repos found, implies opt m"
-  echo "d    Run this script on a custom base directory filepath arg"
+  echo "b    Run for a custom base directory filepath arg"
+  echo "d    Deep search for all repos in base directory"
   echo "h    Print this help"
   echo "m    Include repos found with only master branch"
-  echo "o    Override repos to run with file pathargs"
+  echo "o    Override repos to run with filepath args"
   echo "s    Mark repos and branches with untracked changes"
   echo
 }
 
 if (($# == 0)); then
-  echo -e "No flags set: Running only for repos with non-master branches in home directory"
+  echo -e "No flags set: Running only for repos with non-master branches in top level of home"
   echo "Add opt -h to print help"
 fi
 
-while getopts ":ad:hmo:s" opt; do
+while getopts ":ab:dhmo:s" opt; do
   case $opt in
     a)  echo "All opt set: Running for all git repos found"
-        RUN_ALL_REPOS=true ; INCLUDE_MASTER_ONLYS=true ;;
-    d)  echo "Base dir opt set: Running with a base dir of ${OPTARG}"
-        if [ -z $BASE_DIR ]; then BASE_DIR=$(echo "$OPTARG" | sed 's/^ //g')
-        else echo -e "\nOpts -d and -o cannot be used together - exiting"; fi
-        if [ "${BASE_DIR:0:1}" = '~' ]; then BASE_DIR="${HOME}${BASE_DIR:1}"; fi ;;
+        RUN_ALL_REPOS=true ; DEEP=true ; INCLUDE_MASTER_ONLYS=true ;;
+    b)  echo "Base dir opt set: Running with a base dir of ${OPTARG}"
+        if [ -z $BASE_DIR ]; then
+          BASE_DIR=$(echo "$OPTARG" | sed 's/^ //g')
+        else
+          echo -e "\nOpts -d and -o cannot be used together - exiting"
+        fi
+        [ "${BASE_DIR:0:1}" = '~' ] && BASE_DIR="${HOME}${BASE_DIR:1}" ;;
+    d)  DEEP=true ;;
     h)  lbvHelp; exit ;;
     m)  echo "Master opt set: Running for all repos with only master branch"
         INCLUDE_MASTER_ONLYS=true ;;
     o)  echo "Override repos opt set: All filepaths provided must be valid repos"
-        if [ -z $BASE_DIR ]; then BASE_DIR=$(echo "$OPTARG" | sed 's/^ //g')
-        else echo -e "\nOpts -d and -o cannot be used together - exiting"; fi
-        OVERRIDE_REPOS=true ;;
+        if [ -z $BASE_DIR ]; then
+          OVERRIDE_REPOS=( $(echo "${OPTARG[@]}") )
+        else
+          echo -e "\nOpts -d and -o cannot be used together - exiting"
+        fi ;;
     s)  echo "Status opt set: Branches with untracked changes will be marked in red"
         DISPLAY_STATUS=true ;;
-    \?) echo -e "\nInvalid option: -$opt \nValid options include [-a|d|h|m|o|s]" >&2
+    \?) echo -e "\nInvalid option: -$opt \nValid options include [-abdhmos]" >&2
         exit 1 ;;
   esac
 done
 
-[ -z "$BASE_DIR" ] && BASE_DIR=$HOME
+if [[ $DEEP && ! ( $RUN_ALL_REPOS || $OVERRIDE_REPOS ) ]]; then
+  echo "Deep search opt set: Running for all repos found in base directory"
+fi
 
 # Initialize variables
 
@@ -63,6 +72,8 @@ BLUE="\033[0;34m"
 NC="\033[0m" # No Color
 
 TABLE_DATA="${WHITE}BRANCHES_____________\_____________REPOS${GRAY}"
+[ $BASE_DIR ] || BASE_DIR=$HOME
+FIND_DIRS=(/Users /bin /usr /var)
 BASE_DIRS=()
 ALL_REPOS=()
 SORTED_REPOS=()
@@ -72,11 +83,13 @@ BRANCH_TRACKINGS=()
 
 OLD_IFS=$IFS
 
+
 # Define methods
 
 generateAllowedVarName() {
   # Shell doesn't allow some chars in var names
   local unparsed="$1"
+
   var="${unparsed//\./_DOT_}"
   var="${var// /_SPACE_}"
   var="${var//-/_HYPHEN_}"
@@ -94,44 +107,37 @@ generateAllowedVarName() {
   
   printf '%s\n' "${var}"
 }
-
 spaceRemove() {
   local spaced="$@"
   printf '%s\n' "${spaced// /_SPACE_}"
 }
-
 spaceReplace() {
   local unspaced="$1"
   printf '%s\n' "${unspaced//_SPACE_/ }"
 }
-
 spaceToUnderscore() {
   local spaced="$@"
   printf '%s\n' "${spaced// /_}"
 }
-
 associateKeyToArray() {
   # Bash 3 doesn't support hashes
   local key="${1}"
   local vals="${@:2}"
   printf -v "${key}" %s " ${vals[@]} "
 }
-
 rangeBind() {
   if   (($1 < $3)) ; then echo "$3"
   elif (($1 > $5)) ; then echo "$5"
   else                    echo "$1"
   fi
 }
-
 repeatString() {
   local input="$1"
   local count="$2"
   printf -v myString "%${count}s"
   printf '%s\n' "${myString// /$input}"
 }
-
-generateSeqArgs() {
+argIndex() {
   local n_fields="$1"
   for ((i = 1 ; i <= $n_fields ; i++)) ; do
     str="${str}\$${i}"
@@ -143,32 +149,34 @@ generateSeqArgs() {
 
 # Find repos if unset and unique branches, sort and set more variables
 
-[ $RUN_ALL_REPOS ] && echo -e "\nGathering repo data..." || cd "$BASE_DIR"
+([ $DEEP ] && echo -e "\nGathering repo data...") || \
+([ $OVERRIDE_REPOS ] && echo -e "\nValidating override repos...") || \
+cd "$BASE_DIR"
 
 while IFS=$'\n' read -r line; do
-  ([ $RUN_ALL_REPOS ] || [ -d "${line}/.git" ]) && ALL_REPOS+=( $(spaceRemove $line ) )
-done < <( 
-  if [ $RUN_ALL_REPOS ]; then
-    find /Users /bin /usr /var -name ".git" -prune 2>/dev/null | sed 's/\/\.git$//'
+  ([ $DEEP ] || [ -d "${line}/.git" ]) && ALL_REPOS+=( $(spaceRemove $line ) )
+done < <(
+  if [ $OVERRIDE_REPOS ]; then
+    printf '%s\n' "${OVERRIDE_REPOS[@]}"
+  elif [ $DEEP ]; then
+    [ -z $RUN_ALL_REPOS ] && FIND_DIRS=( "$BASE_DIR" )
+    find "${FIND_DIRS[@]}" -name ".git" -prune 2>/dev/null | sed 's/\/\.git$//'
   else
-    cd "$BASE_DIR"; find * -maxdepth 0 -type d
+    cd "$BASE_DIR" ; find * -maxdepth 0 -type d
   fi
 )
+
+[ $OVERRIDE_REPOS ] && echo 'Override repos valid'
 
 IFS=$OLD_IFS
 
 REPOS=( ${ALL_REPOS[@]} )
-
-echo ${REPOS[@]}
+let input_repo_count=${#REPOS[@]}
 
 for repo in ${ALL_REPOS[@]} ; do
   spaceyRepo=$(spaceReplace $repo)
-  if [ $RUN_ALL_REPOS ]; then
-    cd "$spaceyRepo"
-  else
-    cd "$BASE_DIR"
-    cd "$spaceyRepo"
-  fi
+  [ $RUN_ALL_REPOS ] || [ $OVERRIDE_REPOS ] || cd "$BASE_DIR"
+  cd "$spaceyRepo"
 
   BRANCHES=()
 
@@ -185,7 +193,7 @@ for repo in ${ALL_REPOS[@]} ; do
   if [[ $branch_count -eq 0 || ! $INCLUDE_MASTER_ONLYS && ! $untracked \
         && -z ${BRANCHES[2]} && "${BRANCHES[@]}" = 'master' ]]
   then
-    REPOS=( ${REPOS[@]//"${repo}"} )
+    REPOS=( ${REPOS[@]/%"${repo}"/} )
   else
     ALL_BRANCHES=( "${ALL_BRANCHES[@]}" "${BRANCHES[@]}" )
     
@@ -212,11 +220,19 @@ for repo in ${ALL_REPOS[@]} ; do
 done
 
 if [ ${#REPOS[@]} -eq 0 ]; then
-  echo -e "\n${ORANGE}No repos found that match current settings - exiting\n"
+  if [ $OVERRIDE_REPOS ]; then
+    echo -e "\n${ORANGE}Filepaths provided for repo override are not valid repos\n"
+  else
+    echo -e "\n${ORANGE}No repos found that match current settings - exiting\n"
+  fi
   exit
 elif [ ${#ALL_BRANCHES[@]} -eq 0 ]; then
   echo -e "\n${ORANGE}No branches found that match current settings - exiting\n"
   exit
+else
+  let output_repo_count=${#REPOS[@]}
+  let repos_filtered_out=($input_repo_count - $output_repo_count)
+  echo -e "${repos_filtered_out} out of ${input_repo_count} repos found do not meet display criteria"
 fi
 
 # Sort the repos and branches by most combinations found
@@ -228,13 +244,10 @@ for repo in ${REPOS[@]} ; do
   repo_branch_count_key="$(generateAllowedVarName "$repo")_branch_count"
 
   branch_count=$( echo ${!repo_branch_count_key} | tr -d '[:space:]' )
-  echo $repo_branch_count_key
-  echo $branch_count
 
   REPOS=( ${REPOS[@]/%$repo/${branch_count}@@${repo}} )
 done
 
-echo ${REPOS[@]}
 REPOS=( $(printf '%s\n' "${REPOS[@]}" | sort -nr | awk -F "@@" '{print $2}') )
 
 let N_ROWS=1+${#UNIQ_BRANCHES[@]}
@@ -268,12 +281,14 @@ for repo in ${REPOS[@]} ; do
     untracked="${!repo_untracked_key}"
     [ $untracked ] && REPO_COLOR="$RED"
   fi
-  [ -z $REPO_COLOR ] && REPO_COLOR="$WHITE"
+  [ $REPO_COLOR ] || REPO_COLOR="$WHITE"
 
   TABLE_DATA="${TABLE_DATA} ${REPO_COLOR}$(spaceToUnderscore $short_repo)${GRAY}"
 
   unset REPO_COLOR
 done
+
+echo
 
 for branch in ${UNIQ_BRANCHES[@]} ; do
   short_branch=${branch:0:45}
@@ -302,7 +317,7 @@ for branch in ${UNIQ_BRANCHES[@]} ; do
       untracked="${!repo_branch_untracked_key}"
       [ $untracked ] && INTERSECT_COLOR="$RED"
     fi
-    [ ! $INTERSECT_COLOR ] && INTERSECT_COLOR="$CYAN"
+    [ $INTERSECT_COLOR ] || INTERSECT_COLOR="$CYAN"
 
     repo_key="${repo_key_base}_key"
     repo_branches="${!repo_key}"
@@ -322,9 +337,9 @@ done
 # Build Awk format string and call it to display table in console
 
 COL_FORMAT=$(repeatString "%-${COL_WID}s" $N_REPOS)
-COL_FIELDS_ARGS=$(generateSeqArgs $N_ALL_COLS)
-POSITIONING_STRING="{printf(\"%-60s${COL_FORMAT}\n\",${COL_FIELDS_ARGS})}"
+COL_FIELDS_ARGS=$(argIndex $N_ALL_COLS)
+PRINT_STRING="{printf(\"%-60s${COL_FORMAT}\n\",${COL_FIELDS_ARGS})}"
 
-echo -e $TABLE_DATA | awk "$POSITIONING_STRING"
+echo -e $TABLE_DATA | awk "$PRINT_STRING"
 echo -e "\n"
 
