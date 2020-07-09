@@ -34,7 +34,7 @@ if (($# == 0)); then
   echo "Add opt -h to print help"
 fi
 
-while getopts ":ab:dhmo:s" opt; do
+while getopts ":ab:dhmo:sv" opt; do
   case $opt in
     a)  RUN_ALL_REPOS=true ; DEEP=true ; INCLUDE_MASTER_ONLYS=true ;;
     b)  if [ -z $BASE_DIR ]; then
@@ -157,6 +157,18 @@ argIndex() {
   done
   printf '%s\n' "${str}"
 }
+spin() {
+  spinner='\|/—'
+  while :
+  do
+    for i in $(seq 0 3)
+    do
+      echo -n "${spinner:$i:1}"
+      echo -en "\010"
+      sleep 0.5
+    done
+  done
+}
 
 
 
@@ -166,6 +178,12 @@ argIndex() {
 ([[ $VERBOSE && $DEEP ]] && echo -e "\nGathering repo data...") || \
 ([[ $VERBOSE && $OVERRIDE_REPOS ]] && echo -e "\nValidating override repos...") || \
 cd "$BASE_DIR"
+
+if [[ $DEEP || $OVERRIDE_REPOS  ]]; then
+  spin &
+  SPIN_PID=$!
+  disown $SPIN_PID
+fi
 
 while IFS=$'\n' read -r line; do
   ([ $DEEP ] || [ -d "${line}/.git" ]) && ALL_REPOS+=( $(spaceRemove $line ) )
@@ -180,6 +198,7 @@ done < <(
   fi
 )
 
+[ $SPIN_PID ] && kill -9 $SPIN_PID > /dev/null 2>&1; printf '\e[K'
 IFS=$OLD_IFS
 [[ $VERBOSE && $OVERRIDE_REPOS ]] && echo 'Override repos valid'
 REPOS=( ${ALL_REPOS[@]} )
