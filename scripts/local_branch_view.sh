@@ -40,7 +40,7 @@ while getopts ":ab:dhmo:sv" opt; do
     b)  if [ -z $BASE_DIR ]; then
           BASE_DIR=$(echo "$OPTARG" | sed 's/^ //g')
         else
-          echo -e "\nOpts -b and -o cannot be used together - exiting"
+          echo -e "\nOpts -b and -o cannot be used together - exiting"; exit 1
         fi
         [ "${BASE_DIR:0:1}" = '~' ] && BASE_DIR="${HOME}${BASE_DIR:1}" ;;
     d)  DEEP=true ;;
@@ -49,7 +49,7 @@ while getopts ":ab:dhmo:sv" opt; do
     o)  if [ -z $BASE_DIR ]; then
           OVERRIDE_REPOS=( $(echo "${OPTARG[@]}") )
         else
-          echo -e "\nOpts -b and -o cannot be used together - exiting"
+          echo -e "\nOpts -b and -o cannot be used together - exiting"; exit 1
         fi ;;
     s)  DISPLAY_STATUS=true ;;
     v)  VERBOSE=true ;;
@@ -68,7 +68,7 @@ if [ $VERBOSE ]; then
   fi
   [ $OVERRIDE_REPOS ] && echo "Override repos opt set: All filepaths provided must be valid repos"
   [ $DISPLAY_STATUS ] && echo "Status opt set: Branches with untracked changes will be marked in red"
-  [ $INCLUDE_MASTER_ONLYS ] && echo "Master opt set: Running for all repos with only master branch"
+  [ $INCLUDE_MASTER_ONLYS ] && echo "Master opt set: Repos with only master branch will be included"
 fi
 
 # Initialize variables
@@ -150,19 +150,17 @@ repeatString() {
   printf '%s\n' "${myString// /$input}"
 }
 argIndex() {
+  unset str
   local n_fields="$1"
-  for ((i = 1 ; i <= $n_fields ; i++)) ; do
-    str="${str}\$${i}"
-    if [[ i -ne $n_fields ]]; then str="${str},"; fi
+  for i in $(seq 1 $n_fields); do
+    [ $i -lt $n_fields ] && str="${str}\$$i," || str="${str}\$$i"
   done
   printf '%s\n' "${str}"
 }
 spin() {
   spinner='\|/—'
-  while :
-  do
-    for i in $(seq 0 3)
-    do
+  while :; do
+    for i in {0..3}; do
       echo -n "${spinner:$i:1}"
       echo -en "\010"
       sleep 0.5
@@ -179,7 +177,7 @@ spin() {
 ([[ $VERBOSE && $OVERRIDE_REPOS ]] && echo -e "\nValidating override repos...") || \
 cd "$BASE_DIR"
 
-if [[ $DEEP || $OVERRIDE_REPOS  ]]; then
+if [[ $DEEP || $OVERRIDE_REPOS ]]; then
   spin &
   SPIN_PID=$!
   disown $SPIN_PID
@@ -249,6 +247,8 @@ for repo in ${ALL_REPOS[@]} ; do
   unset untracked
 done
 
+DATE_STR="Local branch view as of $(date):"
+
 if [ ${#REPOS[@]} -eq 0 ]; then
   if [ $OVERRIDE_REPOS ]; then
     echo -e "\n${ORANGE}Filepaths provided for repo override are not valid repos\n"
@@ -312,11 +312,12 @@ fi
 
 for repo in ${REPOS[@]} ; do
   repo="$(spaceReplace $repo)"
-  if [ $VERBOSE ]; then
-    [ $BASE_DIR_CASE ] && echo "${repo/$BASE_DIR\//}" || echo "$repo"
-  fi
   repo_basename="$(basename "$repo")"
   short_repo=${repo_basename:0:$REPO_STR_LEN}
+  
+  if [ $VERBOSE ]; then
+    [ $BASE_DIR_CASE ] && echo "$repo_basename" || echo "$repo"
+  fi
   
   if [ $DISPLAY_STATUS ]; then
     repo_untracked_key="$(generateAllowedVarName "$repo")_untracked_key"
@@ -383,6 +384,7 @@ COL_FORMAT=$(repeatString "%-${COL_WID}s" $N_REPOS)
 COL_FIELDS_ARGS=$(argIndex $N_ALL_COLS)
 PRINT_STRING="{printf(\"%-60s${COL_FORMAT}\n\",${COL_FIELDS_ARGS})}"
 
+[ $VERBOSE ] && echo -e "$DATE_STR\n"
 echo -e $TABLE_DATA | awk "$PRINT_STRING"
 echo -e "\n"
 
