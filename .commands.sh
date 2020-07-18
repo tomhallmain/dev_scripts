@@ -90,6 +90,25 @@ dup_in_dir() { # Reports duplicate files and gives option for deletion
   bash ~/dev_scripts/scripts/compare_files_in_dir.sh $1
 }
 
+todo() { # Lists all todo items found in current directory
+  # local paths=( "${@}" )
+  #for path in "${paths[@]}"; do
+  #  if [ ! -d path ]; then
+  #    echo "${path} is not a directory"
+  #    return
+  #  fi
+  #done
+  echo
+  grep 'TODO:'
+  echo
+}
+
+rgtodo() { # Lists all todo items found in current dir using ripgrep if installed
+  echo
+  rg 'TODO:'
+  echo
+}
+
 ls_commands() { # Lists commands in the dev_scripts/.commands.sh file
   echo
   grep '[[:alnum:]_]*()' ~/dev_scripts/.commands.sh | grep -v grep \
