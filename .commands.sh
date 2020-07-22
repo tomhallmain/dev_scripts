@@ -131,7 +131,7 @@ awk_col() { # Prints field-separated data in columns with dynamic width
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
-awk_stagger() { # Prints field-separated data in staggered rows
+stagger() { # Prints field-separated data in staggered rows
   local args=( "$@" )
   TTY_WIDTH=$( tput cols )
   if data_in; then
@@ -143,7 +143,7 @@ awk_stagger() { # Prints field-separated data in staggered rows
     local file="${args[@]:$last_arg:1}"
     args=( ${args[@]/"$file"} )
   fi
-  awk -f ~/dev_scripts/scripts/print_staggered.awk \
+  awk -f ~/dev_scripts/scripts/stagger.awk \
     -v TTY_WIDTH=$TTY_WIDTH ${args[@]} "$file"
   # if [ $piped ]; then rm $file &> /dev/null; fi
 }

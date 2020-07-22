@@ -20,22 +20,26 @@ BEGIN {
 
 {
   spacer = 0
-  space_string = ""
+  space_str = ""
 
   for (i=1; i<=NF; i++) {
+    if (spacer && TTY_WIDTH / spacer < 1.5) {
+      spacer = 0
+      space_str = ""
+    }
+
     field_width = TTY_WIDTH - spacer
-    if (field_width < 0) { field_width = 0 }
     
     if (length($i) > field_width) {
       while (length($i) > field_width) {
-        print space_string substr($i, 1, field_width)
+        print space_str substr($i, 1, field_width)
         $i=substr($i, field_width + 1)
       }
     }
     
-    print space_string $i
+    print space_str $i
     spacer += 5
-    space_string = space_string "     "
+    space_str = space_str "     "
   }
 
   print ""
