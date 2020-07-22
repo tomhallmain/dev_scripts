@@ -118,7 +118,7 @@ awk_col() { # Prints field-separated data in columns with dynamic width
   local args=( "$@" )
   COL_MARGIN=${COL_MARGIN:-1} # Set an envvar for margin between cols, default is 1 char 
   if data_in; then
-    local file=/tmp/awkcol_showlater piped=0
+    local file=/tmp/awk_showlater piped=0
     cat /dev/stdin > $file
   else
     local args_len=${#args[@]}
@@ -129,6 +129,23 @@ awk_col() { # Prints field-separated data in columns with dynamic width
   awk -f ~/dev_scripts/scripts/max_field_lengths.awk \
     -v buffer=$COL_MARGIN ${args[@]} "$file" "$file"
   if [ $piped ]; then rm $file &> /dev/null; fi
+}
+
+awk_stagger() { # Prints field-separated data in staggered rows
+  local args=( "$@" )
+  TTY_WIDTH=$( tput cols )
+  if data_in; then
+    local file=/tmp/awk_showlater piped=0
+    cat /dev/stdin > $file
+  else
+    local args_len=${#args[@]}
+    let last_arg=$args_len-1
+    local file="${args[@]:$last_arg:1}"
+    args=( ${args[@]/"$file"} )
+  fi
+  awk -f ~/dev_scripts/scripts/print_staggered.awk \
+    -v TTY_WIDTH=$TTY_WIDTH ${args[@]} "$file"
+  # if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
 duplicate_input() { # Duplicates input sent to stdin in aggregate
