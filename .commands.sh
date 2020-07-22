@@ -39,7 +39,7 @@ gcam() { # git commit -am 'commit message'
 
 gadd() { # Adds all untracked git files
   if not_git; then return; fi
-  ALL_FILES=$(git ls-files -o --exclude-standard)
+  local ALL_FILES=$(git ls-files -o --exclude-standard)
   if [ -z $ALL_FILES ]; then
     echo 'No untracked files found to add'
   else
@@ -107,6 +107,17 @@ rgtodo() { # Lists all todo items found in current dir using ripgrep if installe
   echo
   rg 'TODO:'
   echo
+}
+
+awk_col() { # Prints field-separated data in columns with dynamic width
+  local args=( "$@" )
+  local args_len=${#args[@]}
+  let last_arg=$args_len-1
+  local file="${args[@]:$last_arg:1}"
+  COL_MARGIN=${COL_MARGIN:-1} # Set an envvar for margin between cols, default is 1 char 
+  args=( ${args[@]/"$file"} )
+  awk -f ~/dev_scripts/scripts/max_field_lengths.awk \
+    -v buffer=$COL_MARGIN ${args[@]} "$file" "$file"
 }
 
 ls_commands() { # Lists commands in the dev_scripts/.commands.sh file
