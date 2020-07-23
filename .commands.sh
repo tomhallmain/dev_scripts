@@ -25,17 +25,21 @@ git_branch() { # Runs git branch for all repos
   bash ~/dev_scripts/scripts/all_repo_git_branch.sh
 }
 
-gc() { # git commit
-  if not_git; then return 1; fi
-  local args=$@
-  git commit "$args"
-}
+#if ! alias gc &> /dev/null; then
+#  gc() { # git commit
+#    if not_git; then return 1; fi
+#    local args=$@
+#    git commit "$args"
+#  }
+#fi
 
-gcam() { # git commit -am 'commit message'
-  if not_git; then return 1; fi
-  local COMMIT_MESSAGE="$1"
-  git commit -am "$COMMIT_MESSAGE"
-}
+#if ! alias gcam &> /dev/null; then
+#  gcam() { # git commit -am 'commit message'
+#    if not_git; then return 1; fi
+#    local COMMIT_MESSAGE="$1"
+#    git commit -am "$COMMIT_MESSAGE"
+#  }
+#fi
 
 gadd() { # Adds all untracked git files
   if not_git; then return 1; fi
@@ -82,7 +86,7 @@ not_git() { # Checks if the current directory is not part of a git repo
   fi
 }
 
-data_in() { # Detects if data is being received in stdin via a pipe
+data_in() { # Detects if data is being received from stdin via a pipe
   [ -p /dev/stdin ]
 }
 
@@ -145,11 +149,20 @@ stagger() { # Prints field-separated data in staggered rows
   fi
   awk -f ~/dev_scripts/scripts/stagger.awk \
     -v TTY_WIDTH=$TTY_WIDTH ${args[@]} "$file"
-  # if [ $piped ]; then rm $file &> /dev/null; fi
+  if [ $piped ]; then rm $file &> /dev/null; fi
+}
+
+mktmp() { # Effectively an alias for mktemp -q "/tmp/${filename}"
+  local filename=$1
+  mktemp -q "/tmp/${filename}.XXXXX"
 }
 
 duplicate_input() { # Duplicates input sent to stdin in aggregate
   tee /tmp/showlater && cat /tmp/showlater && rm /tmp/showlater
+}
+
+which_sh() { # Prints the shell being used
+  ps -ef | awk '$2==pid {print $NF}' pid=$$
 }
 
 ls_commands() { # Lists commands in the dev_scripts/.commands.sh file
