@@ -247,8 +247,6 @@ for repo in ${ALL_REPOS[@]} ; do
   unset untracked
 done
 
-DATE_STR="Local branch view as of $(date):"
-
 if [ ${#REPOS[@]} -eq 0 ]; then
   if [ $OVERRIDE_REPOS ]; then
     echo -e "\n${ORANGE}Filepaths provided for repo override are not valid repos\n"
@@ -378,13 +376,13 @@ done
 
 
 
-# Build Awk format string and call it to display table in console
+# Build Awk format string and call relevant data to display table in console
 
 COL_FORMAT=$(repeatString "%-${COL_WID}s" $N_REPOS)
 COL_FIELDS_ARGS=$(argIndex $N_ALL_COLS)
 PRINT_STRING="{printf(\"%-60s${COL_FORMAT}\n\",${COL_FIELDS_ARGS})}"
 
-[ $VERBOSE ] && echo -e "$DATE_STR\n"
+[ $VERBOSE ] && echo -e "Local branch view as of $(date):\n"
 echo -e $TABLE_DATA | awk "$PRINT_STRING"
 echo -e "\n"
 

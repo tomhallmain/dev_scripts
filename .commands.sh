@@ -160,13 +160,9 @@ reverse() { # Bash-only solution to reverse lines for processing
   fi
 }
 
-not_git() { # Check if current directory is not part of a git repo
-  if [[ ! ( -d .git || $(git rev-parse --is-inside-work-tree 2> /dev/null) ) ]]; then
-    echo 'Not a git repo'
-    return 0
-  else
-    return 1
-  fi
+not_git() { # Check if directory is not part of a git repo
+  [ -z $1 ] || cd "$1"
+  [[ ! ( -d .git || $(git rev-parse --is-inside-work-tree 2> /dev/null) ) ]]
 }
 
 lbv() { # Generate a cross table of git repos vs branches
@@ -232,15 +228,41 @@ gacmp() { # Add all untracked files, commit with message, push current branch
 
 git_recent() { # Display table of commits sorted by recency descending
   not_git && return 1
-  format=$(echo '
-    %(HEAD) %(color:yellow)%(refname:short)|
-    %(color:bold green)%(committerdate:relative)|
-    %(color:blue)%(subject)|
-    %(color:magenta)%(authorname)%(color:reset)' \
-    | tr -d '[\n\t]')
-  git for-each-ref --sort=-committerdate refs/heads \
-    --format=$format \
-    --color=always | fitcol -F'|'
+  local run_context=${1:-display}
+  if [ $run_context = display ]; then
+    format=$(echo '%(HEAD) %(color:yellow)%(refname:short)|
+      %(color:bold green)%(committerdate:relative)|
+      %(color:blue)%(subject)|
+      %(color:magenta)%(authorname)%(color:reset)' \
+      | tr -d '[\n\t]')
+    git for-each-ref --sort=-committerdate refs/heads \
+      --format=$format --color=always | fitcol -F'|'
+  else
+    # If not for immediate display, return extra field for further parsing
+    format=$(echo '
+      %(HEAD) %(color:yellow)%(refname:short)|
+      %(committerdate:short)|%(color:bold green)%(committerdate:relative)|
+      %(color:blue)%(subject)|
+      %(color:magenta)%(authorname)%(color:reset)' \
+      | tr -d '[\n\t]')
+    git for-each-ref refs/heads --format=$format --color=always
+  fi
+}
+
+git_recent_all() { # Display table of commits for all home dir branches
+  local start_dir="$PWD"
+  local all_recent=/tmp/git_recent_all_showlater; [ -f $all_recent ] && rm $all_recent
+  while IFS=$'\n' read -r dir; do
+    [ -d "${dir}/.git" ] && (cd "$dir" && \
+      (git_recent parse | awk -v repo="$dir" -F'|' '
+        {print "\033[34m" repo "\033[0m|", $0}') >> $all_recent )
+  done < <(cd ~; find * -maxdepth 0 -type d)
+  echo
+  cat $all_recent | sort -r -t '|' -k3 | awk -F'|' '
+    BEGIN {OFS=FS} {print $1, $2, $4, $5, $6}' | fitcol -F"|"
+  echo
+  rm $all_recent
+  cd "$start_dir"
 }
 
 git_graph() { # Print colorful git history graph
@@ -299,7 +321,7 @@ inferfs() { # Infer a field separator from a given text data file
     fi
   fi
 
-  fst=$(awk -f ~/dev_scripts/scripts/infer_field_separator.awk "$file")
+  local fst=$(awk -f ~/dev_scripts/scripts/infer_field_separator.awk "$file")
 
   case $fst in
     s) echo "\s" && return ;;
@@ -350,8 +372,8 @@ google() { # Executes Google search with args provided
     echo 'Arg required for search'
     return 1
   else
-    base_url="https://www.google.com/search?query="
-    search_query=$(echo $search_args | sed -e "s/ /+/g")
+    local base_url="https://www.google.com/search?query="
+    local search_query=$(echo $search_args | sed -e "s/ /+/g")
     open "${base_url}${search_query}"
   fi
 }
@@ -362,8 +384,8 @@ so_search() { # Executes Stack Overflow search with args provided
     echo 'Arg required for search'
     return 1
   else
-    base_url="https://www.stackoverflow.com/search?q="
-    search_query=$(echo $search_args | sed -e "s/ /+/g")
+    local base_url="https://www.stackoverflow.com/search?q="
+    local search_query=$(echo $search_args | sed -e "s/ /+/g")
     open "${base_url}${search_query}"
   fi
 }
