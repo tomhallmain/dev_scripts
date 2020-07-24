@@ -10,8 +10,8 @@ namedata() { # Gathers data about names in current context
     NR > 8 { saveline=$0; $1 = substr($0, 2, 35); $2 = substr(saveline, 37, 35);
       print $1; print $2 }' | cut -f 1 -d ' ' | awk -v q=\' '{print q $0 q }')
 
-  awk '{ if (_[FILENAME] == 0) fd++ 
-         if (fd == 1)      { print "VAR", $0 } 
+  awk '{      if (_[FILENAME] == 0) fd++ 
+              if (fd == 1) { print "VAR", $0 } 
          else if (fd == 2) { print "FUNC", $0 } 
          else if (fd == 3) { print "ALIAS", $0 }
          else if (fd == 4) { print "BIN", $0 }

@@ -13,9 +13,7 @@ HOME_DIRS=( $(cd ~ ; ls -d */ | sed 's#/##') )
 REPOS=()
 
 for dir in ${HOME_DIRS[@]} ; do
-  check_dir=$( git -C ${dir} rev-parse 2> /dev/null )
-  check_dir=$( echo $? )
-  if [ "${check_dir}" = "0" ]; then REPOS=(" ${REPOS[@]} " "${dir}"); fi
+  git -C ${dir} rev-parse &> /dev/null && REPOS=(" ${REPOS[@]} " "${dir}")
 done
 
 for repo in ${REPOS[@]}; do
@@ -28,19 +26,17 @@ for repo in ${REPOS[@]}; do
   echo -e "${CYAN} Git pull done for ${repo} ${NC}"
   if [ -f 'Gemfile' ]; then
     echo -e "${BLUE} Running bundle install for ${repo} ${NC}"
-    bundle install || continue > /dev/null
+    bundle install &> /dev/null || continue
     if [ -d 'db/migrate' ]; then
       echo -e "${BLUE} Running db migration for ${repo} ${NC}"
-      rake db:migrate RAILS_ENV=development
-      rake db:migrate RAILS_ENV=test
+      rake db:migrate RAILS_ENV=development &> /dev/null
+      rake db:migrate RAILS_ENV=test &> /dev/null
     fi
   fi
   if [ -f 'yarn.lock' ]; then
     echo -e "${MAGENTA} Running yarn for ${repo} ${NC}"
-    yarn || continue > /dev/null
+    yarn &> /dev/null || continue
   fi
   echo -e "${GREEN} Done with ${repo}! ${NC}"
 done
 echo -e "\n\n${CYAN}--------------------------------------${NC}\n\n"
-
-
