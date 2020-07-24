@@ -311,7 +311,7 @@ rgtodo() { # List all todo items found in current dir using ripgrep if installed
 
 inferfs() { # Infer a field separator from a given text data file
   local file="$1"
-  local use_file_ext={$2:-true}
+  local use_file_ext=${2:-true}
   
   if [ $use_file_ext = true ]; then
     local IFS=$'\t'; read -r dirpath filename extension <<<$(deconstruct_filepath "$file")
