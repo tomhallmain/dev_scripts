@@ -251,7 +251,7 @@ git_recent() { # Display table of commits sorted by recency descending
 
 git_recent_all() { # Display table of commits for all home dir branches
   local start_dir="$PWD"
-  local all_recent=/tmp/git_recent_all_showlater; [ -f $all_recent ] && rm $all_recent
+  local all_recent=/tmp/git_recent_all_showlater
   while IFS=$'\n' read -r dir; do
     [ -d "${dir}/.git" ] && (cd "$dir" && \
       (git_recent parse | awk -v repo="$dir" -F'|' '
