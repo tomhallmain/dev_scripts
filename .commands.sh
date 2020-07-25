@@ -254,11 +254,12 @@ git_recent() { # Display table of commits sorted by recency descending
 git_recent_all() { # Display table of commits for all home dir branches
   local start_dir="$PWD"
   local all_recent=/tmp/git_recent_all_showlater
+  cd ~
   while IFS=$'\n' read -r dir; do
     [ -d "${dir}/.git" ] && (cd "$dir" && \
       (git_recent parse | awk -v repo="$dir" -F'|' '
         {print "\033[34m" repo "\033[0m|", $0}') >> $all_recent )
-  done < <(cd ~; find * -maxdepth 0 -type d)
+  done < <(find * -maxdepth 0 -type d)
   echo
   cat $all_recent | sort -r -t '|' -k3 | awk -F'|' '
     BEGIN {OFS=FS} {print $1, $2, $4, $5, $6}' | fitcol -F"|"
