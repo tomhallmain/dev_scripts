@@ -106,7 +106,9 @@ print_matches() { # Print duplicate lines on given field numbers in two files
 }
 
 print_complements() { # Print non-matching lines on given field numbers in two files
-
+  local args=( "$@" )
+  awk -f ~/dev_scripts/scripts/complements.awk ${args[@]}
+  # TODO: Add support for redirects and piping
 }
 
 duplicate_input() { # Duplicate input sent to stdin in aggregate

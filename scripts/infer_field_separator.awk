@@ -8,53 +8,49 @@
 # awk -f infer_field_separator.awk "data_file"
 
 BEGIN {
-
   x = SUBSEP
   cfs_str = " " x "\t" x "|" x ";" x ":"
   cfst_str = "s" x "t" x "p" x "m" x "c"
-  n_cfs = split(cfs_str, cfs, x)
+  split(cfs_str, cfs, x)
   split(cfst_str, cfst, x)
   max_rows = 500
-
 }
 
-NR <= max_rows { line[NR] = $0; line_count++ }
-
-END {
-
-  if (max_rows > line_count) { max_rows = line_count }
-
-  for (i = 1; i <= n_cfs; i++) {
-    for (j = 1; j <= max_rows; j++) {
-      fs = cfs[i]
-      fst = cfst[i]
-      nf = split(line[j], tmp, fs)
-      cfs_count[fst, j] = nf
-      cfs_total[fst] += nf
-    }
-  }
-  
-  winning_fs = "s"
-
-  # Calculate variance for each separator
-  for (i = 1; i <= n_cfs; i++) {
+NR <= max_rows { 
+  for (i in cfs) {
     fs = cfs[i]
     fst = cfst[i]
-    average_nf = cfs_total[fst] / max_rows
+    nf = split($0, _, fs)
+    cfs_count[fst, NR] = nf
+    cfs_total[fst] += nf
+  } 
+}
 
+END {
+  if (max_rows > NR) { max_rows = NR }
+
+  # Calculate variance for each separator
+  for (i in cfst) {
+    fst = cfst[i]
+    average_nf = cfs_total[fst] / max_rows
+    
     if (average_nf < 2) { continue }
 
-    for (j = 1; j <= max_rows; j++) {
-      point_var = (cfs_count[fst, j] - average_nf)^2
+    for (i = 1; i <= max_rows; i++) {
+      point_var = (cfs_count[fst, i] - average_nf)^2
       sum_var[fst] += point_var
     }
     
     fs_score[fst] = sum_var[fst] / max_rows
 
-    if (fs_score[fst] < fs_score[winning_fs]) {
+    if ( ! winning_fs ) {
+      winning_fs = fst
+    } else if (fs_score[fst] < fs_score[winning_fs]) {
       winning_fs = fst
     }
   }
+
+  if ( ! winning_fs ) winning_fs = "s"
 
   print winning_fs
 }
@@ -62,9 +58,3 @@ END {
 # TODO: Test common patterns in a couple lines to try
 # to grab unique separators
 
-# Unfortunately there is no way to change the FS after a line 
-# has been read into the normal program space in AWK. To not 
-# store all line data in a single array would mean we would 
-# have to pass the script over the number of field separators 
-# to test, and we also couldn't check for patterns beyond that 
-# as easily.
