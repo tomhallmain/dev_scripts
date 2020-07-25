@@ -19,16 +19,14 @@ BEGIN {
     fs2 = fs
   } else {
     if ( ! fs1 ) { # TODO: Script is currently failing on this line
-      cmd = "awk -f ./infer_field_separator.awk " f1 
+      cmd = "awk -f ~/dev_scripts/scripts/infer_field_separator.awk " f1 
       cmd | getline fs1
       close(cmd)
-      fs1 = tr(fs1)
     }
     if ( ! fs2 ) {
-      cmd = "awk -f ./infer_field_separator.awk " f2
+      cmd = "awk -f ~/dev_scripts/scripts/infer_field_separator.awk " f2
       cmd | getline fs2
       close(cmd)
-      fs2 = tr(fs2)
     }
   }
 
