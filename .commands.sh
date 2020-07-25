@@ -324,16 +324,17 @@ inferfs() { # Infer a field separator from a given text data file
     fi
   fi
 
-  local fst=$(awk -f ~/dev_scripts/scripts/infer_field_separator.awk "$file")
+  awk -f ~/dev_scripts/scripts/infer_field_separator.awk "$file"
+  #local fst=$(awk -f ~/dev_scripts/scripts/infer_field_separator.awk "$file")
 
-  case $fst in
-    s) echo "\s" && return ;;
-    t) echo "\t" && return ;;
-    p) echo "|"  && return ;;
-    m) echo ';'  && return ;;
-    c) echo ','  && return ;;
-    *) echo 'Script encountered an error' && return 1
-  esac
+#  case $fst in
+#    s) echo "\s" && return ;;
+#    t) echo "\t" && return ;;
+#    p) echo "|"  && return ;;
+#    m) echo ';'  && return ;;
+#    c) echo ','  && return ;;
+#    *) echo 'Script encountered an error' && return 1
+#  esac
 }
 
 fitcol() { # Print field-separated data in columns with dynamic width

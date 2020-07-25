@@ -10,15 +10,6 @@
 # Field separator args (fs, fs1, fs2) are not required if they can be reasonably
 # inferred from the data.
 
-function tr(s) {
-  # Case statements are Gnu awk only
-       if (s == "t") { return "\t" }
-  else if (s == "p") { return "|" }
-  else if (s == "m") { return ";" }
-  else if (s == "c") { return "," }
-  else                { return " " }
-}
-
 BEGIN {
   f1 = ARGV[1]
   f2 = ARGV[2]

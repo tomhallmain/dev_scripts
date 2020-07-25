@@ -8,18 +8,17 @@
 # awk -f infer_field_separator.awk "data_file"
 
 BEGIN {
-  x = SUBSEP
-  cfs_str = " " x "\t" x "|" x ";" x ":"
-  cfst_str = "s" x "t" x "p" x "m" x "c"
-  split(cfs_str, cfs, x)
-  split(cfst_str, cfst, x)
+  cfs["s"] = " "
+  cfs["t"] = "\t"
+  cfs["p"] = "|"
+  cfs["m"] = ";"
+  cfs["c"] = ":"
   max_rows = 500
 }
 
 NR <= max_rows { 
-  for (i in cfs) {
-    fs = cfs[i]
-    fst = cfst[i]
+  for (fst in cfs) {
+    fs = cfs[fst]
     nf = split($0, _, fs)
     cfs_count[fst, NR] = nf
     cfs_total[fst] += nf
@@ -30,14 +29,13 @@ END {
   if (max_rows > NR) { max_rows = NR }
 
   # Calculate variance for each separator
-  for (i in cfst) {
-    fst = cfst[i]
+  for (fst in cfs) {
     average_nf = cfs_total[fst] / max_rows
     
     if (average_nf < 2) { continue }
 
-    for (i = 1; i <= max_rows; i++) {
-      point_var = (cfs_count[fst, i] - average_nf)^2
+    for (j = 1; j <= max_rows; j++) {
+      point_var = (cfs_count[fst, j] - average_nf)^2
       sum_var[fst] += point_var
     }
     
@@ -52,7 +50,7 @@ END {
 
   if ( ! winning_fs ) winning_fs = "s"
 
-  print winning_fs
+  print cfs[winning_fs]
 }
 
 # TODO: Test common patterns in a couple lines to try
