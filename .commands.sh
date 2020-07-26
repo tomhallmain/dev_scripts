@@ -208,11 +208,11 @@ nameset gcam || \
 
 gadd() { # Add all untracked git files
   not_git && return 1
-  local ALL_FILES=$(git ls-files -o --exclude-standard)
+  local ALL_FILES=( $(git ls-files -o --exclude-standard) )
   if [ -z $ALL_FILES ]; then
     echo 'No untracked files found to add'
   else
-    git add "${ALL_FILES}"
+    git add "${ALL_FILES[@]}"
   fi
 }
 
