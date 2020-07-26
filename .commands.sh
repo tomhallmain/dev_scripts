@@ -389,6 +389,18 @@ so_search() { # Executes Stack Overflow search with args provided
   fi
 }
 
+webpage_title() { # Downloads html from a webpage and extracts the title text
+  local location="$1"
+  local unescaped_title="$( wget -qO- "$location" |
+      perl -l -0777 -ne 'print $1 if /<title.*?>\s*(.*?)\s*<\/title/si' )"
+  if [ -f ~/dev_scripts/scripts/support/named_entities_escaped.sed ]; then
+    printf "$unescaped_title" |
+      sed -f ~/dev_scripts/scripts/support/named_entities_escaped.sed
+  else
+    printf "$unescaped_title"
+  fi
+}
+
 dup_in_dir() { # Report duplicate files with option for deletion
   bash ~/dev_scripts/scripts/compare_files_in_dir.sh $1
 }
