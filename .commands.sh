@@ -314,7 +314,8 @@ rgtodo() { # List all todo items found in current dir using ripgrep if installed
 
 inferfs() { # Infer a field separator from a given text data file
   local file="$1"
-  local use_file_ext=${2:-true}
+  local infer_custom=${2:-true}
+  local use_file_ext=${3:-true}
   
   if [ $use_file_ext = true ]; then
     local IFS=$'\t'; read -r dirpath filename extension <<<$(deconstruct_filepath "$file")
@@ -324,17 +325,11 @@ inferfs() { # Infer a field separator from a given text data file
     fi
   fi
 
-  awk -f ~/dev_scripts/scripts/infer_field_separator.awk "$file"
-  #local fst=$(awk -f ~/dev_scripts/scripts/infer_field_separator.awk "$file")
-
-#  case $fst in
-#    s) echo "\s" && return ;;
-#    t) echo "\t" && return ;;
-#    p) echo "|"  && return ;;
-#    m) echo ';'  && return ;;
-#    c) echo ','  && return ;;
-#    *) echo 'Script encountered an error' && return 1
-#  esac
+  if [ $infer_custom = true ]; then
+    awk -f ~/dev_scripts/scripts/infer_field_separator.awk -v custom=true "$file"
+  else
+    awk -f ~/dev_scripts/scripts/infer_field_separator.awk "$file"
+  fi
 }
 
 fitcol() { # Print field-separated data in columns with dynamic width
