@@ -1,6 +1,6 @@
 # Infers a field separator in a text data file based on
 # likelihood of common field separators and commonly found
-# substrings in the data.
+# substrings in the data of up to three characters.
 # 
 # The newline separator is not inferable via this script.
 # Custom field separators containing alpha chars are also not
@@ -19,13 +19,14 @@ BEGIN {
   commonfs["p"] = "|"
   commonfs["m"] = ";"
   commonfs["c"] = ":"
-  max_rows = 500
+  if (!max_rows) max_rows = 500
   custom = length(custom)
 }
 
 custom && NR == 1 {
+  # Remove leading and trailing spaces
+  gsub(/^[[:space:]]+|[[:space:]]+$/,"")
   line[NR] = $0
-
   split($0, nonwords, /[A-z0-9]+/)
 
   for (i in nonwords) {
@@ -58,6 +59,7 @@ custom && NR == 1 {
 }
 
 custom && NR == 2 {
+  gsub(/^[[:space:]]+|[[:space:]]+$/,"")
   line[NR] = $0
 
   for (i in nonwords) {
@@ -90,25 +92,27 @@ custom && NR == 2 {
 }
 
 NR <= max_rows { 
-  for (fst in commonfs) {
-    fs = commonfs[fst]
+  gsub(/^[[:space:]]+|[[:space:]]+$/,"",$0)
+
+  for (s in commonfs) {
+    fs = commonfs[s]
     nf = split($0, _, fs)
-    commonfs_count[fst, NR] = nf
-    commonfs_total[fst] += nf
+    commonfs_count[s, NR] = nf
+    commonfs_total[s] += nf
   }
+
   if (custom && NR > 2) {
     if (NR == 3) {
       for (i = 1; i < 3; i++) {
         for (fs in customfs) {
-          print "> " fs " <"
           nf = split(line[i], _, fs)
           customfs_count[fs, NR] = nf
           customfs_total[fs] += nf 
         }
       }
     }
+
     for (fs in customfs) {
-      print "> " fs " <"
       nf = split($0, _, fs)
       customfs_count[fs, NR] = nf
       customfs_total[fs] += nf 
@@ -120,77 +124,81 @@ END {
   if (max_rows > NR) max_rows = NR
 
   # Calculate variance for each separator
-  for (fst in commonfs) {
-    average_nf = commonfs_total[fst] / max_rows
+  for (s in commonfs) {
+    average_nf = commonfs_total[s] / max_rows
     
+    if (debug) print s, average_nf
+
     if (average_nf < 2) { continue }
 
     for (j = 1; j <= max_rows; j++) {
-      point_var = (commonfs_count[fst, j] - average_nf)^2
-      sum_var[fst] += point_var
+      point_var = (commonfs_count[s, j] - average_nf)^2
+      sum_var[s] += point_var
     }
     
-    fs_var[fst] = sum_var[fst] / max_rows
+    fs_var[s] = sum_var[s] / max_rows
 
-    if ( !winning_fs || fs_var[fst] < fs_var[winning_fs] ) {
-      print "winning_fs changed from " winning_fs " to " fst " with var of " fs_var[fst]
-      winning_fs = fst
+    if (debug) print s, fs_var[s]
+
+    if ( !winning_fs || fs_var[s] < fs_var[winning_fs] ) {
+      winning_fs = s
+      winners[s] = commonfs[s]
     }
 
-    if (fs_var[fst] == 0) {
-      novar[fst] = commonfs[fst]
+    if (fs_var[s] == 0) {
+      novar[s] = commonfs[s]
     }
   }
 
   if (custom) {
-    for (fs in customfs) {
-      average_nf = customfs_total[fs] / max_rows
+    for (s in customfs) {
+      average_nf = customfs_total[s] / max_rows
       
       if (average_nf < 2) { continue }
 
       for (j = 3; j <= max_rows; j++) {
-        point_var = (customfs_count[fs, j] - average_nf)^2
-        sum_var[fs] += point_var
+        point_var = (customfs_count[s, j] - average_nf)^2
+        sum_var[s] += point_var
       }
       
-      fs_var[fs] = sum_var[fs] / max_rows
+      fs_var[s] = sum_var[s] / max_rows
 
-      print fs, fs_var[fs]
-
-      if ( !winning_fs || fs_var[fs] < fs_var[winning_fs]) {
-        winning_fs = fs
-        cfs[fs] = fs
+      if (debug) print s, fs_var[s]
+      
+      if ( !winning_fs || fs_var[s] < fs_var[winning_fs]) {
+        winning_fs = s
+        winners[s] = s
       }
 
-      if (fs_var[fs] == 0) {
-        novar[fs] == fs
+      if (fs_var[s] == 0) {
+        novar[s] == s
       }
     }    
   }
   
   # Handle cases of multiple separators with no variance
   if (length(novar) > 1) {
-    for (fskey in novar) {
-      seen[fskey] = 1
-      for (fscomparekey in novar) {
-        if (seen[fscomparekey]) continue
-        novarfs1 = novar[fskey]
-        novarfs2 = novar[fscomparekey]
-        if (novarfs1 ~ novarfs2) {
+    for (s in novar) {
+      seen[s] = 1
+      for (compare_s in novar) {
+        if (seen[compare_s]) continue
+        fs1 = novar[s]
+        fs2 = novar[compare_s]
+        if (fs1 ~ fs2) {
           # If one separator with no field delineation variance is 
-          # contained inside another, use the one with the longer 
-          # length.
-          if(length(winning_fs) < length(novarfs2) \
-            && length(novarfs1) < length(novarfs1)) {
-            winning_fs = novarfs2
+          # contained inside another, use the longer one
+          if(length(winning_fs) < length(fs2) \
+            && length(fs1) < length(fs2)) {
+            winning_fs = fs2
+            if (debug) print s, compare_s
           }
         }
       }
     }
   }
 
-  if ( ! winning_fs ) { winning_fs = "s"; print "test" }
+  if ( ! winning_fs ) { winning_fs = "s" }
 
-  print "> " cfs[winning_fs] " <"
+  print winners[winning_fs]
 }
 
