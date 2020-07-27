@@ -85,6 +85,12 @@ longopts() { # Support long options: https://stackoverflow.com/a/28466267/519360
   printf '%s\t' "${out[@]}"
 }
 
+ajoin() { # Similar to the join Unix command but with different features
+  local args=( "$@" )
+  awk -f ~/dev_scripts/scripts/fullouterjoin.awk "${args[@]}"
+  # TODO: Add opts, file handling, infer fs, infer keys, sort, statistics
+}
+
 print_matches() { # Print duplicate lines on given field numbers in two files
   local OPTIND o s
   while getopts ":1:2:-:" OPT; do
@@ -107,7 +113,7 @@ print_matches() { # Print duplicate lines on given field numbers in two files
 
 print_complements() { # Print non-matching lines on given field numbers in two files
   local args=( "$@" )
-  awk -f ~/dev_scripts/scripts/complements.awk ${args[@]}
+  awk -f ~/dev_scripts/scripts/complements.awk "${args[@]}"
   # TODO: Add support for redirects and piping
 }
 

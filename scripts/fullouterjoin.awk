@@ -13,75 +13,107 @@
 #
 # If headers are present, set the header variable to any value:
 # > awk -f fullouterjoin.awk -v headers=true -v k=1 file1 file2
+#
+# Any other Awk variables such as OFS can be assigned as normal.
+
+function genKeyString(keys) {
+  str = ""
+  for (i in keys)
+    k = keys[i]
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", $k)
+    str = str $k _
+  return str
+}
+
+function genOutputString(line, fs) {
+  gsub(fs, OFS, line)
+  return line
+}
+
+function printNullFields(nf) {
+  for (i=1; i<=nf; i++)
+    printf "NULL" OFS
+}
 
 BEGIN {
-  if (fs) {
-    fs1 = fs
-    fs2 = fs
-  } else {
-    if (!fs1) fs1 = FS
-    if (!fs2) fs2 = FS
-  }
+  _ = SUBSEP
+
+  if (!fs1) fs1 = FS
+  if (!fs2) fs2 = FS
 
   if (k) {
     k1 = k
     k2 = k
   } else {
-    if (!k1) { print "Missing key"; exit }
-    if (!k2) { print "Missing key"; exit }
+    if (!k1) { print "Missing key"; err=1; exit }
+    if (!k2) { print "Missing key"; err=1; exit }
   }
-  split(k1, keys1, ",")
-  split(k2, keys2, ",")
-  for (i in keys1) { if (! keys1[i] ~ /^[0-9]$/) { print "Bad key value"; exit } }
-  for (i in keys2) { if (! keys2[i] ~ /^[0-9]$/) { print "Bad key value"; exit } }
+  split(k1, keys1, /[[:punct:]]+/)
+  split(k2, keys2, /[[:punct:]]+/)
+  for (i in keys1)
+    if (! keys1[i] ~ /^\d+$/) { print "Keys must be integers"; err=1; exit }
+  for (i in keys2)
+    if (! keys2[i] ~ /^\d+$/) { print "Keys must be integers"; err=1; exit }
 
   FS = fs1
 }
 
+debug { print NR, FNR, keycount, key }
+keycount = 0
+
 # Save first stream
-NR==FNR {   
-  if ( header && FNR == 1 ) {
-    headers1 = $0
-    next
-  }
-  s1[$0] = 1
-  key1[$k1] = 1
-  nrs1 = FNR
+NR == FNR {
+  if (k1 > NF) { print "Key out of range in file 1"; err = 1; exit }
+
+  if (NF > max_nf1) max_nf1 = NF
+
+  if (FNR == 1 && header) { header1 = $0; next }
+
+  keybase = genKeyString(keys1)
+  key = keybase
+  
+  while (key in s1)
+    keycount++
+    key = keybase keycount
+
+  s1[key] = $0
+  #if (!getline) FS = fs2
   next
 }
 
-# Save second stream
-NR < FNR {
-  if ( header && FNR == 1 ) {
-    headers2 = $0
+# Save second stream and print first matches and second file complements
+NR > FNR { 
+  if (k2 > NF) { print "Key out of range in file 2";  err = 1; exit }
+  
+  if (NF > max_nf2) max_nf2 = NF
+  
+  if (FNR == 1 && header) { 
+    print genOutputString(header1, fs1), genOutputString($0, fs2)
     next
   }
-  s2[$1] = $2
-  ns2 = FNR
-  next
+
+  keybase = genKeyString(keys2)
+  key = keybase keycount
+
+  if (key in s1) {
+    while (key in s1) {
+      print s1[key], genOutputString($0, fs2)
+      delete s1[key]
+      keycount++
+      key = keybase keycount
+    }
+  } else {
+    printNullFields(max_nf1)
+    print genOutputString($0, fs2)
+  }
 }
-
-
 
 END {
-# Process first stream the second time. Print header in first line and for
-# the rest check if first field is found in the hash.
-FNR == (NR - LR_F1 - LR_F2) {
-  if ( $1 in hash2 ) { 
-    printf "%s\n", $1, hash2[ $1 ], $2, $3, $4
-  } else {
-    printf "%s\n", $1, "null", $2, $3, $4
-  }
-}
+  if (err) exit err
 
-# Process second file of arguments the second time. Check if the first field is found 
-# in the hash.
-FNR < (NR - LR_F1 - LR_F2) {
-  if ( $1 in hash1 || FNR == 1 ) {
-    next
-  } else {
-    printf "%s\n", $0, "null", "null", "null"
+  for (key in s1) {
+    printf genOutputString(s1[key], fs1) OFS
+    printNullFields(max_nf2)
+    print ""
   }
-}
-
 }

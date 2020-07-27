@@ -38,6 +38,7 @@ BEGIN {
 NR == FNR {
   _[$k1] = 1
   first[$k1] = $0
+  next
 }
 
 NR > FNR {
