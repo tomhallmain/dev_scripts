@@ -1,3 +1,5 @@
+#!/usr/bin/awk
+#
 # Script to run a full outer join of two files or data streams similar to the 
 # `join` Unix program but with slightly different features.
 # 
@@ -14,7 +16,7 @@
 # If headers are present, set the header variable to any value:
 # > awk -f fullouterjoin.awk -v headers=true -v k=1 file1 file2
 #
-# Any other Awk variables such as OFS can be assigned as normal.
+# Any other Awk variables such as OFS can be assigned as normal
 
 function genKeyString(keys) {
   str = ""
@@ -45,20 +47,21 @@ BEGIN {
     k1 = k
     k2 = k
   } else {
-    if (!k1) { print "Missing key"; err=1; exit }
-    if (!k2) { print "Missing key"; err=1; exit }
+    if (!k1) { print "Missing key"; err=1; exit err }
+    if (!k2) { print "Missing key"; err=1; exit err }
   }
   split(k1, keys1, /[[:punct:]]+/)
   split(k2, keys2, /[[:punct:]]+/)
   for (i in keys1)
-    if (! keys1[i] ~ /^\d+$/) { print "Keys must be integers"; err=1; exit }
+    if (! keys1[i] ~ /^\d+$/) { print "Keys must be integers"; err=1; exit err }
   for (i in keys2)
-    if (! keys2[i] ~ /^\d+$/) { print "Keys must be integers"; err=1; exit }
+    if (! keys2[i] ~ /^\d+$/) { print "Keys must be integers"; err=1; exit err }
 
+  "wc -l < \""ARGV[1]"\"" | getline f1nr; f1nr+=0 # Get number of rows in file1
   FS = fs1
 }
 
-debug { print NR, FNR, keycount, key }
+debug { print NR, FNR, keycount, key, FS }
 keycount = 0
 
 # Save first stream
@@ -77,11 +80,11 @@ NR == FNR {
     key = keybase keycount
 
   s1[key] = $0
-  #if (!getline) FS = fs2
+  if (NR == f1nr) FS = fs2
   next
 }
 
-# Save second stream and print first matches and second file complements
+# Print matches and second file unmatched rows
 NR > FNR { 
   if (k2 > NF) { print "Key out of range in file 2";  err = 1; exit }
   
@@ -111,6 +114,7 @@ NR > FNR {
 END {
   if (err) exit err
 
+  # Print first file unmatched rows
   for (key in s1) {
     printf genOutputString(s1[key], fs1) OFS
     printNullFields(max_nf2)

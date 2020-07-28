@@ -1,10 +1,12 @@
+#!/usr/bin/awk
+#
 # Infers a field separator in a text data file based on
 # likelihood of common field separators.
 # 
 # The newline separator is not inferable via this script.
 #
 # Run as:
-# awk -f infer_field_separator.awk "data_file"
+# > awk -f infer_field_separator.awk "data_file"
 
 BEGIN {
   cfs["s"] = " "

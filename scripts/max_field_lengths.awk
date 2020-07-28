@@ -1,6 +1,8 @@
+#!/usr/bin/awk
+#
 # Unoptimized script to print a table of values with 
 # dynamic column lengths. Unfortunately this requires 
-# passing the file twice to AWK, once to read the lengths
+# passing the file twice to Awk, once to read the lengths
 # and once to print the output - and within that there are
 # for loops to look at each field individually.
 
@@ -11,7 +13,7 @@
 
 # Calling the script on a single file "same_file":
 #
-# awk -f max_field_lengths.awk same_file same_file
+# > awk -f max_field_lengths.awk same_file same_file
 
 NR == FNR {
   for (i=1; i<=NF; i++) {

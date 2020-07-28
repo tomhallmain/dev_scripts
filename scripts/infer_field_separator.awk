@@ -1,3 +1,5 @@
+#!/usr/bin/awk
+#
 # Infers a field separator in a text data file based on
 # likelihood of common field separators and commonly found
 # substrings in the data of up to three characters.
@@ -7,11 +9,11 @@
 # supported.
 #
 # Run as:
-# awk -f infer_field_separator.awk "data_file"
+# > awk -f infer_field_separator.awk "data_file"
 #
 # Run and attempt to infer a custom separator, set var `custom` 
 # to any value:
-# awk -f infer_field_separator.awk -v custom=true "data_file"
+# > awk -f infer_field_separator.awk -v custom=true "data_file"
 
 BEGIN {
   commonfs["s"] = " "

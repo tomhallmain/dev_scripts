@@ -1,11 +1,13 @@
+#!/usr/bin/awk
+#
 # Script to print the records in one file that do not match the records in
 # another file and vice versa. Similar to the join command but does not need
 # sorting for use.
 #
 # Run examples:
-# awk -f complements.awk -v fs1="|" -v fs2="\t" -v k1=1 -v k2=3 "file1" "file2"
+# > awk -f complements.awk -v fs1="|" -v fs2="\t" -v k1=1 -v k2=3 "file1" "file2"
 # OR
-# awk -f complements.awk -v fs="," -v k=2 "file1" "file2"
+# > awk -f complements.awk -v fs="," -v k=2 "file1" "file2"
 #
 # Field separator args (fs, fs1, fs2) are not required if they can be reasonably
 # inferred from the data.
@@ -48,7 +50,6 @@ NR > FNR {
       print $0
       f2_count++
     } else {
-      both[row[k2]] = first[row[k2]]
       delete first[row[k2]]
     }
     FS=fs2
@@ -58,7 +59,6 @@ NR > FNR {
     print $0
     f2_count++
   } else {
-    both[$k2] = first[$k2]
     delete first[$k2]
   }
 }

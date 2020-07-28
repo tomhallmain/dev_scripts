@@ -1,3 +1,5 @@
+#!/usr/bin/awk
+#
 # Script to print with fields in a staggered format.
 # Useful to print files with long column values readably.
 # 
@@ -9,7 +11,7 @@
 #
 # Calling the script on a single file "same_file":
 #
-# awk -f max_field_lengths.awk same_file same_file
+# > awk -f max_field_lengths.awk same_file same_file
 
 BEGIN {  
   if (!TTY_WIDTH) { 
