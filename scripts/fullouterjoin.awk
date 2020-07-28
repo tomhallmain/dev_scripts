@@ -23,6 +23,7 @@ function genKeyString(keys) {
   for (i in keys)
     k = keys[i]
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", $k)
+    if (length($k) == 0) $k = "<NULL>"
     str = str $k _
   return str
 }
@@ -34,7 +35,7 @@ function genOutputString(line, fs) {
 
 function printNullFields(nf) {
   for (i=1; i<=nf; i++)
-    printf "NULL" OFS
+    if (i == nf) { printf "<NULL>" } else { printf "<NULL>" OFS }
 }
 
 BEGIN {
@@ -73,12 +74,13 @@ NR == FNR {
   if (FNR == 1 && header) { header1 = $0; next }
 
   keybase = genKeyString(keys1)
-  key = keybase
-  
-  while (key in s1)
-    keycount++
-    key = keybase keycount
+  key = keybase _ keycount
 
+  while (key in s1) {
+    keycount++
+    key = keybase _ keycount
+  }
+  
   s1[key] = $0
   if (NR == f1nr) FS = fs2
   next
@@ -96,18 +98,24 @@ NR > FNR {
   }
 
   keybase = genKeyString(keys2)
-  key = keybase keycount
+  key = keybase _ keycount
 
   if (key in s1) {
     while (key in s1) {
-      print s1[key], genOutputString($0, fs2)
+      print genOutputString(s1[key], fs1), genOutputString($0, fs2)
       delete s1[key]
       keycount++
-      key = keybase keycount
+      key = keybase _ keycount
     }
   } else {
-    printNullFields(max_nf1)
-    print genOutputString($0, fs2)
+    s2[key] = $0
+
+    while (key in s2) {
+      printNullFields(max_nf1)
+      print OFS genOutputString(s2[key], fs2)
+      keycount++
+      key = keybase _ keycount
+    }
   }
 }
 
