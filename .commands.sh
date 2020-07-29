@@ -85,13 +85,7 @@ longopts() { # Support long options: https://stackoverflow.com/a/28466267/519360
   printf '%s\t' "${out[@]}"
 }
 
-ajoin() { # Similar to the join Unix command but with different features
-  local args=( "$@" )
-  awk -f ~/dev_scripts/scripts/fullouterjoin.awk "${args[@]}"
-  # TODO: Add opts, file handling, infer fs, infer keys, sort, statistics
-}
-
-print_matches() { # Print duplicate lines on given field numbers in two files
+optshandling() {
   local OPTIND o s
   while getopts ":1:2:-:" OPT; do
     if [ "$OPT" == '-' ]; then
@@ -106,9 +100,23 @@ print_matches() { # Print duplicate lines on given field numbers in two files
       *) echo "print_duplicates: [-s <separator>]" 1>&2; return ;;
     esac
   done
-
-  local file=
   shift $((OPTIND-1))
+}
+
+ajoin() { # Similar to the join Unix command but with different features
+  local args=( "$@" )
+  awk -f ~/dev_scripts/scripts/fullouterjoin.awk "${args[@]}"
+  # TODO: Add opts, file handling, infer fs, infer keys, sort, statistics
+}
+
+print_matches() { # Print duplicate lines on given field numbers in two files
+  local args=( "$@" )
+  if data_in; then
+    local file=/tmp/matches_showlater piped=0
+    cat /dev/stdin > $file
+  fi
+  awk -f ~/dev_scripts/scripts/matches.awk "${args[@]}" "$file"
+  if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
 print_complements() { # Print non-matching lines on given field numbers in two files
