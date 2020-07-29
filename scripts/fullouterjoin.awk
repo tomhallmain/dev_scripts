@@ -14,7 +14,10 @@
 # > awk -f fullouterjoin.awk -v k1=1,2 -v k2=3,4 file1 file2
 #
 # If headers are present, set the header variable to any value:
-# > awk -f fullouterjoin.awk -v headers=true -v k=1 file1 file2
+# > awk -f fullouterjoin.awk -v k=1 -v headers=true file1 file2
+#
+# Print with index:
+# > awk -f ullouterjoin.awk -v k=1 -v ind=true file1 file2
 #
 # Any other Awk variables such as OFS can be assigned as normal
 
@@ -93,6 +96,7 @@ NR > FNR {
   if (NF > max_nf2) max_nf2 = NF
   
   if (FNR == 1 && header) { 
+    if (ind) printf OFS
     print genOutputString(header1, fs1), genOutputString($0, fs2)
     next
   }
@@ -102,6 +106,8 @@ NR > FNR {
 
   if (key in s1) {
     while (key in s1) {
+      recordcount++
+      if (ind) printf recordcount OFS
       print genOutputString(s1[key], fs1), genOutputString($0, fs2)
       delete s1[key]
       keycount++
@@ -111,6 +117,8 @@ NR > FNR {
     s2[key] = $0
 
     while (key in s2) {
+      recordcount++
+      if (ind) printf recordcount OFS
       printNullFields(max_nf1)
       print OFS genOutputString(s2[key], fs2)
       keycount++
@@ -124,6 +132,8 @@ END {
 
   # Print first file unmatched rows
   for (key in s1) {
+    recordcount++
+    if (ind) printf recordcount OFS
     printf genOutputString(s1[key], fs1) OFS
     printNullFields(max_nf2)
     print ""

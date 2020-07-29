@@ -349,7 +349,7 @@ fitcol() { # Print field-separated data in columns with dynamic width
     local file="${args[@]:$last_arg:1}"
     args=( ${args[@]/"$file"} )
   fi
-  awk -f ~/dev_scripts/scripts/max_field_lengths.awk \
+  awk -f ~/dev_scripts/scripts/fit_columns.awk \
     -v buffer=$COL_MARGIN ${args[@]} "$file"{,} # List file twice for duplicate reading
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
