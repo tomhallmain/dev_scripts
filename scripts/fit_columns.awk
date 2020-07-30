@@ -25,7 +25,7 @@ BEGIN {
   num_re = "^[[:space:]]*[0-9]+([\.][0-9]*)?[[:space:]]*$"
 
   "tput cols" | getline TTY_SIZE; TTY_SIZE += 0
-  if (!d) d = 1 # TODO: Make the decimal length dynamic based on max in col
+  # TODO: Handle decimal 0 case
 }
 
 NR == FNR {
@@ -34,11 +34,7 @@ NR == FNR {
     orig_max = f_max[i]
     l_diff = len - orig_max
     
-    if (len && l_diff > 0) {
-      f_max[i] = len
-      total_f_len += l_diff
-      if (debug) debug_print(1)
-    }
+    if (len < 1) next
 
     # If column unconfirmed as decimal and the current field is decimal
     # set decimal for column and handle field length changes
@@ -46,11 +42,11 @@ NR == FNR {
     # Else if column confirmed as decimal and current field is decimal
     # handle field length adjustments
     
-    if (d && ! d_set[i] && $i ~ decimal_re) {
+    if (! dec_off && ! d_set[i] && $i ~ decimal_re) {
       d_set[i] = 1
       split($i, n_parts, "\.")
       d_len = length(n_parts[2])
-      d_diff = d - d_len
+      d_diff = (d ? d - d_len : 0)
       f_diff = max(d_diff + l_diff, 0)
       
       if (debug) debug_print(2)
@@ -62,18 +58,23 @@ NR == FNR {
     } else if (d_set[i] && $i ~ num_re) {
       split($i, n_parts, "\.")
       d_len = length(n_parts[2])
+      if (d_len > d_max[i]) d_max[i] = d_len
+      dot = (d_len == 0 ? 1 : 0)
+      dec = (d ? d : d_max[i])
 
-      if (d_len > d_max[i] || l_diff + d + 1 > 0) {
-        d_diff = d - d_len - d_max[i]
-        l_diff = max(l_diff, 0)
+      if (l_diff + dec + dot > 0) {
+        d_diff = dec - d_len + dot
         f_diff = max(d_diff + l_diff, 0)
 
         if (debug) debug_print(3)
  
         f_max[i] += f_diff
         total_f_len += f_diff
-        if (d_len > d_max[i]) d_max[i] = d_len
       }
+    } else if (l_diff > 0) {
+      f_max[i] = len
+      total_f_len += l_diff
+      if (debug) debug_print(1)
     }
   }
 
@@ -110,14 +111,18 @@ NR > FNR {
         reduction_scaler--
       }
     }
+
+    if (debug) debug_print(6)
   }
 
   for (i=1; i<=NF; i++) {
     if (f_max[i]) {
       if (d_set[i]) {
         
+        dec = (d ? d : d_max[i])
+
         if ($i ~ num_re)
-          type_str = "." d "f"
+          type_str = "." dec "f"
         else
           type_str = "s"
 
@@ -161,7 +166,7 @@ function print_warning() {
   print ""
 }
 function print_buffer() {
-  printf "%.*s", buffer, "                                        "
+  printf "%.*s", buffer, "                                         "
 }
 
 
@@ -170,13 +175,33 @@ function debug_print(case) {
   if (case == 1)
     printf "%-20s%5s%5s%5s%5s%5s%5s", "max change: ", FNR, i, len, orig_max, f_max[i], l_diff
   else if (case == 2)
-    printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s", "decimal setting: ", FNR, i, d, d_len, orig_max, len, d_diff, l_diff, f_diff
+    printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s", "decimal setting: ", FNR, i, d, d_len, "ndmx",  orig_max, len, d_diff, l_diff, f_diff
   else if (case == 3)
-    printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s", "decimal adjustment: ", FNR, i, d, d_len, orig_max, len, d_diff, l_diff, f_diff
+    printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s", "decimal adjustment: ", FNR, i, d, d_len, d_max[i],  orig_max, len, d_diff, l_diff, f_diff
   else if (case == 4)
     printf "%-15s%10s%5s%5s%5s%5s", "shrink step: ", avg_f_len, max_nf, reduction_scaler, total_f_len, TTY_SIZE
   else if (case == 5)
     printf "%-15s%5s%5s", "shrink field: ", i, f_max[i]
+  else if (case == 6) {
+    for (i=1; i<=NF; i++) {
+      if (f_max[i]) {
+        if (d_set[i]) {
+          if ($i ~ num_re)
+            type_str = "." d "f"
+          else
+            type_str = "s"
+          justify_str = "%" # Right-align
+          fmt_str = justify_str f_max[i] type_str
+          print i, "decimal", fmt_str, $i
+        } else {
+          if (shrinkf[i]) value = substr($i, 1, max_f_len[i])
+          justify_str = "%-" # Left-align
+          fmt_str = justify_str max_f_len[i] "s"
+          print i, "string", fmt_str, value
+        }
+      }
+    }
+  }
   
   print ""
 }
