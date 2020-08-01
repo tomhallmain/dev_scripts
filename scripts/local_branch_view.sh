@@ -20,6 +20,7 @@ lbvHelp() {
   echo "a    Run for all local repos found, implies opts d, m"
   echo "b    Run for a custom base directory filepath arg"
   echo "d    Deep search for all repos in base directory"
+  echo "f    Run all find using fd if installed"
   echo "h    Print this help"
   echo "m    Include repos found with only master branch"
   echo "o    Override repos to run with filepath args"
@@ -34,7 +35,7 @@ if (($# == 0)); then
   echo "Add opt -h to print help"
 fi
 
-while getopts ":ab:dhmo:sv" opt; do
+while getopts ":ab:dfhmo:sv" opt; do
   case $opt in
     a)  RUN_ALL_REPOS=true ; DEEP=true ; INCLUDE_MASTER_ONLYS=true ;;
     b)  if [ -z $BASE_DIR ]; then
@@ -44,6 +45,9 @@ while getopts ":ab:dhmo:sv" opt; do
         fi
         [ "${BASE_DIR:0:1}" = '~' ] && BASE_DIR="${HOME}${BASE_DIR:1}" ;;
     d)  DEEP=true ;;
+    f)  which fd &> /dev/null
+        [ $? ] && USE_FD=true || (echo 'FD not set - running all repos using find') 
+        RUN_ALL_REPOS=true ; DEEP=true ; INCLUDE_MASTER_ONLYS=true ;;
     h)  lbvHelp ;;
     m)  INCLUDE_MASTER_ONLYS=true ;;
     o)  if [ -z $BASE_DIR ]; then
@@ -53,7 +57,7 @@ while getopts ":ab:dhmo:sv" opt; do
         fi ;;
     s)  DISPLAY_STATUS=true ;;
     v)  VERBOSE=true ;;
-    \?) echo -e "\nInvalid option: -$opt \nValid options include [-abdhmosv]" >&2
+    \?) echo -e "\nInvalid option: -$opt \nValid options include [-ab:dfhmo:sv]" >&2
         exit 1 ;;
   esac
 done
@@ -190,7 +194,11 @@ done < <(
     printf '%s\n' "${OVERRIDE_REPOS[@]}"
   elif [ $DEEP ]; then
     [ -z $RUN_ALL_REPOS ] && FIND_DIRS=( "$BASE_DIR" )
-    find "${FIND_DIRS[@]}" -name ".git" -prune 2>/dev/null | sed 's/\/\.git$//'
+    if [ $USE_FD ]; then
+      fd -c never -H -a -s -t d "\.git$" "${FIND_DIRS}" | sed 's/\/\.git$//'
+    else
+      find "${FIND_DIRS[@]}" -name ".git" -prune 2>/dev/null | sed 's/\/\.git$//'
+    fi
   else
     cd "$BASE_DIR" ; find * -maxdepth 0 -type d
   fi
@@ -203,9 +211,9 @@ REPOS=( ${ALL_REPOS[@]} )
 let input_repo_count=${#REPOS[@]}
 
 for repo in ${ALL_REPOS[@]} ; do
-  spaceyRepo=$(spaceReplace $repo)
+  spacey_repo=$(spaceReplace $repo)
   [ $RUN_ALL_REPOS ] || [ $OVERRIDE_REPOS ] || cd "$BASE_DIR"
-  cd "$spaceyRepo"
+  cd "$spacey_repo"
   BRANCHES=()
 
   if [ $(git rev-parse --is-inside-work-tree 2> /dev/null) ]; then

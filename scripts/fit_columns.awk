@@ -16,6 +16,7 @@
 # > awk -f max_field_lengths.awk -v d=4 same_file same_file
 
 BEGIN {
+
   yellow = "\033[1;93m"
   orange = "\033[38;2;255;165;1m"
   red = "\033[1;31m"
@@ -26,22 +27,26 @@ BEGIN {
 
   "tput cols" | getline TTY_SIZE; TTY_SIZE += 0
   # TODO: Handle decimal 0 case
+
 }
 
+
 NR == FNR {
-  for (i=1; i<=NF; i++) {
+
+  for (i = 1; i <= NF; i++) {
     len = length($i)
+    if (len < 1) next
     orig_max = f_max[i]
     l_diff = len - orig_max
-    
-    if (len < 1) next
 
     # If column unconfirmed as decimal and the current field is decimal
     # set decimal for column and handle field length changes
     #
     # Else if column confirmed as decimal and current field is decimal
     # handle field length adjustments
-    
+    #
+    # Otherwise just handle simple field length increases
+
     if (! dec_off && ! d_set[i] && $i ~ decimal_re) {
       d_set[i] = 1
       split($i, n_parts, "\.")
@@ -71,20 +76,24 @@ NR == FNR {
         f_max[i] += f_diff
         total_f_len += f_diff
       }
+
     } else if (l_diff > 0) {
       f_max[i] = len
       total_f_len += l_diff
+
       if (debug) debug_print(1)
     }
   }
 
   if (NF > max_nf) max_nf = NF
+
 }
+
 
 NR > FNR {
 
   if (FNR == 1) {
-    for (i=1; i <= max_nf; i++)
+    for (i = 1; i <= max_nf; i++)
       if (f_max[i]) { max_f_len[i] = f_max[i]; total_f_len += buffer }
 
     shrink = TTY_SIZE && total_f_len > TTY_SIZE
@@ -99,7 +108,7 @@ NR > FNR {
         scaled_cut = cut_len * reduction_scaler
         if (debug) debug_print(4)
         
-        for (i=1; i <= max_nf; i++) {
+        for (i = 1; i <= max_nf; i++) {
           if (! d_set[i] && f_max[i] > scaled_cut && f_max[i] - cut_len > buffer) {
             f_max[i] -= cut_len
             total_f_len -= cut_len
@@ -115,7 +124,7 @@ NR > FNR {
     if (debug) debug_print(6)
   }
 
-  for (i=1; i<=NF; i++) {
+  for (i = 1; i <= NF; i++) {
     if (f_max[i]) {
       if (d_set[i]) {
         
@@ -168,8 +177,6 @@ function print_warning() {
 function print_buffer() {
   printf "%.*s", buffer, "                                         "
 }
-
-
 function debug_print(case) {
   # Switch statement not supported in all Awk implementations
   if (case == 1)

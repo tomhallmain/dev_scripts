@@ -24,6 +24,11 @@ namedata() { # Gathers data about names in current context
     <(printf '%s\n' ${all_builtin}) | sort
 }
 
+searchnames() { # Searches current names for specific string and returns matching vals
+  local searchval="$1"
+  namedata | awk -v sv=$searchval '$0 ~ sv { print }'
+}
+
 nameset() { # Test if a name (function, alias, variable) is defined in context
   local name="$1"
   local check_var=$2
@@ -48,6 +53,20 @@ which_sh() { # Print the shell being used (works for sh, bash, zsh)
   ps -ef | awk '$2==pid {print $8}' pid=$$
 }
 
+sub_sh() { # Detect if in a subshell
+  [[ $BASH_SUBSHELL -gt 0 || $ZSH_SUBSHELL -gt 0  \
+     || "$(exec sh -c 'echo "$PPID"')" != "$$"    \
+     || "$(exec ksh -c 'echo "$PPID"')" != "$$"   ]]
+}
+
+nested() { # Detect if shell is nested for control handling
+  [ $SHLVL -gt 1 ]
+}
+
+is_cli() { # Detect if shell is interactive
+  [ -z "$PS1" ]
+}
+
 refresh_zsh() { # Refresh zsh interactive session
   clear
   exec zsh
@@ -59,21 +78,29 @@ refresh_bash() { # Refresh bash interactive session
 }
 
 mktmp() { # mktemp -q "/tmp/${filename}"
-  local filename=$1
+  local filename="$1"
   mktemp -q "/tmp/${filename}.XXXXX"
 }
 
-die() { # Complain to STDERR and exit with error
-  echo "$*" >&2; kill $$
+die() { # Output to STDERR and exit with error
+  echo "$*" >&2
+  if sub_sh || nested; then kill $$; else fi
+}
+
+fail() { # Safe failure, kills parent but returns to prompt, message not working on zsh
+  local shell="$(which_sh)"
+  if [ "$shell" = "bash" ]; then
+    : "${_err_?$1}"
+  else
+    : "${_err_?}"
+  fi
 }
 
 needs_arg() { # Test if argument is missing and handle UX if it's not
   local opt="$1" optarg="$2"
-  if [ $opt && -z "$optarg" ]; then
-    die "No arg for --$opt option"
-  else
-    die "Arg missing!"
-  fi
+  echo $optarg
+  [ -z "$optarg" ] && echo "No arg for --$opt option" && fail
+  echo reached end
 }
 
 longopts() { # Support long options: https://stackoverflow.com/a/28466267/519360
@@ -88,19 +115,20 @@ longopts() { # Support long options: https://stackoverflow.com/a/28466267/519360
 optshandling() {
   local OPTIND o s
   while getopts ":1:2:-:" OPT; do
-    if [ "$OPT" == '-' ]; then
+    if [ "$OPT" = '-' ]; then
       local IFS=$'\t'; read -r OPT OPTARG <<<$(longopts "$OPT" "$OPTARG")
     fi
     case "${OPT}" in
-      1 | f1 | file1) needs_arg "$OPT" "$OPTARG"; local file1="$OPTARG" ;;
-      2 | f2 | file2) needs_arg "$OPT" "$OPTARG"; local file2="$OPTARG" ;;
-      s1 | sep1) local FS1="$OPTARG" ;;
-      s2 | sep2) local FS2="$OPTARG" ;;
+      1|f1|file1) needs_arg "$OPT" "$OPTARG"; local file1="$OPTARG" ;;
+      2|f2|file2) needs_arg "$OPT" "$OPTARG"; local file2="$OPTARG" ;;
+      s1|sep1) local FS1="$OPTARG" ;;
+      s2|sep2) local FS2="$OPTARG" ;;
 
-      *) echo "print_duplicates: [-s <separator>]" 1>&2; return ;;
+      *) echo "Option not supported" 1>&2; return ;;
     esac
   done
   shift $((OPTIND-1))
+  echo reached end
 }
 
 ajoin() { # Similar to the join Unix command but with different features
@@ -245,27 +273,22 @@ gacmp() { # Add all untracked files, commit with message, push current branch
 git_recent() { # Display table of commits sorted by recency descending
   not_git && return 1
   local run_context=${1:-display}
-  if [ $run_context = display ]; then
-    format=$(echo '%(HEAD) %(color:yellow)%(refname:short)|
+  local format=$(echo '%(HEAD) %(color:yellow)%(refname:short)|
       %(color:bold green)%(committerdate:relative)|
       %(color:blue)%(subject)|
       %(color:magenta)%(authorname)%(color:reset)' \
       | tr -d '[\n\t]')
+  if [ $run_context = display ]; then
     git for-each-ref --sort=-committerdate refs/heads \
       --format=$format --color=always | fitcol -F'|'
   else
     # If not for immediate display, return extra field for further parsing
-    format=$(echo '
-      %(HEAD) %(color:yellow)%(refname:short)|
-      %(committerdate:short)|%(color:bold green)%(committerdate:relative)|
-      %(color:blue)%(subject)|
-      %(color:magenta)%(authorname)%(color:reset)' \
-      | tr -d '[\n\t]')
+    format="${format/short)|/short)|%(committerdate:short)|}"
     git for-each-ref refs/heads --format=$format --color=always
   fi
 }
 
-git_recent_all() { # Display table of commits for all home dir branches
+git_recent_all() { # Display table of recent commits for all home dir branches
   local start_dir="$PWD"
   local all_recent=/tmp/git_recent_all_showlater
   cd ~
