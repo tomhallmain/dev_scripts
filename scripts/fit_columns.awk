@@ -6,24 +6,32 @@
 # and once to print the output - and within that there are
 # for loops to look at each field individually.
 #
-# Calling the script on a single file "same_file":
-# > awk -f max_field_lengths.awk same_file same_file
+# Running on a single file "same_file":
+# > awk -f fit_columns.awk same_file same_file
 # 
-# Calling the script with a custom buffer (default is 1):
-# > awk -f max_field_lengths.awk -v buffer=5 same_file same_file
+# Running with a custom buffer (default is 1):
+# > awk -f fit_columns.awk -v buffer=5 same_file same_file
 #
-# Calling the script with a custom decimal setting (default is 2):
-# > awk -f max_field_lengths.awk -v d=4 same_file same_file
+# Running with a custom decimal setting (default is 2):
+# > awk -f fit_columns.awk -v d=4 same_file same_file
+#
+# Running with no color or warning:
+# > awk -f fit_columns.awk -v color=never
+
 
 BEGIN {
 
-  yellow = "\033[1;93m"
-  orange = "\033[38;2;255;165;1m"
-  red = "\033[1;31m"
-  no_color = "\033[0m"
+  if (!(color == "never")) {
+    yellow = "\033[1;93m"
+    orange = "\033[38;2;255;165;1m"
+    red = "\033[1;31m"
+    no_color = "\033[0m"
+  }
 
   decimal_re = "^[[:space:]]*[0-9]+[\.][0-9]+[[:space:]]*$"
   num_re = "^[[:space:]]*[0-9]+([\.][0-9]*)?[[:space:]]*$"
+
+  if (d && d < 1) dec_off=1
 
   "tput cols" | getline TTY_SIZE; TTY_SIZE += 0
   # TODO: Handle decimal 0 case
@@ -35,7 +43,7 @@ NR == FNR {
 
   for (i = 1; i <= NF; i++) {
     len = length($i)
-    if (len < 1) next
+    if (len < 1) continue
     orig_max = f_max[i]
     l_diff = len - orig_max
 
@@ -45,7 +53,8 @@ NR == FNR {
     # Else if column confirmed as decimal and current field is decimal
     # handle field length adjustments
     #
-    # Otherwise just handle simple field length increases
+    # Otherwise just handle simple field length increases and store number
+    # columns for later justification
 
     if (! dec_off && ! d_set[i] && $i ~ decimal_re) {
       d_set[i] = 1
@@ -60,7 +69,7 @@ NR == FNR {
       total_f_len += f_diff
       d_max[i] = d_len
 
-    } else if (d_set[i] && $i ~ num_re) {
+    } else if (! dec_off && d_set[i] && $i ~ num_re) {
       split($i, n_parts, "\.")
       d_len = length(n_parts[2])
       if (d_len > d_max[i]) d_max[i] = d_len
@@ -78,6 +87,10 @@ NR == FNR {
       }
 
     } else if (l_diff > 0) {
+      if ( FNR < 3 && $i ~ num_re)
+        n_set[i] = 1
+      else if (n_set[i] && ! n_overset[i] && ($i ~ num_re) == 0)
+        n_overset[i] = 1
       f_max[i] = len
       total_f_len += l_diff
 
@@ -99,7 +112,7 @@ NR > FNR {
     shrink = TTY_SIZE && total_f_len > TTY_SIZE
 
     if (shrink) {
-      print_warning()
+      if (!(color == "never")) print_warning()
       reduction_scaler = 12
       
       while (total_f_len > TTY_SIZE && reduction_scaler > 0) {
@@ -109,7 +122,10 @@ NR > FNR {
         if (debug) debug_print(4)
         
         for (i = 1; i <= max_nf; i++) {
-          if (! d_set[i] && f_max[i] > scaled_cut && f_max[i] - cut_len > buffer) {
+          if (! d_set[i] \
+              && ! (n_set[i] && ! n_overset[i]) \
+              && f_max[i] > scaled_cut \
+              && f_max[i] - cut_len > buffer) {
             f_max[i] -= cut_len
             total_f_len -= cut_len
             shrinkf[i] = 1
@@ -126,14 +142,18 @@ NR > FNR {
 
   for (i = 1; i <= NF; i++) {
     if (f_max[i]) {
-      if (d_set[i]) {
+      if (d_set[i] || (n_set[i] && ! n_overset[i])) {
         
-        dec = (d ? d : d_max[i])
+        if (d_set[i]) {
+          dec = (d ? d : d_max[i])
 
-        if ($i ~ num_re)
-          type_str = "." dec "f"
-        else
-          type_str = "s"
+          if ($i ~ num_re)
+            type_str = "." dec "f"
+          else
+            type_str = "s"
+        } else {
+          type_str = ".14g" # The .14 enforces no truncation
+        }
 
         justify_str = "%" # Right-align
         fmt_str = justify_str f_max[i] type_str

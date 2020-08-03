@@ -1,35 +1,41 @@
 #!/bin/bash
 
 namedata() { # Gathers data about names in current context
-  local all_var=$(declare | awk -F"=" '{print $1}' | awk '{print $NF}')
-  local all_func=$(declare -f | grep '^[A-Za-z_]*\s()' | cut -f 1 -d ' ' \
+  local _var=$(declare | awk -F"=" '{print $1}' | awk '{print $NF}')
+  local _func=$(declare -f | grep '^[A-Za-z_]*\s()' | cut -f 1 -d ' ' \
     | grep -v '()' | sed 's/^_//')
-  local all_alias=$(alias | awk -F"=" '{print $1}')
-  local all_bin=$(ls /bin)
-  local all_builtin=$(bash -c 'help' | awk '
-    NR > 8 { saveline=$0; $1 = substr($0, 2, 35); $2 = substr(saveline, 37, 35);
-      print $1; print $2 }' | cut -f 1 -d ' ' | awk -v q=\' '{print q $0 q }')
+  local _alias=$(alias | awk -F"=" '{print $1}')
+  local _bin=$(ls /bin)
+  local _usrbin=$(ls /usr/bin | grep -v "\.")
+  local _usrlocalbin=$(ls /usr/local/bin | grep -v "\.")
+  local _builtin=$(bash -c 'help' | awk 'NR > 8 { line=$0
+    $1 = substr($0, 2, 35); $2 = substr(line, 37, 35);
+    print $1; print $2 }' | cut -f 1 -d ' ' | awk -v q=\' '{print q $0 q}')
 
-  awk '{      if (_[FILENAME] == 0) fd++ 
-              if (fd == 1) { print "VAR", $0 } 
-         else if (fd == 2) { print "FUNC", $0 } 
-         else if (fd == 3) { print "ALIAS", $0 }
-         else if (fd == 4) { print "BIN", $0 }
-         else if (fd == 5) { print "BUILTIN", $0 }
-         _[FILENAME] = 1 }'            \
-    <(printf '%s\n' ${all_var})        \
-    <(printf '%s\n' ${all_func})       \
-    <(printf '%s\n' ${all_alias})      \
-    <(printf '%s\n' ${all_bin})        \
-    <(printf '%s\n' ${all_builtin}) | sort
+  awk '{ if (_[FILENAME] == 0) f++ 
+         if (f == 1) { print "VAR", $0 } 
+    else if (f == 2) { print "FUNC", $0 } 
+    else if (f == 3) { print "ALIAS", $0 }
+    else if (f == 4) { print "BIN", $0 }
+    else if (f == 5) { print "BUILTIN", $0 }
+    else if (f == 6) { print "USRBIN", $0 }
+    else if (f == 7) { print "USRLOCALBIN", $0 }
+     _[FILENAME] = 1 }'               \
+    <(printf '%s\n' ${_var})          \
+    <(printf '%s\n' ${_func})         \
+    <(printf '%s\n' ${_alias})        \
+    <(printf '%s\n' ${_bin})          \
+    <(printf '%s\n' ${_builtin})      \
+    <(printf '%s\n' ${_usrbin})       \
+    <(printf '%s\n' ${_usrlocalbin})  | sort
 }
 
-searchnames() { # Searches current names for specific string and returns matching vals
+searchnames() { # Searches current names for string, returns matches
   local searchval="$1"
   namedata | awk -v sv=$searchval '$0 ~ sv { print }'
 }
 
-nameset() { # Test if a name (function, alias, variable) is defined in context
+nameset() { # Test if name (function, alias, variable) is defined in context
   local name="$1"
   local check_var=$2
 
@@ -40,20 +46,21 @@ nameset() { # Test if a name (function, alias, variable) is defined in context
   fi
 }
 
-nametype() { # Tests name type (function, alias, variable) if defined in context
+nametype() { # Test name type (function, alias, variable) if defined in context
   local name="$1"
   awk -v name=$name -v q=\' '
     BEGIN { e=1; quoted_name = ( q name q ) }
-    $2==name || $2 == quoted_name { print $1; e=0 }
+    $2==name || $2==quoted_name { print $1; e=0 }
     END { exit e }
     ' <(namedata)
 }
 
 which_sh() { # Print the shell being used (works for sh, bash, zsh)
   ps -ef | awk '$2==pid {print $8}' pid=$$
+  # There is also envvar SHELL, might be more portable
 }
 
-sub_sh() { # Detect if in a subshell
+sub_sh() { # Detect if in a subshell TODO - update to replace unreliable SUBSHELL vars
   [[ $BASH_SUBSHELL -gt 0 || $ZSH_SUBSHELL -gt 0  \
      || "$(exec sh -c 'echo "$PPID"')" != "$$"    \
      || "$(exec ksh -c 'echo "$PPID"')" != "$$"   ]]
@@ -87,12 +94,12 @@ die() { # Output to STDERR and exit with error
   if sub_sh || nested; then kill $$; else fi
 }
 
-fail() { # Safe failure, kills parent but returns to prompt, message not working on zsh
+fail() { # Safe failure, kills parent but returns to prompt (no custom message on zsh)
   local shell="$(which_sh)"
   if [ "$shell" = "bash" ]; then
     : "${_err_?$1}"
   else
-    : "${_err_?}"
+    : "${_err_?'Operation intentionally failed by fail command'}"
   fi
 }
 
@@ -131,38 +138,35 @@ optshandling() {
   echo reached end
 }
 
-ajoin() { # Similar to the join Unix command but with different features
-  local args=( "$@" )
-  awk -f ~/dev_scripts/scripts/fullouterjoin.awk "${args[@]}"
-  # TODO: Add opts, file handling, infer fs, infer keys, sort, statistics
-}
-
-print_matches() { # Print duplicate lines on given field numbers in two files
-  local args=( "$@" )
-  if data_in; then
-    local file=/tmp/matches_showlater piped=0
-    cat /dev/stdin > $file
-  fi
-  awk -f ~/dev_scripts/scripts/matches.awk "${args[@]}" "$file"
-  if [ $piped ]; then rm $file &> /dev/null; fi
-}
-
-print_complements() { # Print non-matching lines on given field numbers in two files
-  local args=( "$@" )
-  awk -f ~/dev_scripts/scripts/complements.awk "${args[@]}"
-  # TODO: Add support for redirects and piping
-}
-
 duplicate_input() { # Duplicate input sent to stdin in aggregate
   tee /tmp/showlater && cat /tmp/showlater && rm /tmp/showlater
 }
 
-data_in() { # Detect if data is being received from stdin via a pipe
+pipe_open() { # Detect if stdin pipe is open
   [ -p /dev/stdin ]
+}
+
+pipe_check() { # Detect if pipe has any data
+  tee > /tmp/stdin
+  test -s /tmp/stdin
+  local has_data=$?
+  cat /tmp/stdin; rm /tmp/stdin
+  return $has_data
 }
 
 join_by() { # Join a shell array by a text argument provided
   local d=$1; shift; echo -n "$1"; shift; printf "%s" "${@/#/$d}";
+}
+
+iter_str() { # Repeat a string some number of times: rpt_str str [n=1] [fs]
+  local str="$1" fs="${3:- }" liststr="$1"
+  let n_repeats=${2:-1}-2
+  for i in {0..$n_repeats}; do liststr="${liststr}${fs}${str}"; done
+  echo "$liststr"
+}
+
+embrace() {
+
 }
 
 add_str_to_filename() { # Adds a string to the beginning or end of a filename
@@ -191,7 +195,7 @@ deconstruct_filepath() { # Returns dirname, filename, and extension from a filep
 
 root_volume() { # Returns the root volume / of the system
   for vol in /Volumes/*; do
-    [ "$(readlink "$vol")" = / ] && root_vol=$vol
+    [ "$(readlink "$vol")" = / ] && local root_vol=$vol
     return $root_vol
   done
 }
@@ -244,30 +248,30 @@ nameset gc || \
 nameset gcam || \
   function gcam() { # git commit -am 'commit message', defined if alias gcam not set
     not_git && return 1
-    local COMMIT_MESSAGE="$1"
-    git commit -am "$COMMIT_MESSAGE"
+    local commit_msg="$1"
+    git commit -am "$commit_msg"
   }
 
 gadd() { # Add all untracked git files
   not_git && return 1
-  local ALL_FILES=( $(git ls-files -o --exclude-standard) )
-  if [ -z $ALL_FILES ]; then
+  local all_untracked=( $(git ls-files -o --exclude-standard) )
+  if [ -z $all_untracked ]; then
     echo 'No untracked files found to add'
   else
-    git add "${ALL_FILES[@]}"
+    git add "${all_untacked[@]}"
   fi
 }
 
 gpcurr() { # git push origin for current branch
   not_git && return 1
-  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-  git push origin "$CURRENT_BRANCH"
+  current_branch=$(git rev-parse --abbrev-ref HEAD)
+  git push origin "$current_branch"
 };
 
 gacmp() { # Add all untracked files, commit with message, push current branch
   not_git && return 1
-  local message="$1"
-  gadd; gcam "$message"; gpcurr
+  local commit_msg="$1"
+  gadd; gcam "$commit_msg"; gpcurr
 }
 
 git_recent() { # Display table of commits sorted by recency descending
@@ -299,20 +303,24 @@ git_recent_all() { # Display table of recent commits for all home dir branches
   done < <(find * -maxdepth 0 -type d)
   echo
   cat $all_recent | sort -r -t '|' -k3 | awk -F'|' '
-    BEGIN {OFS=FS} {print $1, $2, $4, $5, $6}' | fitcol -F"|"
+    BEGIN {OFS=FS} {print $1, $2, $4, $5, $6}' | \
+      (nameset 'fitcol' && fitcol -F"|" || cat)
+  local stts=$?
   echo
   rm $all_recent
   cd "$start_dir"
+  return $stts
 }
 
 git_graph() { # Print colorful git history graph
   not_git && return 1
-  git log --all --decorate --oneline --graph
+  git log --all --decorate --oneline --graph # git log a dog.
 }
 
 todo() { # List todo items found in current directory
+  nameset 'rg' && local RG=true
   if [ -z $1 ]; then
-    grep -rs 'TODO:' --color=always .
+    [ $RG ] && rg 'TODO:' || grep -rs 'TODO:' --color=always .
     echo
   else 
     local search_paths=( "${@}" )
@@ -322,37 +330,49 @@ todo() { # List todo items found in current directory
         local bad_dir=0
         continue
       fi
-      grep -rs 'TODO:' --color=always "$search_path"
+      [ $RG ] && rg 'TODO:' "$search_path" \
+        || grep -rs 'TODO:' --color=always "$search_path"
       echo
     done
   fi
   [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
 }
 
-rgtodo() { # List all todo items found in current dir using ripgrep if installed
-  nameset rg || (echo 'ripgrep not found - use `todo` command' && return 1)
-  if [ -z $1 ]; then
-    rg 'TODO:'
-    echo
-  else 
-    local search_paths=( "${@}" )
-    for search_path in ${search_paths[@]} ; do
-      if [ ! -d "$search_path" ]; then
-        echo "${search_path} is not a directory or is not found"
-        local bad_dir=0
-        continue
-      fi
-      rg 'TODO:' "$search_path"
-      echo
-    done
+ajoin() { # Similar to the join Unix command but with different features
+  local args=( "$@" )
+  if pipe_open; then
+    local file=/tmp/ajoin_showlater piped=0
+    cat /dev/stdin > $file
   fi
-  [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
+  awk -f ~/dev_scripts/scripts/fullouterjoin.awk "${args[@]}"
+  if [ $piped ]; then rm $file &> /dev/null; fi
+  # TODO: Add opts, file handling, infer fs, infer keys, sort, statistics
 }
 
-inferfs() { # Infer a field separator from a given text data file
+print_matches() { # Print duplicate lines on given field numbers in two files
+  local args=( "$@" )
+  if pipe_open; then
+    local file=/tmp/matches_showlater piped=0
+    cat /dev/stdin > $file
+  fi
+  awk -f ~/dev_scripts/scripts/matches.awk "${args[@]}" "$file"
+  if [ $piped ]; then rm $file &> /dev/null; fi
+}
+
+print_complements() { # Print non-matching lines on given field numbers in two files
+  local args=( "$@" )
+  if pipe_open; then
+    local file=/tmp/complements_showlater piped=0
+    cat /dev/stdin > $file
+  fi
+  awk -f ~/dev_scripts/scripts/complements.awk "${args[@]}"
+  if [ $piped ]; then rm $file &> /dev/null; fi
+}
+
+inferfs() { # Infer field separator from text data file: inferfs file [try_custom=true] [use_file_ext=true]
   local file="$1"
-  local infer_custom=${2:-true}
-  local use_file_ext=${3:-true}
+  [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
+  local infer_custom=${2:-true} use_file_ext=${3:-true}
   
   if [ $use_file_ext = true ]; then
     local IFS=$'\t'; read -r dirpath filename extension <<<$(deconstruct_filepath "$file")
@@ -369,37 +389,101 @@ inferfs() { # Infer a field separator from a given text data file
   fi
 }
 
-fitcol() { # Print field-separated data in columns with dynamic width
+fitcol() { # Print field-separated data in columns with dynamic width: fitcol [awkargs] file
   local args=( "$@" )
   COL_MARGIN=${COL_MARGIN:-1} # Set an envvar for margin between cols, default is 1 char 
-  if data_in; then
+  if pipe_open; then
     local file=/tmp/fitcol_showlater piped=0
     cat /dev/stdin > $file
   else
     let last_arg=${#args[@]}-1
     local file="${args[@]:$last_arg:1}"
+    [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
     args=( ${args[@]/"$file"} )
   fi
-  awk -f ~/dev_scripts/scripts/fit_columns.awk \
+  awk -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk \
     -v buffer=$COL_MARGIN ${args[@]} "$file"{,} # List file twice for duplicate reading
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
-stagger() { # Print field-separated data in staggered rows
+stagger() { # Print field-separated data in staggered rows: stagger [awkargs] file
   local args=( "$@" )
   TTY_WIDTH=$( tput cols )
-  if data_in; then
+  if pipe_open; then
     local file=/tmp/stagger_showlater piped=0
     cat /dev/stdin > $file
   else
     local args_len=${#args[@]}
     let last_arg=$args_len-1
     local file="${args[@]:$last_arg:1}"
+    [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
     args=( ${args[@]/"$file"} )
   fi
   awk -f ~/dev_scripts/scripts/stagger.awk \
     -v TTY_WIDTH=$TTY_WIDTH ${args[@]} "$file"
   if [ $piped ]; then rm $file &> /dev/null; fi
+}
+
+cut_header() { # Remove up to a certain number of lines from the start of a file, default is 1
+  let n_lines=1+${1:-1}
+  if pipe_open; then
+    local file=/tmp/cutheader piped=0
+    cat /dev/stdin > $file
+  else
+    local file="$2"
+    [ ! -f "file" ] && echo File was not provided or is invalid! && return 1
+  fi
+  tail -n +$n_lines "$file"
+  if [ $piped ]; then rm $file &> /dev/null; fi
+}
+
+transpose() { #TODO
+
+}
+
+recent_files() { # ls files modified last 7 days: recent_files [custom_dir] [recurse=r] [hidden=h]
+  if [ $1 ]; then
+    local dirname="$(readlink -e "$1")"
+    [ ! -d "$dirname" ] && echo Unable to verify directory provided! && return 1
+  fi
+  
+  local dirname="${dirname:-$PWD}" recurse="$2" hidden="$3" datefilter
+  nameset 'fd' && local FD=1
+  [ $recurse ] && ([ $recurse = 'r' ] || [ $recurse = 'true' ]) || unset recurse
+  # TODO: Rework this obscene logic with opts flags
+
+  for i in {0..6}; do 
+    datefilter=( "${datefilter[@]}" "-e $(date -d "-$i days" +%D)" )
+  done
+
+  if [ $hidden ]; then
+    [ $FD ] && [ $recurse ] && hidden=-HI #fd hides by default
+    [ ! $recurse ] && hidden='A'
+    notfound="No files found modified in the last 7 days!"
+  else
+    [ ! $FD ] && [ $recurse ] && hidden="-not -path '*/\.*'" # find includes all by default
+    notfound="No non-hidden files found modified in the last 7 days!"
+  fi
+  
+  if [ $recurse ]; then
+    local ls_exec=(-exec ls -ghG --time-style=+%D \{\})
+    (
+      if [ $FD ]; then
+        fd -t f --changed-within=1week $hidden -E 'Library/' \
+          -${ls_exec[@]} 2> /dev/null \; ".*" "$dirname"
+      else
+        find "$dirname" -type f -maxdepth 6 $hidden -not -path ~"/Library" \
+          -mtime -7d ${ls_exec[@]} 2> /dev/null
+      fi
+    ) | sed "s:$(printf '%q' $dirname)\/::" | sort -k4 \
+      | awk '{ match($0, $4); 
+        printf "%s;;%s;;%s;;%s;;%s\n", $1, $2, $3, $4, substr($0, RSTART + RLENGTH) }' \
+      | (nameset 'fitcol' && fitcol -F";;" -v buffer=2 || awk -F";;") \
+      | pipe_check
+  else
+    ls -ghtG$hidden --time-style=+%D "$dirname" | grep -v '^d' | grep ${datefilter[@]}
+  fi
+  [ $? = 0 ] || (echo $notfound && return 1)
 }
 
 google() { # Executes Google search with args provided

@@ -189,3 +189,8 @@ END {
   }
 }
 
+function debug_print(case) {
+  if (case == 1) {
+    
+  } else if 
+}

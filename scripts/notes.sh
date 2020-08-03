@@ -9,6 +9,9 @@
 # To click the mouse anywhere on a terminal line within vim or in CLI,
 # hold control while clicking
 #
+# To navigate to a resource (filepath, hyperlink) on OS X Iterm, hold command 
+# while clicking
+#
 # To clear the terminal of all elements and bring up a fresh prompt
 clear
 #

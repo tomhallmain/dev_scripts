@@ -16,11 +16,11 @@ echo
 lbvHelp() {
   echo "Script to print a view of local git repositories against branches."
   echo
-  echo "Syntax: [-abdhmos]"
-  echo "a    Run for all local repos found, implies opts d, m"
+  echo "Syntax: [-ab:dfhmo:s]"
+  echo "a    Run for all local repos found (implies d, m)"
   echo "b    Run for a custom base directory filepath arg"
   echo "d    Deep search for all repos in base directory"
-  echo "f    Run all find using fd if installed"
+  echo "f    Run all find using fd if installed (implies a, d, m)"
   echo "h    Print this help"
   echo "m    Include repos found with only master branch"
   echo "o    Override repos to run with filepath args"
