@@ -166,7 +166,9 @@ iter_str() { # Repeat a string some number of times: rpt_str str [n=1] [fs]
 }
 
 embrace() {
-
+  local value="$1" closebrace="${3:-\}}"
+  [ "$2" = "" ] && local openbrace="{" || local openbrace="$2"
+  echo "${openbrace}${value}${closebrace}"
 }
 
 add_str_to_filename() { # Adds a string to the beginning or end of a filename
@@ -391,7 +393,7 @@ inferfs() { # Infer field separator from text data file: inferfs file [try_custo
 
 fitcol() { # Print field-separated data in columns with dynamic width: fitcol [awkargs] file
   local args=( "$@" )
-  COL_MARGIN=${COL_MARGIN:-1} # Set an envvar for margin between cols, default is 1 char 
+  local col_buffer=${col_buffer:-1} # Margin between cols, default is 1 char 
   if pipe_open; then
     local file=/tmp/fitcol_showlater piped=0
     cat /dev/stdin > $file
@@ -402,13 +404,12 @@ fitcol() { # Print field-separated data in columns with dynamic width: fitcol [a
     args=( ${args[@]/"$file"} )
   fi
   awk -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk \
-    -v buffer=$COL_MARGIN ${args[@]} "$file"{,} # List file twice for duplicate reading
+    -v buffer=$col_buffer ${args[@]} "$file"{,} # List file twice for duplicate reading
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
 stagger() { # Print field-separated data in staggered rows: stagger [awkargs] file
   local args=( "$@" )
-  TTY_WIDTH=$( tput cols )
   if pipe_open; then
     local file=/tmp/stagger_showlater piped=0
     cat /dev/stdin > $file
@@ -419,8 +420,7 @@ stagger() { # Print field-separated data in staggered rows: stagger [awkargs] fi
     [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
     args=( ${args[@]/"$file"} )
   fi
-  awk -f ~/dev_scripts/scripts/stagger.awk \
-    -v TTY_WIDTH=$TTY_WIDTH ${args[@]} "$file"
+  awk -f ~/dev_scripts/scripts/stagger.awk ${args[@]} "$file"
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
@@ -430,8 +430,8 @@ cut_header() { # Remove up to a certain number of lines from the start of a file
     local file=/tmp/cutheader piped=0
     cat /dev/stdin > $file
   else
+    [ ! -f "$2" ] && echo File was not provided or is invalid! && return 1
     local file="$2"
-    [ ! -f "file" ] && echo File was not provided or is invalid! && return 1
   fi
   tail -n +$n_lines "$file"
   if [ $piped ]; then rm $file &> /dev/null; fi
@@ -439,6 +439,26 @@ cut_header() { # Remove up to a certain number of lines from the start of a file
 
 transpose() { #TODO
 
+}
+
+fieldcounts() { # Print a listing of value counts for a given field in a data file in descending order
+  [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1 
+  local file="$1" field="${2:-1}" min="$3"
+  local fs="$(inferfs "$file")"
+  ([ $min ] && test $min -gt 0 2> /dev/null) || min=1
+  let min=$min-1
+  local program="{ _[\$${field}]++ } 
+    END { for (i in _) if (_[i] > ${min}) print _[i], i }"
+  cat "$file" | awk -F"$fs" "$program" | sort -nr
+}
+
+mactounix() { # Converts ^M return characters into simple carriage returns in place
+  [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
+  local inputfile="$1"
+  local tmpfile=/tmp/mactounix
+  cat "$inputfile" > $tmpfile
+  tr "\015" "\n" < $tmpfile > "$inputfile"
+  rm $tmpfile
 }
 
 recent_files() { # ls files modified last 7 days: recent_files [custom_dir] [recurse=r] [hidden=h]

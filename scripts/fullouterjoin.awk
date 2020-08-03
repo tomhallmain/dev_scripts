@@ -1,9 +1,9 @@
 #!/usr/bin/awk
 #
-# Script to run a full outer join of two files or data streams similar to the 
+# Script to run a full outer join of two files or data streams similar to 
 # `join` Unix program but with slightly different features.
 # 
-# If there is one field number to join on, assign that value to var k at runtime:
+# If there is one field number to join on, assign it to var k at runtime:
 # > awk -f fullouterjoin.awk -v k=1 file1 file2
 #
 # If there are different keys in each file, run as:
@@ -14,12 +14,12 @@
 # > awk -f fullouterjoin.awk -v k1=1,2 -v k2=3,4 file1 file2
 #
 # If headers are present, set the header variable to any value:
-# > awk -f fullouterjoin.awk -v k=1 -v headers=true file1 file2
+# -v headers=1
 #
-# Print with index:
-# > awk -f ullouterjoin.awk -v k=1 -v ind=true file1 file2
+# Add an index:
+# -v ind=true
 #
-# Any other Awk variables such as OFS can be assigned as normal
+# Any other Awk variables such as FS, OFS can be assigned as normal
 
 function genKeyString(keys) {
   str = ""

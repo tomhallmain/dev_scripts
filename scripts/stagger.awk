@@ -14,10 +14,7 @@
 # > awk -f max_field_lengths.awk same_file same_file
 
 BEGIN {  
-  if (!TTY_WIDTH) { 
-    print "Terminal width not provided - exiting"
-    exit 1 
-  } 
+  "tput cols" | getline tty_size; tty_size += 0
 }
 
 {
@@ -25,12 +22,12 @@ BEGIN {
   space_str = ""
 
   for (i=1; i<=NF; i++) {
-    if (spacer && TTY_WIDTH / spacer < 1.5) {
+    if (spacer && tty_size / spacer < 1.5) {
       spacer = 0
       space_str = ""
     }
 
-    field_width = TTY_WIDTH - spacer
+    field_width = tty_size - spacer
     
     if (length($i) > field_width) {
       while (length($i) > field_width) {

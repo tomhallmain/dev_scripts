@@ -5,14 +5,13 @@
 # substrings in the data of up to three characters.
 # 
 # The newline separator is not inferable via this script.
-# Custom field separators containing alpha chars are also not
-# supported.
+# Custom field separators containing alphanumeric characters 
+# are also not supported.
 #
 # Run as:
 # > awk -f infer_field_separator.awk "data_file"
 #
-# Run and attempt to infer a custom separator, set var `custom` 
-# to any value:
+# To infer a custom separator, set var `custom` to any value:
 # > awk -f infer_field_separator.awk -v custom=true "data_file"
 
 BEGIN {

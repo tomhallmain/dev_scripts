@@ -1,10 +1,10 @@
 #!/usr/bin/awk
 #
 # Unoptimized script to print a table of values with 
-# dynamic column lengths. Unfortunately this requires 
-# passing the file twice to Awk, once to read the lengths
-# and once to print the output - and within that there are
-# for loops to look at each field individually.
+# dynamic column lengths. Requires passing file twice to Awk, 
+# once to read the lengths and once to print the output - 
+# within that there are for loops to look at each field 
+# individually.
 #
 # Running on a single file "same_file":
 # > awk -f fit_columns.awk samefile samefile
@@ -14,8 +14,8 @@
 # Running with a custom buffer (default is 1):
 # -v buffer=5
 #
-# Running with a custom decimal setting (default is the max for the column
-# values):
+# Running with a custom decimal setting (default is the max for 
+# column value):
 # -v d=4
 #
 # Running with custom decimal setting of zero:
@@ -26,8 +26,32 @@
 #
 # Running without decimal transformations:
 # -v dec_off=1
+#
+# Running with scientific notation:
+# -v sn=1
+#
+# Custom character for buffer:
+# -v bufferchar="|"
+
 
 BEGIN {
+  
+  if (d < 0) {
+    sn = -d
+    d = "z"
+  }
+  
+  sn0_len = 1 + 4 # e.g. 0e+00
+  
+  if (sn && d) {
+    if (d == "z") {
+      sn_len = sn0_len
+    } else {
+      sn_len = 2 + d + 4 # e.g. 0.00e+00
+    }
+  }
+
+  if (!buffer) buffer = 1
 
   if (!(color == "never")) {
     yellow = "\033[1;93m"
@@ -39,8 +63,7 @@ BEGIN {
   decimal_re = "^[[:space:]]*[0-9]+[\.][0-9]+[[:space:]]*$"
   num_re = "^[[:space:]]*[0-9]+([\.][0-9]*)?[[:space:]]*$"
 
-  "tput cols" | getline TTY_SIZE; TTY_SIZE += 0
-  if (!buffer) buffer = 1
+  "tput cols" | getline tty_size; tty_size += 0
 
 }
 
@@ -54,6 +77,16 @@ NR == FNR {
     l_diff = len - orig_max
     d_diff = 0
     f_diff = 0
+    
+    if (n_set[i] && ! d_set[i] && ! n_overset[i] && ($i ~ num_re) == 0 && len > 0) {
+      n_overset[i] = 1
+      if (debug) print "Number pattern overset for col:" NR, i
+      if (save_n_max[i] > f_max[i] && save_n_max[i] > save_s_max[i]) {
+        recap_n_diff = max(save_n_max[i] - f_max[i], 0)
+        f_max[i] += recap_n_diff
+        total_f_len += recap_n_diff
+      }
+    }
 
     # If column unconfirmed as decimal and the current field is decimal
     # set decimal for column and handle field length changes
@@ -62,47 +95,63 @@ NR == FNR {
     # handle field length adjustments
     #
     # Otherwise just handle simple field length increases and store number
-    # columns for later justification
+    # columns for later justification, but scientific notation makes things 
+    # more complex
 
     if (! dec_off && ! d_set[i] && $i ~ decimal_re) {
       d_set[i] = 1
       split($i, n_parts, "\.")
-      int_len = length(int(n_parts[1]))
       sub("0*$", "", n_parts[2]) # Remove trailing zeros in decimal part
       d_len = length(n_parts[2])
-      int_diff = int_len + 1 + d_len - len
       d_max[i] = d_len
 
-      if (d == "z") {
-        d_len++ # Removing dot
-        d_diff = -1 * d_len 
+      if (sn) {
+        if (!d) sn_len = 2 + d_len + 4
+        sn_diff = sn_len - orig_max
+        f_diff = max(sn_diff, 0)
+      
       } else {
-        d_diff = (d ? d - d_len : 0)
-      }
+        int_len = length(int(n_parts[1]))
+        int_diff = int_len + 1 + d_len - len
+        if (d == "z") {
+          d_len++ # Removing dot
+          d_diff = -1 * d_len 
+        } else {
+          d_diff = (d ? d - d_len : 0)
+        }
 
-      f_diff = max(l_diff + int_diff + d_diff, 0)
+        f_diff = max(l_diff + int_diff + d_diff, 0)
+      }
 
       if (debug && f_diff) debug_print(2)
 
     } else if (! dec_off && d_set[i] && $i ~ num_re) {
-      split($i, n_parts, "\.")
-      int_len = length(int(n_parts[1]))
-      sub("0*$", "", n_parts[2]) # Remove trailing zeros in decimal part
-      d_len = length(n_parts[2])
-      dot = (d_len == 0 ? 0 : 1)
-      int_diff = int_len + dot + d_len - len
-      if (d_len > d_max[i]) d_max[i] = d_len
- 
-      if (d == "z") {
-        d_len + dot 
-        d_diff = -1 * d_len
-        f_diff = max(l_diff + int_diff + d_diff, 0)
-      } else {
-        dot = (!dot)
-        dec = (d ? d : d_max[i])
-        if (l_diff + dec + dot > 0) {
-          d_diff = dec - d_len + dot
+        split($i, n_parts, "\.")
+        sub("0*$", "", n_parts[2]) # Remove trailing zeros in decimal part
+        d_len = length(n_parts[2])
+        if (d_len > d_max[i]) d_max[i] = d_len
+        
+        if (sn) {
+          if (!d) sn_len = 2 + d_max[i] + 4
+          sn_diff = sn_len - orig_max
+          f_diff = max(sn_diff, 0)
+
+        } else {
+          int_len = length(int(n_parts[1]))
+          dot = (d_len == 0 ? 0 : 1)
+          int_diff = int_len + dot + d_len - len
+  
+        if (d == "z") {
+          d_len + dot 
+          d_diff = -1 * d_len
           f_diff = max(l_diff + int_diff + d_diff, 0)
+        } else {
+          dot = (!dot)
+          dec = (d ? d : d_max[i])
+          if (l_diff + dec + dot > 0) {
+            d_diff = dec - d_len + dot
+            f_diff = max(l_diff + int_diff + d_diff, 0)
+          }
         }
       }
 
@@ -111,20 +160,22 @@ NR == FNR {
     } else if (l_diff > 0) {
       if ( FNR < 3 && $i ~ num_re) {
         n_set[i] = 1
-        if (debug) print "Number pattern set for col:", i
+        if (len > n_max[i]) n_max[i] = len
+        if (debug) print "Number pattern set for col:", NR, i
       }
+      if (sn && n_set[i] && ! n_overset[i] && n_max[i] > sn0_len && $i ~ num_re) {
+        if (len > save_n_max[i]) save_n_max[i] = len
+        sn_diff = sn0_len - orig_max
+        
+        l_diff = sn_diff
+      }
+      if (sn && ($i ~ num_re) == 0) if (len > save_s_max[i]) save_s_max[i] = len
 
       f_diff = l_diff
 
       if (debug) debug_print(1)
     }
 
-    if (n_set[i] && ! n_overset[i] && ($i ~ num_re) == 0) {
-      n_overset[i] = 1
-      if (debug) print "Number pattern overset for col:" NR, i
-    }
-
-    
     if (f_diff) {
       f_max[i] += f_diff
       total_f_len += f_diff
@@ -139,16 +190,20 @@ NR == FNR {
 NR > FNR {
   
   if (FNR == 1) {
-    for (i = 1; i <= max_nf; i++)
-      if (f_max[i]) { max_f_len[i] = f_max[i]; total_f_len += buffer }
+    for (i = 1; i <= max_nf; i++) {
+      if (f_max[i]) {
+        max_f_len[i] = f_max[i]
+        total_f_len += buffer
+      }
+    }
 
-    shrink = TTY_SIZE && total_f_len > TTY_SIZE
+    shrink = tty_size && total_f_len > tty_size
 
     if (shrink) {
       if (!(color == "never")) print_warning()
       reduction_scaler = 12
       
-      while (total_f_len > TTY_SIZE && reduction_scaler > 0) {
+      while (total_f_len > tty_size && reduction_scaler > 0) {
         avg_f_len = total_f_len / max_nf
         cut_len = int(avg_f_len/10)
         scaled_cut = cut_len * reduction_scaler
@@ -169,8 +224,6 @@ NR > FNR {
         reduction_scaler--
       }
     }
-
-    if (debug) debug_print(6)
   }
 
   for (i = 1; i <= NF; i++) {
@@ -180,19 +233,18 @@ NR > FNR {
         if (d_set[i]) {
           if ($i ~ num_re) {
             if (d == "z") {
-              type_str = "s"
+              type_str = (sn ? ".0e" : "s")
               value = int($i)
             } else {
               dec = (d ? d : d_max[i])
-              type_str = "." dec "f"
+              type_str = (sn ? "." dec "e" : "." dec "f")
               value = $i
             }
           } else {
-            type_str = "s"
-            value = $i
+            type_str = "s"; value = $i
           }
         } else {
-          type_str = "s"
+          type_str = (sn ? ".0e" : "s")
           value = $i
         }
 
@@ -215,6 +267,7 @@ NR > FNR {
       
       }
     }
+    if (debug && FNR < 4) debug_print(6)
   }
   print ""
 }
@@ -259,7 +312,8 @@ function print_warning() {
   print ""
 }
 function print_buffer() {
-  printf "%.*s", buffer, "                                         "
+  space_str = bufferchar "                                                               "
+  printf "%.*s", buffer, space_str
 }
 function debug_print(case) {
   # Switch statement not supported in all Awk implementations
@@ -271,34 +325,13 @@ function debug_print(case) {
   else if (case == 3)
     printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s", "decimal adjustment: ", FNR, i, d, d_len, d_max[i],  orig_max, len, int_diff, d_diff, l_diff, f_diff
   else if (case == 4)
-    printf "%-15s%10s%5s%5s%5s%5s", "shrink step: ", avg_f_len, max_nf, reduction_scaler, total_f_len, TTY_SIZE
+    printf "%-15s%10s%5s%5s%5s%5s", "shrink step: ", avg_f_len, max_nf, reduction_scaler, total_f_len, tty_size
   else if (case == 5)
     printf "%-15s%5s%5s", "shrink field: ", i, f_max[i]
   else if (case == 6) {
-    for (i=1; i<=NF; i++) {
-      if (f_max[i]) {
-        if (d_set[i]) {
-          if ($i ~ num_re) {
-            if (d == "z") {
-              type_str = ".14g"
-            } else {
-              dec = (d ? d : d_max[i])
-              type_str = "." dec "f"
-            }
-          } else {
-            type_str = "s"
-          }
-          justify_str = "%" # Right-align
-          fmt_str = justify_str f_max[i] type_str
-          print i, "decimal", fmt_str, $i
-        } else {
-          if (shrinkf[i]) value = substr($i, 1, max_f_len[i])
-          justify_str = "%-" # Left-align
-          fmt_str = justify_str max_f_len[i] "s"
-          print i, "string", fmt_str, value
-        }
-      }
-    }
+    print ""
+    print i, fmt_str, $i, value
+    print ""
   }
   
   print ""
