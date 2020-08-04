@@ -80,7 +80,7 @@ NR == FNR {
     
     if (n_set[i] && ! d_set[i] && ! n_overset[i] && ($i ~ num_re) == 0 && len > 0) {
       n_overset[i] = 1
-      if (debug) print "Number pattern overset for col:" NR, i
+      if (debug) debug_print(8)
       if (save_n_max[i] > f_max[i] && save_n_max[i] > save_s_max[i]) {
         recap_n_diff = max(save_n_max[i] - f_max[i], 0)
         f_max[i] += recap_n_diff
@@ -161,7 +161,7 @@ NR == FNR {
       if ( FNR < 3 && $i ~ num_re) {
         n_set[i] = 1
         if (len > n_max[i]) n_max[i] = len
-        if (debug) print "Number pattern set for col:", NR, i
+        if (debug) debug_print(7)
       }
       if (sn && n_set[i] && ! n_overset[i] && n_max[i] > sn0_len && $i ~ num_re) {
         if (len > save_n_max[i]) save_n_max[i] = len
@@ -328,11 +328,12 @@ function debug_print(case) {
     printf "%-15s%10s%5s%5s%5s%5s", "shrink step: ", avg_f_len, max_nf, reduction_scaler, total_f_len, tty_size
   else if (case == 5)
     printf "%-15s%5s%5s", "shrink field: ", i, f_max[i]
-  else if (case == 6) {
-    print ""
-    print i, fmt_str, $i, value
-    print ""
-  }
-  
+  else if (case == 6)
+    { print ""; print i, fmt_str, $i, value; print "" }
+  else if (case == 7)
+    print "Number pattern set for col:", NR, i
+  else if (case == 8) 
+    print "Number pattern overset for col:" NR, i
+
   print ""
 }

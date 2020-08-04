@@ -119,7 +119,7 @@ longopts() { # Support long options: https://stackoverflow.com/a/28466267/519360
   printf '%s\t' "${out[@]}"
 }
 
-optshandling() {
+optshandling() { # General flag opts handling
   local OPTIND o s
   while getopts ":1:2:-:" OPT; do
     if [ "$OPT" = '-' ]; then
@@ -138,7 +138,7 @@ optshandling() {
   echo reached end
 }
 
-duplicate_input() { # Duplicate input sent to stdin in aggregate
+dup_input() { # Duplicate input sent to stdin in aggregate
   tee /tmp/showlater && cat /tmp/showlater && rm /tmp/showlater
 }
 
@@ -165,14 +165,14 @@ iter_str() { # Repeat a string some number of times: rpt_str str [n=1] [fs]
   echo "$liststr"
 }
 
-embrace() {
+embrace() { # Enclose a string in braces: embrace string [openbrace="{"] [closebrace="}"]
   local value="$1" closebrace="${3:-\}}"
   [ "$2" = "" ] && local openbrace="{" || local openbrace="$2"
   echo "${openbrace}${value}${closebrace}"
 }
 
-add_str_to_filename() { # Adds a string to the beginning or end of a filename
-  local IFS=$'\t'; read -r dirpath filename extension <<<$(deconstruct_filepath "$1")
+filename_str() { # Adds a string to the beginning or end of a filename
+  local IFS=$'\t'; read -r dirpath filename extension <<<$(path_elements "$1")
   [ ! -d $dirpath ] && echo 'Filepath given is invalid' && return 1
   local str_to_add="$2" position=$3
   position=${position:-append}
@@ -184,7 +184,7 @@ add_str_to_filename() { # Adds a string to the beginning or end of a filename
   printf "${dirpath}${filename}"
 }
 
-deconstruct_filepath() { # Returns dirname, filename, and extension from a filepath
+path_elements() { # Returns dirname, filename, and extension from a filepath
   [ ! -f $1 ] && echo 'Filepath given is invalid' && return 1
   local filepath="$1"
   local dirpath=$(dirname "$filepath")
@@ -260,7 +260,11 @@ gadd() { # Add all untracked git files
   if [ -z $all_untracked ]; then
     echo 'No untracked files found to add'
   else
-    git add "${all_untacked[@]}"
+    startdir="$PWD"
+    rootdir="$(git rev-parse --show-toplevel)"
+    cd "$rootdir"
+    git add .
+    cd "$startdir"
   fi
 }
 
@@ -314,6 +318,9 @@ git_recent_all() { # Display table of recent commits for all home dir branches
   return $stts
 }
 
+alias grec="git_recent"
+alias gral="git_recent_all"
+
 git_graph() { # Print colorful git history graph
   not_git && return 1
   git log --all --decorate --oneline --graph # git log a dog.
@@ -343,12 +350,32 @@ todo() { # List todo items found in current directory
 ajoin() { # Similar to the join Unix command but with different features
   local args=( "$@" )
   if pipe_open; then
-    local file=/tmp/ajoin_showlater piped=0
-    cat /dev/stdin > $file
+    local file2=/tmp/ajoin_showlater piped=0
+    cat /dev/stdin > $file2
+  else
+    let last_arg=${#args[@]}-1
+    local file2="${args[@]:$last_arg:1}"
+    [ ! -f "$file2" ] && echo File missing or invalid! && return 1
+    args=( ${args[@]/"$file2"} )
   fi
-  awk -f ~/dev_scripts/scripts/fullouterjoin.awk "${args[@]}"
+  
+  last_arg=$last_arg-1
+  local file1="${args[@]:$last_arg:1}"
+  if [ ! -f "$file1" ]; then
+    echo File missing or invalid!
+    [ $piped ] && rm $file &> /dev/null
+    return 1
+  fi
+  args=( ${args[@]/"$file1"} )
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
+    local fs1="-F$(inferfs "$file1")"
+    local fs2="-F$(inferfs "$file2")"
+  fi
+
+  awk $fs1 $fs2 -f ~/dev_scripts/scripts/fullouterjoin.awk \
+    "${args[@]}" "$file1" "$file2"
   if [ $piped ]; then rm $file &> /dev/null; fi
-  # TODO: Add opts, file handling, infer fs, infer keys, sort, statistics
+  # TODO: Add opts, infer keys, sort, statistics
 }
 
 print_matches() { # Print duplicate lines on given field numbers in two files
@@ -356,18 +383,34 @@ print_matches() { # Print duplicate lines on given field numbers in two files
   if pipe_open; then
     local file=/tmp/matches_showlater piped=0
     cat /dev/stdin > $file
+  else
+    let last_arg=${#args[@]}-1
+    local file="${args[@]:$last_arg:1}"
+    [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
+    args=( ${args[@]/"$file"} )
+  fi
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
+    local fs="-F$(inferfs "$file")"
   fi
   awk -f ~/dev_scripts/scripts/matches.awk "${args[@]}" "$file"
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
-print_complements() { # Print non-matching lines on given field numbers in two files
+print_comps() { # Print non-matching lines on given field numbers in two files
   local args=( "$@" )
   if pipe_open; then
     local file=/tmp/complements_showlater piped=0
     cat /dev/stdin > $file
+  else
+    let last_arg=${#args[@]}-1
+    local file="${args[@]:$last_arg:1}"
+    [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
+    args=( ${args[@]/"$file"} )
   fi
-  awk -f ~/dev_scripts/scripts/complements.awk "${args[@]}"
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
+    local fs="-F$(inferfs "$file")"
+  fi
+  awk $fs -f ~/dev_scripts/scripts/complements.awk "${args[@]}" "$file"
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
@@ -377,7 +420,7 @@ inferfs() { # Infer field separator from text data file: inferfs file [try_custo
   local infer_custom=${2:-true} use_file_ext=${3:-true}
   
   if [ $use_file_ext = true ]; then
-    local IFS=$'\t'; read -r dirpath filename extension <<<$(deconstruct_filepath "$file")
+    local IFS=$'\t'; read -r dirpath filename extension <<<$(path_elements "$file")
     if [ $extension ]; then
       [ ".tsv" = "$extension" ] && echo "\t" && return
       [ ".csv" = "$extension" ] && echo ',' && return
@@ -403,7 +446,11 @@ fitcol() { # Print field-separated data in columns with dynamic width: fitcol [a
     [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
     args=( ${args[@]/"$file"} )
   fi
-  awk -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk \
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
+    local fs="-F$(inferfs "$file")"
+  fi
+
+  awk $fs -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk \
     -v buffer=$col_buffer ${args[@]} "$file"{,} # List file twice for duplicate reading
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
@@ -414,13 +461,35 @@ stagger() { # Print field-separated data in staggered rows: stagger [awkargs] fi
     local file=/tmp/stagger_showlater piped=0
     cat /dev/stdin > $file
   else
-    local args_len=${#args[@]}
-    let last_arg=$args_len-1
+    let last_arg=${#args[@]}-1
     local file="${args[@]:$last_arg:1}"
     [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
     args=( ${args[@]/"$file"} )
   fi
-  awk -f ~/dev_scripts/scripts/stagger.awk ${args[@]} "$file"
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
+    local fs="-F$(inferfs "$file")"
+  fi
+  awk $fs -f ~/dev_scripts/scripts/stagger.awk ${args[@]} "$file"
+  if [ $piped ]; then rm $file &> /dev/null; fi
+}
+
+index() { # Prints an index attached to data lines from a file or stdin
+  local args=( "$@" )
+  if pipe_open; then
+    local header=$1
+    local file=/tmp/index_showlater piped=0
+    cat /dev/stdin > $file
+  else
+    local file="$1" header=$2
+  fi
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" ]]; then
+    local fs="-F$(inferfs "$file")"
+  fi
+  if [ $header ]; then
+    awk $fs '{ print NR-1, $0 }' "$file"
+  else
+    awk $fs '{ print NR, $0 }' "$file"
+  fi
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
@@ -437,19 +506,40 @@ cut_header() { # Remove up to a certain number of lines from the start of a file
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
-transpose() { #TODO
-
+transpose() { # Transpose field values of a text-based field-separated file
+  local args=( "$@" )
+  if pipe_open; then
+    local file=/tmp/transpose piped=0
+    cat /dev/stdin > $file
+  else 
+    let last_arg=${#args[@]}-1
+    local file="${args[@]:$last_arg:1}"
+    [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
+    args=( ${args[@]/"$file"} )
+  fi
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" ]]; then
+    local fs="-F$(inferfs "$file")"
+  fi
+  local fs=$(inferfs "$file")
+  awk $fs -f ~/dev_scripts/scripts/transpose.awk ${args[@]} "$file"
+  if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
-fieldcounts() { # Print a listing of value counts for a given field in a data file in descending order
-  [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1 
+ds() { # Generate basic statistics about data in a Unix text file
+  [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
+  # TODO
+}
+
+fieldcounts() { # Print value counts for a given field in a data file: fieldcounts file [field=1] [min=1] [order=a]
+  [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
   local file="$1" field="${2:-1}" min="$3"
   local fs="$(inferfs "$file")"
+  ([ $3 = d ] || [ $3 = desc ]) && local order="r"
   ([ $min ] && test $min -gt 0 2> /dev/null) || min=1
   let min=$min-1
-  local program="{ _[\$${field}]++ } 
+  local program="{ _[\$${field}]++ }
     END { for (i in _) if (_[i] > ${min}) print _[i], i }"
-  cat "$file" | awk -F"$fs" "$program" | sort -nr
+  cat "$file" | awk -F"$fs" "$program" | sort -n$order
 }
 
 mactounix() { # Converts ^M return characters into simple carriage returns in place
@@ -548,8 +638,8 @@ dup_in_dir() { # Report duplicate files with option for deletion
 
 ls_commands() { # List commands in the dev_scripts/.commands.sh file
   echo
-  grep '[[:alnum:]_]*()' ~/dev_scripts/.commands.sh | grep -v grep \
-    | sort | awk -F "{ #" '{printf "%30s%s\n", $1, $2}'
+  grep '[[:alnum:]_]*()' ~/dev_scripts/.commands.sh | sed 's/^  function //' \
+    | grep -v grep | sort | awk -F "\\\(\\\) { #" '{printf "%-12s\t%s\n", $1, $2}'
   echo
 }
 

@@ -20,6 +20,7 @@ BEGIN {
   commonfs["p"] = "|"
   commonfs["m"] = ";"
   commonfs["c"] = ":"
+  commonfs["o"] = ","
   if (!max_rows) max_rows = 500
   custom = length(custom)
 }
@@ -128,18 +129,18 @@ END {
   for (s in commonfs) {
     average_nf = commonfs_total[s] / max_rows
     
-    if (debug) print s, average_nf
+    if (debug) print s, "average nf: " average_nf
 
     if (average_nf < 2) { continue }
 
     for (j = 1; j <= max_rows; j++) {
-      point_var = (commonfs_count[s, j] - average_nf)^2
+      point_var = (commonfs_count[s, j] - average_nf) ** 2
       sum_var[s] += point_var
     }
     
     fs_var[s] = sum_var[s] / max_rows
 
-    if (debug) print s, fs_var[s]
+    if (debug) print s, "fs_var: " fs_var[s]
 
     if ( !winning_fs || fs_var[s] < fs_var[winning_fs] ) {
       winning_fs = s
@@ -158,7 +159,7 @@ END {
       if (average_nf < 2) { continue }
 
       for (j = 3; j <= max_rows; j++) {
-        point_var = (customfs_count[s, j] - average_nf)^2
+        point_var = (customfs_count[s, j] - average_nf) ** 2
         sum_var[s] += point_var
       }
       
