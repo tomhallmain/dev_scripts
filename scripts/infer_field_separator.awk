@@ -149,6 +149,8 @@ END {
 
     if (fs_var[s] == 0) {
       novar[s] = commonfs[s]
+      winning_fs = s
+      winners[s] = s
     }
   }
 
@@ -173,7 +175,9 @@ END {
       }
 
       if (fs_var[s] == 0) {
-        novar[s] == s
+        novar[s] = s
+        winning_fs = s
+        winners[s] = s
       }
     }    
   }
@@ -186,21 +190,21 @@ END {
         if (seen[compare_s]) continue
         fs1 = novar[s]
         fs2 = novar[compare_s]
-        if (fs1 ~ fs2) {
+        if (debug) print "novar handling case", "s: " s, "fs1: " fs1, "compare_s: " compare_s, "fs2: " fs2
+        if (fs1 ~ fs2 || fs2 ~ fs1) {
           # If one separator with no field delineation variance is 
           # contained inside another, use the longer one
-          if(length(winning_fs) < length(fs2) \
+          if(length(winners[s]) < length(fs2) \
             && length(fs1) < length(fs2)) {
             winning_fs = fs2
-            if (debug) print s, compare_s
+            if (debug) print "s: " s, "winning fs switched to: " compare_s
           }
         }
       }
     }
   }
 
-  if ( ! winning_fs ) { winning_fs = "s" }
-
-  print winners[winning_fs]
+  if ( ! winning_fs ) print commonfs["s"] # Space is default separator
+  else print winners[winning_fs]
 }
 

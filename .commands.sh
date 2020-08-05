@@ -414,6 +414,36 @@ print_comps() { # Print non-matching lines on given field numbers in two files
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
+inferk() { # Infer join fields in two text data files: inferk file [file (can be piped)]
+  local args=( "$@" )
+  if pipe_open; then
+    local file2=/tmp/inferk_showlater piped=0
+    cat /dev/stdin > $file2
+  else
+    let last_arg=${#args[@]}-1
+    local file2="${args[@]:$last_arg:1}"
+    [ ! -f "$file2" ] && echo File missing or invalid! && return 1
+    args=( ${args[@]/"$file2"} )
+  fi
+  
+  last_arg=$last_arg-1
+  local file1="${args[@]:$last_arg:1}"
+  if [ ! -f "$file1" ]; then
+    echo File missing or invalid!
+    [ $piped ] && rm $file &> /dev/null
+    return 1
+  fi
+  args=( ${args[@]/"$file1"} )
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
+    local fs1="-F$(inferfs "$file1")"
+    local fs2="-F$(inferfs "$file2")"
+  fi
+
+  awk $fs1 $fs2 -f ~/dev_scripts/scripts/infer_join_fields.awk \
+    "${args[@]}" "$file1" "$file2"
+  if [ $piped ]; then rm $file &> /dev/null; fi
+}
+
 inferfs() { # Infer field separator from text data file: inferfs file [try_custom=true] [use_file_ext=true]
   local file="$1"
   [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
@@ -562,10 +592,6 @@ recent_files() { # ls files modified last 7 days: recent_files [custom_dir] [rec
   [ $recurse ] && ([ $recurse = 'r' ] || [ $recurse = 'true' ]) || unset recurse
   # TODO: Rework this obscene logic with opts flags
 
-  for i in {0..6}; do 
-    datefilter=( "${datefilter[@]}" "-e $(date -d "-$i days" +%D)" )
-  done
-
   if [ $hidden ]; then
     [ $FD ] && [ $recurse ] && hidden=-HI #fd hides by default
     [ ! $recurse ] && hidden='A'
@@ -591,6 +617,10 @@ recent_files() { # ls files modified last 7 days: recent_files [custom_dir] [rec
       | (nameset 'fitcol' && fitcol -F";;" -v buffer=2 || awk -F";;") \
       | pipe_check
   else
+    for i in {0..6}; do 
+      datefilter=( "${datefilter[@]}" "-e $(date -d "-$i days" +%D)" )
+    done
+
     ls -ghtG$hidden --time-style=+%D "$dirname" | grep -v '^d' | grep ${datefilter[@]}
   fi
   [ $? = 0 ] || (echo $notfound && return 1)

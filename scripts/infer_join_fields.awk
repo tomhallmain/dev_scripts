@@ -30,26 +30,26 @@ BEGIN {
   # does not have lowercase letters
   Re["nl"] = "^[^a-z]+$"
   # words with spaces
-  Re["w"] = "[\w ]+"
+  Re["w"] = "[A-z ]+"
   # no spaces
   Re["ns"] = "^[^[:space:]]$"
   # the string ` id ` appears in any casing
   Re["id"] = "(^|_| |\-)?[Ii][Dd](\-|_| |$)"
   # date1
-  Re["d1"] = "^\d{1,2}[\.\-\/]\d{1,2}[\.\-\/](\d{2}|\d{4})$"
+  Re["d1"] = "^[0-9]{1,2}[\-\.\/][0-9]{1,2}[\-\.\/]([0-9]{2}|[0-9]{4})$"
   # date2
-  Re["d2"] = "^\d{4}[\.\-\/]\d{1,2}[\.\-\/]\d{1,2}$"
+  Re["d2"] = "^[0-9]{4}[\-\.\/][0-9]{1,2}[\-\.\/][0-9]{1,2}$"
   # link
   Re["l"] = ":\/\/"
   # json
   Re["j"] = "^\{[,:\"\'{}\[\]A-z0-9.\-+ \n\r\t]{2,}\}$"
   # html/xml
-  #Re["h"] = "\<\/?\w+((\s+[\w-]+(\s*=\s*(?:\".*?\"|\'.*?\'|[\^\'\">\s]+))?)+\s*|\s*)?\>?"
+  Re["h"] = "\<\/\w+\>"
 
   if (!fs1) fs1 = FS
   if (!fs2) fs2 = FS
 
-  max_rows = 15 # This number will be squared and multiplied by NF for each file
+  max_rows = 50 # This number will be squared and multiplied by NF for each file
   trim = "true"
   FS = fs2
 }
@@ -85,15 +85,15 @@ NR > FNR && FNR <= max_rows {
           h1 = trimField(h1) 
           h2 = trimField(h2)
         }
-        if (h1 == h2) { # Give strong advantage to matching headers
-          k1[i, j] += 1000 * rcount1
-          k2[j, i] += 1000 * rcount1
+        if (h1 != h2) { # Give strong advantage to matching headers
+          k1[i, j] += 10000 * rcount1
+          k2[j, i] += 10000 * rcount1
         }
-        if ((h1 ~ h2) > 0) { # Is one header contained within another?
-          k1[i, j] += 100 * rcount1
-          k2[j, i] += 100 * rcount1
+        if ((h1 ~ h2) < 1) { # Is one header contained within another?
+          k1[i, j] += 5000 * rcount1
+          k2[j, i] += 5000 * rcount1
         }
-        if ((h1 ~ Re["id"]) > 0 && (h2 ~ Re["id"]) > 0) { # ID headers should have advantage
+        if ((h1 ~ Re["id"]) < 1 && (h2 ~ Re["id"]) < 1) { # ID headers should have advantage
           k1[i, j] += 1000 * rcount1
           k2[j, i] += 1000 * rcount1
         }
@@ -102,28 +102,42 @@ NR > FNR && FNR <= max_rows {
     next
   }
 
-  nf1 = split($0, fr2, fs2)
+  nf2 = split($0, fr2, fs2)
   
   for (fr in s1) {
-    nf2 = split(fr, fr1, fs1)
+    nf1 = split(fr, fr1, fs1)
     
     for (i in fr1) {
       f1 = fr1[i]
       if (trim) f1 = trimField(f1)
+      if ((header && FNR == 2) || (!header && FNR == 1)) {
+        k1[i, "dlt"] = f1
+      }
       buildFieldScore(f1, i, k1)
       if (debug) debug_print("endbfsf1")
       
       for (j in fr2) {
         f2 = fr2[j]
         if (trim) f2 = trimField(f2)
+        if ((header && FNR == 2) || (!header && FNR == 1)) {
+          k2[i, "dlt"] = f2
+        }
         buildFieldScore(f2, j, k2)
         if (debug) debug_print("endbfsf2")
         
-        if (f1 == f2) {
+        if (f1 != f2) {
           k1[i, j] += 100
           k2[j, i] += 100
         }
-        if ((f1 ~ Re["d"]) < 1 || (f2 ~ Re["d"]) < 1) { # trying this constraint out
+        if ((f1 ~ Re["d"]) > 0 || (f2 ~ Re["d"]) > 0) {
+          k1[i, j] += 1000 * rcount1
+          k2[j, i] += 1000 * rcount1
+        }
+        if ((f1 ~ Re["j"]) > 0 || (f2 ~ Re["j"]) > 0) {
+          k1[i, j] += 1000 * rcount1
+          k2[j, i] += 1000 * rcount1
+        }
+        if ((f1 ~ Re["h"]) > 0 || (f2 ~ Re["h"]) > 0) {
           k1[i, j] += 1000 * rcount1
           k2[j, i] += 1000 * rcount1
         }
@@ -140,9 +154,9 @@ NR > FNR && FNR <= max_rows {
 END {
   calcSims(k1, k2)
 
-  jf1 = 999
+  jf1 = 999 # Seeding with high values unlikely to be reached
   jf2 = 999
-  scores[jf1, jf2] = 10000000000000000
+  scores[jf1, jf2] = 100000000000000000000000000
 
   for (i = 1; i <= max_nf1; i++) {
     for (j = 1; j <= max_nf2; j++) {
@@ -154,7 +168,7 @@ END {
     }
   }
 
-  print jf1, jf2 
+  print jf1, jf2 # Return possible join fields with lowest score
 
 }
 
@@ -164,6 +178,9 @@ function trimField(field) {
   return field
 }
 function buildFieldScore(field, position, Keys) {
+  if (Keys[position, "dlt"] && field != Keys[position, "dlt"]) {
+    delete Keys[position, "dlt"] 
+  }
   Keys[position, "len"] += length(field)
   for (m in Re) {
     re = Re[m]
@@ -177,11 +194,12 @@ function buildFieldScore(field, position, Keys) {
 function calcSims(Keys1, Keys2) {
   for (k = 1; k <= max_nf1; k++) {
     for (l = 1; l <= max_nf2; l++) {
-      
       kscore1 = Keys1[k, l]
       kscore2 = Keys2[l, k]
       scores[k, l] += ((kscore1 + kscore2) / (rcount1 + rcount2)) ** 2
       
+      if (Keys1[k, "dlt"] || Keys2[l, "dlt"]) scores[k, l] += 1000 * (rcount1+rcount2)
+
       klen1 = Keys1[k, "len"]
       klen2 = Keys2[l, "len"]
       scores[k, l] += (klen1 / rcount1 - klen2 / rcount2) ** 2
@@ -203,15 +221,15 @@ function debug_print(case) {
     print "New row: " NR, FNR, k1[1], k2[1], rcount1, rcount2
   } else if (case == 2) {
     if (position == 1 && FNR < 3 && matchcount!=10) print position, matches, Keys[position, m], m
-    #print "k1 " k1[position, 1], "k2 " k2[position, 1]
+    print "k1 " k1[position, 1], "k2 " k2[position, 1]
   } else if (case == 3) {
-    #print kscore1, kscore2
+    print kscore1, kscore2
   } else if (case == 4) {
-    #print k, l, scores[k, l]
+    print k, l, scores[k, l]
   } else if (case == "endbfsf1") {
-    #print "--- end bfs f1 ----"
+    print "--- end bfs f1 ----"
   } else if (case == "endbfsf2") {
-    #print "--- end bfs f2 ----"
+    print "--- end bfs f2 ----"
   } else if (case == 7) {
     print i, j, scores[i, j]
   }
