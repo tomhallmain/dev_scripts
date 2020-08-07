@@ -138,11 +138,11 @@ optshandling() { # General flag opts handling
   echo reached end
 }
 
-dup_input() { # Duplicate input sent to stdin in aggregate
+dup_input() { # Duplicate input sent to STDIN in aggregate
   tee /tmp/showlater && cat /tmp/showlater && rm /tmp/showlater
 }
 
-pipe_open() { # Detect if stdin pipe is open
+pipe_open() { # Detect if STDIN pipe is open
   [ -p /dev/stdin ]
 }
 
@@ -224,7 +224,7 @@ lbv() { # Generate a cross table of git repos vs branches
   fi
 }
 
-plb() { # Purge branch name(s) from all git repos associated
+plb() { # Purge branch name(s) from all local git repos associated
   bash ~/dev_scripts/scripts/purge_local_branches.sh
 }
 
@@ -359,11 +359,11 @@ ajoin() { # Similar to the join Unix command but with different features
     args=( ${args[@]/"$file2"} )
   fi
   
-  last_arg=$last_arg-1
+  let last_arg=${#args[@]}-1
   local file1="${args[@]:$last_arg:1}"
   if [ ! -f "$file1" ]; then
     echo File missing or invalid!
-    [ $piped ] && rm $file &> /dev/null
+    [ $piped ] && rm $file2 &> /dev/null
     return 1
   fi
   args=( ${args[@]/"$file1"} )
@@ -374,7 +374,7 @@ ajoin() { # Similar to the join Unix command but with different features
 
   awk $fs1 $fs2 -f ~/dev_scripts/scripts/fullouterjoin.awk \
     "${args[@]}" "$file1" "$file2"
-  if [ $piped ]; then rm $file &> /dev/null; fi
+  if [ $piped ]; then rm $file2 &> /dev/null; fi
   # TODO: Add opts, infer keys, sort, statistics
 }
 
@@ -385,15 +385,26 @@ print_matches() { # Print duplicate lines on given field numbers in two files
     cat /dev/stdin > $file
   else
     let last_arg=${#args[@]}-1
-    local file="${args[@]:$last_arg:1}"
-    [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
-    args=( ${args[@]/"$file"} )
+    local file2="${args[@]:$last_arg:1}"
+    [ ! -f "$file2" ] && echo File was not provided or is invalid! && return 1
+    args=( ${args[@]/"$file2"} )
   fi
+  
+  let last_arg=${#args[@]}-1
+  local file1="${args[@]:$last_arg:1}"
+  if [ ! -f "$file1" ]; then
+    echo File missing or invalid!
+    [ $piped ] && rm $file2 &> /dev/null
+    return 1
+  fi
+  args=( ${args[@]/"$file1"} )
   if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
-    local fs="-F$(inferfs "$file")"
+    local fs1="-F$(inferfs "$file1")"
+    local fs2="-F$(inferfs "$file2")"
   fi
-  awk -f ~/dev_scripts/scripts/matches.awk "${args[@]}" "$file"
-  if [ $piped ]; then rm $file &> /dev/null; fi
+  
+  awk $fs1 $fs2 -f ~/dev_scripts/scripts/matches.awk "${args[@]}" "$file1" "$file2"
+  if [ $piped ]; then rm $file2 &> /dev/null; fi
 }
 
 print_comps() { # Print non-matching lines on given field numbers in two files
@@ -403,15 +414,25 @@ print_comps() { # Print non-matching lines on given field numbers in two files
     cat /dev/stdin > $file
   else
     let last_arg=${#args[@]}-1
-    local file="${args[@]:$last_arg:1}"
-    [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
-    args=( ${args[@]/"$file"} )
+    local file2="${args[@]:$last_arg:1}"
+    [ ! -f "$file2" ] && echo File was not provided or is invalid! && return 1
+    args=( ${args[@]/"$file2"} )
   fi
+  
+  let last_arg=${#args[@]}-1
+  local file1="${args[@]:$last_arg:1}"
+  if [ ! -f "$file1" ]; then
+    echo File missing or invalid!
+    [ $piped ] && rm $file2 &> /dev/null
+    return 1
+  fi
+  args=( ${args[@]/"$file1"} )
   if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
-    local fs="-F$(inferfs "$file")"
+    local fs1="-F$(inferfs "$file1")"
+    local fs2="-F$(inferfs "$file2")"
   fi
-  awk $fs -f ~/dev_scripts/scripts/complements.awk "${args[@]}" "$file"
-  if [ $piped ]; then rm $file &> /dev/null; fi
+  awk $fs1 $fs2 -f ~/dev_scripts/scripts/complements.awk "${args[@]}" "$file1" "$file2"
+  if [ $piped ]; then rm $file2 &> /dev/null; fi
 }
 
 inferk() { # Infer join fields in two text data files: inferk file [file (can be piped)]
@@ -430,7 +451,7 @@ inferk() { # Infer join fields in two text data files: inferk file [file (can be
   local file1="${args[@]:$last_arg:1}"
   if [ ! -f "$file1" ]; then
     echo File missing or invalid!
-    [ $piped ] && rm $file &> /dev/null
+    [ $piped ] && rm $file2 &> /dev/null
     return 1
   fi
   args=( ${args[@]/"$file1"} )
@@ -441,7 +462,7 @@ inferk() { # Infer join fields in two text data files: inferk file [file (can be
 
   awk $fs1 $fs2 -f ~/dev_scripts/scripts/infer_join_fields.awk \
     "${args[@]}" "$file1" "$file2"
-  if [ $piped ]; then rm $file &> /dev/null; fi
+  if [ $piped ]; then rm $file2 &> /dev/null; fi
 }
 
 inferfs() { # Infer field separator from text data file: inferfs file [try_custom=true] [use_file_ext=true]

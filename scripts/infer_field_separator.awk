@@ -150,7 +150,7 @@ END {
     if (fs_var[s] == 0) {
       novar[s] = commonfs[s]
       winning_fs = s
-      winners[s] = s
+      winners[s] = commonfs[s]
     }
   }
 
