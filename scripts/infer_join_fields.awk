@@ -49,9 +49,9 @@ BEGIN {
   if (!fs1) fs1 = FS
   if (!fs2) fs2 = FS
 
-  max_rows = 50 # This number will be squared and multiplied by NF for each file
-  trim = "true"
-  FS = fs2
+  max_rows = 50
+  if (!trim) trim = "true"
+  FS = fs2 # Splitting not started until second file reached
 }
 
 

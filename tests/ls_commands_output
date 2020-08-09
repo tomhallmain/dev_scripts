@@ -1,0 +1,63 @@
+
+ajoin       	 ** Similar to the join Unix command but with different features
+cut_header  	 ** Remove up to a certain number of lines from the start of a file, default is 1
+die         	 Output to STDERR and exit with error
+ds          	 Generate basic statistics about data in a Unix text file
+dup_in_dir  	 Report duplicate files with option for deletion
+dup_input   	 ** Duplicate input sent to STDIN in aggregate
+embrace     	 Enclose a string in braces: embrace string [openbrace="{"] [closebrace="}"]
+env_refresh 	 Pull latest master branch for all git repos, run installs
+fail        	 Safe failure, kills parent but returns to prompt (no custom message on zsh)
+fieldcounts 	 Print value counts for a given field in a data file: fieldcounts file [field=1] [min=1] [order=a]
+filename_str	 Adds a string to the beginning or end of a filename
+fitcol      	 ** Print field-separated data in columns with dynamic width: fitcol [awkargs] file
+gacmp       	 Add all untracked files, commit with message, push current branch
+gadd        	 Add all untracked git files
+gc          	 git commit, defined if alias gc not set
+gcam        	 git commit -am 'commit message', defined if alias gcam not set
+git_branch  	 Run git branch for all repos
+git_graph   	 Print colorful git history graph
+git_recent  	 Display table of commits sorted by recency descending
+git_recent_all	 Display table of recent commits for all home dir branches
+git_status  	 Run git status for all repos
+google      	 Executes Google search with args provided
+gpcurr      	 git push origin for current branch
+index       	 ** Prints an index attached to data lines from a file or stdin
+inferfs     	 Infer field separator from text data file: inferfs file [try_custom=true] [use_file_ext=true]
+inferhead   	 ** Infer if headers are present in a file: inferhead [awkargs] file (can be piped)
+inferk      	 ** Infer join fields in two text data files: inferk file [file (can be piped)]
+is_cli      	 Detect if shell is interactive
+iter_str    	 Repeat a string some number of times: rpt_str str [n=1] [fs]
+join_by     	 ** Join a shell array by a text argument provided
+lbv         	 Generate a cross table of git repos vs branches
+longopts    	 Support long options: https://stackoverflow.com/a/28466267/519360
+ls_commands 	 List commands in the dev_scripts/.commands.sh file
+mactounix   	 Converts ^M return characters into simple carriage returns in place
+mktmp       	 mktemp -q "/tmp/${filename}"
+namedata    	 Gathers data about names in current context
+nameset     	 Test if name (function, alias, variable) is defined in context
+nametype    	 Test name type (function, alias, variable) if defined in context
+needs_arg   	 Test if argument is missing and handle UX if it's not
+nested      	 Detect if shell is nested for control handling
+not_git     	 Check if directory is not part of a git repo
+optshandling	 General flag opts handling
+path_elements	 Returns dirname, filename, and extension from a filepath
+pipe_check  	 ** Detect if pipe has any data
+pipe_open   	 ** Detect if STDIN pipe is open
+plb         	 Purge branch name(s) from all local git repos associated
+print_comps 	 ** Print non-matching lines on given field numbers in two files
+print_matches	 ** Print duplicate lines on given field numbers in two files
+recent_files	 ls files modified last 7 days: recent_files [custom_dir] [recurse=r] [hidden=h]
+refresh_bash	 Refresh bash interactive session
+refresh_zsh 	 Refresh zsh interactive session
+reverse     	 ** Bash-only solution to reverse lines for processing
+root_volume 	 Returns the root volume / of the system
+searchnames 	 Searches current names for string, returns matches
+so_search   	 Executes Stack Overflow search with args provided
+stagger     	 ** Print field-separated data in staggered rows: stagger [awkargs] file
+sub_sh      	 Detect if in a subshell TODO - update to replace unreliable SUBSHELL vars
+todo        	 List todo items found in current directory
+transpose   	 ** Transpose field values of a text-based field-separated file
+webpage_title	 Downloads html from a webpage and extracts the title text
+which_sh    	 Print the shell being used (works for sh, bash, zsh)
+

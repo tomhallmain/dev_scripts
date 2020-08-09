@@ -21,6 +21,7 @@ BEGIN {
   commonfs["m"] = ";"
   commonfs["c"] = ":"
   commonfs["o"] = ","
+  # TODO: Add commonfs "[[:space:]]{2,}"
   if (!max_rows) max_rows = 500
   custom = length(custom)
 }
@@ -190,14 +191,21 @@ END {
         if (seen[compare_s]) continue
         fs1 = novar[s]
         fs2 = novar[compare_s]
-        if (debug) print "novar handling case", "s: " s, "fs1: " fs1, "compare_s: " compare_s, "fs2: " fs2
+        
+        if (debug) print "novar handling case", "s: " s, "fs1: " fs1, "compare_s: " compare_s, "fs2: " fs2, "matches: " fs1 ~ fs2
+        if (debug) print "len winner: " length(winners[s]), "len fs1: " length(fs1), "len fs2 " length(fs2)
+
         if (fs1 ~ fs2 || fs2 ~ fs1) {
           # If one separator with no field delineation variance is 
           # contained inside another, use the longer one
-          if(length(winners[s]) < length(fs2) \
+          if (length(winners[winning_fs]) < length(fs2) \
             && length(fs1) < length(fs2)) {
             winning_fs = fs2
             if (debug) print "s: " s, "winning fs switched to: " compare_s
+          } else if (length(winners[winning_fs]) < length(fs1) \
+            && length(fs1) > length(fs2)) {
+            winning_fs = fs1
+            if (debug) print "compare_s: " compare_s, "winning fs switched to: " s
           }
         }
       }

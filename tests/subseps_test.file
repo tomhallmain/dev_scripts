@@ -1,0 +1,58 @@
+A;A  A;A
+B;B  B;B
+C;C C;C
+D;D  D;D
+E;E  E;E
+F;F  F;F
+G;GSEPG;G
+H;HSEPH;H
+I;ISEPI;I
+J;JSEPJ;J
+K;KSEPK;K
+L;LSEPL;L
+M;MSEPM;M
+N;NSEPN;N
+O;OSEPO;O
+P;PSEPP;P
+Q;QSEPQ;Q
+R;RSEPR;R
+S;SSEPS;S
+T;TSEPT;T
+U;USEPU;U
+V;VSEPV;V
+W;WSEPW;W
+X;XSEPX;X
+Y;YSEPY;Y
+Z;ZSEPZ;Z
+[;[SEP[;[
+\;\SEP\;\
+];]SEP];]
+^;^SEP^;^
+_;_SEP_;_
+`;`SEP`;`
+a;aSEPa;a
+b;bSEPb;b
+c;cSEPc;c
+d;dSEPd;d
+e;eSEPe;e
+f;fSEPf;f
+g;gSEPg;g
+h;hSEPh;h
+i;iSEPi;i
+j;jSEPj;j
+k;kSEPk;k
+l;lSEPl;l
+m;mSEPm;m
+n;nSEPn;n
+o;oSEPo;o
+p;pSEPp;p
+q;qSEPq;q
+r;rSEPr;r
+s;sSEPs;s
+t;tSEPt;t
+u;uSEPu;u
+v;vSEPv;v
+w;wSEPw;w
+x;x x;x
+y;y y;y
+z;z z;z

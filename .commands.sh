@@ -60,7 +60,7 @@ which_sh() { # Print the shell being used (works for sh, bash, zsh)
   # There is also envvar SHELL, might be more portable
 }
 
-sub_sh() { # Detect if in a subshell TODO - update to replace unreliable SUBSHELL vars
+sub_sh() { # Detect if in a subshell 
   [[ $BASH_SUBSHELL -gt 0 || $ZSH_SUBSHELL -gt 0  \
      || "$(exec sh -c 'echo "$PPID"')" != "$$"    \
      || "$(exec ksh -c 'echo "$PPID"')" != "$$"   ]]
@@ -91,7 +91,7 @@ mktmp() { # mktemp -q "/tmp/${filename}"
 
 die() { # Output to STDERR and exit with error
   echo "$*" >&2
-  if sub_sh || nested; then kill $$; else fi
+  if sub_sh || nested; then kill $$; fi
 }
 
 fail() { # Safe failure, kills parent but returns to prompt (no custom message on zsh)
@@ -138,15 +138,15 @@ optshandling() { # General flag opts handling
   echo reached end
 }
 
-dup_input() { # Duplicate input sent to STDIN in aggregate
+dup_input() { # ** Duplicate input sent to STDIN in aggregate
   tee /tmp/showlater && cat /tmp/showlater && rm /tmp/showlater
 }
 
-pipe_open() { # Detect if STDIN pipe is open
+pipe_open() { # ** Detect if pipe is open
   [ -p /dev/stdin ]
 }
 
-pipe_check() { # Detect if pipe has any data
+pipe_check() { # ** Detect if pipe has any data
   tee > /tmp/stdin
   test -s /tmp/stdin
   local has_data=$?
@@ -154,8 +154,10 @@ pipe_check() { # Detect if pipe has any data
   return $has_data
 }
 
-join_by() { # Join a shell array by a text argument provided
-  local d=$1; shift; echo -n "$1"; shift; printf "%s" "${@/#/$d}";
+join_by() { # ** Join a shell array by a text argument provided
+  local d=$1; shift
+  pipe_open && args=( "$@" "$(cat /dev/stdin)" ) && set -- "${args[@]}"
+  echo -n "$1"; shift; printf "%s" "${args/#/$d}";
 }
 
 iter_str() { # Repeat a string some number of times: rpt_str str [n=1] [fs]
@@ -202,7 +204,7 @@ root_volume() { # Returns the root volume / of the system
   done
 }
 
-reverse() { # Bash-only solution to reverse lines for processing
+reverse() { # ** Bash-only solution to reverse lines for processing
   local line
   if IFS= read -r line; then
     reverse
@@ -347,7 +349,7 @@ todo() { # List todo items found in current directory
   [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
 }
 
-ajoin() { # Similar to the join Unix command but with different features
+ajoin() { # ** Similar to the join Unix command but with different features
   local args=( "$@" )
   if pipe_open; then
     local file2=/tmp/ajoin_showlater piped=0
@@ -378,7 +380,7 @@ ajoin() { # Similar to the join Unix command but with different features
   # TODO: Add opts, infer keys, sort, statistics
 }
 
-print_matches() { # Print duplicate lines on given field numbers in two files
+print_matches() { # ** Print duplicate lines on given field numbers in two files
   local args=( "$@" )
   if pipe_open; then
     local file=/tmp/matches_showlater piped=0
@@ -407,7 +409,7 @@ print_matches() { # Print duplicate lines on given field numbers in two files
   if [ $piped ]; then rm $file2 &> /dev/null; fi
 }
 
-print_comps() { # Print non-matching lines on given field numbers in two files
+print_comps() { # ** Print non-matching lines on given field numbers in two files
   local args=( "$@" )
   if pipe_open; then
     local file=/tmp/complements_showlater piped=0
@@ -435,7 +437,11 @@ print_comps() { # Print non-matching lines on given field numbers in two files
   if [ $piped ]; then rm $file2 &> /dev/null; fi
 }
 
-inferk() { # Infer join fields in two text data files: inferk file [file (can be piped)]
+inferhead() { # ** Infer if headers are present in a file: inferhead [awkargs] file (can be piped)
+
+}
+
+inferk() { # ** Infer join fields in two text data files: inferk file [file (can be piped)]
   local args=( "$@" )
   if pipe_open; then
     local file2=/tmp/inferk_showlater piped=0
@@ -485,7 +491,7 @@ inferfs() { # Infer field separator from text data file: inferfs file [try_custo
   fi
 }
 
-fitcol() { # Print field-separated data in columns with dynamic width: fitcol [awkargs] file
+fitcol() { # ** Print field-separated data in columns with dynamic width: fitcol [awkargs] file
   local args=( "$@" )
   local col_buffer=${col_buffer:-1} # Margin between cols, default is 1 char 
   if pipe_open; then
@@ -506,7 +512,7 @@ fitcol() { # Print field-separated data in columns with dynamic width: fitcol [a
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
-stagger() { # Print field-separated data in staggered rows: stagger [awkargs] file
+stagger() { # ** Print field-separated data in staggered rows: stagger [awkargs] file
   local args=( "$@" )
   if pipe_open; then
     local file=/tmp/stagger_showlater piped=0
@@ -524,7 +530,7 @@ stagger() { # Print field-separated data in staggered rows: stagger [awkargs] fi
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
-index() { # Prints an index attached to data lines from a file or stdin
+index() { # ** Prints an index attached to data lines from a file or stdin
   local args=( "$@" )
   if pipe_open; then
     local header=$1
@@ -544,7 +550,7 @@ index() { # Prints an index attached to data lines from a file or stdin
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
-cut_header() { # Remove up to a certain number of lines from the start of a file, default is 1
+cut_header() { # ** Remove up to a certain number of lines from the start of a file, default is 1
   let n_lines=1+${1:-1}
   if pipe_open; then
     local file=/tmp/cutheader piped=0
@@ -557,7 +563,7 @@ cut_header() { # Remove up to a certain number of lines from the start of a file
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
-transpose() { # Transpose field values of a text-based field-separated file
+transpose() { # ** Transpose field values of a text-based field-separated file
   local args=( "$@" )
   if pipe_open; then
     local file=/tmp/transpose piped=0
@@ -591,6 +597,15 @@ fieldcounts() { # Print value counts for a given field in a data file: fieldcoun
   local program="{ _[\$${field}]++ }
     END { for (i in _) if (_[i] > ${min}) print _[i], i }"
   cat "$file" | awk -F"$fs" "$program" | sort -n$order
+}
+
+subsep() { # Extend the fields of a field-based text file to include a common subseparator: subsep file subsep_pattern [nomatch_handler=space]
+  [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
+  local file="$1"
+  local fs="$(inferfs "$file")"
+  [ $2 ] && local ssp="-v subsep_pattern=$2"
+  [ $3 ] && local nmh="-v nomatch_handler=$3"
+  awk $fs $ssp $nmh -f ~/dev_scripts/scripts/subseparator.awk "$file"
 }
 
 mactounix() { # Converts ^M return characters into simple carriage returns in place
@@ -691,6 +706,8 @@ ls_commands() { # List commands in the dev_scripts/.commands.sh file
   echo
   grep '[[:alnum:]_]*()' ~/dev_scripts/.commands.sh | sed 's/^  function //' \
     | grep -v grep | sort | awk -F "\\\(\\\) { #" '{printf "%-12s\t%s\n", $1, $2}'
+  echo
+  echo "** - function supports receiving piped data"
   echo
 }
 
