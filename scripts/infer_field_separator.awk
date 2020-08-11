@@ -21,7 +21,7 @@ BEGIN {
   commonfs["m"] = ";"
   commonfs["c"] = ":"
   commonfs["o"] = ","
-  # TODO: Add commonfs "[[:space:]]{2,}"
+  commonfs["w"] = "[[:space:]]{2,}"
   if (!max_rows) max_rows = 500
   custom = length(custom)
 }
