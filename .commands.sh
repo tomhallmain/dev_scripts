@@ -296,7 +296,7 @@ git_recent() { # Display table of commits sorted by recency descending
   else
     # If not for immediate display, return extra field for further parsing
     format="${format/short)|/short)|%(committerdate:short)|}"
-    git for-each-ref refs/heads --format=$format --color=always
+    git for-each-ref refs/heads --format="$format" --color=always
   fi
 }
 
