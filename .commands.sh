@@ -370,12 +370,14 @@ ajoin() { # ** Similar to the join Unix command but with different features
   fi
   args=( ${args[@]/"$file1"} )
   if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
-    local fs1="-F\'$(inferfs "$file1")\'"
-    local fs2="-F\'$(inferfs "$file2")\'"
+    local fs1="$(inferfs "$file1")"
+    local fs2="$(inferfs "$file2")"
+    awk -v fs1="$fs1" -v fs2="$fs2" -f ~/dev_scripts/scripts/fullouterjoin.awk \
+      "${args[@]}" "$file1" "$file2"
+  else 
+    awk -f ~/dev_scripts/scripts/fullouterjoin.awk "${args[@]}" "$file1" "$file2"
   fi
 
-  awk $fs1 $fs2 -f ~/dev_scripts/scripts/fullouterjoin.awk \
-    "${args[@]}" "$file1" "$file2"
   if [ $piped ]; then rm $file2 &> /dev/null; fi
   # TODO: Add opts, infer keys, sort, statistics
 }
@@ -400,12 +402,15 @@ print_matches() { # ** Print duplicate lines on given field numbers in two files
     return 1
   fi
   args=( ${args[@]/"$file1"} )
-  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
-    local fs1="-F\'$(inferfs "$file1")\'"
-    local fs2="-F\'$(inferfs "$file2")\'"
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" && ! "${args[@]}" =~ "-v FS" ]]; then
+    local fs1="$(inferfs "$file1")"
+    local fs2="$(inferfs "$file2")"
+    awk -v fs1="$fs1" -v fs2="$fs2" -f ~/dev_scripts/scripts/matches.awk \
+      "${args[@]}" "$file1" "$file2"
+  else
+    awk -f ~/dev_scripts/scripts/matches.awk "${args[@]}" "$file1" "$file2"
   fi
   
-  awk $fs1 $fs2 -f ~/dev_scripts/scripts/matches.awk "${args[@]}" "$file1" "$file2"
   if [ $piped ]; then rm $file2 &> /dev/null; fi
 }
 
@@ -430,10 +435,13 @@ print_comps() { # ** Print non-matching lines on given field numbers in two file
   fi
   args=( ${args[@]/"$file1"} )
   if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
-    local fs1="-F\'$(inferfs "$file1")\'"
-    local fs2="-F\'$(inferfs "$file2")\'"
+    local fs1="$(inferfs "$file1")"
+    local fs2="$(inferfs "$file2")"
+    awk -v fs1="$fs1" -v fs2="$fs2" -f ~/dev_scripts/scripts/complements.awk \
+      "${args[@]}" "$file1" "$file2"
+  else
+    awk -f ~/dev_scripts/scripts/complements.awk "${args[@]}" "$file1" "$file2"
   fi
-  awk $fs1 $fs2 -f ~/dev_scripts/scripts/complements.awk "${args[@]}" "$file1" "$file2"
   if [ $piped ]; then rm $file2 &> /dev/null; fi
 }
 
@@ -463,12 +471,14 @@ inferk() { # ** Infer join fields in two text data files: inferk file [file (can
   fi
   args=( ${args[@]/"$file1"} )
   if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
-    local fs1="-F\'$(inferfs "$file1")\'"
-    local fs2="-F\'$(inferfs "$file2")\'"
+    local fs1="$(inferfs "$file1")"
+    local fs2="$(inferfs "$file2")"
+    awk -v fs1="$fs1" -v fs2="$fs2" -f ~/dev_scripts/scripts/infer_join_fields.awk \
+      "${args[@]}" "$file1" "$file2"
+  else
+  awk -f ~/dev_scripts/scripts/infer_join_fields.awk "${args[@]}" "$file1" "$file2"
   fi
 
-  awk $fs1 $fs2 -f ~/dev_scripts/scripts/infer_join_fields.awk \
-    "${args[@]}" "$file1" "$file2"
   if [ $piped ]; then rm $file2 &> /dev/null; fi
 }
 
@@ -505,11 +515,14 @@ fitcol() { # ** Print field-separated data in columns with dynamic width: fitcol
     args=( ${args[@]/"$file"} )
   fi
   if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
-    local fs="-F\'$(inferfs "$file")\'"
+    local fs="$(inferfs "$file")"
+    awk -v FS="$fs" -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk \
+      -v buffer=$col_buffer ${args[@]} "$file"{,} # List file twice for duplicate reading
+  else
+    awk -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk \
+      -v buffer=$col_buffer ${args[@]} "$file"{,} # List file twice for duplicate reading
   fi
 
-  awk $fs -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk \
-    -v buffer=$col_buffer ${args[@]} "$file"{,} # List file twice for duplicate reading
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
@@ -525,9 +538,11 @@ stagger() { # ** Print field-separated data in staggered rows: stagger [awkargs]
     args=( ${args[@]/"$file"} )
   fi
   if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
-    local fs="-F\'$(inferfs "$file")\'"
+    local fs="$(inferfs "$file")"
+    awk -v FS="$fs" -f ~/dev_scripts/scripts/stagger.awk ${args[@]} "$file"
+  else
+    awk -f ~/dev_scripts/scripts/stagger.awk ${args[@]} "$file"
   fi
-  awk $fs -f ~/dev_scripts/scripts/stagger.awk ${args[@]} "$file"
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
@@ -576,9 +591,11 @@ transpose() { # ** Transpose field values of a text-based field-separated file
     args=( ${args[@]/"$file"} )
   fi
   if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" ]]; then
-    local fs="-F\'$(inferfs "$file")\'"
+    local fs="$(inferfs "$file")"
+    awk -v FS="$fs" -f ~/dev_scripts/scripts/transpose.awk ${args[@]} "$file"
+  else
+    awk -f ~/dev_scripts/scripts/transpose.awk ${args[@]} "$file"
   fi
-  awk $fs -f ~/dev_scripts/scripts/transpose.awk ${args[@]} "$file"
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
@@ -616,7 +633,7 @@ subsep() { # Extend the fields of a field-based text file to include a common su
   local fs="$(inferfs "$file")"
   [ $2 ] && local ssp="-v subsep_pattern=$2"
   [ $3 ] && local nmh="-v nomatch_handler=$3"
-  awk $fs $ssp $nmh -f ~/dev_scripts/scripts/subseparator.awk "$file"
+  awk -v FS=$fs $ssp $nmh -f ~/dev_scripts/scripts/subseparator.awk "$file"
 }
 
 mactounix() { # Converts ^M return characters into simple carriage returns in place
