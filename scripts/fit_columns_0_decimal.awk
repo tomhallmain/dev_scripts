@@ -51,7 +51,7 @@ BEGIN {
     }
   }
 
-  if (!buffer) buffer = 1
+  if (!buffer) buffer = 2
 
   if (!(color == "never")) {
     yellow = "\033[1;93m"
@@ -63,8 +63,9 @@ BEGIN {
   decimal_re = "^[[:space:]]*[0-9]+[\.][0-9]+[[:space:]]*$"
   num_re = "^[[:space:]]*[0-9]+([\.][0-9]*)?[[:space:]]*$"
 
-  "tput cols" | getline tty_size; tty_size += 0
-
+  if (!tty_size) {
+    "tput cols" | getline tty_size; tty_size += 0
+  }
 }
 
 

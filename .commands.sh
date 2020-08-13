@@ -510,7 +510,8 @@ inferfs() { # Infer field separator from text data file: inferfs file [try_custo
 
 fitcol() { # ** Print field-separated data in columns with dynamic width: fitcol [awkargs] file
   local args=( "$@" )
-  local col_buffer=${col_buffer:-1} # Margin between cols, default is 1 char 
+  local col_buffer=${col_buffer:-3} # Margin between cols, default is 1 char 
+  local tty_size=$(tput cols)
   if pipe_open; then
     local file=/tmp/fitcol_showlater piped=0
     cat /dev/stdin > $file
@@ -522,10 +523,10 @@ fitcol() { # ** Print field-separated data in columns with dynamic width: fitcol
   fi
   if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
     local fs="$(inferfs "$file")"
-    awk -v FS="$fs" -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk \
+    awk -v FS="$fs" -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk -v tty_size=$tty_size\
       -v buffer=$col_buffer ${args[@]} "$file"{,} 2> /dev/null
   else
-    awk -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk \
+    awk -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk -v tty_size=$tty_size\
       -v buffer=$col_buffer ${args[@]} "$file"{,} 2> /dev/null
   fi
 
@@ -659,12 +660,28 @@ mactounix() { # Converts ^M return characters into simple carriage returns in pl
 mini() { # Crude minify, remove whitespace including newlines except space
   if pipe_open; then
     cat /dev/stdin > /tmp/mini_showlater;
-    local file=/tmp/minishowlater piped=0
+    local file=/tmp/mini_showlater piped=0
   else
     [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
     local file="$1"
   fi
   awk -v RS="\0" '{ gsub("(\n|\t)" ,""); print }' "$file" 2> /dev/null
+  if [ $piped ]; then rm $file &> /dev/null; fi
+}
+
+infsort() { # Sort with an inferred field separator
+  local args=( "$@" )
+  if pipe_open; then
+    cat /dev/stdin > /tmp/ifsort_showlater;
+    local file=/tmp/ifsort_showlater piped=0
+  else 
+    let last_arg=${#args[@]}-1
+    local file="${args[@]:$last_arg:1}"
+    [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
+    args=( ${args[@]/"$file"} )
+  fi
+  local fs="$(inferfs $file)"
+  sort ${args[@]} -t"$fs" "$file"
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
