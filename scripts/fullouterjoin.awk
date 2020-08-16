@@ -21,26 +21,6 @@
 #
 # Any other Awk variables such as FS, OFS can be assigned as normal
 
-function genKeyString(keys) {
-  str = ""
-  for (i in keys)
-    k = keys[i]
-    gsub(/^[[:space:]]+|[[:space:]]+$/, "", $k)
-    if (length($k) == 0) $k = "<NULL>"
-    str = str $k _
-  return str
-}
-
-function genOutputString(line, fs) {
-  gsub(fs, OFS, line)
-  return line
-}
-
-function printNullFields(nf) {
-  for (i=1; i<=nf; i++)
-    if (i == nf) { printf "<NULL>" } else { printf "<NULL>" OFS }
-}
-
 BEGIN {
   _ = SUBSEP
 
@@ -139,3 +119,22 @@ END {
     print ""
   }
 }
+
+function genKeyString(keys) {
+  str = ""
+  for (i in keys)
+    k = keys[i]
+    gsub(/^[[:space:]]+|[[:space:]]+$/, "", $k)
+    if (length($k) == 0) $k = "<NULL>"
+    str = str $k _
+  return str
+}
+function genOutputString(line, fs) {
+  gsub(fs, OFS, line)
+  return line
+}
+function printNullFields(nf) {
+  for (i=1; i<=nf; i++)
+    if (i == nf) { printf "<NULL>" } else { printf "<NULL>" OFS }
+}
+

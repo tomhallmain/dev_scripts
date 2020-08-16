@@ -61,9 +61,9 @@ which_sh() { # Print the shell being used (works for sh, bash, zsh)
 }
 
 sub_sh() { # Detect if in a subshell 
-  [[ $BASH_SUBSHELL -gt 0 || $ZSH_SUBSHELL -gt 0  \
-     || "$(exec sh -c 'echo "$PPID"')" != "$$"    \
-     || "$(exec ksh -c 'echo "$PPID"')" != "$$"   ]]
+  [[ $BASH_SUBSHELL -gt 0 || $ZSH_SUBSHELL -gt 0 \
+     || "$(exec sh -c 'echo "$PPID"')" != "$$"   \
+     || "$(exec ksh -c 'echo "$PPID"')" != "$$"  ]]
 }
 
 nested() { # Detect if shell is nested for control handling
@@ -146,9 +146,13 @@ pipe_open() { # ** Detect if pipe is open
   [ -p /dev/stdin ]
 }
 
-pipe_check() { # ** Detect if pipe has any data
+pipe_check() { # ** Detect if pipe has any data, or over a certain number of lines
   tee > /tmp/stdin
-  test -s /tmp/stdin
+  if [ -z $1 ]; then
+    test -s /tmp/stdin
+  else
+    [ $(cat /tmp/stdin | wc -l) -gt $1 ]
+  fi
   local has_data=$?
   cat /tmp/stdin; rm /tmp/stdin
   return $has_data
@@ -156,31 +160,44 @@ pipe_check() { # ** Detect if pipe has any data
 
 join_by() { # ** Join a shell array by a text argument provided
   local d=$1; shift
-  pipe_open && args=( "$@" "$(cat /dev/stdin)" ) && set -- "${args[@]}"
-  echo -n "$1"; shift; printf "%s" "${args/#/$d}";
+
+  if pipe_open; then
+    local pipeargs=($(cat /dev/stdin))
+    [ -z ${pipeargs[2]} ] && echo Not enough args to join! && return 1
+    local first="${pipeargs[0]}"
+    local args=( ${pipeargs[@]:1} "$@" )
+    set -- "${args[@]}"
+  else
+    [ -z $2 ] && echo Not enough args to join! && return 1
+    local first="$1"; shift
+    local args=( "$@" )
+  fi
+
+  echo -n "$first"; printf "%s" "${args[@]/#/$d}"
 }
 
 iter_str() { # Repeat a string some number of times: rpt_str str [n=1] [fs]
   local str="$1" fs="${3:- }" liststr="$1"
-  let n_repeats=${2:-1}-2
-  for i in {0..$n_repeats}; do liststr="${liststr}${fs}${str}"; done
+  let n_repeats=${2:-1}-1
+  for ((i=1;i<=$n_repeats;i++)); do liststr="${liststr}${fs}${str}"; done
   echo "$liststr"
 }
 
 embrace() { # Enclose a string in braces: embrace string [openbrace="{"] [closebrace="}"]
-  local value="$1" closebrace="${3:-\}}"
+  local value="$1" 
   [ "$2" = "" ] && local openbrace="{" || local openbrace="$2"
+  [ "$3" = "" ] && local closebrace="}" || local closebrace="$3"
   echo "${openbrace}${value}${closebrace}"
 }
 
 filename_str() { # Adds a string to the beginning or end of a filename
-  local IFS=$'\t'; read -r dirpath filename extension <<<$(path_elements "$1")
+  read -r dirpath filename extension <<<$(path_elements "$1")
   [ ! -d $dirpath ] && echo 'Filepath given is invalid' && return 1
   local str_to_add="$2" position=$3
   position=${position:-append}
   case $position in
     append)  filename="${filename}${str_to_add}${extension}";;
-    prepend) filename="${filename}${str_to_add}${extension}";;
+    prepend) filename="${str_to_add}${filename}${extension}";;
     *)       echo 'Invalid position provided'; return 1     ;;
   esac
   printf "${dirpath}${filename}"
@@ -194,13 +211,15 @@ path_elements() { # Returns dirname, filename, and extension from a filepath
   local extension=$([[ "$filename" = *.* ]] && echo ".${filename##*.}" || echo '')
   filename="${filename%.*}"
   local out=( "$dirpath/" "$filename" "$extension" )
-  printf '%s\t' "${out[@]}"
+  printf '%s\n' "${out[@]}"
 }
 
-root_volume() { # Returns the root volume / of the system
+root_vol() { # Returns the root volume / of the system
   for vol in /Volumes/*; do
-    [ "$(readlink "$vol")" = / ] && local root_vol=$vol
-    return $root_vol
+    if [ "$(readlink "$vol")" = / ]; then
+      local root=$vol
+      printf $root
+    fi
   done
 }
 
@@ -285,42 +304,38 @@ gacmp() { # Add all untracked files, commit with message, push current branch
 git_recent() { # Display table of commits sorted by recency descending
   not_git && return 1
   local run_context=${1:-display}
-  local format=$(echo '%(HEAD) %(color:yellow)%(refname:short)|
-      %(color:bold green)%(committerdate:relative)|
-      %(color:blue)%(subject)|
-      %(color:magenta)%(authorname)%(color:reset)' \
-      | tr -d '[\n\t]')
   if [ $run_context = display ]; then
+    local format='%(HEAD) %(color:yellow)%(refname:short)||%(color:bold green)%(committerdate:relative)||%(color:blue)%(subject)||%(color:magenta)%(authorname)%(color:reset)'
     git for-each-ref --sort=-committerdate refs/heads \
-      --format=$format --color=always | fitcol -F'|'
+      --format="$format" --color=always | fitcol -F'\\\|\\\|'
   else
     # If not for immediate display, return extra field for further parsing
-    format="${format/short)|/short)|%(committerdate:short)|}"
+    local format='%(HEAD) %(color:yellow)%(refname:short)||%(committerdate:short)||%(color:bold green)%(committerdate:relative)||%(color:blue)%(subject)||%(color:magenta)%(authorname)%(color:reset)'
     git for-each-ref refs/heads --format="$format" --color=always
   fi
 }
+alias grec="git_recent"
 
 git_recent_all() { # Display table of recent commits for all home dir branches
   local start_dir="$PWD"
   local all_recent=/tmp/git_recent_all_showlater
+  echo "repo||branch||sortfield||commit time||commit message||author" > $all_recent
   cd ~
   while IFS=$'\n' read -r dir; do
     [ -d "${dir}/.git" ] && (cd "$dir" && \
-      (git_recent parse | awk -v repo="$dir" -F'|' '
-        {print "\033[34m" repo "\033[0m|", $0}') >> $all_recent )
+      (git_recent parse | awk -v repo="$dir" -F'\\\|\\\|' '
+        {print "\033[34m" repo "\033[0m||", $0}') >> $all_recent )
   done < <(find * -maxdepth 0 -type d)
   echo
-  cat $all_recent | sort -r -t '|' -k3 | awk -F'|' '
-    BEGIN {OFS=FS} {print $1, $2, $4, $5, $6}' | \
-      (nameset 'fitcol' && fitcol -F"|" || cat)
+  infsortm -v order=d -F'\\\|\\\|' -v k=3 $all_recent \
+    | awk -F'\\\|\\\|' 'BEGIN {OFS="||"} {print $1, $2, $4, $5, $6}' | \
+      (nameset 'fitcol' && fitcol -F'\\\|\\\|' -v color=never || cat)
   local stts=$?
   echo
   rm $all_recent
   cd "$start_dir"
   return $stts
 }
-
-alias grec="git_recent"
 alias gral="git_recent_all"
 
 git_graph() { # Print colorful git history graph
@@ -386,17 +401,19 @@ ajoin() { # ** Similar to the join Unix command but with different features
 print_matches() { # ** Print duplicate lines on given field numbers in two files
   local args=( "$@" )
   if pipe_open; then
-    local file=/tmp/matches_showlater piped=0
-    cat /dev/stdin > $file
+    local file2=/tmp/matches_showlater piped=0
+    cat /dev/stdin > $file2
+    let last_arg=${#args[@]}-1
   else
     let last_arg=${#args[@]}-1
     local file2="${args[@]:$last_arg:1}"
     [ ! -f "$file2" ] && echo File was not provided or is invalid! && return 1
+    let last_arg-=1
+    [ "${args[@]:$last_arg:1}" = "$file2" ] && local file1="$file2"
     args=( ${args[@]/"$file2"} )
   fi
   
-  let last_arg=${#args[@]}-1
-  local file1="${args[@]:$last_arg:1}"
+  [ -z "$file1" ] && local file1="${args[@]:$last_arg:1}"
   if [ ! -f "$file1" ]; then
     echo File missing or invalid!
     [ $piped ] && rm $file2 &> /dev/null
@@ -420,17 +437,19 @@ print_matches() { # ** Print duplicate lines on given field numbers in two files
 print_comps() { # ** Print non-matching lines on given field numbers in two files
   local args=( "$@" )
   if pipe_open; then
-    local file=/tmp/complements_showlater piped=0
-    cat /dev/stdin > $file
+    local file2=/tmp/complements_showlater piped=0
+    cat /dev/stdin > $file2
+    let last_arg=${#args[@]}-1
   else
     let last_arg=${#args[@]}-1
     local file2="${args[@]:$last_arg:1}"
     [ ! -f "$file2" ] && echo File was not provided or is invalid! && return 1
+    let last_arg-=1
+    [ "${args[@]:$last_arg:1}" = "$file2" ] && local file1="$file2"
     args=( ${args[@]/"$file2"} )
   fi
-  
-  let last_arg=${#args[@]}-1
-  local file1="${args[@]:$last_arg:1}"
+
+  [ -z "$file1" ] && local file1="${args[@]:$last_arg:1}"
   if [ ! -f "$file1" ]; then
     echo File missing or invalid!
     [ $piped ] && rm $file2 &> /dev/null
@@ -449,7 +468,7 @@ print_comps() { # ** Print non-matching lines on given field numbers in two file
   if [ $piped ]; then rm $file2 &> /dev/null; fi
 }
 
-inferhead() { # Infer if headers are present in a file: inferhead [awkargs] file
+inferhd() { # Infer if headers are present in a file: inferhd [awkargs] file
   local args=( "$@" )
   awk -f infer_headers.awk "${args[@]}" 2> /dev/null
 }
@@ -493,7 +512,7 @@ inferfs() { # Infer field separator from text data file: inferfs file [try_custo
   local infer_custom=${2:-true} use_file_ext=${3:-true}
   
   if [ $use_file_ext = true ]; then
-    local IFS=$'\t'; read -r dirpath filename extension <<<$(path_elements "$file")
+    read -r dirpath filename extension <<<$(path_elements "$file")
     if [ $extension ]; then
       [ ".tsv" = "$extension" ] && echo "\t" && return
       [ ".csv" = "$extension" ] && echo ',' && return
@@ -510,7 +529,7 @@ inferfs() { # Infer field separator from text data file: inferfs file [try_custo
 
 fitcol() { # ** Print field-separated data in columns with dynamic width: fitcol [awkargs] file
   local args=( "$@" )
-  local col_buffer=${col_buffer:-3} # Margin between cols, default is 1 char 
+  local col_buffer=${col_buffer:-3}
   local tty_size=$(tput cols)
   if pipe_open; then
     local file=/tmp/fitcol_showlater piped=0
@@ -521,7 +540,7 @@ fitcol() { # ** Print field-separated data in columns with dynamic width: fitcol
     [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
     args=( ${args[@]/"$file"} )
   fi
-  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" ]]; then
     local fs="$(inferfs "$file")"
     awk -v FS="$fs" -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk -v tty_size=$tty_size\
       -v buffer=$col_buffer ${args[@]} "$file"{,} 2> /dev/null
@@ -544,7 +563,7 @@ stagger() { # ** Print field-separated data in staggered rows: stagger [awkargs]
     [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
     args=( ${args[@]/"$file"} )
   fi
-  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v fs" ]]; then
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" ]]; then
     local fs="$(inferfs "$file")"
     awk -v FS="$fs" -f ~/dev_scripts/scripts/stagger.awk \
       ${args[@]} "$file" 2> /dev/null
@@ -612,6 +631,8 @@ transpose() { # ** Transpose field values of a text-based field-separated file
 
 ds() { # Generate basic statistics about data in a Unix text file
   [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
+  local fs="$(inferfs "$file")"
+  
   # TODO
 }
 
@@ -669,11 +690,11 @@ mini() { # Crude minify, remove whitespace including newlines except space
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
-infsort() { # Sort with an inferred field separator
+infsort() { # Sort with an inferred field separator of exactly 1 char
   local args=( "$@" )
   if pipe_open; then
-    cat /dev/stdin > /tmp/ifsort_showlater;
-    local file=/tmp/ifsort_showlater piped=0
+    cat /dev/stdin > /tmp/infsort_showlater;
+    local file=/tmp/infsort_showlater piped=0
   else 
     let last_arg=${#args[@]}-1
     local file="${args[@]:$last_arg:1}"
@@ -683,6 +704,46 @@ infsort() { # Sort with an inferred field separator
   local fs="$(inferfs $file)"
   sort ${args[@]} -t"$fs" "$file"
   if [ $piped ]; then rm $file &> /dev/null; fi
+}
+
+infsortm() { # Sort with an inferred field separator of 1 or more character
+  # TODO: Default to infer header
+  local args=( "$@" )
+  if pipe_open; then
+    cat /dev/stdin > /tmp/infsortm_showlater;
+    local file=/tmp/infsortm_showlater piped=0
+  else 
+    let last_arg=${#args[@]}-1
+    local file="${args[@]:$last_arg:1}"
+    [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
+    args=( ${args[@]/"$file"} )
+  fi
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" ]]; then
+    local fs="$(inferfs "$file")"
+    awk -v FS="$fs" -f ~/dev_scripts/scripts/fields_qsort.awk ${args[@]} \
+      "$file" 2> /dev/null
+  else
+    awk -f ~/dev_scripts/scripts/fields_qsort.awk ${args[@]} "$file" 2> /dev/null
+  fi
+  if [ $piped ]; then rm $file &> /dev/null; fi
+}
+
+srg() { # Scope rg/grep to a set of files that contain a match: srg scope_pattern search_pattern [dir] [invert=]
+  ([ $1 ] && [ $2 ]) || fail 'Missing scope and/or search pattern args'
+  local scope="$1"; search="$2"
+  [ $3 ] && local basedir="$3" || local basedir="$PWD"
+  [ $4 ] && [ $4 != 'f' ] && [ $4 != 'false' ] && local invert="--files-without-match"
+  if nameset 'rg'; then
+    echo -e "\nrg ${invert} ${search} scoped to files matching ${scope} in ${basedir}\n"
+    rg -u -u -0 --files-with-matches -e "$scope" "$basedir" 2> /dev/null \
+      | xargs -0 -I % rg -H $invert "$search" "%" 2> /dev/null
+  else
+    invert="${invert}es"
+    echo -e "\ngrep ${invert} ${search} scoped to files matching ${scope} in ${basedir}\n"
+    grep -r --null --files-with-matches -e "$scope" "$basedir" 2> /dev/null \
+      | xargs -0 -I % grep -H --color $invert "$search" "%" 2> /dev/null
+  fi
+  : # Clear noisy xargs exit status
 }
 
 recent_files() { # ls files modified last 7 days: recent_files [custom_dir] [recurse=r] [hidden=h]
@@ -728,6 +789,71 @@ recent_files() { # ls files modified last 7 days: recent_files [custom_dir] [rec
     ls -ghtG$hidden --time-style=+%D "$dirname" | grep -v '^d' | grep ${datefilter[@]}
   fi
   [ $? = 0 ] || (echo $notfound && return 1)
+}
+
+sedi() { # Linux-portable sed in place substitution: sedi file search_pattern [replacement]
+  [ $1 ] && [ $2 ] || fail 'Missing required args: sedi file search [replace]'
+  [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
+  local file="$1" search="$2" replace="$3"
+  perl -pi -e "s/${search}/${replace}/g" "$file"
+}
+
+dff() { # Diff shortcut for more relevant changes
+  local args=( "$@" ) tty_size=$(tput cols)
+  let local tty_half=$tty_size/2
+  diff -b -y -W $tty_size --suppress-common-lines ${args[@]} | expand \
+    | awk -v tty_half=$tty_half '
+      BEGIN { bdiff = " \\|( |$)"; ldiff = " <$"; rdiff = " > ";
+        red = "\033[1;31m"; cyan = "\033[1;36m"; mag = "\033[1;35m"
+        coloroff = "\033[0m" }
+      { left = substr($0, 0, tty_half - 2)
+        diff = substr($0, tty_half - 1, 3)
+        right = substr($0, tty_half + 2)
+        if (diff ~ ldiff) {
+          print cyan $0 coloroff
+        } else if (diff ~ rdiff) {
+          print red $0 coloroff
+        } else if (diff ~ bdiff) {
+          split(left, lchars, "")
+          split(substr(right, 3), rchars, "")
+          j = 1
+          for (i in lchars) {
+            if (lchars[i] == rchars[j]) {
+              if (coloron) {
+                coloron = 0
+                printf coloroff
+              }
+              j++
+            } else if (!coloron) {
+              printf cyan 
+              coloron = 1
+            }
+            printf lchars[i]
+          }
+          printf mag diff coloroff "  " # tab at start of rdiff
+          j = 1
+          for (i in rchars) {
+            if (rchars[i] == lchars[j]) {
+              if (coloron) {
+                coloron = 0
+                printf coloroff
+              }
+              j++
+            } else if (!coloron) {
+              coloron = 1
+              printf red
+            }
+            printf rchars[i]
+          }
+          print ""
+        } else {
+          next
+        }}' | less
+}
+
+gwdf() { # Git word diff shortcut
+  local args=( "$@" )
+  git diff --word-diff-regex="[A-Za-z0-9. ]|[^[:space:]]" --word-diff=color ${args[@]}
 }
 
 google() { # Executes Google search with args provided

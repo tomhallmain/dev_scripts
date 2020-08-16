@@ -44,11 +44,10 @@ BEGIN {
   sn0_len = 1 + 4 # e.g. 0e+00
   
   if (sn && d) {
-    if (d == "z") {
+    if (d == "z")
       sn_len = sn0_len
-    } else {
+    else
       sn_len = 2 + d + 4 # e.g. 0.00e+00
-    }
   }
 
   if (!buffer) buffer = 2
@@ -63,9 +62,8 @@ BEGIN {
   decimal_re = "^[[:space:]]*[0-9]+[\.][0-9]+[[:space:]]*$"
   num_re = "^[[:space:]]*[0-9]+([\.][0-9]*)?[[:space:]]*$"
 
-  if (!tty_size) {
+  if (!tty_size)
     "tput cols" | getline tty_size; tty_size += 0
-  }
 }
 
 
