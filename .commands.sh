@@ -798,57 +798,12 @@ sedi() { # Linux-portable sed in place substitution: sedi file search_pattern [r
   perl -pi -e "s/${search}/${replace}/g" "$file"
 }
 
-dff() { # Diff shortcut for more relevant changes
-  local args=( "$@" ) tty_size=$(tput cols)
+dff() { # Diff shortcut for more relevant changes: dff file1 file2 [suppress_common]
+  local tty_size=$(tput cols)
   let local tty_half=$tty_size/2
-  diff -b -y -W $tty_size --suppress-common-lines ${args[@]} | expand \
-    | awk -v tty_half=$tty_half '
-      BEGIN { bdiff = " \\|( |$)"; ldiff = " <$"; rdiff = " > ";
-        red = "\033[1;31m"; cyan = "\033[1;36m"; mag = "\033[1;35m"
-        coloroff = "\033[0m" }
-      { left = substr($0, 0, tty_half - 2)
-        diff = substr($0, tty_half - 1, 3)
-        right = substr($0, tty_half + 2)
-        if (diff ~ ldiff) {
-          print cyan $0 coloroff
-        } else if (diff ~ rdiff) {
-          print red $0 coloroff
-        } else if (diff ~ bdiff) {
-          split(left, lchars, "")
-          split(substr(right, 3), rchars, "")
-          j = 1
-          for (i in lchars) {
-            if (lchars[i] == rchars[j]) {
-              if (coloron) {
-                coloron = 0
-                printf coloroff
-              }
-              j++
-            } else if (!coloron) {
-              printf cyan 
-              coloron = 1
-            }
-            printf lchars[i]
-          }
-          printf mag diff coloroff "  " # tab at start of rdiff
-          j = 1
-          for (i in rchars) {
-            if (rchars[i] == lchars[j]) {
-              if (coloron) {
-                coloron = 0
-                printf coloroff
-              }
-              j++
-            } else if (!coloron) {
-              coloron = 1
-              printf red
-            }
-            printf rchars[i]
-          }
-          print ""
-        } else {
-          next
-        }}' | less
+  [ $3 ] && local sup=--suppress-common-lines && set -- "${@:1:2}"
+  diff -b -y -W $tty_size $sup ${@} | expand | awk -v tty_half=$tty_half \
+    -f ~/dev_scripts/scripts/diff_color.awk | less
 }
 
 gwdf() { # Git word diff shortcut
