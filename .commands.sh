@@ -575,23 +575,43 @@ stagger() { # ** Print field-separated data in staggered rows: stagger [awkargs]
 }
 
 index() { # ** Prints an index attached to data lines from a file or stdin
-  local args=( "$@" )
   if pipe_open; then
     local header=$1
+    local args=( "${@:2}" )
     local file=/tmp/index_showlater piped=0
     cat /dev/stdin > $file
   else
     local file="$1" header=$2
+    local args=( "${@:3}" )
   fi
   if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" ]]; then
     local fs="$(inferfs "$file")"
   fi
   if [ $header ]; then
-    awk $fs '{ print NR-1, $0 }' "$file" 2> /dev/null
+    awk $fs ${args[@]} '{ print NR-1, $0 }' "$file" 2> /dev/null
   else
-    awk $fs '{ print NR, $0 }' "$file" 2> /dev/null
+    awk $fs ${args[@]} '{ print NR, $0 }' "$file" 2> /dev/null
   fi
   if [ $piped ]; then rm $file &> /dev/null; fi
+}
+
+reo() { # ** Reorder rows and cols, repeat, or slice: reo file [cols=[3,1,2]] [rows=[1-10,21-30]] [awkargs] .. cmd | reo [cols] [rows] [awkargs]
+  if pipe_open; then
+    local rows="$1" cols="$2"
+    local args=( "${@:2}" )
+    local file=/tmp/index_showlater piped=0
+    cat /dev/stdin > $file
+  else
+    local file="$1" rows="$2" cols="$3"
+    local args=( "${@:3}" )
+  fi
+  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" ]]; then
+    local fs="$(inferfs "$file")"
+    awk -F$fs ${awkargs[@]} -v r=$rows -v c=$cols -f ~/dev_scripts/scripts/reorder.awk \
+      "$file" 2> /dev/null
+  else
+    awk ${awkargs[@]} -v r=$rows -v c=$cols -f ~/dev_scripts/scripts/reorder.awk "$file" 2> /dev/null
+  fi
 }
 
 decap() { # ** Remove up to a certain number of lines from the start of a file, default is 1
