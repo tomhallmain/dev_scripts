@@ -2,11 +2,24 @@
 #
 # Reorder, repeat or slice the rows and columns of fielded data
 #
-# > awk -f reorder.awk
+# Index:
+# > awk -f reorder.awk -v r=1 -v c=1
+#
+# Specific rows and/or columns:
+# > awk -f reorder.awk -v r="{1..100}" -v c=1,4,5
+#
+# Range (and/or individual rows and columns):
+# > awk -f reorder.awk -v r=1,100-200 -v c=1-3,4
+#
+# Reorder/Repeat:
+# > awk -f reorder.awk -v r=3,3,5,1 -v c=4-1,1,3,5
 #
 # TODO: Might be more efficient to break out handling and cases each in their own files 
 # TODO: Add > and < functionality
-# TODO: Add mod functionality
+# TODO: Add modulo functionality
+# TODO: Untether row and column in methods
+# TODO: On reo case add print and deletion for ascending order elements in reorder, save
+# only fields needed after triggering of reorder while reading the lines
 
 BEGIN {
   n_re = "^[0-9]+$"
@@ -20,38 +33,33 @@ BEGIN {
     if (r_len > 1) {
       for (i = 1; i <= r_len; i++) {
         r_i = r_order[i]
+        if (debug) debug_print(1)
  
         if (!r_i) {
           print "Skipping non-applicable 0 row arg"
           delete r_order[i]
-          r_len--
 
         } else if (r_i ~ range_sep) {
           max_r_i = TestRangeArg(r_i, max_r_i)
           delete r_order[i]
-          range_len = FillRange(R, r_i, ReoR, reo_r_count)
-          r_len += range_len - 1
+          reo_r_count = FillRange(r_i, R, reo_r_count, ReoR)
 
         } else {
-          R[r_i] = 1
-          reo_r_count++
-          ReoR[reo_r_count] = r_i
+          reo_r_count = FillReoArr(r_i, R, reo_r_count, ReoR)
 
-          if (!reo_case && r_i > max_r_i)
+          if (!reo && r_i > max_r_i)
             max_r_i = r_i
           else
-            reo_case = 1
+            reo = 1
         }
       }
     } else if (r ~ range_sep) {
       TestRangeArg(r, max_r_i)
-      range_len = FillRange(R, r_i, ReoR, reo_r_count)
-      r_len += range_len - 1
+      reo_r_count = FillRange(r, R, reo_r_count, ReoR)
     } else if (!(r ~ n_re)) {
       pass_r = 1
     } else {
-      R[r] = 1
-      ReoR[1] = r
+      reo_r_count = FillReoArr(r, R, reo_r_count, ReoR)
     }
   } else {
     pass_r = 1
@@ -68,87 +76,94 @@ BEGIN {
         if (!c_i) {
           print "Skipping non-applicable 0 col arg"
           delete c_order[i]
-          c_len--
 
         } else if (c_i ~ range_sep) {
           max_c_i = TestRangeArg(c_i, max_c_i)
           delete c_order[i]
-          range_len = FillRange(C, c_i, ReoC, reo_c_count)
-          c_len += range_len - 1
+          reo_c_count = FillRange(c_i, C, reo_c_count, ReoC)
 
         } else {
-          C[c_i] = 1
-          reo_c_count++
-          ReoC[reo_c_count] = c_i
+          reo_c_count = FillReoArr(c_i, RangeC, reo_c_count, ReoC)
 
-          if (!reo_case && c_i > max_c_i)
+          if (!reo && c_i > max_c_i)
             max_c_i = c_i
           else
-            reo_case = 1
+            reo = 1
         }
       }
     } else if (c ~ range_sep) {
       TestRangeArg(c, max_c_i)
-      range_len = FillRange(C, c_i, ReoC, reo_c_count)
-      c_len += range_len - 1
+      reo_c_count = FillRange(c, C, reo_c_count, ReoC)
     } else if (!(c ~ n_re)) {
       pass_c = 1
     } else {
-      C[c] = 1
-      ReoC[1] = c
+      reo_c_count = FillReoArr(c, C, reo_c_count, ReoC)
     }
   } else {
     pass_c = 1
   }
 
   if (pass_r && pass_c) pass = 1
-  if (r_len == 1 && c_len == 1 && !pass_r && !pass_c && !range_case && !reo_case) {
-    index_case = 1
-  } else if (!range_case && !reo_case) {
-    base_case = 1
+
+  if (r_len == 1 && c_len == 1 && !pass_r && !pass_c && !range && !reo)
+    indx = 1
+  else if (!range && !reo)
+    base = 1
+
+  if (debug) {
+    print "Reorder counts, start vals, end vals (row, column)"
+    print reo_r_count, reo_c_count
+    print ReoR[1], ReoC[1]
+    print ReoR[reo_r_count], ReoC[reo_c_count]
   }
-
   OFS = FS
+  reo_c_len = length(ReoC)
 }
 
-index_case { if (NR == r) { print $c; exit } next }
 
-base_case {
-  if (pass_r || NR in R)
-    FieldBase()
+indx { if (NR == r) { print $c; exit } next }
+
+base { if (pass_r || NR in R) FieldBase(); next }
+
+range && !reo { if (pass_r || NR in R) FieldRange(); next }
+
+reo { 
+  if (pass_r) {
+    for (i = 1; i < reo_c_len; i++)
+      printf $ReoC[i] OFS
+
+    print $ReoC[reo_c_len]
+
+  } else if (NR in R) {
+    _[NR] = $0
+  }
   next
 }
-
-range_case && !reo_case {
-  if (pass_r || NR in R)
-    FieldRange()
-  next
-}
-
-reo_case { if (NR in R) _[NR] = $0; next }
 
 pass { print $0 }
 
 
 END {
   if (debug) {
-    if (index_case) print "index case"
-    if (base_case) print "base case"
-    if (range_case) print "range case"
-    if (reo_case) print "reo case"
+    if (indx) print "index case"
+    if (base) print "base case"
+    if (range) print "range case"
+    if (reo) print "reo case"
   }
 
-  if (err || !reo_case) exit err
+  if (err || !reo || pass_r) exit err
 
-  reo_c_len = length(ReoC)
 
   for (i = 1; i <= length(ReoR); i++) {
-    split(_[ReoR[i]], Row, FS)
+    if (pass_c) print _[ReoR[i]]
+    else {
+      split(_[ReoR[i]], Row, FS)
 
-    for (j = 1; j < reo_c_len; j++)
-      printf Row[ReoC[j]] OFS
+      for (j = 1; j < reo_c_len; j++)
+        printf Row[ReoC[j]] OFS
 
-    print Row[ReoC[reo_c_len]]
+      print Row[ReoC[reo_c_len]]
+    }
   }
 }
 
@@ -164,36 +179,39 @@ function TestRangeArg(rangeArg, max_i) {
     exit err
   }
 
-  range_case = 1
+  range = 1
 
   if (ra1 >= ra2 || ra1 <= max_i)
-    reo_case = 1
+    reo = 1
   else
     max_i = ra2
 
   return max_i
 }
-function FillRange(RangeArr, rangeArg, ReoArr, reoCount) {
+function FillRange(rangeArg, RangeArr, reoCount, ReoArr) {
   split(rangeArg, RngAnc, range_sep)
-  ra1 = RngAnc[1]
-  ra2 = RngAnc[2]
+  start = RngAnc[1]
+  end = RngAnc[2]
 
-  if (ra1 > ra2) {
-    start = ra2
-    end = ra1
+  if (debug) debug_print(2)
+
+  if (start > end) {
+    for (k = start; k >= end; k--)
+      reoCount = FillReoArr(k, RangeArr, reoCount, ReoArr)
+
   } else {
-    start = ra1
-    end = ra2
-  }
-  diff = end - start
-
-  for (k = start; k <= end; k++) {
-    RangeArr[k] = 1
-    reoCount++
-    ReoArr[reoCount] = k
+    for (k = start; k <= end; k++)
+      reoCount = FillReoArr(k, RangeArr, reoCount, ReoArr)
   }
 
-  return diff
+  return reoCount
+}
+function FillReoArr(val, KeyArr, count, ReoArray) {
+  KeyArr[val] = 1
+  count++
+  ReoArray[count] = val
+  
+  return count
 }
 function FieldBase() {
   if (pass_c) print $0
@@ -207,11 +225,16 @@ function FieldBase() {
 function FieldRange() {
   if (pass_c) print $0
   else {
-    for (i = 1; i < NF; i++)
-      if (i in C)
-        printf $i OFS
+    for (i = 1; i < reo_c_count; i++)
+      printf $ReoC[i] OFS
 
-    if (NF in C) print $NF
+    print $ReoC[reo_c_count]
   }
 }
-
+function debug_print(case) {
+  if (case == 1) {
+    print "i: " i, " r_i: " r_i, " r_len: " r_len
+  } else if (case == 2) {
+    print "FillRange ra1: " ra1, " ra2: " ra2
+  }
+}
