@@ -4,90 +4,141 @@
 # field-separated data
 #
 # > awk -f power.awk file
+#
+# TODO: Link between fields and combination sets
+# TODO: Refactor as set, not as left->right ordered combination (may not be
+# feasible performance wise
+# TODO: Add functionality to remove combinations intersecting with
+# low-variance fields as these do not add more info - this would have to be
+# done BEFORE or WHILE permorming exclusions relating to contained fields
+# TODO: Generally distill combinations (maybe only output pairs at most, or
+# even just single fields based on their interaction characteritic value?)
 
 BEGIN {
-
+  if (!min) min = 10
+  min_floor = min - 1
   len_ofs = length(OFS)
 }
 
+invert && NR == 1 && c_counts {
+  for (i = 1; i <= 2^NF - 2; i++) {
+    h_str = ""
+    c_str = ""
+
+    for (j = 1; j <= NF; j++)
+      if (i % (2^j) < 2^(j-1)) {
+        h_str = h_str $j OFS
+        c_str = c_str j OFS
+      }
+    
+    h_str = substr(h_str, 1, length(h_str) - len_ofs)
+    c_str = substr(c_str, 1, length(c_str) - len_ofs)
+    CPatterns[c_str] = 1
+    CHeaders[c_str] = h_str
+  }
+}
+
 {
-  _[$0]++
+  C[$0]++
   
   if (debug && FNR < 3) debug_print(0)
 
   for (i = 1; i <= 2^NF - 2; i++) {
     str = ""
+    c_str = ""
 
     for (j = 1; j <= NF; j++)
       if (i % (2^j) < 2^(j-1)) {
         if (debug && FNR < 3) debug_print(1)
         str = str $j OFS
+        if (c_counts) c_str = c_str j OFS
       }
 
-    str = substr(str, 1, length(str) - len_ofs)
-    C[str]++
+    if (c_counts) {
+      c_str = substr(c_str, 1, length(c_str) - len_ofs)
+      C[c_str ":::: " str]++
+    } else {
+      str = substr(str, 1, length(str) - len_ofs)
+      C[str]++
+    }
   }
-  
-  if (!(NR % 100)) printf "."
 }
 
 END {
 
-  for (i in C) {
-    j = C[i]
-    if (j < 2) { 
-      delete C[i]
-      continue
+  if (c_counts) {
+    for (i in C) {
+      j = C[i]
+      if (C[i] < min) { 
+        delete C[i]
+        continue
+      }
+      c_pattern = substr(i, 1, match(i, ":::: ") - 1)
+      if (invert) delete CHeaders[c_pattern]
+      CCount[c_pattern] += j
     }
-    N[j]++
-    metakey = j OFS N[j]
-    M[metakey] = i
-    if (debug) debug_print(2)
-  }
 
-  printf "..."
+    if (!invert) {
+      for (i in CHeaders)
+        if (!(i in CCount)) delete CHeaders[i]
+    }
+  } else {
+    for (i in C) {
+      j = C[i]
+      if (j < min) { 
+        delete C[i]
+        continue
+      }
+      N[j]++
+      metakey = j OFS N[j]
+      M[metakey] = i
+      if (debug) debug_print(2)
+    }
 
-  for (i in N) {
-    n_n = N[i]
-    for (j = 1; j <= n_n; j++) {
-      for (k = 1; k <= n_n; k++) {
-        if (j == k) continue
-        #print "post continue", i, j, k
-        metakey1 = i OFS j
-        metakey2 = i OFS k
-        t1 = M[metakey1]
-        t2 = M[metakey2]
-        if (!(C[t1] && C[t2])) continue
-        if (debug) debug_print(3)
-        split(t1, tmp1, FS)
-        split(t2, tmp2, FS)
-        matchcount = 0
-        for (l in tmp1) {
-          for (m in tmp2) {
-            if (tmp1[l] == tmp2[m]) matchcount++
+    for (i in N) {
+      n_n = N[i]
+      for (j = 1; j <= n_n; j++) {
+        for (k = 1; k <= n_n; k++) {
+          if (j == k) continue
+          metakey1 = i OFS j
+          metakey2 = i OFS k
+          t1 = M[metakey1]
+          t2 = M[metakey2]
+          if (!(C[t1] && C[t2])) continue
+          if (debug) debug_print(3)
+          split(t1, tmp1, OFS)
+          split(t2, tmp2, OFS)
+          matchcount = 0
+          for (l in tmp1) {
+            for (m in tmp2) {
+              if (tmp1[l] == tmp2[m]) matchcount++
+            }
           }
-        }
-        l1 = length(tmp1)
-        l2 = length(tmp2)
-        if (matchcount >= l1 || matchcount >= l2) {
-          if (l1 > l2) {
-            if (debug) debug_print(4)
-            delete C[t2]
-          } else if (l2 > l1) {
-            if (debug) debug_print(5)
-            delete C[t1]
+          l1 = length(tmp1)
+          l2 = length(tmp2)
+          if (matchcount >= l1 || matchcount >= l2) {
+            if (l1 > l2) {
+              if (debug) debug_print(4)
+              delete C[t2]
+            } else if (l2 > l1) {
+              if (debug) debug_print(5)
+              delete C[t1]
+            }
           }
         }
       }
     }
-    printf "."
   }
 
   print ""
   
-  for (i in _) { if (_[i] > 1) { print _[i], i } }
-  
-  for (i in C) { if (C[i]) print C[i], i }
+  if (c_counts) {
+    if (invert)
+      for (i in CHeaders) { print CHeaders[i] }
+    else
+      for (i in CCount) { print CCount[i]/NR, i }
+  } else
+    for (i in C) { if (C[i]) print C[i], i }
 }
 
 function debug_print(case) {

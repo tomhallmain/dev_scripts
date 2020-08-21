@@ -21,7 +21,8 @@ BEGIN {
   commonfs["m"] = ";"
   commonfs["c"] = ":"
   commonfs["o"] = ","
-  commonfs["w"] = "[[:space:]]{2,}"
+  commonfs["w"] = "[:space:]+"
+  commonfs["2w"] = "[[:space:]]{2,}"
   if (!max_rows) max_rows = 500
   custom = length(custom)
 }
@@ -212,7 +213,15 @@ END {
     }
   }
 
-  if ( ! winning_fs ) print commonfs["s"] # Space is default separator
-  else print winners[winning_fs]
+  if (high_certainty) {
+    scaled_var = fs_var[winning_fs] * 10
+    scaled_var_frac = scaled_var - int(scaled_var)
+    winner_unsure = scaled_var_frac != 0
+  }
+
+  if ( ! winning_fs || winner_unsure ) 
+    print commonfs["s"] # Space is default separator
+  else
+    print winners[winning_fs]
 }
 

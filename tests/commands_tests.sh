@@ -11,7 +11,7 @@ searchnames 'searchnames' 1> /dev/null || fail 'searchnames failed on func searc
 searchnames 'test_var' 1> /dev/null || fail 'searchnames failed on var search'
 [ "$(nametype 'nametype')" = 'FUNC' ] || fail 'nametype commmand failed'
 
-[ $(which_sh) = 'bash' ] || fail 'which_sh command failed'
+[ $(which_sh | wc -l) = 1 ] || fail 'which_sh command failed'
 
 
 [ $(git_recent_all | awk '{print $3}' | wc -l) -gt 2 ] \
@@ -46,7 +46,7 @@ sort_output='d c a b f
 f e d c b
 f e c b a
 e d c b a'
-[ "$(echo "$sort_input" | infsortm -v k=5,1 -v order=d)" = "$sort_output" ]
+[ "$(echo "$sort_input" | infsortm -v k=5,1 -v order=d)" = "$sort_output" ] || fail 'infsortm command failed'
 
 [ "$(echo 1 2 3 | join_by ', ')" = "1, 2, 3" ] || fail 'join_by command failed on pipe case'
 [ "$(join_by ', ' 1 2 3)" = "1, 2, 3" ] || fail 'join_by command failed on pipe case'

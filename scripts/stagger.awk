@@ -14,7 +14,7 @@
 # > awk -f max_field_lengths.awk same_file same_file
 
 BEGIN {  
-  "tput cols" | getline tty_size; tty_size += 0
+  if (!tty_size) "tput cols" | getline tty_size; tty_size += 0
 }
 
 {

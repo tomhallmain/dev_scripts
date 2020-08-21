@@ -23,8 +23,14 @@
 
 BEGIN {
   n_re = "^[0-9]+$"
-  ord_sep = "[ ,\|\:\;\.\_\~]+"
+  ord_sep = "[ ,\|\:\;\.\_]+"
   range_sep = "\-"
+  search_sep = "="
+  re_sep = "\~"
+  comp_sep = "(<|>)"
+  gt = ">"
+  lt = "<"
+  mod = "%"
 
   if (r) {
     split(r, r_order, ord_sep)
@@ -36,12 +42,10 @@ BEGIN {
         if (debug) debug_print(1)
  
         if (!r_i) {
-          print "Skipping non-applicable 0 row arg"
-          delete r_order[i]
+          print "Skipping unparsable 0 row arg"
 
         } else if (r_i ~ range_sep) {
           max_r_i = TestRangeArg(r_i, max_r_i)
-          delete r_order[i]
           reo_r_count = FillRange(r_i, R, reo_r_count, ReoR)
 
         } else {
@@ -74,7 +78,7 @@ BEGIN {
         c_i = c_order[i]
 
         if (!c_i) {
-          print "Skipping non-applicable 0 col arg"
+          print "Skipping unparsable 0 col arg"
           delete c_order[i]
 
         } else if (c_i ~ range_sep) {

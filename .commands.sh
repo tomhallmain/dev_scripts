@@ -60,6 +60,10 @@ which_sh() { # Print the shell being used (works for sh, bash, zsh)
   # There is also envvar SHELL, might be more portable
 }
 
+#which_os() {
+#
+#}
+
 sub_sh() { # Detect if in a subshell 
   [[ $BASH_SUBSHELL -gt 0 || $ZSH_SUBSHELL -gt 0 \
      || "$(exec sh -c 'echo "$PPID"')" != "$$"   \
@@ -99,6 +103,7 @@ fail() { # Safe failure, kills parent but returns to prompt (no custom message o
   if [ "$shell" = "bash" ]; then
     : "${_err_?$1}"
   else
+    echo "$1"
     : "${_err_?'Operation intentionally failed by fail command'}"
   fi
 }
@@ -278,7 +283,7 @@ nameset gcam || \
 gadd() { # Add all untracked git files
   not_git && return 1
   local all_untracked=( $(git ls-files -o --exclude-standard) )
-  if [ -z $all_untracked ]; then
+  if [ -z "$all_untracked" ]; then
     echo 'No untracked files found to add'
   else
     startdir="$PWD"
@@ -520,10 +525,10 @@ inferfs() { # Infer field separator from text data file: inferfs file [try_custo
   fi
 
   if [ $infer_custom = true ]; then
-    awk -f ~/dev_scripts/scripts/infer_field_separator.awk -v \
-      custom=true "$file" 2> /dev/null
+    awk -f ~/dev_scripts/scripts/infer_field_separator.awk -v high_certainty=1\
+      -v custom=true "$file" 2> /dev/null
   else
-    awk -f ~/dev_scripts/scripts/infer_field_separator.awk "$file" 2> /dev/null
+    awk -f ~/dev_scripts/scripts/infer_field_separator.awk -v high_certainty=1 "$file" 2> /dev/null
   fi
 }
 
@@ -542,10 +547,10 @@ fitcol() { # ** Print field-separated data in columns with dynamic width: fitcol
   fi
   if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" ]]; then
     local fs="$(inferfs "$file")"
-    awk -v FS="$fs" -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk -v tty_size=$tty_size\
+    awk -v FS="$fs" -f ~/dev_scripts/scripts/fit_columns.awk -v tty_size=$tty_size\
       -v buffer=$col_buffer ${args[@]} "$file"{,} 2> /dev/null
   else
-    awk -f ~/dev_scripts/scripts/fit_columns_0_decimal.awk -v tty_size=$tty_size\
+    awk -f ~/dev_scripts/scripts/fit_columns.awk -v tty_size=$tty_size\
       -v buffer=$col_buffer ${args[@]} "$file"{,} 2> /dev/null
   fi
 
@@ -554,6 +559,7 @@ fitcol() { # ** Print field-separated data in columns with dynamic width: fitcol
 
 stagger() { # ** Print field-separated data in staggered rows: stagger [awkargs] file
   local args=( "$@" )
+  local tty_size=$(tput cols)
   if pipe_open; then
     local file=/tmp/stagger_showlater piped=0
     cat /dev/stdin > $file
@@ -565,10 +571,10 @@ stagger() { # ** Print field-separated data in staggered rows: stagger [awkargs]
   fi
   if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" ]]; then
     local fs="$(inferfs "$file")"
-    awk -v FS="$fs" -f ~/dev_scripts/scripts/stagger.awk \
+    awk -v FS="$fs" -f ~/dev_scripts/scripts/stagger.awk -v tty_size=$tty_size \
       ${args[@]} "$file" 2> /dev/null
   else
-    awk -f ~/dev_scripts/scripts/stagger.awk ${args[@]} \
+    awk -f ~/dev_scripts/scripts/stagger.awk ${args[@]} -v tty_size=$tty_size \
       "$file" 2> /dev/null
   fi
   if [ $piped ]; then rm $file &> /dev/null; fi
@@ -595,7 +601,7 @@ index() { # ** Prints an index attached to data lines from a file or stdin
   if [ $piped ]; then rm $file &> /dev/null; fi
 }
 
-reo() { # ** Reorder rows and cols, repeat, or slice: reo file [cols=[3,1,2]] [rows=[1-10,21-30]] [awkargs] .. cmd | reo [cols] [rows] [awkargs]
+reo() { # ** Reorder rows and cols, repeat, or slice: reo file [1-10,21-30] [2,1,4] [awkargs] .. cmd | reo [cols] [rows] [awkargs]
   if pipe_open; then
     local rows="$1" cols="$2"
     local args=( "${@:2}" )
@@ -660,12 +666,29 @@ fieldcounts() { # Print value counts for a given field in a data file: fieldcoun
   [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
   local file="$1" field="${2:-1}" min="$3"
   local fs="$(inferfs "$file")"
-  ([ $3 = d ] || [ $3 = desc ]) && local order="r"
+  [ $3 ] && ([ $3 = d ] || [ $3 = desc ]) && local order="r"
   ([ $min ] && test $min -gt 0 2> /dev/null) || min=1
   let min=$min-1
   local program="{ _[\$${field}]++ }
     END { for (i in _) if (_[i] > ${min}) print _[i], i }"
   awk -F"$fs" "$program" "$file" 2> /dev/null | sort -n$order
+}
+
+newfs() { # Outputs a file with an updated field separator: newfs file [fs= ]
+  [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
+  local file="$1" field="${2:-1}" min="$3"
+  local fs="$(inferfs "$file")"
+
+}
+
+assignments() { # Grabbing lines matching standard assignment pattern from a file
+  [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
+  if nameset 'rg'; then
+    rg "[[:alnum:]_]+ *=[^=<>]" $1 
+  else
+    egrep -n --color=always -e "[[:alnum:]_]+ *=[^=<>]" $1
+  fi
+  if [ ! $? ]; then echo 'No assignments found in file!'; fi
 }
 
 enti() { # Print text entities from a file separated by a common pattern
@@ -695,6 +718,16 @@ mactounix() { # Converts ^M return characters into simple carriage returns in pl
   local tmpfile=/tmp/mactounix
   cat "$inputfile" > $tmpfile
   tr "\015" "\n" < $tmpfile > "$inputfile"
+  rm $tmpfile
+}
+
+unixtodos() { # Removes \r characters in place
+  # TODO: Name may need to be updated, put this and above in different file
+  [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
+  local inputfile="$1"
+  local tmpfile=/tmp/unixtodos
+  cat "$inputfile" > $tmpfile
+  sed -e 's/\r//g' $tmpfile > "$inputfile"
   rm $tmpfile
 }
 
@@ -758,7 +791,7 @@ srg() { # Scope rg/grep to a set of files that contain a match: srg scope_patter
     rg -u -u -0 --files-with-matches -e "$scope" "$basedir" 2> /dev/null \
       | xargs -0 -I % rg -H $invert "$search" "%" 2> /dev/null
   else
-    invert="${invert}es"
+    $invert && local invert="${invert}es"
     echo -e "\ngrep ${invert} ${search} scoped to files matching ${scope} in ${basedir}\n"
     grep -r --null --files-with-matches -e "$scope" "$basedir" 2> /dev/null \
       | xargs -0 -I % grep -H --color $invert "$search" "%" 2> /dev/null
@@ -778,12 +811,12 @@ recent_files() { # ls files modified last 7 days: recent_files [custom_dir] [rec
   # TODO: Rework this obscene logic with opts flags
 
   if [ $hidden ]; then
-    [ $FD ] && [ $recurse ] && hidden=-HI #fd hides by default
+    [ $FD ] && [ $recurse ] && local hidden=-HI #fd hides by default
     [ ! $recurse ] && hidden='A'
-    notfound="No files found modified in the last 7 days!"
+    local notfound="No files found modified in the last 7 days!"
   else
-    [ ! $FD ] && [ $recurse ] && hidden="-not -path '*/\.*'" # find includes all by default
-    notfound="No non-hidden files found modified in the last 7 days!"
+    [ ! $FD ] && [ $recurse ] && local hidden="-not -path '*/\.*'" # find includes all by default
+    local notfound="No non-hidden files found modified in the last 7 days!"
   fi
   
   if [ $recurse ]; then
@@ -803,7 +836,7 @@ recent_files() { # ls files modified last 7 days: recent_files [custom_dir] [rec
       | pipe_check
   else
     for i in {0..6}; do 
-      datefilter=( "${datefilter[@]}" "-e $(date -d "-$i days" +%D)" )
+      local datefilter=( "${datefilter[@]}" "-e $(date -d "-$i days" +%D)" )
     done
 
     ls -ghtG$hidden --time-style=+%D "$dirname" | grep -v '^d' | grep ${datefilter[@]}
