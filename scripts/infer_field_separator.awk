@@ -13,6 +13,10 @@
 #
 # To infer a custom separator, set var `custom` to any value:
 # > awk -f infer_field_separator.awk -v custom=true "data_file"
+#
+# TODO: Handle stray data that creates empty fields and can lead to custom
+# novar pattern handling breaking (i.e. ,,, winning over , by creating two
+# fields)
 
 BEGIN {
   commonfs["s"] = " "

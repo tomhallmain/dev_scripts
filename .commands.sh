@@ -65,9 +65,7 @@ which_sh() { # Print the shell being used (works for sh, bash, zsh)
 #}
 
 sub_sh() { # Detect if in a subshell 
-  [[ $BASH_SUBSHELL -gt 0 || $ZSH_SUBSHELL -gt 0 \
-     || "$(exec sh -c 'echo "$PPID"')" != "$$"   \
-     || "$(exec ksh -c 'echo "$PPID"')" != "$$"  ]]
+  [[ $BASH_SUBSHELL -gt 0 || $ZSH_SUBSHELL -gt 0 || "$(exec sh -c 'echo "$PPID"')" != "$$" || "$(exec ksh -c 'echo "$PPID"')" != "$$" ]]
 }
 
 nested() { # Detect if shell is nested for control handling
@@ -265,20 +263,6 @@ git_status() { # Run git status for all repos
 git_branch() { # Run git branch for all repos
   bash ~/dev_scripts/scripts/all_repo_git_branch.sh
 }
-
-nameset gc || \
-  function gc() { # git commit, defined if alias gc not set
-    not_git && return 1
-    local args=$@
-    git commit "$args"
-  }
-
-nameset gcam || \
-  function gcam() { # git commit -am 'commit message', defined if alias gcam not set
-    not_git && return 1
-    local commit_msg="$1"
-    git commit -am "$commit_msg"
-  }
 
 gadd() { # Add all untracked git files
   not_git && return 1
@@ -525,7 +509,7 @@ inferfs() { # Infer field separator from text data file: inferfs file [try_custo
   fi
 
   if [ $infer_custom = true ]; then
-    awk -f ~/dev_scripts/scripts/infer_field_separator.awk -v high_certainty=1\
+    awk -f ~/dev_scripts/scripts/infer_field_separator.awk -v high_certainty=1 \
       -v custom=true "$file" 2> /dev/null
   else
     awk -f ~/dev_scripts/scripts/infer_field_separator.awk -v high_certainty=1 "$file" 2> /dev/null
@@ -604,14 +588,14 @@ index() { # ** Prints an index attached to data lines from a file or stdin
 reo() { # ** Reorder rows and cols, repeat, or slice: reo file [1-10,21-30] [2,1,4] [awkargs] .. cmd | reo [cols] [rows] [awkargs]
   if pipe_open; then
     local rows="$1" cols="$2"
-    local args=( "${@:2}" )
+    local awkargs=( "${@:3}" )
     local file=/tmp/index_showlater piped=0
     cat /dev/stdin > $file
   else
     local file="$1" rows="$2" cols="$3"
-    local args=( "${@:3}" )
+    local awkargs=( "${@:4}" )
   fi
-  if [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" ]]; then
+  if [[ ! "${awkargs[@]}" =~ "-F" && ! "${awkargs[@]}" =~ "-v FS" ]]; then
     local fs="$(inferfs "$file")"
     awk -F$fs ${awkargs[@]} -v r=$rows -v c=$cols -f ~/dev_scripts/scripts/reorder.awk \
       "$file" 2> /dev/null
