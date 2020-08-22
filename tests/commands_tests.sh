@@ -1,41 +1,62 @@
 #!/bin/bash
 # This test script should produce no output if test run is successful
-
-cd "${BASH_SOURCE%/*}/.."
-source .commands.sh
+# TODO: Negative tests
 
 test_var=1
+tmp=/tmp/commands_tests
+q=/dev/null
+shell=$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')
 
-nameset 'nameset' 1> /dev/null || fail 'nameset command failed'
-searchnames 'searchnames' 1> /dev/null || fail 'searchnames failed on func search'
-searchnames 'test_var' 1> /dev/null || fail 'searchnames failed on var search'
-[ "$(nametype 'nametype')" = 'FUNC' ] || fail 'nametype commmand failed'
+if [[ $shell =~ 'bash' ]]; then
+  cd "${BASH_SOURCE%/*}/.."
+  source .commands.sh
+  $(ds:fail 'testfail' &> $tmp)
+  testfail=$(cat $tmp)
+  rm $tmp
+  [[ $testfail =~ '_err_: testfail' ]] || echo 'fail command failed in bash case'
+elif [[ $shell =~ 'zsh' ]]; then
+  cd "$(dirname $0)/.."
+  source .commands.sh
+  $(ds:fail 'testfail' &> $tmp)
+  testfail=$(cat $tmp)
+  rm $tmp
+  [[ $testfail =~ '_err_: Operation intentionally failed' ]] || echo 'fail command failed in zsh case'
+else
+  echo 'unhandled shell detected - only zsh/bash supported at this time - exiting test script'
+  exit 1
+fi
 
-[ $(which_sh | wc -l) = 1 ] || fail 'which_sh command failed'
+[ $(ds:sh | wc -l) = 1 ] || ds:fail 'sh command failed'
 
 
-[ $(git_recent_all | awk '{print $3}' | wc -l) -gt 2 ] \
+ds:nset 'ds:nset' 1> $q || ds:fail 'nset command failed'
+ds:searchn 'ds:searchn' 1> $q || ds:fail 'searchn failed on func search'
+ds:searchn 'test_var' 1> $q || ds:fail 'searchn failed on var search'
+[ "$(ds:ntype 'ds:ntype')" = 'FUNC' ] || ds:fail 'ntype commmand failed'
+
+
+[ $(ds:git_recent_all | awk '{print $3}' | wc -l) -gt 2 ] \
   || echo 'git recent all failed, possibly due to no git dirs in home'
 
 
-ajoinf1="tests/infer_join_fields_test1.csv"
-ajoinf2="tests/infer_join_fields_test2.csv"
+jnf1="tests/infer_join_fields_test1.csv"
+jnf2="tests/infer_join_fields_test2.csv"
 
-[ "$(inferfs $ajoinf1)" = ',' ] || 'inferfs failed extension case'
-[ "$(inferfs tests/seps_test.file)" = '&%#' ] || 'inferfs failed custom separator case'
+[ "$(ds:inferfs $jnf1)" = ',' ] || 'inferfs failed extension case'
+[ "$(ds:inferfs tests/seps_test.file)" = '&%#' ] || 'inferfs failed custom separator case'
 
-[ $(ajoin -v k=1 -v ind=1 "$ajoinf1" "$ajoinf2" | wc -l) -gt 15 ] \
-  || fail 'ajoin failed pipe_check, or pipe_check failed'
+[ $(ds:jn -v k=1 -v ind=1 "$jnf1" "$jnf2" | wc -l) -gt 15 ] \
+  || ds:fail 'ds:jn failed pipe_check, or pipe_check failed'
 
-[ $(print_comps $ajoinf1{,} | wc -l) -eq 7 ] || 'print_comps failed no complement case'
-[ $(print_comps -v k1=2 -v k2=3,4 $ajoinf1 $ajoinf2 | wc -l) -eq 197 ] \
+[ $(ds:comp $jnf1{,} | wc -l) -eq 7 ] || 'print_comps failed no complement case'
+[ $(ds:comp -v k1=2 -v k2=3,4 $jnf1 $jnf2 | wc -l) -eq 197 ] \
   || 'print_comps failed complments case'
 
 no_matches='
 NO MATCHES FOUND'
-[ "$(print_matches -v k1=2 -v k2=2 $ajoinf1 $ajoinf2)" = "$no_matches" ] \
+[ "$(ds:mtch -v k1=2 -v k2=2 $jnf1 $jnf2)" = "$no_matches" ] \
   || 'print_matches failed no matches case'
-[ $(print_matches -v k=1 $ajoinf1 $ajoinf2 | wc -l) = 171 ] \
+[ $(ds:mtch -v k=1 $jnf1 $jnf2 | wc -l) = 171 ] \
   || 'print_matches failed no matches case'
 
 sort_input='d c a b f
@@ -46,28 +67,30 @@ sort_output='d c a b f
 f e d c b
 f e c b a
 e d c b a'
-[ "$(echo "$sort_input" | infsortm -v k=5,1 -v order=d)" = "$sort_output" ] || fail 'infsortm command failed'
+[ "$(echo "$sort_input" | ds:infsortm -v k=5,1 -v order=d)" = "$sort_output" ] || ds:fail 'infsortm command failed'
 
-[ "$(echo 1 2 3 | join_by ', ')" = "1, 2, 3" ] || fail 'join_by command failed on pipe case'
-[ "$(join_by ', ' 1 2 3)" = "1, 2, 3" ] || fail 'join_by command failed on pipe case'
+[ "$(echo 1 2 3 | ds:join_by ', ')" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'
+[ "$(ds:join_by ', ' 1 2 3)" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'
 
-[ "$(embrace 'test')" = '{test}' ] || fail 'embrace command failed'
+[ "$(ds:embrace 'test')" = '{test}' ] || ds:fail 'embrace command failed'
 
 path_el_arr=( tests/ infer_join_fields_test1 '.csv' )
 let count=0
-for el in $(path_elements $ajoinf1); do
+for el in $(ds:path_elements $jnf1); do
   test_el=${path_el_arr[count]}
-  [ $el = $test_el ] || fail "path_elements command failed on $test_el"
+  [ $el = $test_el ] || ds:fail "path_elements command failed on $test_el"
   let count+=1
 done
 
-[ "$(filename_str $ajoinf1 '-1')" = 'tests/infer_join_fields_test1-1.csv' ] \
-  || fail 'filename_str command failed'
+[ "$(ds:filename_str $jnf1 '-1')" = 'tests/infer_join_fields_test1-1.csv' ] \
+  || ds:fail 'filename_str command failed'
 
-[ "$(iter_str "a" 3)" = 'a a a' ] || fail 'iter_str command failed'
+[ "$(ds:iter_str "a" 3)" = 'a a a' ] || ds:fail 'iter_str command failed'
 
-echo $(root_vol) 1> /dev/null || fail 'root_vol command failed'
+echo $(ds:root) 1> $q || ds:fail 'root_vol command failed'
 
-[ "$(printf "%s\n" a b c d | reverse | tr -d '\n')" = "dcba" ] || fail 'reverse command failed'
+[ "$(printf "%s\n" a b c d | ds:rev | tr -d '\n')" = "dcba" ] || ds:fail 'rev command failed'
 
+commands="$(ds:commands)"
+[ "$(cat tests/commands_output)" = "$commands" ] || 'commands listing failed'
 

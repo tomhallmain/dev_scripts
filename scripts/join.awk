@@ -4,14 +4,14 @@
 # `join` Unix program but with slightly different features.
 # 
 # If there is one field number to join on, assign it to var k at runtime:
-# > awk -f fullouterjoin.awk -v k=1 file1 file2
+# > awk -f join.awk -v k=1 file1 file2
 #
 # If there are different keys in each file, run as:
-# > awk -f fullouterjoin.awk -v k1=1 -v k2=2 file1 file2
+# > awk -f join.awk -v k1=1 -v k2=2 file1 file2
 #
 # If there are multiple fields to join on in a single file, separate the column
 # numbers with commas:
-# > awk -f fullouterjoin.awk -v k1=1,2 -v k2=3,4 file1 file2
+# > awk -f join.awk -v k1=1,2 -v k2=3,4 file1 file2
 #
 # If headers are present, set the header variable to any value:
 # -v headers=1
