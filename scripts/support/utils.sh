@@ -44,6 +44,17 @@ ds:nested() { # Detect if shell is nested for control handling
   [ $SHLVL -gt 1 ]
 }
 
+ds:arr_base() { # Return first array index for shell
+  shell="$(ds:sh)"
+  if [[ $shell =~ bash ]]; then
+    printf 0
+  elif [[ $shell =~ zsh ]]; then
+    printf 1
+  else
+    ds:fail 'This shell unsupported at this time'
+  fi
+}
+
 ds:needs_arg() { # Test if argument is missing and handle UX if it's not
   local opt="$1" optarg="$2"; echo $optarg
   [ -z "$optarg" ] && echo "No arg for --$opt option" && ds:fail
@@ -75,6 +86,25 @@ ds:opts() { # General flag opts handling
   done
   shift $((OPTIND-1))
   echo reached end
+}
+
+ds:os() { # Return computer operating system if supported
+  local mstest=/proc/version
+  [ -f $mstest ] && grep -q Microsoft $mstest && echo "MS Windows"
+
+  if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    echo "Linux"
+  elif [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "Mac OSX"
+  elif [[ "$OSTYPE" == "cygwin" ]]; then
+    echo "MS Windows"
+  elif [[ "$OSTYPE" == "msys" ]]; then
+    echo "MS Windows"
+  elif [[ "$OSTYPE" == "win32" ]]; then
+    echo "MS Windows"
+  elif [[ "$OSTYPE" == "freebsd"* ]]; then
+    echo "FreeBSD"
+  fi
 }
 
 ds:not_git() { # Check if directory is not part of a git repo

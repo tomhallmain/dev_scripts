@@ -6,6 +6,8 @@ DS_SUPPORT="${DS_SCRIPT}support/"
 source "${DS_SUPPORT}utils.sh"
 
 
+
+
 ds:searchn() { # Searches current names for string, returns matches
   local searchval="$1"
   ds:ndata | awk -v sv=$searchval '$0 ~ sv { print }'
@@ -41,11 +43,6 @@ ds:searchx() { # Search a file with top-level curly braces for a name
   # TODO: Add variable search
 }
 
-ds:os() { # Return computer operating system if supported
-  :
-  # TODO
-}
-
 ds:zsh() { # Refresh zsh interactive session
   clear
   exec zsh
@@ -56,14 +53,15 @@ ds:bash() { # Refresh bash interactive session
   exec bash
 }
 
-ds:mktmp() { # mktemp -q "/tmp/${filename}"
+ds:tmp() { # mktemp -q "/tmp/${filename}"
   local filename="$1"
-  mktemp -q "/tmp/${filename}.XXXXX"
+  local tmp=$(mktemp -q "/tmp/${filename}.XXXXX")
+  echo $tmp
 }
 
 ds:fail() { # Safe failure, kills parent but returns to prompt (no custom message on zsh)
   local shell="$(ds:sh)"
-  if [ "$shell" = "bash" ]; then
+  if [[ "$shell" =~ "bash" ]]; then
     : "${_err_?$1}"
   else
     echo "$1"
@@ -97,11 +95,14 @@ ds:dup_input() { # ** Duplicate input sent to STDIN in aggregate
 
 ds:join_by() { # ** Join a shell array by a text argument provided
   local d=$1; shift
+  local shell="$(ds:sh)"
 
   if ds:pipe_open; then
     local pipeargs=($(cat /dev/stdin))
-    [ -z ${pipeargs[2]} ] && echo Not enough args to join! && return 1
-    local first="${pipeargs[0]}"
+    local arr_base=$(ds:arr_base)
+    let join_start=$arr_base+1
+    [ -z ${pipeargs[$join_start]} ] && echo Not enough args to join! && return 1
+    local first="${pipeargs[$arr_base]}"
     local args=( ${pipeargs[@]:1} "$@" )
     set -- "${args[@]}"
   else
@@ -111,6 +112,29 @@ ds:join_by() { # ** Join a shell array by a text argument provided
   fi
 
   echo -n "$first"; printf "%s" "${args[@]/#/$d}"
+}
+
+ds:re_substr() { # ** Extract a substring from a string with regex anchors
+  if ds:pipe_open; then
+    local str="$(cat /dev/stdin)"
+    local leftanc="$1" rightanc="$2"
+  else
+    local str="$1" leftanc="$2" rightanc="$3"
+    [ -z $str ] && ds:fail 'String required for substring extraction'
+  fi
+  if [[ $leftanc && $rightanc ]]; then
+    local sedstr="s/$leftanc//;s/$rightanc//"
+    local out="$(grep -Eo "$leftanc.*?[^\\]$rightanc" <<< "$str" | sed $sedstr)"
+  elif [ $leftanc ]; then
+    local sedstr="s/$leftanc//"
+    local out="$(grep -Eo "$leftanc.*?[^\\]" <<< "$str" | sed $sedstr)"
+  elif [ $rightanc ]; then
+    local sedstr="s/$rightanc//"
+    local out="$(grep -Eo ".*?[^\\]$rightanc" <<< "$str" | sed $sedstr)"
+  else
+    out="$str"
+  fi
+  [ $out ] && printf "$out" || echo 'No string match to extract'
 }
 
 ds:iter_str() { # Repeat a string some number of times: rpt_str str [n=1] [fs]
@@ -147,7 +171,7 @@ ds:path_elements() { # Returns dirname, filename, and extension from a filepath
   local extension=$([[ "$filename" = *.* ]] && echo ".${filename##*.}" || echo '')
   local filename="${filename%.*}"
   local out=( "$dirpath/" "$filename" "$extension" )
-  printf '%s\n' "${out[@]}"
+  printf '%s\t' "${out[@]}"
 }
 
 ds:root() { # Returns the root volume / of the system
@@ -192,7 +216,7 @@ ds:source() { # Source a piece of file: ds:source file ["search" pattern] || [li
   :
 }
 
-ds:lbv() { # Generate a cross table of git repos vs branches - set a max depth with LBV_DEPTH
+ds:lbv() { # Generate a cross table of git repos vs branches - set configuration in scripts/support/lbv.conf
   ds:nset 'fd' && local use_fd="-f"
   ds:source "${DS_SUPPORT}lbv.conf" 2 3
   [ $LBV_DEPTH ] && local maxdepth=(-D $LBV_DEPTH)
@@ -208,15 +232,17 @@ ds:env_refresh() { # Pull latest master branch for all git repos, run installs
   bash $DS_SCRIPT/local_env_refresh.sh
 }
 
-ds:gstatus() { # Run git status for all repos
+ds:git_status() { # Run git status for all repos (alias ds:gs)
   bash $DS_SCRIPT/all_repo_git_status.sh
 }
+alias ds:gs="ds:git_status"
 
-ds:gbranch() { # Run git branch for all repos
+ds:git_branch() { # Run git branch for all repos (alias ds:gb)
   bash $DS_SCRIPT/all_repo_git_branch.sh
 }
+alias ds:gb="ds:git_branch"
 
-ds:gadd() { # Add all untracked git files
+ds:git_add_all() { # Add all untracked git files (alias ds:ga)
   ds:not_git && return 1
   local all_untracked=( $(git ls-files -o --exclude-standard) )
   if [ -z "$all_untracked" ]; then
@@ -229,18 +255,21 @@ ds:gadd() { # Add all untracked git files
     cd "$startdir"
   fi
 }
+alias ds:ga="ds:git_add_all"
 
-ds:gpcurr() { # git push origin for current branch
+ds:git_push_cur() { # git push origin for current branch (alias ds:gp)
   ds:not_git && return 1
   current_branch=$(git rev-parse --abbrev-ref HEAD)
   git push origin "$current_branch"
 };
+alias ds:gp="ds:git_push_cur"
 
-ds:gacmp() { # Add all untracked files, commit with message, push current branch
+ds:git_add_com_push() { # Add all untracked files, commit with message, push current branch (alias ds:gacmp)
   ds:not_git && return 1
   local commit_msg="$1"
-  ds:gadd; ds:gcam "$commit_msg"; ds:gpcurr
+  ds:git_add; ds:gcam "$commit_msg"; ds:git_push_cur
 }
+alias ds:gacmp="ds:git_add_com_push"
 
 ds:git_recent() { # Display table of commits sorted by recency descending (alias ds:gr)
   ds:not_git && return 1
@@ -279,10 +308,11 @@ ds:git_recent_all() { # Display table of recent commits for all home dir branche
 }
 alias ds:gra="ds:git_recent_all"
 
-ds:git_graph() { # Print colorful git history graph
+ds:git_graph() { # Print colorful git history graph (alias ds:gg)
   ds:not_git && return 1
   git log --all --decorate --oneline --graph # git log a dog.
 }
+alias ds:gg="ds:git_graph"
 
 ds:todo() { # List todo items found in current directory
   ds:nset 'rg' && local RG=true
@@ -340,7 +370,7 @@ ds:jn() { # ** Similar to the join Unix command but with different features
   # last args
 }
 
-ds:mtch() { # ** Print duplicate lines on given field numbers in two files
+ds:print_matches() { # ** Print duplicate lines on given field numbers in two files (alias ds:pm)
   local args=( "$@" )
   let last_arg=${#args[@]}-1
   if ds:pipe_open; then
@@ -372,8 +402,9 @@ ds:mtch() { # ** Print duplicate lines on given field numbers in two files
   
   ds:pipe_clean $file2
 }
+alias ds:pm="ds:print_matches"
 
-ds:comp() { # ** Print non-matching lines on given field numbers in two files
+ds:print_comps() { # ** Print non-matching lines on given field numbers in two files (alias ds:pc)
   local args=( "$@" )
   let last_arg=${#args[@]}-1
   if ds:pipe_open; then
@@ -405,6 +436,7 @@ ds:comp() { # ** Print non-matching lines on given field numbers in two files
   
   ds:pipe_clean $file2
 }
+alias ds:pm="ds:print_matches"
 
 ds:inferh() { # Infer if headers are present in a file: ds:inferh [awkargs] file
   local args=( "$@" )
@@ -506,7 +538,7 @@ ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [awkargs]
   ds:pipe_clean $file
 }
 
-ds:index() { # ** Prints an index attached to data lines from a file or stdin
+ds:idx() { # ** Prints an index attached to data lines from a file or stdin
   if ds:pipe_open; then
     local header=$1 args=( "${@:2}" ) file=/tmp/index_showlater piped=0
     cat /dev/stdin > $file
@@ -539,7 +571,7 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo file [rows] [cols] [awkar
   fi
 }
 
-ds:dcap() { # ** Remove up to a certain number of lines from the start of a file, default is 1
+ds:decap() { # ** Remove up to a certain number of lines from the start of a file, default is 1
   let n_lines=1+${1:-1}
   if ds:pipe_open; then
     local file=/tmp/cutheader piped=0
@@ -552,7 +584,7 @@ ds:dcap() { # ** Remove up to a certain number of lines from the start of a file
   ds:pipe_clean $file
 }
 
-ds:transpose() { # ** Transpose field values of a text-based field-separated file
+ds:transpose() { # ** Transpose field values of a text-based field-separated file (alias ds:t)
   local args=( "$@" )
   if ds:pipe_open; then
     local file=/tmp/transpose piped=0
@@ -573,15 +605,16 @@ ds:transpose() { # ** Transpose field values of a text-based field-separated fil
   fi
   ds:pipe_clean $file
 }
+alias ds:t="ds:transpose"
 
 ds:ds() { # Generate statistics about data in a Unix text file
   ds:file_check "$1"
+  local file="$1"; shift
   local fs="$(ds:inferfs "$file")"
-  
-  # TODO
+  awk ${[@]} -f $DS_SCRIPT/power.awk  "$file"
 }
 
-ds:fieldcounts() { # Print value counts for a given field: ds:fieldcounts file [field=1] [min=1] [order=a]
+ds:fieldcounts() { # Print value counts for a given field: ds:fieldcounts file [field=1] [min=1] [order=a] (alias ds:fc)
   ds:file_check "$1"
   local file="$1" field="${2:-1}" min="$3"
   local fs="$(ds:inferfs "$file")"
@@ -592,8 +625,9 @@ ds:fieldcounts() { # Print value counts for a given field: ds:fieldcounts file [
     END { for (i in _) if (_[i] > ${min}) print _[i], i }"
   awk -F"$fs" "$program" "$file" 2> /dev/null | sort -n$order
 }
+alias ds:fc="ds:fieldcounts"
 
-ds:newfs() { # Outputs a file with an updated field separator: ds:newfs [] [newfs=,] [file]
+ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [] [newfs=,] [file]
   local args=( "$@" )
   let last_arg=${#args[@]}-1
   if ds:pipe_open; then
@@ -655,7 +689,7 @@ ds:mactounix() { # Converts ^M return characters into simple carriage returns in
   rm $tmpfile
 }
 
-ds:mini() { # Crude minify, remove whitespace including newlines except space
+ds:mini() { # ** Crude minify, remove whitespace including newlines except space
   if ds:pipe_open; then
     cat /dev/stdin > /tmp/mini_showlater;
     local file=/tmp/mini_showlater piped=0
@@ -667,7 +701,7 @@ ds:mini() { # Crude minify, remove whitespace including newlines except space
   ds:pipe_clean $file
 }
 
-ds:infsort() { # Sort with an inferred field separator of exactly 1 char
+ds:infsort() { # ** Sort with an inferred field separator of exactly 1 char
   local args=( "$@" )
   if ds:pipe_open; then
     local file=/tmp/infsort_showlater piped=0
@@ -683,7 +717,7 @@ ds:infsort() { # Sort with an inferred field separator of exactly 1 char
   ds:pipe_clean $file
 }
 
-ds:infsortm() { # Sort with an inferred field separator of 1 or more character
+ds:infsortm() { # ** Sort with an inferred field separator of 1 or more character (alias ds:ism)
   # TODO: Default to infer header
   local args=( "$@" )
   if ds:pipe_open; then
@@ -703,6 +737,7 @@ ds:infsortm() { # Sort with an inferred field separator of 1 or more character
   fi
   ds:pipe_clean $file
 }
+alias ds:ism="ds:infsortm"
 
 ds:srg() { # Scope rg/grep to a set of files that contain a match: ds:srg scope_pattern search_pattern [dir] [invert=]
   ([ $1 ] && [ $2 ]) || ds:fail 'Missing scope and/or search pattern args'
@@ -770,7 +805,7 @@ ds:recent() { # ls files modified last 7 days: ds:recent [custom_dir] [recurse=r
 ds:sedi() { # Linux-portable sed in place substitution: ds:sedi file search_pattern [replacement]
   [ $1 ] && [ $2 ] || ds:fail 'Missing required args: ds:sedi file search [replace]'
   [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
-  local file="$1" search="$2" replace="$3"
+  local file="$1" search="$(printf -q $2)" replace="$(printf -q $3)"
   perl -pi -e "s/${search}/${replace}/g" "$file"
 }
 
@@ -818,5 +853,14 @@ ds:webpage_title() { # Downloads html from a webpage and extracts the title text
 
 ds:dups() { # Report duplicate files with option for deletion
   bash $DS_SCRIPT/compare_files_in_dir.sh $1
+}
+
+ds:commands() { # List commands in the dev_scripts/.commands.sh file
+  echo
+  grep '[[:alnum:]_]*()' $DS_LOC/.commands.sh | sed 's/^  function //' \
+    | grep -v grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}'
+  echo
+  echo "** - function supports receiving piped data"
+  echo
 }
 

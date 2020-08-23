@@ -8,18 +8,17 @@ q=/dev/null
 shell=$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')
 
 if [[ $shell =~ 'bash' ]]; then
+  bsh=0
   cd "${BASH_SOURCE%/*}/.."
   source .commands.sh
   $(ds:fail 'testfail' &> $tmp)
   testfail=$(cat $tmp)
-  rm $tmp
   [[ $testfail =~ '_err_: testfail' ]] || echo 'fail command failed in bash case'
 elif [[ $shell =~ 'zsh' ]]; then
   cd "$(dirname $0)/.."
   source .commands.sh
   $(ds:fail 'testfail' &> $tmp)
   testfail=$(cat $tmp)
-  rm $tmp
   [[ $testfail =~ '_err_: Operation intentionally failed' ]] || echo 'fail command failed in zsh case'
 else
   echo 'unhandled shell detected - only zsh/bash supported at this time - exiting test script'
@@ -48,15 +47,15 @@ jnf2="tests/infer_join_fields_test2.csv"
 [ $(ds:jn -v k=1 -v ind=1 "$jnf1" "$jnf2" | wc -l) -gt 15 ] \
   || ds:fail 'ds:jn failed pipe_check, or pipe_check failed'
 
-[ $(ds:comp $jnf1{,} | wc -l) -eq 7 ] || 'print_comps failed no complement case'
-[ $(ds:comp -v k1=2 -v k2=3,4 $jnf1 $jnf2 | wc -l) -eq 197 ] \
+[ $(ds:print_comps $jnf1{,} | wc -l) -eq 7 ] || 'print_comps failed no complement case'
+[ $(ds:print_comps -v k1=2 -v k2=3,4 $jnf1 $jnf2 | wc -l) -eq 197 ] \
   || 'print_comps failed complments case'
 
 no_matches='
 NO MATCHES FOUND'
-[ "$(ds:mtch -v k1=2 -v k2=2 $jnf1 $jnf2)" = "$no_matches" ] \
+[ "$(ds:print_matches -v k1=2 -v k2=2 $jnf1 $jnf2)" = "$no_matches" ] \
   || 'print_matches failed no matches case'
-[ $(ds:mtch -v k=1 $jnf1 $jnf2 | wc -l) = 171 ] \
+[ $(ds:print_matches -v k=1 $jnf1 $jnf2 | wc -l) = 171 ] \
   || 'print_matches failed no matches case'
 
 sort_input='d c a b f
@@ -75,8 +74,8 @@ e d c b a'
 [ "$(ds:embrace 'test')" = '{test}' ] || ds:fail 'embrace command failed'
 
 path_el_arr=( tests/ infer_join_fields_test1 '.csv' )
-let count=0
-for el in $(ds:path_elements $jnf1); do
+[ -z $bsh ] && let count=1 || let count=0
+for el in $(IFS='\t' ds:path_elements $jnf1); do
   test_el=${path_el_arr[count]}
   [ $el = $test_el ] || ds:fail "path_elements command failed on $test_el"
   let count+=1
@@ -91,6 +90,9 @@ echo $(ds:root) 1> $q || ds:fail 'root_vol command failed'
 
 [ "$(printf "%s\n" a b c d | ds:rev | tr -d '\n')" = "dcba" ] || ds:fail 'rev command failed'
 
-commands="$(ds:commands)"
-[ "$(cat tests/commands_output)" = "$commands" ] || 'commands listing failed'
+[ $bsh ] && cmds="tests/commands_output_bash" || cmds="tests/commands_output_zsh"
+ds:commands > $tmp
+cmp --silent $cmds $tmp || ds:fail 'commands listing failed'
+
+rm $tmp
 
