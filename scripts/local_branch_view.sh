@@ -2,6 +2,9 @@
 #
 # Script by Tom Hall (github.com/tomhallmain)
 #
+# Credit getoptsGetOptarg function:
+# https://stackoverflow.com/questions/11517139/optional-option-argument-with-getopts/57295993#57295993
+#
 # To report a bug please send a message to: tomhall.main@gmail.com
 #
 
@@ -10,16 +13,15 @@ echo
 
 
 
-
 # Handle option flags and set conditional variables
 
 lbvHelp() {
   echo "Script to print a view of local git repositories against branches."
   echo
-  echo "Syntax: [-ab:dfhmo:s]"
+  echo "Syntax: [-ab:Dfhmo:s]"
   echo "a    Run for all local repos found (implies d, m)"
   echo "b    Run for a custom base directory filepath arg"
-  echo "d    Deep search for all repos in base directory"
+  echo "D    Deep search for all repos in base directory"
   echo "f    Run all find using fd if installed (implies a, d, m)"
   echo "h    Print this help"
   echo "m    Include repos found with only master branch"
@@ -35,7 +37,17 @@ if (($# == 0)); then
   echo "Add opt -h to print help"
 fi
 
-while getopts ":ab:dfhmo:sv" opt; do
+getoptsGetOptarg() {
+  eval next_token=\${$OPTIND}
+  if [[ -n $next_token && $next_token != -* ]]; then
+    OPTIND=$((OPTIND + 1))
+    OPTARG=$next_token
+  else
+    OPTARG=""
+  fi
+}
+
+while getopts ":ab:Dfhmo:sv" opt; do
   case $opt in
     a)  RUN_ALL_REPOS=true ; DEEP=true ; INCLUDE_MASTER_ONLYS=true ;;
     b)  if [ -z $BASE_DIR ]; then
@@ -44,10 +56,11 @@ while getopts ":ab:dfhmo:sv" opt; do
           echo -e "\nOpts -b and -o cannot be used together - exiting"; exit 1
         fi
         [ "${BASE_DIR:0:1}" = '~' ] && BASE_DIR="${HOME}${BASE_DIR:1}" ;;
-    d)  DEEP=true ;;
+    D)  getoptsGetOptarg $@
+        DEEP=${OPTARG:-true} ;;
     f)  which fd &> /dev/null
         [ $? ] && USE_FD=true || (echo 'FD not set - running all repos using find') 
-        RUN_ALL_REPOS=true ; DEEP=true ; INCLUDE_MASTER_ONLYS=true ;;
+        DEEP=true ;;
     h)  lbvHelp ;;
     m)  INCLUDE_MASTER_ONLYS=true ;;
     o)  if [ -z $BASE_DIR ]; then
@@ -57,7 +70,7 @@ while getopts ":ab:dfhmo:sv" opt; do
         fi ;;
     s)  DISPLAY_STATUS=true ;;
     v)  VERBOSE=true ;;
-    \?) echo -e "\nInvalid option: -$opt \nValid options include [-ab:dfhmo:sv]" >&2
+    \?) echo -e "\nInvalid option: -$opt \nValid options include [-ab:Dfhmo:sv]" >&2
         exit 1 ;;
   esac
 done
@@ -94,7 +107,6 @@ SORTED_REPOS=()
 ALL_BRANCHES=()
 UNIQ_BRANCHES=()
 BRANCH_TRACKINGS=()
-
 OLD_IFS=$IFS
 
 
@@ -102,6 +114,11 @@ OLD_IFS=$IFS
 
 # Define methods
 
+isInt() {
+  local test="$1"
+  local n_re="^[0-9]$"
+  [[ $test =~ $n_re ]]
+}
 generateAllowedVarName() {
   # Shell doesn't allow some chars in var names
   local unparsed="$1"
@@ -163,10 +180,12 @@ argIndex() {
 }
 spin() {
   spinner='\|/—'
-  while :; do
+  let count=0
+  while [ $count -lt 5000 ]; do
     for i in {0..3}; do
       echo -n "${spinner:$i:1}"
       echo -en "\010"
+      let count+=1
       sleep 0.5
     done
   done
@@ -195,9 +214,11 @@ done < <(
   elif [ $DEEP ]; then
     [ -z $RUN_ALL_REPOS ] && FIND_DIRS=( "$BASE_DIR" )
     if [ $USE_FD ]; then
-      fd -c never -H -a -s -t d "\.git$" "${FIND_DIRS}" | sed 's/\/\.git$//'
+      isInt $DEEP && maxdepth="-d $DEEP"
+      fd $maxdepth -c never -Hast d "\.git$" "${FIND_DIRS}" | sed 's/\/\.git$//'
     else
-      find "${FIND_DIRS[@]}" -name ".git" -prune 2>/dev/null | sed 's/\/\.git$//'
+      isInt $DEEP && maxdepth="-maxdepth $DEEP"
+      find "${FIND_DIRS[@]}" -name ".git" -prune $maxdepth 2>/dev/null | sed 's/\/\.git$//'
     fi
   else
     cd "$BASE_DIR" ; find * -maxdepth 0 -type d

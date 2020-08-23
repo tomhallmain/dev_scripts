@@ -2,36 +2,9 @@
 
 DS_LOC=~/dev_scripts
 DS_SCRIPT=$DS_LOC/scripts/
+DS_SUPPORT="${DS_SCRIPT}support/"
+source "${DS_SUPPORT}utils.sh"
 
-ds:ndata() { # Gathers data about names in current context
-  local _var=$(declare | awk -F"=" '{print $1}' | awk '{print $NF}')
-  local _func=$(declare -f | grep '^[A-Za-z_:]*\s()' | cut -f 1 -d ' ' \
-    | grep -v '()' | sed 's/^_//')
-  local _alias=$(alias | awk -F"=" '{print $1}')
-  local _bin=$(ls /bin)
-  local _usrbin=$(ls /usr/bin | grep -v "\.")
-  local _usrlocalbin=$(ls /usr/local/bin | grep -v "\.")
-  local _builtin=$(bash -c 'help' | awk 'NR > 8 { line=$0
-    $1 = substr($0, 2, 35); $2 = substr(line, 37, 35);
-    print $1; print $2 }' | cut -f 1 -d ' ' | awk -v q=\' '{print q $0 q}')
-
-  awk '{ if (_[FILENAME] == 0) f++ 
-         if (f == 1) { print "VAR", $0 } 
-    else if (f == 2) { print "FUNC", $0 } 
-    else if (f == 3) { print "ALIAS", $0 }
-    else if (f == 4) { print "BIN", $0 }
-    else if (f == 5) { print "BUILTIN", $0 }
-    else if (f == 6) { print "USRBIN", $0 }
-    else if (f == 7) { print "USRLOCALBIN", $0 }
-     _[FILENAME] = 1 }'               \
-    <(printf '%s\n' ${_var})          \
-    <(printf '%s\n' ${_func})         \
-    <(printf '%s\n' ${_alias})        \
-    <(printf '%s\n' ${_bin})          \
-    <(printf '%s\n' ${_builtin})      \
-    <(printf '%s\n' ${_usrbin})       \
-    <(printf '%s\n' ${_usrlocalbin})  | sort
-}
 
 ds:searchn() { # Searches current names for string, returns matches
   local searchval="$1"
@@ -58,8 +31,14 @@ ds:ntype() { # Test name type (function, alias, variable) if defined in context
     ' <(ds:ndata) 2> /dev/null
 }
 
-ds:sh() { # Print the shell being used (works for sh, bash, zsh)
-  ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{print $NF}'
+ds:searchx() { # Search a file with top-level curly braces for a name
+  ds:file_check "$1"
+  if [ $2 ]; then
+    awk -f "${DS_SCRIPT}top_curly.awk" -v search="$2" "$1" | ds:pipe_check
+  else
+    awk -f "${DS_SCRIPT}top_curly.awk" "$1" | ds:pipe_check
+  fi
+  # TODO: Add variable search
 }
 
 ds:os() { # Return computer operating system if supported
@@ -67,24 +46,12 @@ ds:os() { # Return computer operating system if supported
   # TODO
 }
 
-ds:subsh() { # Detect if in a subshell 
-  [[ $BASH_SUBSHELL -gt 0 || $ZSH_SUBSHELL -gt 0 || "$(exec sh -c 'echo "$PPID"')" != "$$" || "$(exec ksh -c 'echo "$PPID"')" != "$$" ]]
-}
-
-ds:nested() { # Detect if shell is nested for control handling
-  [ $SHLVL -gt 1 ]
-}
-
-ds:is_cli() { # Detect if shell is interactive
-  [ -z "$PS1" ]
-}
-
-ds:refresh_zsh() { # Refresh zsh interactive session
+ds:zsh() { # Refresh zsh interactive session
   clear
   exec zsh
 }
 
-ds:refresh_bash() { # Refresh bash interactive session
+ds:bash() { # Refresh bash interactive session
   clear
   exec bash
 }
@@ -92,11 +59,6 @@ ds:refresh_bash() { # Refresh bash interactive session
 ds:mktmp() { # mktemp -q "/tmp/${filename}"
   local filename="$1"
   mktemp -q "/tmp/${filename}.XXXXX"
-}
-
-ds:die() { # Output to STDERR and exit with error
-  echo "$*" >&2
-  if ds:sub_sh || ds:nested; then kill $$; fi
 }
 
 ds:fail() { # Safe failure, kills parent but returns to prompt (no custom message on zsh)
@@ -107,47 +69,6 @@ ds:fail() { # Safe failure, kills parent but returns to prompt (no custom messag
     echo "$1"
     : "${_err_?Operation intentionally failed by fail command}"
   fi
-}
-
-ds:needs_arg() { # Test if argument is missing and handle UX if it's not
-  local opt="$1" optarg="$2"; echo $optarg
-  [ -z "$optarg" ] && echo "No arg for --$opt option" && ds:fail
-}
-
-ds:longopts() { # Support long options: https://stackoverflow.com/a/28466267/519360
-  local opt="$1" optarg="$2"
-  opt="${optarg%%=*}"       # extract long option name
-  optarg="${optarg#$opt}"   # extract long option argument (may be empty)
-  optarg="${optarg#=}"      # if long option argument, remove assigning `=`
-  local out=( "$opt" "$optarg" )
-  printf '%s\t' "${out[@]}"
-}
-
-ds:opts() { # General flag opts handling
-  local OPTIND o s
-  while getopts ":1:2:-:" OPT; do
-    if [ "$OPT" = '-' ]; then
-      local IFS=$'\t'; read -r OPT OPTARG <<<$(ds:longopts "$OPT" "$OPTARG")
-    fi
-    case "${OPT}" in
-      1|f1|file1) needs_arg "$OPT" "$OPTARG"; local file1="$OPTARG" ;;
-      2|f2|file2) needs_arg "$OPT" "$OPTARG"; local file2="$OPTARG" ;;
-      s1|sep1) local FS1="$OPTARG" ;;
-      s2|sep2) local FS2="$OPTARG" ;;
-
-      *) echo "Option not supported" 1>&2; return ;;
-    esac
-  done
-  shift $((OPTIND-1))
-  echo reached end
-}
-
-ds:dup_input() { # ** Duplicate input sent to STDIN in aggregate
-  tee /tmp/showlater && cat /tmp/showlater && rm /tmp/showlater
-}
-
-ds:pipe_open() { # ** Detect if pipe is open
-  [ -p /dev/stdin ]
 }
 
 ds:pipe_check() { # ** Detect if pipe has any data, or over a certain number of lines
@@ -162,17 +83,16 @@ ds:pipe_check() { # ** Detect if pipe has any data, or over a certain number of 
   return $has_data
 }
 
-ds:pipe_clean() { # Remove a temp file created via stdin if piping has been detected
-  if [ $piped ]; then rm "$1" &> /dev/null; fi
+ds:rev() { # ** Bash-only solution to reverse lines for processing
+  local line
+  if IFS= read -r line; then
+    ds:rev
+    printf '%s\n' "$line"
+  fi
 }
 
-ds:file_check() { # Test for file validity and fail if invalid
-  local testfile="$1"
-  [ ! -f "$testfile" ] && ds:fail 'File not provided or invalid!'
-}
-
-ds:noawkfs() { # Test whether awk arg for setting field separator is present
-  [[ ! "${args[@]}" =~ " -F" && ! "${args[@]}" =~ "-v FS" && ! "${args[@]}" =~ "-v fs" ]]
+ds:dup_input() { # ** Duplicate input sent to STDIN in aggregate
+  tee /tmp/showlater && cat /tmp/showlater && rm /tmp/showlater
 }
 
 ds:join_by() { # ** Join a shell array by a text argument provided
@@ -225,7 +145,7 @@ ds:path_elements() { # Returns dirname, filename, and extension from a filepath
   local dirpath=$(dirname "$filepath")
   local filename=$(basename "$filepath")
   local extension=$([[ "$filename" = *.* ]] && echo ".${filename##*.}" || echo '')
-  filename="${filename%.*}"
+  local filename="${filename%.*}"
   local out=( "$dirpath/" "$filename" "$extension" )
   printf '%s\n' "${out[@]}"
 }
@@ -239,26 +159,45 @@ ds:root() { # Returns the root volume / of the system
   done
 }
 
-ds:rev() { # ** Bash-only solution to reverse lines for processing
-  local line
-  if IFS= read -r line; then
-    ds:rev
-    printf '%s\n' "$line"
+ds:source() { # Source a piece of file: ds:source file ["search" pattern] || [line endline] || [pattern linesafter]
+  local tmp=/tmp/ds:source
+  if [ "$2" = search ]; then
+    [ $3 ] && ds:searchx "$1" "$3" > $tmp
+    if ds:is_cli; then
+      cat $tmp
+      echo
+      confirm="$(ds:readp 'Confirm source action: ' | ds:downcase)"
+      [ $confirm != y ] && rm $tmp && echo 'External code not sourced' && return
+    fi
+    source $tmp; rm $tmp
+    [ $confirm ] && echo -e "Selection confirmed - new code sourced"
+    return
   fi
-}
-
-ds:not_git() { # Check if directory is not part of a git repo
-  [ -z $1 ] || cd "$1"
-  [[ ! ( -d .git || $(git rev-parse --is-inside-work-tree 2> /dev/null) ) ]]
-}
-
-ds:lbv() { # Generate a cross table of git repos vs branches
-  if [ -z $1 ]; then
-    bash $DS_SCRIPT/local_branch_view.sh
+  ds:file_check "$1"; local file="$1"
+  if ds:is_int "$2"; then
+    local line=$2 
+    if ds:is_int "$3"; then
+      local endline=$3
+      ds:reo "$file" "$line-$endline" > $tmp
+    else
+      ds:reo "$file" "$line" > $tmp
+    fi
+    source $tmp; rm $tmp
+  elif [ $2 ]; then
+    ds:is_int $3 && local linesafter=(-A $3)
+    source <(cat "$file" | grep "$pattern" ${linesafter[@]})
   else
-    local flags="${@}"
-    bash $DS_SCRIPT/local_branch_view.sh "${flags}"
+    source "$file"
   fi
+  :
+}
+
+ds:lbv() { # Generate a cross table of git repos vs branches - set a max depth with LBV_DEPTH
+  ds:nset 'fd' && local use_fd="-f"
+  ds:source "${DS_SUPPORT}lbv.conf" 2 3
+  [ $LBV_DEPTH ] && local maxdepth=(-D $LBV_DEPTH)
+  [ $LBV_SHOWSTATUS ] && local showstatus=-s
+  bash $DS_SCRIPT/local_branch_view.sh ${@} $use_fd $showstatus ${maxdepth[@]}
 }
 
 ds:plb() { # Purge branch name(s) from all local git repos associated
@@ -269,11 +208,11 @@ ds:env_refresh() { # Pull latest master branch for all git repos, run installs
   bash $DS_SCRIPT/local_env_refresh.sh
 }
 
-ds:git_status() { # Run git status for all repos
+ds:gstatus() { # Run git status for all repos
   bash $DS_SCRIPT/all_repo_git_status.sh
 }
 
-ds:git_branch() { # Run git branch for all repos
+ds:gbranch() { # Run git branch for all repos
   bash $DS_SCRIPT/all_repo_git_branch.sh
 }
 
@@ -300,10 +239,10 @@ ds:gpcurr() { # git push origin for current branch
 ds:gacmp() { # Add all untracked files, commit with message, push current branch
   ds:not_git && return 1
   local commit_msg="$1"
-  ds:gadd; gcam "$commit_msg"; ds:gpcurr
+  ds:gadd; ds:gcam "$commit_msg"; ds:gpcurr
 }
 
-ds:git_recent() { # Display table of commits sorted by recency descending
+ds:git_recent() { # Display table of commits sorted by recency descending (alias ds:gr)
   ds:not_git && return 1
   local run_context=${1:-display}
   if [ $run_context = display ]; then
@@ -316,9 +255,9 @@ ds:git_recent() { # Display table of commits sorted by recency descending
     git for-each-ref refs/heads --format="$format" --color=always
   fi
 }
-alias grec="ds:git_recent"
+alias ds:gr="ds:git_recent"
 
-ds:git_recent_all() { # Display table of recent commits for all home dir branches
+ds:git_recent_all() { # Display table of recent commits for all home dir branches (alias ds:gra)
   local start_dir="$PWD"
   local all_recent=/tmp/git_recent_all_showlater
   echo "repo||branch||sortfield||commit time||commit message||author" > $all_recent
@@ -338,7 +277,7 @@ ds:git_recent_all() { # Display table of recent commits for all home dir branche
   cd "$start_dir"
   return $stts
 }
-alias gral="ds:git_recent_all"
+alias ds:gra="ds:git_recent_all"
 
 ds:git_graph() { # Print colorful git history graph
   ds:not_git && return 1
@@ -621,7 +560,7 @@ ds:transpose() { # ** Transpose field values of a text-based field-separated fil
   else 
     let last_arg=${#args[@]}-1
     local file="${args[@]:$last_arg:1}"
-    [ ! -f "$file" ] && echo File was not provided or is invalid! && return 1
+    ds:file_check "$file"
     local args=( ${args[@]/"$file"} )
   fi
   if ds:noawkfs; then
@@ -654,12 +593,28 @@ ds:fieldcounts() { # Print value counts for a given field: ds:fieldcounts file [
   awk -F"$fs" "$program" "$file" 2> /dev/null | sort -n$order
 }
 
-ds:newfs() { # Outputs a file with an updated field separator: newfs file [fs= ]
-  ds:file_check "$1"
-  local file="$1" field="${2:-1}" min="$3"
-  local fs="$(ds:inferfs "$file")"
-
-  # TODO
+ds:newfs() { # Outputs a file with an updated field separator: ds:newfs [] [newfs=,] [file]
+  local args=( "$@" )
+  let last_arg=${#args[@]}-1
+  if ds:pipe_open; then
+    local file=/tmp/newfs piped=0
+    cat /dev/stdin > $file
+  else 
+    local file="${args[@]:$last_arg:1}"
+    ds:file_check "$file"
+    let last_arg-=1
+    local args=( ${args[@]/"$file"} )
+  fi
+  [ $last_arg -gt 0 ] && local newfs="${args[@]:$last_arg:1}"
+  local newfs="${newfs:-,}"
+  local program="BEGIN { OFS=\"${newfs}\" } { for (i = 1; i < NF; i++) {printf \$i OFS} print \$NF }"
+  if ds:noawkfs; then
+    local fs="$(ds:inferfs "$file")"
+    awk -v FS="$fs" $program ${args[@]} "$file" 2> /dev/null
+  else
+    awk ${args[@]} $program "$file" 2> /dev/null
+  fi
+  ds:pipe_clean $file
 }
 
 ds:asgn() { # Grabbing lines matching standard assignment pattern from a file
@@ -697,15 +652,6 @@ ds:mactounix() { # Converts ^M return characters into simple carriage returns in
   local inputfile="$1" tmpfile=/tmp/mactounix
   cat "$inputfile" > $tmpfile
   tr "\015" "\n" < $tmpfile > "$inputfile"
-  rm $tmpfile
-}
-
-ds:unixtodos() { # Removes \r characters in place
-  # TODO: Name may need to be updated, put this and above in different file
-  ds:file_check "$1"
-  local inputfile="$1" tmpfile=/tmp/unixtodos
-  cat "$inputfile" > $tmpfile
-  sed -e 's/\r//g' $tmpfile > "$inputfile"
   rm $tmpfile
 }
 
@@ -870,16 +816,7 @@ ds:webpage_title() { # Downloads html from a webpage and extracts the title text
   fi
 }
 
-ds:dir_dup() { # Report duplicate files with option for deletion
+ds:dups() { # Report duplicate files with option for deletion
   bash $DS_SCRIPT/compare_files_in_dir.sh $1
-}
-
-ds:commands() { # List commands in the dev_scripts/.commands.sh file
-  echo
-  grep '[[:alnum:]_]*()' $DS_LOC/.commands.sh | sed 's/^  function //' \
-    | grep -v grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}'
-  echo
-  echo "** - function supports receiving piped data"
-  echo
 }
 
