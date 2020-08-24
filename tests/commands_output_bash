@@ -1,0 +1,65 @@
+
+ds:asgn           	 Grabbing lines matching standard assignment pattern from a file
+ds:bash           	 Refresh bash interactive session
+ds:commands       	 List commands in the dev_scripts/.commands.sh file
+ds:decap          	 ** Remove up to a certain number of lines from the start of a file, default is 1
+ds:dff            	 Diff shortcut for more relevant changes: ds:dff file1 file2 [suppress_common]
+ds:ds             	 Generate statistics about data in a Unix text file
+ds:dup_input      	 ** Duplicate input sent to STDIN in aggregate
+ds:dups           	 Report duplicate files with option for deletion
+ds:embrace        	 Enclose a string in braces: embrace string [openbrace="{"] [closebrace="}"]
+ds:enti           	 Print text entities from a file separated by a common pattern
+ds:env_refresh    	 Pull latest master branch for all git repos, run installs
+ds:fail           	 Safe failure, kills parent but returns to prompt (no custom message on zsh)
+ds:fieldcounts    	 Print value counts for a given field: ds:fieldcounts file [field=1] [min=1] [order=a] (alias ds:fc)
+ds:filename_str   	 Adds a string to the beginning or end of a filename
+ds:fit            	 ** Print field-separated data in columns with dynamic width: ds:fit [awkargs] file
+ds:git_add_all    	 Add all untracked git files (alias ds:ga)
+ds:git_add_com_push	 Add all untracked files, commit with message, push current branch (alias ds:gacmp)
+ds:git_branch     	 Run git branch for all repos (alias ds:gb)
+ds:git_graph      	 Print colorful git history graph (alias ds:gg)
+ds:git_push_cur   	 git push origin for current branch (alias ds:gp)
+ds:git_recent     	 Display table of commits sorted by recency descending (alias ds:gr)
+ds:git_recent_all 	 Display table of recent commits for all home dir branches (alias ds:gra)
+ds:git_status     	 Run git status for all repos (alias ds:gs)
+ds:goog           	 Executes Google search with args provided
+ds:gwdf           	 Git word diff shortcut
+ds:idx            	 ** Prints an index attached to data lines from a file or stdin
+ds:inferfs        	 Infer field separator from text data file: inferfs file [try_custom=true] [use_file_ext=true]
+ds:inferh         	 Infer if headers are present in a file: ds:inferh [awkargs] file
+ds:inferk         	 ** Infer join fields in two text data files: ds:inferk file [file (can be piped)]
+ds:infsort        	 ** Sort with an inferred field separator of exactly 1 char
+ds:infsortm       	 ** Sort with an inferred field separator of 1 or more character (alias ds:ism)
+ds:iter_str       	 Repeat a string some number of times: rpt_str str [n=1] [fs]
+ds:jn             	 ** Similar to the join Unix command but with different features
+ds:join_by        	 ** Join a shell array by a text argument provided
+ds:lbv            	 Generate a cross table of git repos vs branches - set configuration in scripts/support/lbv.conf
+ds:mactounix      	 Converts ^M return characters into simple carriage returns in place
+ds:mini           	 ** Crude minify, remove whitespace including newlines except space
+ds:newfs          	 ** Outputs a file with an updated field separator: ds:newfs [] [newfs=,] [file]
+ds:nset           	 Test if name (function, alias, variable) is defined in context
+ds:ntype          	 Test name type (function, alias, variable) if defined in context
+ds:path_elements  	 Returns dirname, filename, and extension from a filepath
+ds:pipe_check     	 ** Detect if pipe has any data, or over a certain number of lines
+ds:plb            	 Purge branch name(s) from all local git repos associated
+ds:print_comps    	 ** Print non-matching lines on given field numbers in two files (alias ds:pc)
+ds:print_matches  	 ** Print duplicate lines on given field numbers in two files (alias ds:pm)
+ds:recent         	 ls files modified last 7 days: ds:recent [custom_dir] [recurse=r] [hidden=h]
+ds:reo            	 ** Reorder/repeat/slice rows/cols: ds:reo file [rows] [cols] [awkargs] || cmd | ds:reo [rows] [cols] [awkargs]
+ds:rev            	 ** Bash-only solution to reverse lines for processing
+ds:root           	 Returns the root volume / of the system
+ds:sbsp           	 Extend fields to include a common subseparator: ds:sbsp file subsep_pattern [nomatch_handler=space]
+ds:searchn        	 Searches current names for string, returns matches
+ds:searchx        	 Search a file with top-level curly braces for a name
+ds:sedi           	 Linux-portable sed in place substitution: ds:sedi file search_pattern [replacement]
+ds:sofs           	 Executes Stack Overflow search with args provided
+ds:source         	 Source a piece of file: ds:source file ["search" pattern] || [line endline] || [pattern linesafter]
+ds:stag           	 ** Print field-separated data in staggered rows: ds:stag [awkargs] file
+ds:tmp            	 mktemp -q "/tmp/${filename}"
+ds:todo           	 List todo items found in current directory
+ds:transpose      	 ** Transpose field values of a text-based field-separated file (alias ds:t)
+ds:webpage_title  	 Downloads html from a webpage and extracts the title text
+ds:zsh            	 Refresh zsh interactive session
+
+** - function supports receiving piped data
+
