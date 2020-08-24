@@ -267,7 +267,7 @@ alias ds:gp="ds:git_push_cur"
 ds:git_add_com_push() { # Add all untracked files, commit with message, push current branch (alias ds:gacmp)
   ds:not_git && return 1
   local commit_msg="$1"
-  ds:git_add; ds:gcam "$commit_msg"; ds:git_push_cur
+  ds:git_add_all; ds:gcam "$commit_msg"; ds:git_push_cur
 }
 alias ds:gacmp="ds:git_add_com_push"
 
