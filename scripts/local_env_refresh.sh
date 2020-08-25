@@ -19,6 +19,10 @@ done
 for repo in ${REPOS[@]}; do
   cd ~
   cd "${repo}"
+  if [ $(git status --porcelain | wc -c) -gt 0 ]; then
+    echo -e "${RED} No pull for ${repo} as it contains untracked changes! ${NC}"
+    continue
+  fi
   echo -e "${MAGENTA} Pulling latest for ${repo} ${NC}\n"
   git checkout master
   git pull

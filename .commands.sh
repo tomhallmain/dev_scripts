@@ -33,16 +33,6 @@ ds:ntype() { # Test name type (function, alias, variable) if defined in context
     ' <(ds:ndata) 2> /dev/null
 }
 
-ds:searchx() { # Search a file with top-level curly braces for a name
-  ds:file_check "$1"
-  if [ $2 ]; then
-    awk -f "${DS_SCRIPT}top_curly.awk" -v search="$2" "$1" | ds:pipe_check
-  else
-    awk -f "${DS_SCRIPT}top_curly.awk" "$1" | ds:pipe_check
-  fi
-  # TODO: Add variable search
-}
-
 ds:zsh() { # Refresh zsh interactive session
   clear
   exec zsh
@@ -183,9 +173,9 @@ ds:root() { # Returns the root volume / of the system
   done
 }
 
-ds:source() { # Source a piece of file: ds:source file ["search" pattern] || [line endline] || [pattern linesafter]
+ds:source() { # Source a piece of file: ds:source file ["searchx" pattern] || [line endline] || [pattern linesafter]
   local tmp=/tmp/ds:source
-  if [ "$2" = search ]; then
+  if [ "$2" = searchx ]; then
     [ $3 ] && ds:searchx "$1" "$3" > $tmp
     if ds:is_cli; then
       cat $tmp
@@ -259,7 +249,7 @@ alias ds:ga="ds:git_add_all"
 
 ds:git_push_cur() { # git push origin for current branch (alias ds:gp)
   ds:not_git && return 1
-  current_branch=$(git rev-parse --abbrev-ref HEAD)
+  local current_branch=$(git rev-parse --abbrev-ref HEAD)
   git push origin "$current_branch"
 };
 alias ds:gp="ds:git_push_cur"
@@ -333,6 +323,62 @@ ds:todo() { # List todo items found in current directory
     done
   fi
   [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
+}
+
+ds:searchx() { # Search a file with top-level curly braces for a name
+  ds:file_check "$1"
+  if [ $2 ]; then
+    awk -f "${DS_SCRIPT}top_curly.awk" -v search="$2" "$1" | ds:pipe_check
+  else
+    awk -f "${DS_SCRIPT}top_curly.awk" "$1" | ds:pipe_check
+  fi
+  # TODO: Add variable search
+}
+
+ds:select() { # ** Select code from a file by regex anchors: ds:select file [startline endline]
+  if ds:pipe_open; then
+    local file=/tmp/select piped=0 start="$2" end="$3"
+    cat /dev/stdin > $file
+  else
+    ds:file_check "$1"
+    local file="$1" start="$2" end="$3"
+  fi
+  awk "/$start/,/$end/{print}" "$file"
+  ds:pipe_clean $file
+}
+
+ds:insert() { # ** Redirect input into a file at a specified line number or pattern: ds:insert file [lineno|pattern] [sourcefile]
+  ds:file_check "$1"
+  local sink="$1" where="$2" source=/tmp/selectsource tmp=/tmp/select
+  local nsinklines=$(cat $sink | wc -l)
+  if ds:is_int "$where"; then
+    [ $where -lt $nsinklines ] || ds:fail 'Insertion point not provided or invalid'
+    local lineno=$where
+  elif [ ! -z "$where" ]; then
+    local pattern="$where"
+    if [ $(grep "$pattern" "$sink" | wc -l) -gt 1 ]; then
+      local conftext='File contains multiple instaces of pattern - are you sure you want to proceed? (y|n)'
+      local confirm="$(ds:readp "$conftext" | ds:downcase)"
+      [ $confirm != y ] && echo 'Exit with no insertion' && return 1
+    fi
+  else
+    ds:fail 'Insertion point not provided or invalid'
+  fi
+  if ds:pipe_open; then
+    local piped=0; cat /dev/stdin > $source
+  else
+    if [ -f "$3" ]; then
+      cat "$3" > $source
+    elif [ $3 ]; then
+      echo "$3" > $source
+    else
+      ds:fail 'Insertion source not provided'
+    fi
+  fi
+  awk -v src="$src" -v lineno=$lineno -v pattern="$pattern" \
+    -f $DS_SCRIPT/insert.awk "$sink" $source > $tmp
+  cat $tmp > "$sink"
+  ds:pipe_clean $source; ds:pipe_clean $tmp
 }
 
 ds:jn() { # ** Similar to the join Unix command but with different features
@@ -560,6 +606,7 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo file [rows] [cols] [awkar
     local rows="$1" cols="$2" args=( "${@:3}" ) file=/tmp/reo_showlater piped=0
     cat /dev/stdin > $file
   else
+    ds:file_check "$1"
     local file="$1" rows="$2" cols="$3" args=( "${@:4}" )
   fi
   if ds:noawkfs; then
@@ -852,7 +899,14 @@ ds:webpage_title() { # Downloads html from a webpage and extracts the title text
 }
 
 ds:dups() { # Report duplicate files with option for deletion
-  bash $DS_SCRIPT/compare_files_in_dir.sh $1
+  if ! ds:nset 'md5sum'; then
+    echo 'md5sum utility not found - please install GNU coreutils to enable this command'
+    return 1
+  fi
+  ds:nset 'pv' && local use_pv="-p"
+  ds:nset 'fd' && local use_fd="-f"
+  [ -d "$1" ] && local dir="$1" || local dir="$PWD"
+  bash $DS_SCRIPT/compare_files_in_dir.sh -s $dir $use_fd $use_pv
 }
 
 ds:commands() { # List commands in the dev_scripts/.commands.sh file

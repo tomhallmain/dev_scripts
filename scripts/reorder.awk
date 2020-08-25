@@ -134,7 +134,7 @@ range && !reo { if (pass_r || NR in R) FieldRange(); next }
 reo { 
   if (pass_r) {
     for (i = 1; i < reo_c_len; i++)
-      printf $ReoC[i] OFS
+      printf "%s", $ReoC[i] OFS
 
     print $ReoC[reo_c_len]
 
@@ -164,7 +164,7 @@ END {
       split(_[ReoR[i]], Row, FS)
 
       for (j = 1; j < reo_c_len; j++)
-        printf Row[ReoC[j]] OFS
+        printf "%s", Row[ReoC[j]] OFS
 
       print Row[ReoC[reo_c_len]]
     }
@@ -230,7 +230,7 @@ function FieldRange() {
   if (pass_c) print $0
   else {
     for (i = 1; i < reo_c_count; i++)
-      printf $ReoC[i] OFS
+      printf "%s", $ReoC[i] OFS
 
     print $ReoC[reo_c_count]
   }
