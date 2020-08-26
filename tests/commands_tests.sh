@@ -20,6 +20,8 @@ elif [[ $shell =~ 'zsh' ]]; then
   $(ds:fail 'testfail' &> $tmp)
   testfail=$(cat $tmp)
   [[ $testfail =~ '_err_: Operation intentionally failed' ]] || echo 'fail command failed in zsh case'
+elif [[ $shell =~ 'ksh' ]]; then
+  echo lets see what happens here..
 else
   echo 'unhandled shell detected - only zsh/bash supported at this time - exiting test script'
   exit 1

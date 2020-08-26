@@ -22,10 +22,13 @@
 # only fields needed after triggering of reorder while reading the lines
 
 BEGIN {
+  #quote handling setup
+  #ReoSetup() - wrap the below in a function
   n_re = "^[0-9]+$"
   ord_sep = "[ ,\|\:\;\.\_]+"
   range_sep = "\-"
   search_sep = "="
+  head_sep="\["
   re_sep = "\~"
   comp_sep = "(<|>)"
   gt = ">"

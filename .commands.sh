@@ -173,7 +173,7 @@ ds:root() { # Returns the root volume / of the system
   done
 }
 
-ds:source() { # Source a piece of file: ds:source file ["searchx" pattern] || [line endline] || [pattern linesafter]
+ds:src() { # Source a piece of file: ds:source file ["searchx" pattern] || [line endline] || [pattern linesafter]
   local tmp=/tmp/ds:source
   if [ "$2" = searchx ]; then
     [ $3 ] && ds:searchx "$1" "$3" > $tmp
@@ -204,6 +204,30 @@ ds:source() { # Source a piece of file: ds:source file ["searchx" pattern] || [l
     source "$file"
   fi
   :
+}
+
+ds:fsrc() { # Show the source of a shell function
+  local shell=$(ds:sh) tmp=/tmp/fsrc
+  if [[ $shell =~ bash ]]; then
+    bash --debugger -c "source ~/.bashrc; declare -F $1" > $tmp
+    if [ ! -s $tmp ]; then
+      which "$1"; return $?
+    fi
+    local file=$(awk '{for(i=1;i<=NF;i++)if(i>2)printf "%s",$i}' $tmp \
+      2> /dev/null | head -n1)
+    awk -v f="$file" '{ print f ":" $2 }' $tmp
+  elif [[ $shell =~ zsh ]]; then
+    grep '> source' <(zsh -xc "declare -F $1" 2>&1) \
+      | awk '{ print substr($0, index($0, "> source ")+9) }' > $tmp
+    local file="$(grep --files-with-match -En "$1 ?\(.*?\)" \
+      $(ds:mini $tmp) 2> /dev/null | head -n1)"
+    if [ -z $file ]; then
+      which "$1"; return $?
+    fi
+    echo "$file"
+  fi
+  ds:searchx "$file" "$1"
+  rm $tmp
 }
 
 ds:lbv() { # Generate a cross table of git repos vs branches - set configuration in scripts/support/lbv.conf
@@ -744,7 +768,7 @@ ds:mini() { # ** Crude minify, remove whitespace including newlines except space
     ds:file_check "$1"
     local file="$1"
   fi
-  awk -v RS="\0" '{ gsub("(\n|\t)" ,""); print }' "$file" 2> /dev/null
+  awk -v RS="\0" '{ gsub("(\n|\t)" ," "); print }' "$file" 2> /dev/null
   ds:pipe_clean $file
 }
 
