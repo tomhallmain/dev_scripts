@@ -559,9 +559,10 @@ ds:inferfs() { # Infer field separator from text data file: inferfs file [try_cu
 
   if [ $infer_custom = true ]; then
     awk -f $DS_SCRIPT/infer_field_separator.awk -v high_certainty=1 \
-      -v custom=true "$file" 2> /dev/null
+      -v custom=true "$file" 2> /dev/null | sed 's/\\/\\\\\\/g'
   else
-    awk -f $DS_SCRIPT/infer_field_separator.awk -v high_certainty=1 "$file" 2> /dev/null
+    awk -f $DS_SCRIPT/infer_field_separator.awk -v high_certainty=1 \
+      "$file" 2> /dev/null | sed 's/\\/\\\\\\/g'
   fi
 }
 
