@@ -17,6 +17,7 @@
 # TODO: Handle stray data that creates empty fields and can lead to custom
 # novar pattern handling breaking (i.e. ,,, winning over , by creating two
 # fields)
+# TODO:mHandle escapes, null chars, SUBSEP
 
 BEGIN {
   commonfs["s"] = " "
@@ -35,17 +36,19 @@ custom && NR == 1 {
   # Remove leading and trailing spaces
   gsub(/^[[:space:]]+|[[:space:]]+$/,"")
   line[NR] = $0
-  split($0, nonwords, /[A-z0-9]+/)
+  split($0, nonwords, /[A-z0-9(\^\\)]+/)
 
   for (i in nonwords) {
+    if (debug) print nonwords[i], length(nonwords[i])
     split(nonwords[i], chars, "")
 
     for (j in chars) {
       char = "\\" chars[j]
-      
+
       # Exclude common fs chars
       if ( ! char ~ /[\s\|;:]/ ) {
         char_nf = split($0, chartest, char)
+        if (debug) print "char:" char, char_nf
         if (char_nf > 1) charfs_count[char] = char_nf
       }
 
@@ -53,6 +56,7 @@ custom && NR == 1 {
         prevchar = "\\" chars[j-1]
         twochar = prevchar char
         twochar_nf = split($0, twochartest, twochar)
+        if (debug) print "twochar:" twochar, twochar_nf
         if (twochar_nf > 1) { twocharfs_count[twochar] = twochar_nf }
       }
 
@@ -60,6 +64,7 @@ custom && NR == 1 {
         twoprevchar = "\\" chars[j-2]
         thrchar = twoprevchar prevchar char
         thrchar_nf = split($0, thrchartest, thrchar)
+        if (debug) print "thrchar:" thrchar, thrchar_nf
         if (thrchar_nf > 1) thrcharfs_count[thrchar] = thrchar_nf
       }
     }
@@ -73,14 +78,14 @@ custom && NR == 2 {
   for (i in nonwords) {
     split(nonwords[i], chars, "")
     for (j in chars) {
-      char = "\\" chars[j]
+      if (chars[j]) char = "\\" chars[j]
       
       char_nf = split($0, chartest, char)
       if (charfs_count[char] == char_nf) {
         customfs[char] = 1
       }
       if (j > 1) {
-        prevchar = "\\" chars[j-1]
+        if (chars[j-1]) prevchar = "\\" chars[j-1]
         twochar = prevchar char
         twochar_nf = split($0, twochartest, twochar)
         if (twocharfs_count[twochar] == twochar_nf) {
@@ -88,7 +93,7 @@ custom && NR == 2 {
         }
       }
       if (j > 2) {
-        twoprevchar = "\\" chars[j-2]
+        if (chars[j-2]) twoprevchar = "\\" chars[j-2]
         thrchar = twoprevchar prevchar char
         thrchar_nf = split($0, thrchartest, thrchar)
         if (thrcharfs_count[thrchar] == thrchar_nf) {
@@ -173,7 +178,7 @@ END {
       
       fs_var[s] = sum_var[s] / max_rows
 
-      if (debug) print s, fs_var[s]
+      if (debug) print s, fs_var[s], average_nf
       
       if ( !winning_fs || fs_var[s] < fs_var[winning_fs]) {
         winning_fs = s
@@ -196,11 +201,27 @@ END {
         if (seen[compare_s]) continue
         fs1 = novar[s]
         fs2 = novar[compare_s]
-        
-        if (debug) print "novar handling case", "s: " s, "fs1: " fs1, "compare_s: " compare_s, "fs2: " fs2 #"matches: " fs1 ~ fs2
+
+        fs1re = ""; fs2re = ""
+        split(fs1, tmp, "")
+        for (i = 1; i <= length(tmp); i++) {
+          char = tmp[i]
+          if (char == "\\")
+            fs1re = fs1re "\\" char
+          else
+            fs1re = fs1re char }
+        split(fs2, tmp, "")
+        for (i = 1; i <= length(tmp); i++) {
+          char = tmp[i]
+          if (char == "\\")
+            fs2re = fs2re "\\" char
+          else
+            fs2re = fs2re char }
+
+        if (debug) print "novar handling case", "s: " s, "fs1: " fs1, "compare_s: " compare_s, "fs2: " fs2, "matches:", fs1 ~ fs2
         if (debug) print "len winner: " length(winners[s]), "len fs1: " length(fs1), "len fs2 " length(fs2)
 
-        if (fs1 ~ "\\" fs2 || fs2 ~ "\\" fs1) {
+        if (fs1 ~ fs2re || fs2 ~ fs1re) {
           # If one separator with no field delineation variance is 
           # contained inside another, use the longer one
           if (length(winners[winning_fs]) < length(fs2) \

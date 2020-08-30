@@ -90,7 +90,7 @@ ds:opts() { # General flag opts handling
 
 ds:os() { # Return computer operating system if supported
   local mstest=/proc/version
-  [ -f $mstest ] && grep -q Microsoft $mstest && echo "MS Windows"
+  [ -f $mstest ] && grep -q Microsoft $mstest && echo "MS Windows" && return
 
   if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     echo "Linux"
@@ -191,12 +191,12 @@ ds:genvar() { # For meta programming - shell doesn't allow some chars in var nam
 
 ds:ndata() { # Gathers data about names in current context
   local _var=$(declare | awk -F"=" '{print $1}' | awk '{print $NF}')
-  local _func=$(declare -f | grep '^[A-Za-z_:]*\s()' | cut -f 1 -d ' ' \
-    | grep -v '()' | sed 's/^_//')
+  local _func=$(declare -f | grep -h '^[A-Za-z_:]*\s()' | cut -f 1 -d ' ' \
+    | grep -hv '()' | sed 's/^_//')
   local _alias=$(alias | awk -F"=" '{print $1}')
   local _bin=$(ls /bin)
-  local _usrbin=$(ls /usr/bin | grep -v "\.")
-  local _usrlocalbin=$(ls /usr/local/bin | grep -v "\.")
+  local _usrbin=$(ls /usr/bin | grep -hv "\.")
+  local _usrlocalbin=$(ls /usr/local/bin | grep -hv "\.")
   local _builtin=$(bash -c 'help' | awk 'NR > 8 { line=$0
     $1 = substr($0, 2, 35); $2 = substr(line, 37, 35);
     print $1; print $2 }' | cut -f 1 -d ' ' | awk -v q=\' '{print q $0 q}')
@@ -220,6 +220,19 @@ ds:ndata() { # Gathers data about names in current context
 }
 
 ds:termcolors() { # Check terminal colors
+  echo ANSI ESCAPE FG COLOR CODES
+  print "\u001b[30m 30   \u001b[31m 31   \u001b[32m 32   \u001b[33m 33   \u001b[0m"
+  print "\u001b[34m 34   \u001b[35m 35   \u001b[36m 36   \u001b[37m 37   \u001b[0m"
+  print "\u001b[30;1m 30;1 \u001b[31;1m 31;1 \u001b[32;1m 32;1 \u001b[33;1m 33;1 \u001b[0m"
+  print "\u001b[34;1m 34;1 \u001b[35;1m 35;1 \u001b[36;1m 36;1 \u001b[37;1m 37;1 \u001b[0m"
+  echo
+  echo ANSI ESCAPE BG COLOR CODES
+  print "\u001b[40m 40   \u001b[41m 41   \u001b[42m 42   \u001b[43m 43   \u001b[0m"
+  print "\u001b[44m 44   \u001b[45m 45   \u001b[46m 46   \u001b[47m 47   \u001b[0m"
+  print "\u001b[40;1m 40;1 \u001b[41;1m 41;1 \u001b[42;1m 42;1 \u001b[43;1m 43;1 \u001b[0m"
+  print "\u001b[44;1m 44;1 \u001b[45;1m 45;1 \u001b[46;1m 46;1 \u001b[47;1m 47;1 \u001b[0m"
+  echo
+  echo 256 COLOR TEST
   for ((i=16; i<256; i++)); do
     printf "\e[48;5;${i}m%03d" $i;
     printf '\e[0m';

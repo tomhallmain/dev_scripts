@@ -27,8 +27,7 @@ BEGIN {
   n_re = "^[0-9]+$"
   ord_sep = "[ ,\|\:\;\.\_]+"
   range_sep = "\-"
-  search_sep = "="
-  head_sep="\["
+  search_sep = "\["
   re_sep = "\~"
   comp_sep = "(<|>)"
   gt = ">"
@@ -123,7 +122,7 @@ BEGIN {
     print ReoR[1], ReoC[1]
     print ReoR[reo_r_count], ReoC[reo_c_count]
   }
-  OFS = FS
+  OFS = BuildOFSFromFS()
   reo_c_len = length(ReoC)
 }
 
@@ -174,7 +173,14 @@ END {
   }
 }
 
-
+function BuildOFSFromFS() {
+  OFS = ""
+  split(FS, fstokens, "\\")
+  for (i = 1; i <= length(fstokens); i++) {
+    OFS = OFS fstokens[i]
+  }
+  return OFS
+}
 function TestRangeArg(rangeArg, max_i) {
   split(rangeArg, RngAnc, range_sep)
   ra1 = RngAnc[1]

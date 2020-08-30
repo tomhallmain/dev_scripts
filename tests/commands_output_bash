@@ -1,19 +1,20 @@
 
 ds:asgn           	 Grabbing lines matching standard assignment pattern from a file
 ds:bash           	 Refresh bash interactive session
-ds:commands       	 List commands in the dev_scripts/.commands.sh file
+ds:commands       	 List functions defined in the dev_scripts/.commands.sh file
 ds:decap          	 ** Remove up to a certain number of lines from the start of a file, default is 1
 ds:dff            	 Diff shortcut for more relevant changes: ds:dff file1 file2 [suppress_common]
-ds:ds             	 Generate statistics about data in a Unix text file
+ds:ds             	 Generate statistics about text data: ds:ds file [awkargs]
 ds:dup_input      	 ** Duplicate input sent to STDIN in aggregate
 ds:dups           	 Report duplicate files with option for deletion
 ds:embrace        	 Enclose a string in braces: embrace string [openbrace="{"] [closebrace="}"]
 ds:enti           	 Print text entities from a file separated by a common pattern
 ds:env_refresh    	 Pull latest master branch for all git repos, run installs
 ds:fail           	 Safe failure, kills parent but returns to prompt (no custom message on zsh)
-ds:fieldcounts    	 Print value counts for a given field: ds:fieldcounts file [field=1] [min=1] [order=a] (alias ds:fc)
+ds:fieldcounts    	 Print value counts: ds:fieldcounts file [fields=1] [min=1] [order=a] [awkargs] (alias ds:fc)
 ds:filename_str   	 Adds a string to the beginning or end of a filename
 ds:fit            	 ** Print field-separated data in columns with dynamic width: ds:fit [awkargs] file
+ds:fsrc           	 Show the source of a shell function
 ds:git_add_all    	 Add all untracked git files (alias ds:ga)
 ds:git_add_com_push	 Add all untracked files, commit with message, push current branch (alias ds:gacmp)
 ds:git_branch     	 Run git branch for all repos (alias ds:gb)
@@ -25,11 +26,12 @@ ds:git_status     	 Run git status for all repos (alias ds:gs)
 ds:goog           	 Executes Google search with args provided
 ds:gwdf           	 Git word diff shortcut
 ds:idx            	 ** Prints an index attached to data lines from a file or stdin
-ds:inferfs        	 Infer field separator from text data file: inferfs file [try_custom=true] [use_file_ext=true]
+ds:inferfs        	 Infer field separator from data: inferfs file [reparse=false] [try_custom=true] [use_file_ext=true]
 ds:inferh         	 Infer if headers are present in a file: ds:inferh [awkargs] file
 ds:inferk         	 ** Infer join fields in two text data files: ds:inferk file [file (can be piped)]
 ds:infsort        	 ** Sort with an inferred field separator of exactly 1 char
 ds:infsortm       	 ** Sort with an inferred field separator of 1 or more character (alias ds:ism)
+ds:insert         	 ** Redirect input into a file at a specified line number or pattern: ds:insert file [lineno|pattern] [sourcefile]
 ds:iter_str       	 Repeat a string some number of times: rpt_str str [n=1] [fs]
 ds:jn             	 ** Similar to the join Unix command but with different features
 ds:join_by        	 ** Join a shell array by a text argument provided
@@ -44,6 +46,7 @@ ds:pipe_check     	 ** Detect if pipe has any data, or over a certain number of 
 ds:plb            	 Purge branch name(s) from all local git repos associated
 ds:print_comps    	 ** Print non-matching lines on given field numbers in two files (alias ds:pc)
 ds:print_matches  	 ** Print duplicate lines on given field numbers in two files (alias ds:pm)
+ds:re_substr      	 ** Extract a substring from a string with regex anchors
 ds:recent         	 ls files modified last 7 days: ds:recent [custom_dir] [recurse=r] [hidden=h]
 ds:reo            	 ** Reorder/repeat/slice rows/cols: ds:reo file [rows] [cols] [awkargs] || cmd | ds:reo [rows] [cols] [awkargs]
 ds:rev            	 ** Bash-only solution to reverse lines for processing
@@ -52,8 +55,9 @@ ds:sbsp           	 Extend fields to include a common subseparator: ds:sbsp file
 ds:searchn        	 Searches current names for string, returns matches
 ds:searchx        	 Search a file with top-level curly braces for a name
 ds:sedi           	 Linux-portable sed in place substitution: ds:sedi file search_pattern [replacement]
+ds:select         	 ** Select code from a file by regex anchors: ds:select file [startline endline]
 ds:sofs           	 Executes Stack Overflow search with args provided
-ds:source         	 Source a piece of file: ds:source file ["search" pattern] || [line endline] || [pattern linesafter]
+ds:src            	 Source a piece of file: ds:src file ["searchx" pattern] || [line endline] || [pattern linesafter]
 ds:stag           	 ** Print field-separated data in staggered rows: ds:stag [awkargs] file
 ds:tmp            	 mktemp -q "/tmp/${filename}"
 ds:todo           	 List todo items found in current directory

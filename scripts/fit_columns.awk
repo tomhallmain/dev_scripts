@@ -70,6 +70,7 @@ BEGIN {
 NR == FNR {
 
   for (i = 1; i <= NF; i++) {
+    gsub(/\0\[((1|0);)?3?[0-9]m/, "", $i)
     len = length($i)
     if (len < 1) continue
     orig_max = f_max[i]
@@ -189,14 +190,31 @@ NR == FNR {
 NR > FNR {
   
   if (FNR == 1) {
-    for (i = 1; i <= max_nf; i++)
-      if (f_max[i]) { max_f_len[i] = f_max[i]; total_f_len += buffer }
+    for (i = 1; i <= max_nf; i++) {
+      if (f_max[i]) { max_f_len[i] = f_max[i]; total_f_len += buffer
+        if (f_max[i] / total_f_len > 0.4 ) { 
+          g_max[i] = f_max[i] + buffer
+          g_max_len += g_max[i]
+          g_count++ }}}
 
     shrink = tty_size && total_f_len > tty_size
 
     if (shrink) {
       if (!(color == "never")) print_warning()
-      reduction_scaler = 12
+
+      while (g_max_len / total_f_len > 0.5) {
+        for (i in g_max) {
+          cut_len = int(f_max[i]/10)
+          f_max[i] -= cut_len
+          total_f_len -= cut_len
+          g_max_len -= cut_len
+          shrink_f[i] = 1
+          max_f_len[i] = f_max[i]
+          if (debug) print "g_max_cut: " cut_len, "max_f_len: " max_f_len[i]
+        }
+      }
+
+      reduction_scaler = 14
       
       while (total_f_len > tty_size && reduction_scaler > 0) {
         avg_f_len = total_f_len / max_nf
@@ -209,17 +227,15 @@ NR > FNR {
               && ! (n_set[i] && ! n_overset[i]) \
               && f_max[i] > scaled_cut \
               && f_max[i] - cut_len > buffer) {
+            mod_cut_len = int((cut_len*2) ^ (f_max[i] / total_f_len))
             f_max[i] -= cut_len
             total_f_len -= cut_len
-            shrinkf[i] = 1
+            shrink_f[i] = 1
+            max_f_len[i] = f_max[i]
             if (debug) debug_print(5)
-          }
-          max_f_len[i] = f_max[i]
-        }
+          }}
         reduction_scaler--
-      }
-    }
-  }
+      }}}
 
   for (i = 1; i <= NF; i++) {
     if (f_max[i]) {
@@ -235,33 +251,25 @@ NR > FNR {
               type_str = (sn ? "." dec "e" : "." dec "f")
               value = $i
             }
-          } else {
-            type_str = "s"; value = $i
-          }
+          } else { type_str = "s"; value = $i }
         } else {
           type_str = (sn ? ".0e" : "s")
-          value = $i
-        }
+          value = $i }
 
         justify_str = "%" # Right-align
         fmt_str = justify_str f_max[i] type_str
         printf fmt_str, value; print_buffer()
-      
       } else {
         
-        if (shrinkf[i]) { 
+        if (shrink_f[i]) { 
           color = yellow; end_color = no_color
           value = substr($i, 1, max_f_len[i])
-        } else {
-          color = ""; end_color = ""; value = $i
-        }
+        } else { color = ""; end_color = ""; value = $i }
 
         justify_str = "%-" # Left-align
         fmt_str = color justify_str max_f_len[i] "s" end_color
         printf fmt_str, value; print_buffer()
-      
-      }
-    }
+      }}
     if (debug && FNR < 4) debug_print(6)
   }
   print ""

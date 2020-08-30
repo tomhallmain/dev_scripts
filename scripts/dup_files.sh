@@ -19,7 +19,7 @@ done
 tempdata=$(mktemp -q /tmp/filedata.XXXXX || echo '/tmp/filedata.XXXXX')
 [ -z $source_folder ] && source_folder="$1"
 
-echo -e "\n Gathering data... \n"
+echo -e "\n Gathering checksum data... \n"
 if [ $PV ]; then
   if [ $FD ]; then
     fd . "$source_folder" -H --type f --exec md5sum "{}" \; \
@@ -64,7 +64,7 @@ if [ $md5dup_count -gt 1 ]; then
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' | sed -e "s/'/\\\\'/g" | xargs -I % rm "%"
     echo -e "\n Attempted removal of the files in the right column."
   else
-    echo -e "\n No duplicates removed."
+    echo -e "\n No files removed."
   fi
 else
   echo -e "\n No duplicates found in md5 checksums."
@@ -76,6 +76,7 @@ echo -e "\n ++++++++++++++++++++++++++++ \n"
 # to have unique names, so looking for possible duplicates using name is a waste.
 dir_count=$(find "$source_folder" -maxdepth 1 -type d | wc -l)
 if [ $dir_count -gt 1 ]; then 
+  echo -e " Gathering filename data... \n"
   filenames=$(printf "%s\n" "${files[@]}" | sed -e "s/'/\\\\'/g" | xargs -I % basename -a "%" )
   filedata=$(paste <(echo "${filenames[@]}") <(echo "${files[@]}"))
   dup_filenames=$(echo "${filedata[@]}" | awk -F"\t" '{_[$1]++; if(_[$1] == 2) {print $1}}') # only returns second duplicate

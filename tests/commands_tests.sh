@@ -43,8 +43,8 @@ ds:searchn 'test_var' 1> $q || ds:fail 'searchn failed on var search'
 jnf1="tests/infer_join_fields_test1.csv"
 jnf2="tests/infer_join_fields_test2.csv"
 
-[ "$(ds:inferfs $jnf1)" = ',' ] || 'inferfs failed extension case'
-[ "$(ds:inferfs tests/seps_test.file)" = '&%#' ] || 'inferfs failed custom separator case'
+[ "$(ds:inferfs $jnf1)" = ',' ] || ds:fail 'inferfs failed extension case'
+[ "$(ds:inferfs tests/seps_test.file)" = '\&\%\#' ] || ds:fail 'inferfs failed custom separator case'
 
 [ $(ds:jn -v k=1 -v ind=1 "$jnf1" "$jnf2" | wc -l) -gt 15 ] \
   || ds:fail 'ds:jn failed pipe_check, or pipe_check failed'
@@ -69,6 +69,14 @@ f e d c b
 f e c b a
 e d c b a'
 [ "$(echo "$sort_input" | ds:infsortm -v k=5,1 -v order=d)" = "$sort_output" ] || ds:fail 'infsortm command failed'
+
+reo_input='d c a b f
+f e c b a
+f e d c b
+e d c b a'
+reo_output='a c d e b
+f a c d b'
+[ "$(echo "$reo_input" | ds:reo 4,1 5,3-1,4)" = "$reo_output" ] || ds:fail 'reo command failed'
 
 [ "$(echo 1 2 3 | ds:join_by ', ')" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'
 [ "$(ds:join_by ', ' 1 2 3)" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'
