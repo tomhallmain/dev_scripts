@@ -237,7 +237,8 @@ NR > FNR {
         reduction_scaler--
       }}}
 
-  for (i = 1; i <= NF; i++) {
+  for (i = 1; i <= max_nf; i++) {
+    not_last_f = (i < max_nf);
     if (f_max[i]) {
       if (d_set[i] || (n_set[i] && ! n_overset[i])) {
         
@@ -256,19 +257,30 @@ NR > FNR {
           type_str = (sn ? ".0e" : "s")
           value = $i }
 
+        if (not_last_f) print_len = f_max[i]
+        else print_len = length(value)
+
         justify_str = "%" # Right-align
-        fmt_str = justify_str f_max[i] type_str
-        printf fmt_str, value; print_buffer()
+        fmt_str = justify_str print_len type_str
+        printf fmt_str, value
+        if (not_last_f) print_buffer()
       } else {
         
-        if (shrink_f[i]) { 
-          color = yellow; end_color = no_color
+        if (shrink_f[i]) {
+          color = yellow
           value = substr($i, 1, max_f_len[i])
-        } else { color = ""; end_color = ""; value = $i }
+        } else {
+          color = ""
+          value = $i
+        }
+
+        if (not_last_f) print_len = max_f_len[i]
+        else print_len = length(value)
 
         justify_str = "%-" # Left-align
-        fmt_str = color justify_str max_f_len[i] "s" end_color
-        printf fmt_str, value; print_buffer()
+        fmt_str = color justify_str print_len "s" no_color
+        printf fmt_str, value
+        if (not_last_f) print_buffer()
       }}
     if (debug && FNR < 4) debug_print(6)
   }
@@ -285,29 +297,6 @@ function min(a, b) {
   if (a > b) return b
   else if (a < b) return a
   else return a
-}
-function round(x, ival, aval, fraction) {
-   ival = int(x)    # integer part, int() truncates
-
-   # see if fractional part
-   if (ival == x)   # no fraction
-      return ival   # ensure no decimals
-
-   if (x < 0) {
-      aval = -x     # absolute value
-      ival = int(aval)
-      fraction = aval - ival
-      if (fraction >= .5)
-         return int(x) - 1   # -2.5 --> -3
-      else
-         return int(x)       # -2.3 --> -2
-   } else {
-      fraction = x - ival
-      if (fraction >= .5)
-         return ival + 1
-      else
-         return ival
-   }
 }
 function print_warning() {
   print orange "WARNING: Total max field lengths larger than display width!" no_color
