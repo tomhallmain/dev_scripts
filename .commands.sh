@@ -34,6 +34,7 @@ ds:ntype() { # Test name type (function, alias, variable) if defined in context
 }
 
 ds:zsh() { # Refresh zsh interactive session
+  # TODO: Clear persistent envars
   clear
   exec zsh
 }
@@ -43,13 +44,17 @@ ds:bash() { # Refresh bash interactive session
   exec bash
 }
 
+ds:copy() { # Copy standard input in UTF-8
+  LC_CTYPE=UTF-8 pbcopy
+}
+
 ds:tmp() { # mktemp -q "/tmp/${filename}"
   local filename="$1"
   local tmp=$(mktemp -q "/tmp/${filename}.XXXXX")
   echo $tmp
 }
 
-ds:fail() { # Safe failure, kills parent but returns to prompt (no custom message on zsh)
+ds:fail() { # Safe failure, kills parent but returns to prompt
   local shell="$(ds:sh)"
   if [[ "$shell" =~ "bash" ]]; then
     : "${_err_?$1}"
@@ -180,7 +185,7 @@ ds:src() { # Source a piece of file: ds:src file ["searchx" pattern] || [line en
     if ds:is_cli; then
       cat $tmp
       echo
-      confirm="$(ds:readp 'Confirm source action: ' | ds:downcase)"
+      confirm="$(ds:readp 'Confirm source action: (y/n)' | ds:downcase)"
       [ $confirm != y ] && rm $tmp && echo 'External code not sourced' && return
     fi
     source $tmp; rm $tmp
@@ -230,6 +235,11 @@ ds:fsrc() { # Show the source of a shell function
   rm $tmp
 }
 
+ds:trace() { # Search shell function trace for a pattern: ds:trace "command" [search]
+  [ -z $1 ] && ds:fail 'Command required for trace'
+  grep --color=always "$2" <(set -x &> /dev/null; exec "$1" 2>&1)
+}
+
 ds:lbv() { # Generate a cross table of git repos vs branches - set configuration in scripts/support/lbv.conf
   ds:nset 'fd' && local use_fd="-f"
   ds:src "${DS_SUPPORT}/lbv.conf" 2 3
@@ -245,6 +255,32 @@ ds:plb() { # Purge branch name(s) from all local git repos associated
 ds:env_refresh() { # Pull latest master branch for all git repos, run installs
   bash $DS_SCRIPT/local_env_refresh.sh
 }
+
+ds:git_checkout() { # Checkout a branch in the current repo matching a given pattern (alias ds:gco)
+  bash $DS_SCRIPT/git_checkout.sh ${@}
+}
+alias ds:gco="ds:git_checkout"
+
+ds:git_time_stat() { # Time of last pull, or last commit if no last pull (alias ds:gl)
+  ds:not_git && return 1
+  local last_pull="$(stat -c %y "$(git rev-parse --show-toplevel)/.git/FETCH_HEAD" 2>/dev/null)"
+  local last_change="$(stat -c %y "$(git rev-parse --show-toplevel)/.git/HEAD" 2>/dev/null)"
+  local last_commit="$(git log -1 --format=%cd)"
+  if [ $last_pull ]; then
+    local last_pull="$(date --date="$last_pull" "+%a %b %d %T %Y %z")"
+    printf "%-40s%-30s\n" "Time of last pull:" "${last_pull}"
+  else
+    echo "No pulls found"
+  fi
+  if [ $last_change ]; then
+    local last_change="$(date --date="$last_change" "+%a %b %d %T %Y %z")"
+    printf "%-40s%-30s\n" "Time of last local change:" "${last_change}"
+  else
+    echo "No local changes found"
+  fi
+  [ $last_commit ] && printf "%-40s%-30s\n" "Time of last commit found locally:" "${last_commit}" || echo "No local commit found"
+}
+alias ds:gt="git_time_stat"
 
 ds:git_status() { # Run git status for all repos (alias ds:gs)
   bash $DS_SCRIPT/all_repo_git_status.sh
@@ -920,6 +956,22 @@ ds:sofs() { # Executes Stack Overflow search with args provided
   local base_url="https://www.stackoverflow.com/search?q="
   local search_query=$(echo $search_args | sed -e "s/ /+/g")
   open "${base_url}${search_query}"
+}
+
+ds:unicode() { # Get the UTF-8 unicode for a given character
+  ! ds:nset 'xxd' && ds:fail 'utility xxd required for this command'
+  local str="$1"
+  local prg='{ if ($3) {
+        b[1]=substr($2,5,4);b[2]=substr($3,3,6)
+        b[3]=substr($4,3,6);b[4]=substr($5,3,6)
+      } else { b[1]=substr($2,2,7) }
+      for(i=1;i<=length(b);i++){d=d b[i]}
+      print "obase=16; ibase=2; " d}'
+  for i in $(echo "$str" | grep -o .); do
+    local code="$(printf "$i" | xxd -b | awk -F"[[:space:]]" "$prg" | bc)"
+    printf "\\\U$code"
+  done
+  echo
 }
 
 ds:webpage_title() { # Downloads html from a webpage and extracts the title text
