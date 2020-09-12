@@ -237,7 +237,7 @@ ds:fsrc() { # Show the source of a shell function
 
 ds:trace() { # Search shell function trace for a pattern: ds:trace "command" [search]
   [ -z $1 ] && ds:fail 'Command required for trace'
-  grep --color=always "$2" <(set -x &> /dev/null; exec "$1" 2>&1)
+  grep --color=always "$2" <(set -x &> /dev/null; eval "$1" 2>&1)
 }
 
 ds:lbv() { # Generate a cross table of git repos vs branches - set configuration in scripts/support/lbv.conf
