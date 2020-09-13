@@ -6,7 +6,16 @@ DS_SUPPORT="${DS_SCRIPT}/support"
 source "${DS_SUPPORT}/utils.sh"
 
 
-
+ds:grepvi() { # Grep for a line in a file and open vim on the first match: ds:grepvi search file
+  ds:file_check "$2"
+  local file="$2" search="$1"
+  if ds:nset 'rg'; then
+    line_no=$(rg --line-number "$search" "$file" | head -n1 | ds:reo 1 1 -v FS=":")
+  else
+    line_no=$(grep --line-number "$search" "$file" | head -n1 | ds:reo 1 1 -v FS=":")
+  fi
+  ds:is_int $line_no && vi +$line_no "$file" || return 1
+}
 
 ds:searchn() { # Searches current names for string, returns matches
   local searchval="$1"
@@ -240,28 +249,31 @@ ds:trace() { # Search shell function trace for a pattern: ds:trace "command" [se
   grep --color=always "$2" <(set -x &> /dev/null; eval "$1" 2>&1)
 }
 
-ds:lbv() { # Generate a cross table of git repos vs branches - set configuration in scripts/support/lbv.conf
+ds:git_cross_view() { # Generate a cross table of git repos vs branches (alias ds:gcv) - set config in scripts/support/lbv.conf
   ds:nset 'fd' && local use_fd="-f"
-  ds:src "${DS_SUPPORT}/lbv.conf" 2 3
+  source "${DS_SUPPORT}/lbv.conf"
   [ $LBV_DEPTH ] && local maxdepth=(-D $LBV_DEPTH)
   [ $LBV_SHOWSTATUS ] && local showstatus=-s
   bash $DS_SCRIPT/local_branch_view.sh ${@} $use_fd $showstatus ${maxdepth[@]}
 }
+alias ds:gcv="ds:git_cross_repo"
 
-ds:plb() { # Purge branch name(s) from all local git repos associated
+ds:git_purge_local() { # Purge branch name(s) from all local git repos associated (alias ds:gplb)
   bash $DS_SCRIPT/purge_local_branches.sh
 }
+alias ds:gplb="ds:git_purge"
 
-ds:env_refresh() { # Pull latest master branch for all git repos, run installs
+ds:git_repos_refresh() { # Pull latest master branch for all git repos, run installs (alias ds:grr)
   bash $DS_SCRIPT/local_env_refresh.sh
 }
+alias ds:grr="ds:git_repos_refresh"
 
 ds:git_checkout() { # Checkout a branch in the current repo matching a given pattern (alias ds:gco)
   bash $DS_SCRIPT/git_checkout.sh ${@}
 }
 alias ds:gco="ds:git_checkout"
 
-ds:git_time_stat() { # Time of last pull, or last commit if no last pull (alias ds:gl)
+ds:git_time_stat() { # Time of last pull, or last commit if no last pull (alias ds:gts)
   ds:not_git && return 1
   local last_pull="$(stat -c %y "$(git rev-parse --show-toplevel)/.git/FETCH_HEAD" 2>/dev/null)"
   local last_change="$(stat -c %y "$(git rev-parse --show-toplevel)/.git/HEAD" 2>/dev/null)"
@@ -280,7 +292,7 @@ ds:git_time_stat() { # Time of last pull, or last commit if no last pull (alias 
   fi
   [ $last_commit ] && printf "%-40s%-30s\n" "Time of last commit found locally:" "${last_commit}" || echo "No local commit found"
 }
-alias ds:gt="git_time_stat"
+alias ds:gts="ds:git_time_stat"
 
 ds:git_status() { # Run git status for all repos (alias ds:gs)
   bash $DS_SCRIPT/all_repo_git_status.sh
@@ -385,7 +397,7 @@ ds:todo() { # List todo items found in current directory
   [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
 }
 
-ds:searchx() { # Search a file with top-level curly braces for a name
+ds:searchx() { # Search a file for a C-lang style (curly-brace) top-level function
   ds:file_check "$1"
   if [ $2 ]; then
     awk -f $DS_SCRIPT/top_curly.awk -v search="$2" "$1" | ds:pipe_check
@@ -679,6 +691,7 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo file [rows] [cols] [awkar
   else
     awk ${args[@]} -v r=$rows -v c=$cols -f $DS_SCRIPT/reorder.awk "$file" 2> /dev/null
   fi
+  ds:pipe_clean "$file"
 }
 
 ds:decap() { # ** Remove up to a certain number of lines from the start of a file, default is 1
