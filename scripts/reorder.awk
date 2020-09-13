@@ -34,7 +34,7 @@ BEGIN {
       r_i = r_order[i]
       if (!r_i) { print "Skipping unparsable 0 row arg"; continue }
 
-      token = TokenPrecedence(r_i)
+      token = r_i ~ Re["alltokens"] ? TokenPrecedence(r_i) : ""
       if (debug) debug_print(1)
 
       if (!token) {
@@ -54,8 +54,8 @@ BEGIN {
             reo_r_count = FillReoArr(r_i, RRExprs, reo_r_count, ReoR, token)
           else if (token == "re")
             reo_r_count = FillReoArr(r_i, RRSearches, reo_r_count, ReoR, token)
-        }}}
-  } else { pass_r = 1 }
+        }}}}
+  else { pass_r = 1 }
   if (!reo_r_count) pass_r = 1
 
   if (c) {
@@ -69,7 +69,7 @@ BEGIN {
         delete c_order[i]
       }
 
-      token = TokenPrecedence(c_i)
+      token = c_i ~ Re["alltokens"] ? TokenPrecedence(c_i) : ""
       if (debug) debug_print(1.5)
 
       if (!token) {
@@ -91,8 +91,8 @@ BEGIN {
             reo_c_count = FillReoArr(c_i, RCExprs, reo_c_count, ReoC, token)
           else if (token == "re")
             reo_c_count = FillReoArr(c_i, RCSearches, reo_c_count, ReoC, token)
-        }}}
-  } else { pass_c = 1 }
+        }}}}
+  else { pass_c = 1 }
   if (!reo_c_count) pass_c = 1
 
   if (pass_r && pass_c) pass = 1
@@ -130,8 +130,8 @@ reo {
       print $ReoC[reo_c_len]
     } else {
       StoreRow(_, NR, $0, RowCounts)
-    }
-  } else {
+    }} 
+  else {
     row_os = 1
     if (NR in R) StoreRow(_, NR, $0, RowCounts)
     if (re && row_os) {
@@ -144,8 +144,7 @@ reo {
         else {
           base_search = search; anchor = $0 }
         if (anchor ~ base_search) StoreRow(_, NR, $0, RowCounts)
-      }
-    }
+      }}
     if (mat && row_os) {
       for (expr in RRExprs) {
         if (!row_os) break
@@ -167,19 +166,16 @@ reo {
 
           split(base_expr, tmp, comp)
           base_expr = tmp[1]
-          compval = tmp[2]
-        }
+          compval = tmp[2] }
 
         if (comp == "=") {
-          if (EvalExpr(anchor base_expr) == compval) StoreRow(_, NR, $0, RowCounts)
-        } else if (comp == ">") {
-          if (EvalExpr(anchor base_expr) > compval) StoreRow(_, NR, $0, RowCounts)
-        } else {
-          if (EvalExpr(anchor base_expr) < compval) StoreRow(_, NR, $0, RowCounts)
-        }
-      }
-    }
-  }
+          if (EvalExpr(anchor base_expr) == compval) StoreRow(_, NR, $0, RowCounts) } 
+        else if (comp == ">") {
+          if (EvalExpr(anchor base_expr) > compval) StoreRow(_, NR, $0, RowCounts) }
+        else {
+          if (EvalExpr(anchor base_expr) < compval) StoreRow(_, NR, $0, RowCounts) }
+      }}}
+
   next
 }
 
@@ -191,13 +187,10 @@ pass { print $0 }
 
 END {
   if (debug) debug_print(4) 
-
   if (err || !reo || (base_reo && pass_r)) exit err
-  
   if (debug) {
     (!pass_c) debug_print(6)
-    debug_print(8)
-  }
+    debug_print(8) }
 
   if (pass_r) {
     for (i = 1; i <= length(_); i++) {
@@ -214,36 +207,27 @@ END {
       print ""
     }
 
-    exit
-  }
+    exit }
 
   for (i = 1; i <= length(ReoR); i++) {
     r_key = ReoR[i]
-    if (pass_c && base_reo) {
-      print _[r_key]
-    } else {
+    if (pass_c && base_reo) print _[r_key]
+    else {
       if (r_key ~ Re["int"]) {
         if (pass_c) print _[r_key]
         else {
-          split(_[r_key], Row, FS)
-
-          for (j = 1; j < reo_c_len; j++) {
+          for (j = 1; j <= reo_c_len; j++) {
             c_key = ReoC[j]
+            row = _[r_key]
+            split(row, Row, FS)
             if (c_key ~ Re["int"])
-              printf "%s", Row[c_key] OFS
+              print_field(Row[c_key])
             else
-              Reo(c_key, Row, "", 0, RowCounts)
+              Reo(c_key, Row, "", 0)
           }
-
-          c_key = ReoC[reo_c_len]
-          if (c_key ~ Re["int"])
-            print Row[c_key]
-          else
-            Reo(c_key, Row, "", 0, RowCounts)
-        }
-      } else Reo(r_key, _, "", 1, RowCounts)
-    }
-  }
+          print "" }}
+      else Reo(r_key, _, "", 1, RowCounts)
+    }}
 }
 
 
@@ -259,16 +243,14 @@ function Reo(key, CrossSpan, Span, row, RowCounts) {
       split(search, tmp, Re["nan"])
       base_search = substr(search, length(tmp[1])+1, length(search))
       anchor = CrossSpan[tmp[1]] }
-    else { base_search = search; anchor_unset = 1 }
-    }
+    else { base_search = search; anchor_unset = 1 }}
   else if (token == "mat") {
     expr = key
     comp = "="; compval = 0
     if (substr(expr, 1, 1) ~ Re["num"]) {
       split(expr, tmp, Re["nan"])
       base_expr = substr(expr, length(tmp[1])+1, length(expr))
-      anchor = CrossSpan[tmp[1]]
-    }
+      anchor = CrossSpan[tmp[1]] }
     else anchor_unset = 1
 
     if (base_expr ~ Re["comp"]) {
@@ -447,7 +429,7 @@ function TokenPrecedence(arg) {
   found_token = ""; loc_min = 100000
   for (tk in Tk) {
     tk_loc = index(arg, tk)
-    if (debug) debug_print(3)
+    if (debug) debug_print(3, arg)
     if (tk_loc && tk_loc < loc_min) {
       loc_min = tk_loc
       found_token = Tk[tk] }}
@@ -501,6 +483,7 @@ function BuildRe(Re) {
   Re["matarg2"] = "^[=<>]" Re["num"] "$"
   Re["ordsep"] = "[ ,]+"
   Re["comp"] = "(<|>|=)"
+  Re["alltokens"] = "[(\\.\\.)\\~\\+\\-\\*\\/%\\^<>=\\[]"
 }
 
 function BuildTokenMap(TkMap) {
@@ -571,7 +554,7 @@ function print_field(field_val) {
 }
 
 
-function debug_print(case) {
+function debug_print(case, arg) {
   if (case == -1) {
     print "----------- ARGS TESTS -------------"
   }

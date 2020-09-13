@@ -678,7 +678,7 @@ ds:idx() { # ** Prints an index attached to data lines from a file or stdin
 
 ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo file [rows] [cols] [awkargs] || cmd | ds:reo [rows] [cols] [awkargs]
   if ds:pipe_open; then
-    local rows="$1" cols="$2" args=( "${@:3}" ) file=/tmp/reo_showlater piped=0
+    local rows="$1" cols="$2" args=( "${@:3}" ) file=$(ds:tmp "reo_showlater") piped=0
     cat /dev/stdin > $file
   else
     ds:file_check "$1"
