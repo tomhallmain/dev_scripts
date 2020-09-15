@@ -736,9 +736,9 @@ ds:ds() { # Generate statistics about text data: ds:ds file [awkargs]
   local args=( "$@" )
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    awk ${[@]} -v FS="$fs" -f $DS_SCRIPT/power.awk "$file"
+    awk ${args[@]} -v FS="$fs" -f $DS_SCRIPT/power.awk "$file"
   else
-    awk ${[@]} -f $DS_SCRIPT/power.awk "$file"
+    awk ${args[@]} -f $DS_SCRIPT/power.awk "$file"
   fi
 }
 

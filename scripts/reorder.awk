@@ -16,14 +16,16 @@
 #
 # TODO: quoted fields handling
 # TODO: reverse case
-# TODO: not equql to comparison
+# TODO: not equal to comparison
 # TODO: mechanism for 'all the others, unspecified' (records or fields)
+# TODO: error exit for no matches found
 
 # SETUP
 
 BEGIN {
   BuildRe(Re); BuildTokens(Tk); BuildTokenMap(TkMap)
   assume_constant_fields = 0 # TODO: Better mechanism for this
+  base_r = 1; base_c = 1
 
   if (debug) debug_print(-1)
   if (r) {
@@ -43,13 +45,13 @@ BEGIN {
         if (!reo && r_i > max_r_i)
           max_r_i = r_i
         else
-          reo = 1
-      } else {
+          reo = 1 }
+      else {
         max_r_i = TestArg(r_i, max_r_i, token)
 
-        if (token == "rng") {
+        if (token == "rng")
           reo_r_count = FillRange(r_i, R, reo_r_count, ReoR)
-        } else {
+        else {
           if (token == "mat")
             reo_r_count = FillReoArr(r_i, RRExprs, reo_r_count, ReoR, token)
           else if (token == "re")
@@ -57,6 +59,7 @@ BEGIN {
         }}}}
   else { pass_r = 1 }
   if (!reo_r_count) pass_r = 1
+  if (reo) base_r = 0
 
   if (c) {
     split(c, c_order, Re["ordsep"])
@@ -66,8 +69,7 @@ BEGIN {
       c_i = c_order[i]
       if (!c_i) {
         print "Skipping unparsable 0 col arg"
-        delete c_order[i]
-      }
+        delete c_order[i] }
 
       token = c_i ~ Re["alltokens"] ? TokenPrecedence(c_i) : ""
       if (debug) debug_print(1.5)
@@ -77,16 +79,16 @@ BEGIN {
         reo_c_count = FillReoArr(c_i, RangeC, reo_c_count, ReoC)
         if (!reo && c_i > max_c_i)
           max_c_i = c_i
-        else
-          reo = 1
-      } else {
+        else {
+          reo = 1; base_c = 0 }}
+      else {
         delete c_order[i]
         max_c_i = TestArg(c_i, max_c_i, token)
+        base_c = 0
 
-        if (token == "rng") {
+        if (token == "rng")
           reo_c_count = FillRange(c_i, C, reo_c_count, ReoC)
-        } else {
-          reo_c = 1
+        else {
           if (token == "mat")
             reo_c_count = FillReoArr(c_i, RCExprs, reo_c_count, ReoC, token)
           else if (token == "re")
@@ -104,6 +106,8 @@ BEGIN {
   else if (reo && !mat && !re)
     base_reo = 1
 
+  if (mat) { # TODO: this for stdin case
+    "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0 }
   OFS = BuildOFSFromUnescapedFS()
   reo_r_len = length(ReoR)
   reo_c_len = length(ReoC)
@@ -121,60 +125,30 @@ base { if (pass_r || NR in R) FieldBase(); next }
 
 range && !reo { if (pass_r || NR in R) FieldRange(); next }
 
+head {
+  if (NR == 1) { StoreHeaders(Headers, 0); next }
+  else StoreHeaders(Headers, 1)
+}
+
 reo {
   if (pass_r) {
     if (base_reo) {
       for (i = 1; i < reo_c_len; i++)
         printf "%s", $ReoC[i] OFS
 
-      print $ReoC[reo_c_len]
-    } else {
-      StoreRow(_, NR, $0, RowCounts)
-    }} 
+      print $ReoC[reo_c_len] }
+    else {
+      StoreRow(_)
+      StoreFieldRefs() }}
   else {
     row_os = 1
-    if (NR in R) StoreRow(_, NR, $0, RowCounts)
-    if (re && row_os) {
-      for (search in RRSearches) {
-        if (!row_os) break
-        split(search, tmp, "~")
-        if (substr(search, 1, 1) ~ Re["num"]) {
-          base_search = tmp[2]
-          anchor = $tmp[1] }
-        else {
-          base_search = search; anchor = $0 }
-        if (anchor ~ base_search) StoreRow(_, NR, $0, RowCounts)
-      }}
-    if (mat && row_os) {
-      for (expr in RRExprs) {
-        if (!row_os) break
-        comp = "="; compval = 0
-        if (substr(expr, 1, 1) ~ Re["num"]) {
-          split(expr, tmp, Re["nan"])
-          base_expr = substr(expr, length(tmp[1])+1, length(expr))
-          anchor = $tmp[1] }
-        else {
-          base_expr = expr; anchor = NR }
+    if (NR in R) {
+      StoreRow(_)
+      if (base_reo) next }
 
-        if (base_expr ~ Re["comp"]) {
-          if (base_expr ~ ">")
-            comp = ">"
-          else if (base_expr ~ "<")
-            comp = "<"
-          else
-            comp = "="
-
-          split(base_expr, tmp, comp)
-          base_expr = tmp[1]
-          compval = tmp[2] }
-
-        if (comp == "=") {
-          if (EvalExpr(anchor base_expr) == compval) StoreRow(_, NR, $0, RowCounts) } 
-        else if (comp == ">") {
-          if (EvalExpr(anchor base_expr) > compval) StoreRow(_, NR, $0, RowCounts) }
-        else {
-          if (EvalExpr(anchor base_expr) < compval) StoreRow(_, NR, $0, RowCounts) }
-      }}}
+    if (row_os) StoreRow(_)
+    if (!base_c) StoreFieldRefs()
+    if (!base_r) StoreRowRefs() } 
 
   next
 }
@@ -198,14 +172,13 @@ END {
         c_key = ReoC[j]
         row = _[i]
         split(row, Row, FS)
-        if (c_key ~ Re["int"]) {
-          print_field(Row[c_key])
-        }
-        else
-          Reo(c_key, Row, "", 0)
-      }
-      print ""
-    }
+        if (c_key ~ Re["int"])
+          print_field(Row[c_key], j, reo_c_len)
+        else {
+          if (j!=1) printf "%s", OFS
+          Reo(c_key, Row, 0) }}
+
+      print "" }
 
     exit }
 
@@ -221,12 +194,13 @@ END {
             row = _[r_key]
             split(row, Row, FS)
             if (c_key ~ Re["int"])
-              print_field(Row[c_key])
-            else
-              Reo(c_key, Row, "", 0)
-          }
+              print_field(Row[c_key], j, reo_c_len)
+            else {
+              if (j!=1) printf "%s", OFS
+              Reo(c_key, Row, 0) }}
+
           print "" }}
-      else Reo(r_key, _, "", 1, RowCounts)
+      else Reo(r_key, _, 1)
     }}
 }
 
@@ -234,7 +208,7 @@ END {
 
 # FUNCTIONS
 
-function Reo(key, CrossSpan, Span, row, RowCounts) {
+function Reo(key, CrossSpan, reo_row_call) {
   anchor_unset = 0
   token = TypeMap[key]
   if (token == "re") {
@@ -254,52 +228,51 @@ function Reo(key, CrossSpan, Span, row, RowCounts) {
     else anchor_unset = 1
 
     if (base_expr ~ Re["comp"]) {
-      if (base_expr ~ ">")
-        comp = ">"
-      else if (base_expr ~ "<")
-        comp = "<"
-      else
-        comp = "="
+      if (base_expr ~ ">") comp = ">"
+      else if (base_expr ~ "<") comp = "<"
+      else if (base_expr ~ "!=") comp = "!="
+      else comp = "="
 
       split(base_expr, tmp, comp)
       base_expr = tmp[1]
       compval = tmp[2]
     }}
-  # Pull mat, NR case evals out of for loop - the property is consistent
-  if (row) {
-    for (k = 1; k <= length(RowCounts); k++) {
-      nr = RowCounts[k]
-      item = CrossSpan[nr]
-      if (token == "re") {
-        if (anchor_unset) anchor = item
-        if (anchor ~ base_search)
-          printf "%s", item
-      } else if (token == "mat") {
-        if (anchor_unset) anchor = nr
-        if (comp == "=") {
-          if (EvalExpr(anchor base_expr) == compval) print item
-        } else if (comp == ">") {
-          if (EvalExpr(anchor base_expr) > compval) print item
-        } else {
-          if (EvalExpr(anchor base_expr) < compval) print item
-        }
-      }
+  
+  if (reo_row_call) {
+    if (token == "re")
+      rows = SearchRO[search]
+    else if (token == "mat")
+      rows = ExprRO[expr]
 
-      print ""
-    }
-  } else {
-    if (token == "re") {
+    split(rows, PrintRows, ",")
+    len_printr = length(PrintRows)
+    len_printr--
+    for (r = 1; r <= len_printr; r++) {
+      if (pass_c) print _[r]
+      else {
+        for (j = 1; j <= reo_c_len; j++) {
+          c_key = ReoC[j]
+          row = CrossSpan[PrintRows[r]]
+          split(row, Row, FS)
+          if (c_key ~ Re["int"])
+            print_field(Row[c_key], j, reo_c_len)
+          else {
+            if (j!=1) printf "%s", OFS
+            Reo(c_key, Row, 0) }}}
+
+      print "" }}
+
+  else {
+    if (token == "re")
       fields = SearchFO[search]
-    } else if (token == "mat") {
+    else if (token == "mat")
       fields = ExprFO[expr]
-    }
+
     split(fields, PrintFields, ",")
     len_printf = length(PrintFields)
     len_printf--
     for (f = 1; f <= len_printf; f++) {
-      print_field(CrossSpan[PrintFields[f]])
-    }
-  }
+      print_field(CrossSpan[PrintFields[f]], f, len_printf) }}
 }
 
 function FieldBase() {
@@ -308,8 +281,7 @@ function FieldBase() {
     for (i = 1; i < c_len; i++)
       printf "%s", $c_order[i] OFS
 
-    print $c_order[c_len]
-  }
+    print $c_order[c_len] }
 }
 
 function FieldRange() {
@@ -318,8 +290,7 @@ function FieldRange() {
     for (i = 1; i < reo_c_count; i++)
       printf "%s", $ReoC[i] OFS
 
-    print $ReoC[reo_c_count]
-  }
+    print $ReoC[reo_c_count] }
 }
 
 
@@ -330,15 +301,12 @@ function FillRange(range_arg, RangeArr, reo_count, ReoArr) {
 
   if (debug) debug_print(2)
 
-  if (start > end) {
-    reo = 1
+  if (start > end) { reo = 1
     for (k = start; k >= end; k--)
-      reo_count = FillReoArr(k, RangeArr, reo_count, ReoArr)
-    
-  } else {
+      reo_count = FillReoArr(k, RangeArr, reo_count, ReoArr) }
+  else {
     for (k = start; k <= end; k++)
-      reo_count = FillReoArr(k, RangeArr, reo_count, ReoArr)
-  }
+      reo_count = FillReoArr(k, RangeArr, reo_count, ReoArr) }
 
   return reo_count
 }
@@ -352,12 +320,18 @@ function FillReoArr(val, KeyArr, count, ReoArray, type) {
   return count
 }
 
-function StoreRow(_, nr, row, RowCounts) {
-  _[nr] = row
-  RowCounts[rc++] = nr
-  ColCounts[nr] = NF
+function StoreHeaders(Headers, row) {
+  if (row) Headers[NR] = $1
+  else {
+    for (f = 1; f <= nf; f++)
+      Headers[f] = $f }
+}
+
+function StoreRow(_) {
+  _[NR] = $0
+  #RowCounts[rc++] = NR
+  #ColCounts[NR] = NF
   row_os = 0
-  StoreFieldRefs()
 }
 
 function StoreFieldRefs() {
@@ -367,62 +341,117 @@ function StoreFieldRefs() {
   if (re) {
     for (search in RCSearches) {
       split(search, tmp, "~")
-      if (substr(search, 1, 1) ~ Re["num"]) {
-        base_search = tmp[2]; start = tmp[1]; end = start }
-      else { base_search = search # TODO: figure out short circuit for this case
-        start = 1; end = NF }
-      
+      base_search = tmp[2]
+      if (tmp[1] ~ Re["num"]) {
+        start = tmp[1]; end = start }
+      else { start = 1; end = NF } # TODO: figure out short circuit for this case
+
+      if (debug) debug_print(9) 
+
       for (f = start; f <= end; f++) {
         if (!(SearchFO[search] ~ f",") && $f ~ base_search) {
           SearchFO[search] = SearchFO[search] f","
-        }
-      }
-    }
-  }
+        }}}}
 
   if (mat) {
     for (expr in RCExprs) {
       if (assume_constant_fields && RCExprFieldsSet[expr]) continue
       # ^ may result in missed fields unless the number of fields of first row
       # is gt or equal to number of fields in all other rows
-      comp = "="; compval = 0; settable = 0
+      compval = 0; settable = 0
       if (substr(expr, 1, 1) ~ Re["num"]) { # TODO: put this type of check in TestArg
         split(expr, tmp, Re["nan"])
-        if (NR != tmp[1]) continue
+        if (tmp[1]) {
+          if (NR != tmp[1]) continue
+          else anchor_row = tmp[1] }
+        else anchor_row = max_nr
         base_expr = substr(expr, length(tmp[1])+1, length(expr)) }
-      else { base_expr = expr; settable = 1 # TODO: figure out short circuit for this case
+      else { base_expr = expr; settable = 1; anchor_row = max_nr
         RCExprFieldsSet[expr] = 1 }
 
       if (base_expr ~ Re["comp"]) {
-        if (base_expr ~ ">")
-          comp = ">"
-        else if (base_expr ~ "<")
-          comp = "<"
-        else
-          comp = "="
+        if (base_expr ~ ">") comp = ">"
+        else if (base_expr ~ "<") comp = "<"
+        else if (base_expr ~ "!=") comp = "!="
+        else comp = "="
 
         split(base_expr, tmp, comp)
         base_expr = tmp[1]
-        compval = tmp[2]
-      }
+        compval = tmp[2] }
 
-      for (f = 1; f <= NF; f++) {
-        if (!(ExprFO[expr] ~ f",")) {
-          if (settable) anchor = f
-          else if ($f ~ Re["decnum"]) anchor = $f
-          else continue
-          if (debug) debug_print(5)
-          if (comp == "=") {
-            if (EvalExpr(anchor base_expr) == compval) ExprFO[expr] = ExprFO[expr] f","
-          } else if (comp == ">") {
-            if (EvalExpr(anchor base_expr) > compval) ExprFO[expr] = ExprFO[expr] f","
-          } else {
-            if (EvalExpr(anchor base_expr) < compval) ExprFO[expr] = ExprFO[expr] f","
-          }
-        }
-      }
-    }
-  }
+      for (f = 1; f <= NF && !(ExprFO[expr] ~ f","); f++) {
+        is_numf = $f ~ Re["decnum"]
+        if (settable) anchor = f
+        else if (is_numf) anchor = $f
+        else if (comp == "!=") anchor = ""
+        else continue
+        eval = EvalExpr(anchor base_expr)
+        if (debug) debug_print(5)
+        if (comp == "!=") {
+          if (!ExcludeCol[expr, f]) {
+            if (eval == compval) ExcludeCol[expr, f] = 1
+            else if (NR == anchor_row) ExprFO[expr] = ExprFO[expr] f"," }
+          continue }
+        if ((comp == "="  && eval == compval) ||
+            (comp == ">"  && eval > compval)  ||
+            (comp == "<"  && eval < compval)) {
+            ExprFO[expr] = ExprFO[expr] f","
+        }}}}
+}
+
+function StoreRowRefs() {
+  # Checks a single row for each expression and search pattern, if applicable,
+  # and stores relevant row numbers. Rows can be made non-applicable by filter
+  # within the first subarg of the reo arg.
+  if (re) {
+    for (search in RRSearches) {
+      split(search, tmp, "~")
+      base_search = tmp[2]
+      if (tmp[1] ~ Re["num"]) test_field = tmp[1]
+      else test_field = 0
+
+      if (debug) debug_print(9) 
+
+      if ($test_field ~ base_search)
+        SearchRO[search] = SearchRO[search] NR"," }}
+
+  if (mat) {
+    for (expr in RRExprs) {
+      compval = 0
+      if (substr(expr, 1, 1) ~ Re["num"]) { # TODO: put this type of check in TestArg
+        split(expr, tmp, Re["nan"])
+        start = tmp[1]; end = start
+        base_expr = substr(expr, length(tmp[1])+1, length(expr)) }
+      else { base_expr = expr; start = 1; end = NF }
+      anchor_col = end
+
+      if (base_expr ~ Re["comp"]) {
+        if (base_expr ~ ">") comp = ">"
+        else if (base_expr ~ "<") comp = "<"
+        else if (base_expr ~ "!=") comp = "!="
+        else comp = "="
+
+        split(base_expr, tmp, comp)
+        base_expr = tmp[1]
+        compval = tmp[2] }
+
+      for (f = start; f <= end && !(ExprRO[expr] ~ NR","); f++) {
+        is_numf = $f ~ Re["decnum"]
+        if (is_numf) anchor = $f
+        else if (comp == "!=") anchor = ""
+        else continue
+        eval = EvalExpr(anchor base_expr)
+        if (debug) debug_print(5)
+        if (comp == "!=") {
+          if (!ExcludeRow[expr, NR]) {
+            if (eval == compval) ExcludeRow[expr, NR] = 1
+            else if (f == anchor_col) ExprRO[expr] = ExprRO[expr] NR"," }
+          continue }
+        if ((comp == "="  && eval == compval) ||
+            (comp == ">"  && eval > compval)  ||
+            (comp == "<"  && eval < compval)) {
+            ExprRO[expr] = ExprRO[expr] NR","
+        }}}}
 }
 
 function TokenPrecedence(arg) {
@@ -432,7 +461,8 @@ function TokenPrecedence(arg) {
     if (debug) debug_print(3, arg)
     if (tk_loc && tk_loc < loc_min) {
       loc_min = tk_loc
-      found_token = Tk[tk] }}
+      found_token = Tk[tk] }
+    if (tk_loc == 1) break }
   return found_token
 }
 
@@ -455,17 +485,17 @@ function TestArg(arg, max_i, type) {
     if (reo || sa1 >= sa2 || sa1 <= max_i)
       reo = 1
     else
-      max_i = ra2 }
+      max_i = ra2 }}
 
-  } else if (type == "mat") { reo = 1; mat = 1
+  else if (type == "mat") { reo = 1; mat = 1
     for (sa_i = 2; sa_i <= length(Subargv); sa_i++) {
       if (!(Subargv[sa_i] ~ Re["int"])) nonint_sarg = 1
     }
     if (nonint_sarg || !(arg ~ Re["matarg1"] || arg ~ Re["matarg2"])) {
-      print "Invalid order expression arg " arg " - expression format examples include: %2  %3=5  *6/8%2=1"
-      exit 1 }
+      print "Invalid order expression arg " arg " - expression format examples include: %2  2%3=5  *6/8%2=1"
+      exit 1 }}
 
-  } else if (type == "re") { reo = 1; re = 1
+  else if (type == "re") { reo = 1; re = 1
     re_test = substr(arg, length(sa1)+1, length(arg))
     if ("" ~ re_test) {
       print "Invalid order search range arg - search arg format examples include: ~search  2~search"
@@ -479,25 +509,27 @@ function BuildRe(Re) {
   Re["int"] = "^" Re["num"] "$"
   Re["decnum"] = "^[[:space:]]*[0-9]+([\.][0-9]*)?[[:space:]]*$"
   Re["nan"] = "[^0-9]"
-  Re["matarg1"] = "^[0123456789\\+\\-\\*\\/%\\^]+([=<>]" Re["num"] ")?$"
-  Re["matarg2"] = "^[=<>]" Re["num"] "$"
+  Re["matarg1"] = "^[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])" Re["num"] ")?$"
+  Re["matarg2"] = "^(!=|[=<>])" Re["num"] "$"
   Re["ordsep"] = "[ ,]+"
-  Re["comp"] = "(<|>|=)"
-  Re["alltokens"] = "[(\\.\\.)\\~\\+\\-\\*\\/%\\^<>=\\[]"
+  Re["comp"] = "(<|>|!?=)"
+  Re["alltokens"] = "[(\\.\\.)\\~\\+\\-\\*\\/%\\^<>(!=)=\\[]"
 }
 
 function BuildTokenMap(TkMap) {
   TkMap["rng"] = "\\.\\."
-  TkMap["head"] = "\\["
-  TkMap["re"] = "\~"
-  TkMap["mat"] = "[\+\-\*\/%\^<>=]"
+  TkMap["head"] = "\\[" #]
+  TkMap["re"] = "!?\~"
+  TkMap["mat"] = "(!=|[\+\-\*\/%\^<>=])"
 }
 
 function BuildTokens(Tk) {
   Tk[".."] = "rng"
+  Tk["!~"] = "re"
   Tk["~"] = "re"
-  Tk["["] = "head" #]
+  Tk["["] = "head" #]]
   Tk["="] = "mat"
+  Tk["!="] = "mat"
   Tk[">"] = "mat"
   Tk["<"] = "mat"
   Tk["+"] = "mat"
@@ -548,17 +580,16 @@ function BuildOFSFromUnescapedFS() {
   return OFS
 }
 
-function print_field(field_val) {
-  padded_field = field_val OFS
-  printf "%s", padded_field
+function print_field(field_val, field_no, end_field_no) {
+  if (!(field_no == end_field_no)) field_val = field_val OFS
+  printf "%s", field_val
 }
 
 
 function debug_print(case, arg) {
   if (case == -1) {
-    print "----------- ARGS TESTS -------------"
-  }
-  if (case == 0) {
+    print "----------- ARGS TESTS -------------" }
+  else if (case == 0) {
     print "---------- ARGS FINDINGS -----------"
     print_reo_r_count = pass_r ? "all/undefined" : reo_r_count
     print "Reorder count (row):", print_reo_r_count
@@ -573,38 +604,44 @@ function debug_print(case, arg) {
     if (pass_c) print "all"
     else { for (i = 1; i < reo_c_len; i++) printf "%s", ReoC[i] OFS
       print ReoC[reo_c_count] }
+    if (max_nr) print "max_nr: " max_nr }
 
-  } else if (case == 1) {
-    print "i: " i, " r_i: " r_i, " r_len: " r_len, " token: " token
-  } else if (case == 1.5) {
-    print "i: " i, " c_i: " c_i, " c_len: " c_len, " token: " token
-  } else if (case == 2) {
-    print "FillRange start: " start, " end: " end
-  } else if (case == 3) {
-    print arg, tk, tk_loc
-
-  } else if (case == 4) {
+  else if (case == 1) {
+    print "i: " i, " r_i: " r_i, " r_len: " r_len, " token: " token }
+  else if (case == 1.5) {
+    print "i: " i, " c_i: " c_i, " c_len: " c_len, " token: " token }
+  else if (case == 2) {
+    print "FillRange start: " start, " end: " end }
+  else if (case == 3) {
+    print arg, tk, tk_loc }
+  else if (case == 4) {
     print "----------- CASE MATCHES -----------"
     if (indx) print "index case"
     if (base) print "base case"
-    if (range) print "range case"
-    if (mat) print "mat case"
-    if (re) print "re case"
+    else if (base_r) print "base r case"
+    else if (base_c) print "base c case"
     if (reo) print "reo case"
     if (base_reo) print "base reo case"
+    if (range) print "range case"
+    if (mat) print "mat case"
+    if (re) print "re case" }
 
-  } else if (case == 5) {
-    eval = EvalExpr(anchor base_expr)
-    print anchor, base_expr, "evals to:", eval, "compare:", comp, compval
-
-  } else if (case == 6) {
+  else if (case == 5) {
+    print "f: " f, "anchor: " anchor, "apply to: " base_expr, "evals to:", eval, "compare:", comp, compval }
+  else if (case == 6) {
+    if (length(RRExprs)) { print "------------- RRExprs --------------"
+      for (ex in RRExprs) print ex, ExprRO[ex] }
+    if (length(RRSearches)) { print "------------- RRSearches -------------"
+      for (se in RRSearches) print se, SearchRO[se] }
     if (length(RCExprs)) { print "------------- RCExprs --------------"
       for (ex in RCExprs) print ex, ExprFO[ex] }
     if (length(RCSearches)) { print "------------- RCSearches -------------"
-      for (se in RCSearches) print se, SearchFO[se] }
-  } else if (case == 7) {
-    print "------ EVALS OR BASIC OUTPUT -------"
-  } else if (case == 8) {
-    print "------------- OUTPUT ---------------"
-  }
+      for (se in RCSearches) print se, SearchFO[se] }}
+  else if (case == 7) {
+    print "------ EVALS OR BASIC OUTPUT -------" }
+  else if (case == 8) {
+    print "------------- OUTPUT ---------------" }
+  else if (case == 9) {
+    print search, base_search, start, end  }
+
 }

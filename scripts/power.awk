@@ -28,14 +28,12 @@ invert && NR == 1 && c_counts {
     for (j = 1; j <= NF; j++)
       if (i % (2^j) < 2^(j-1)) {
         h_str = h_str $j OFS
-        c_str = c_str j OFS
-      }
+        c_str = c_str j OFS }
     
     h_str = substr(h_str, 1, length(h_str) - len_ofs)
     c_str = substr(c_str, 1, length(c_str) - len_ofs)
     CPatterns[c_str] = 1
-    CHeaders[c_str] = h_str
-  }
+    CHeaders[c_str] = h_str }
 }
 
 {
@@ -51,17 +49,14 @@ invert && NR == 1 && c_counts {
       if (i % (2^j) < 2^(j-1)) {
         if (debug && FNR < 3) debug_print(1)
         str = str $j OFS
-        if (c_counts) c_str = c_str j OFS
-      }
+        if (c_counts) c_str = c_str j OFS }
 
     if (c_counts) {
       c_str = substr(c_str, 1, length(c_str) - len_ofs)
-      C[c_str ":::: " str]++
-    } else {
+      C[c_str ":::: " str]++ }
+    else {
       str = substr(str, 1, length(str) - len_ofs)
-      C[str]++
-    }
-  }
+      C[str]++ }}
 }
 
 END {
@@ -71,29 +66,25 @@ END {
       j = C[i]
       if (C[i] < min) { 
         delete C[i]
-        continue
-      }
+        continue }
       c_pattern = substr(i, 1, match(i, ":::: ") - 1)
       if (invert) delete CHeaders[c_pattern]
-      CCount[c_pattern] += j
-    }
+      CCount[c_pattern] += j }
 
     if (!invert) {
       for (i in CHeaders)
-        if (!(i in CCount)) delete CHeaders[i]
-    }
-  } else {
+        if (!(i in CCount)) delete CHeaders[i] }}
+
+  else {
     for (i in C) {
       j = C[i]
       if (j < min) { 
         delete C[i]
-        continue
-      }
+        continue }
       N[j]++
       metakey = j OFS N[j]
       M[metakey] = i
-      if (debug) debug_print(2)
-    }
+      if (debug) debug_print(2) }
 
     for (i in N) {
       n_n = N[i]
@@ -111,24 +102,17 @@ END {
           matchcount = 0
           for (l in tmp1) {
             for (m in tmp2) {
-              if (tmp1[l] == tmp2[m]) matchcount++
-            }
-          }
+              if (tmp1[l] == tmp2[m]) matchcount++ }}
           l1 = length(tmp1)
           l2 = length(tmp2)
           if (matchcount >= l1 || matchcount >= l2) {
             if (l1 > l2) {
               if (debug) debug_print(4)
-              delete C[t2]
-            } else if (l2 > l1) {
+              delete C[t2] }
+            else if (l2 > l1) {
               if (debug) debug_print(5)
               delete C[t1]
-            }
-          }
-        }
-      }
-    }
-  }
+            }}}}}}
 
   print ""
   
@@ -136,24 +120,23 @@ END {
     if (invert)
       for (i in CHeaders) { print CHeaders[i] }
     else
-      for (i in CCount) { print CCount[i]/NR, i }
-  } else
+      for (i in CCount) { print CCount[i]/NR, i }}
+  else
     for (i in C) { if (C[i]) print C[i], i }
 }
 
 function debug_print(case) {
   if (case == 0) {
-    print "i", "j", "2*j", "i % (2*j)", "2^(j-1)"
-  } else if (case == 1) {
-    print i, j, 2*j, i % (2*j), 2^(j-1)
-  } else if (case == 2) {
-    print j, "", i, "", N[j], "", metakey, "", M[metakey]
-  } else if (case == 3) {
-    print "iOFSj " j, metakey1, " t1 " t1, " l1 " l1, " C[t1] " C[t1] "  | " " iOFSk" k, metakey2, " t2 " t2, " l2 " l2, " C[t2] " C[t2]
-  } else if (case == 4) {
-    print "deleting t2 " t2 " and keeping t1 " t1
-  } else if (case == 5) {
-    print "deleting t1 " t1 " and keeping t2 " t2
-  }
+    print "i", "j", "2*j", "i % (2*j)", "2^(j-1)" }
+  else if (case == 1) {
+    print i, j, 2*j, i % (2*j), 2^(j-1) }
+  else if (case == 2) {
+    print j, "", i, "", N[j], "", metakey, "", M[metakey] }
+  else if (case == 3) {
+    print "iOFSj " j, metakey1, " t1 " t1, " l1 " l1, " C[t1] " C[t1] "  | " " iOFSk" k, metakey2, " t2 " t2, " l2 " l2, " C[t2] " C[t2] }
+  else if (case == 4) {
+    print "deleting t2 " t2 " and keeping t1 " t1 }
+  else if (case == 5) {
+    print "deleting t1 " t1 " and keeping t2 " t2 }
 }
 
