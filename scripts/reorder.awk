@@ -14,11 +14,42 @@
 # Reorder/Repeat:
 # > awk -f reorder.awk -v r=3,3,5,1 -v c=4-1,1,3,5
 #
+# Index Numbers Evaluating to Expression (if no comparison specified, compares 
+# if expression equal to zero):
+# > awk -f reorder.awk -v r="NR**3%2+2,NR**3%2+2=1" -v c="NF<10"
+#    Row numbers evaluating to 0 from these ^          ^ Only print fields
+#    expressions will be printed in given order          with index <10
+#
+# Filter Records by Field Values and/or Fields by Record Values:
+# -- Using basic numerical expressions, across the entire opposite span:
+# > awk -f reorder.awk -v r="=1,<1" -v c="/5<10"
+#     Rows with field val =1 ^         ^ Columns with field vals less than 10
+#  Followed by rows with a field <1      when divided by 5
+#
+# -- Using numerical expressions, across a specified cross span:
+# > awk -f reorder.awk      -v r="1,8<0" -v c="6!=10"
+#   Print the header row followed by ^       ^ Fields where vals in row 6 are
+#   rows where field 8 is negative             not equal to 10
+#
+# -- Using regeular expressions, across the opposite span (full or specified):
+# > awk -f reorder.awk -v r="~plant,~[A-z]" -v c="3~[0-9]+\.[0-9]"
+#     Rows matching "plant" ^                  ^ Columns where vals in row 3
+#     Followed by rows with alpha chars          match simple decimal pattern
+#
+# Alternatively filter the cross span by a header (first row and first column
+# is default)
+# > awk -f reorder.awk -v r="[Plant~flower" -v c="3[Alps>10000"
+#     Rows where column header matches ^          ^ Columns where vals in col
+#     "Plant" and column value matches "flower"     3 matches "Alps" and which
+#                                                   are greater than 10000
+#
+#
 # TODO: quoted fields handling
 # TODO: reverse case
-# TODO: not equal to comparison
+# TODO: nomatch regex comparison
 # TODO: mechanism for 'all the others, unspecified' (records or fields)
 # TODO: error exit for no matches found
+
 
 # SETUP
 
@@ -56,6 +87,12 @@ BEGIN {
             reo_r_count = FillReoArr(r_i, RRExprs, reo_r_count, ReoR, token)
           else if (token == "re")
             reo_r_count = FillReoArr(r_i, RRSearches, reo_r_count, ReoR, token)
+          else if (token == "head") {
+            if (headtype == "mat")
+              reo_r_count = FillReoArr(r_i, RRHeadExprs, reo_r_count, ReoR, "mat")
+            else if (headtype == "re")
+              reo_r_count = FillReoArr(r_i, RRHeadSearches, reo_r_count, ReoR, "re")
+          }
         }}}}
   else { pass_r = 1 }
   if (!reo_r_count) pass_r = 1
@@ -106,9 +143,9 @@ BEGIN {
   else if (reo && !mat && !re)
     base_reo = 1
 
-  if (mat) { # TODO: this for stdin case
+  if (mat && ARGV[1]) { # TODO: this for stdin case
     "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0 }
-  OFS = BuildOFSFromUnescapedFS()
+  if (!(FS ~ "[.+]")) OFS = BuildOFSFromUnescapedFS()
   reo_r_len = length(ReoR)
   reo_c_len = length(ReoC)
   if (debug) debug_print(0)
@@ -296,8 +333,7 @@ function FieldRange() {
 
 function FillRange(range_arg, RangeArr, reo_count, ReoArr) {
   split(range_arg, RngAnc, TkMap["rng"])
-  start = RngAnc[1]
-  end = RngAnc[2]
+  start = RngAnc[1]; end = RngAnc[2]
 
   if (debug) debug_print(2)
 
@@ -329,8 +365,6 @@ function StoreHeaders(Headers, row) {
 
 function StoreRow(_) {
   _[NR] = $0
-  #RowCounts[rc++] = NR
-  #ColCounts[NR] = NF
   row_os = 0
 }
 
@@ -359,7 +393,7 @@ function StoreFieldRefs() {
       # ^ may result in missed fields unless the number of fields of first row
       # is gt or equal to number of fields in all other rows
       compval = 0; settable = 0
-      if (substr(expr, 1, 1) ~ Re["num"]) { # TODO: put this type of check in TestArg
+      if (substr(expr, 1, 1) ~ Re["intmat"]) { # TODO: put this type of check in TestArg
         split(expr, tmp, Re["nan"])
         if (tmp[1]) {
           if (NR != tmp[1]) continue
@@ -380,9 +414,8 @@ function StoreFieldRefs() {
         compval = tmp[2] }
 
       for (f = 1; f <= NF && !(ExprFO[expr] ~ f","); f++) {
-        is_numf = $f ~ Re["decnum"]
         if (settable) anchor = f
-        else if (is_numf) anchor = $f
+        else if ($f ~ Re["decnum"]) anchor = $f
         else if (comp == "!=") anchor = ""
         else continue
         eval = EvalExpr(anchor base_expr)
@@ -417,12 +450,17 @@ function StoreRowRefs() {
 
   if (mat) {
     for (expr in RRExprs) {
-      compval = 0
-      if (substr(expr, 1, 1) ~ Re["num"]) { # TODO: put this type of check in TestArg
+      compval = 0; position_test = 0
+      if (substr(expr, 1, 1) ~ Re["intmat"]) { # TODO: put this type of check in TestArg
         split(expr, tmp, Re["nan"])
-        start = tmp[1]; end = start
+        if (tmp[1]) {
+          start = tmp[1]; end = start }
+        else { start = 1; end = NF }
         base_expr = substr(expr, length(tmp[1])+1, length(expr)) }
-      else { base_expr = expr; start = 1; end = NF }
+      else {
+        base_expr = expr; position_test = 1 
+        start = 1; end = NF }
+
       anchor_col = end
 
       if (base_expr ~ Re["comp"]) {
@@ -436,8 +474,8 @@ function StoreRowRefs() {
         compval = tmp[2] }
 
       for (f = start; f <= end && !(ExprRO[expr] ~ NR","); f++) {
-        is_numf = $f ~ Re["decnum"]
-        if (is_numf) anchor = $f
+        if (position_test) { if (f > 1) break; else anchor = NR }
+        else if ($f ~ Re["decnum"]) anchor = $f
         else if (comp == "!=") anchor = ""
         else continue
         eval = EvalExpr(anchor base_expr)
@@ -492,7 +530,7 @@ function TestArg(arg, max_i, type) {
       if (!(Subargv[sa_i] ~ Re["int"])) nonint_sarg = 1
     }
     if (nonint_sarg || !(arg ~ Re["matarg1"] || arg ~ Re["matarg2"])) {
-      print "Invalid order expression arg " arg " - expression format examples include: %2  2%3=5  *6/8%2=1"
+      print "Invalid order expression arg " arg " - expression format examples include: NR%2  2%3=5  NF!=4  *6/8%2=1"
       exit 1 }}
 
   else if (type == "re") { reo = 1; re = 1
@@ -501,16 +539,28 @@ function TestArg(arg, max_i, type) {
       print "Invalid order search range arg - search arg format examples include: ~search  2~search"
       exit 1 }}
 
+  else if (type == "head") { reo = 1; head = 1
+    if (arg ~ Re["headmat"]) {
+      head = "mat"; mat = 1 }
+    else if (arg ~ Re["headre"]) {
+      head = "re"; re = 1 }
+    else {
+      print "Invalid order header search arg - search arg format examples include: [colheader~search  [rowheader!=30"
+      exit 1 }}
+
   return max_i
 }
 
 function BuildRe(Re) {
   Re["num"] = "[0-9]+"
   Re["int"] = "^" Re["num"] "$"
-  Re["decnum"] = "^[[:space:]]*[0-9]+([\.][0-9]*)?[[:space:]]*$"
+  Re["decnum"] = "^[[:space:]]*(\\-)?(\\()?[0-9]+([\.][0-9]*)?(\\))?[[:space:]]*$"
+  Re["intmat"] = "[0-9!\\+\\-\\*\/%\\^<>=]"
   Re["nan"] = "[^0-9]"
   Re["matarg1"] = "^[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])" Re["num"] ")?$"
-  Re["matarg2"] = "^(!=|[=<>])" Re["num"] "$"
+  Re["matarg2"] = "^(NR|NF)?(!=|[=<>])" Re["num"] "$"
+  Re["headmat"] = "\\[.+(!=|[=<>])" Re["num"] "$" #]
+  Re["headre"] = "\\[.+~.+" #]
   Re["ordsep"] = "[ ,]+"
   Re["comp"] = "(<|>|!?=)"
   Re["alltokens"] = "[(\\.\\.)\\~\\+\\-\\*\\/%\\^<>(!=)=\\[]"
@@ -520,7 +570,7 @@ function BuildTokenMap(TkMap) {
   TkMap["rng"] = "\\.\\."
   TkMap["head"] = "\\[" #]
   TkMap["re"] = "!?\~"
-  TkMap["mat"] = "(!=|[\+\-\*\/%\^<>=])"
+  TkMap["mat"] = "(!=|[\\+\\-\\*\/%\\^<>=])"
 }
 
 function BuildTokens(Tk) {
@@ -618,13 +668,14 @@ function debug_print(case, arg) {
     print "----------- CASE MATCHES -----------"
     if (indx) print "index case"
     if (base) print "base case"
-    else if (base_r) print "base r case"
-    else if (base_c) print "base c case"
-    if (reo) print "reo case"
-    if (base_reo) print "base reo case"
+    else if (base_r) print "base row case"
+    else if (base_c) print "base column case"
+    if (reo) print "reorder case"
+    if (base_reo) print "base reorder case"
     if (range) print "range case"
-    if (mat) print "mat case"
-    if (re) print "re case" }
+    if (mat) print "expression case"
+    if (re) print "search case" 
+    if (head) print "header case" }
 
   else if (case == 5) {
     print "f: " f, "anchor: " anchor, "apply to: " base_expr, "evals to:", eval, "compare:", comp, compval }

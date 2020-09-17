@@ -2,6 +2,7 @@
 ds:asgn           	 Grabbing lines matching standard assignment pattern from a file
 ds:bash           	 Refresh bash interactive session
 ds:commands       	 List functions defined in the dev_scripts/.commands.sh file
+ds:copy           	 Copy standard input in UTF-8
 ds:decap          	 ** Remove up to a certain number of lines from the start of a file, default is 1
 ds:dff            	 Diff shortcut for more relevant changes: ds:dff file1 file2 [suppress_common]
 ds:ds             	 Generate statistics about text data: ds:ds file [awkargs]
@@ -9,8 +10,7 @@ ds:dup_input      	 ** Duplicate input sent to STDIN in aggregate
 ds:dups           	 Report duplicate files with option for deletion
 ds:embrace        	 Enclose a string in braces: embrace string [openbrace="{"] [closebrace="}"]
 ds:enti           	 Print text entities from a file separated by a common pattern
-ds:env_refresh    	 Pull latest master branch for all git repos, run installs
-ds:fail           	 Safe failure, kills parent but returns to prompt (no custom message on zsh)
+ds:fail           	 Safe failure, kills parent but returns to prompt
 ds:fieldcounts    	 Print value counts: ds:fieldcounts file [fields=1] [min=1] [order=a] [awkargs] (alias ds:fc)
 ds:filename_str   	 Adds a string to the beginning or end of a filename
 ds:fit            	 ** Print field-separated data in columns with dynamic width: ds:fit [awkargs] file
@@ -18,11 +18,16 @@ ds:fsrc           	 Show the source of a shell function
 ds:git_add_all    	 Add all untracked git files (alias ds:ga)
 ds:git_add_com_push	 Add all untracked files, commit with message, push current branch (alias ds:gacmp)
 ds:git_branch     	 Run git branch for all repos (alias ds:gb)
+ds:git_checkout   	 Checkout a branch in the current repo matching a given pattern (alias ds:gco)
+ds:git_cross_view 	 Generate a cross table of git repos vs branches (alias ds:gcv) - set config in scripts/support/lbv.conf
 ds:git_graph      	 Print colorful git history graph (alias ds:gg)
+ds:git_purge_local	 Purge branch name(s) from all local git repos associated (alias ds:gplb)
 ds:git_push_cur   	 git push origin for current branch (alias ds:gp)
 ds:git_recent     	 Display table of commits sorted by recency descending (alias ds:gr)
 ds:git_recent_all 	 Display table of recent commits for all home dir branches (alias ds:gra)
+ds:git_repos_refresh	 Pull latest master branch for all git repos, run installs (alias ds:grr)
 ds:git_status     	 Run git status for all repos (alias ds:gs)
+ds:git_time_stat  	 Time of last pull, or last commit if no last pull (alias ds:gts)
 ds:goog           	 Executes Google search with args provided
 ds:gwdf           	 Git word diff shortcut
 ds:idx            	 ** Prints an index attached to data lines from a file or stdin
@@ -35,7 +40,6 @@ ds:insert         	 ** Redirect input into a file at a specified line number or 
 ds:iter_str       	 Repeat a string some number of times: rpt_str str [n=1] [fs]
 ds:jn             	 ** Similar to the join Unix command but with different features
 ds:join_by        	 ** Join a shell array by a text argument provided
-ds:lbv            	 Generate a cross table of git repos vs branches - set configuration in scripts/support/lbv.conf
 ds:mactounix      	 Converts ^M return characters into simple carriage returns in place
 ds:mini           	 ** Crude minify, remove whitespace including newlines except space
 ds:newfs          	 ** Outputs a file with an updated field separator: ds:newfs [] [newfs=,] [file]
@@ -43,7 +47,6 @@ ds:nset           	 Test if name (function, alias, variable) is defined in conte
 ds:ntype          	 Test name type (function, alias, variable) if defined in context
 ds:path_elements  	 Returns dirname, filename, and extension from a filepath
 ds:pipe_check     	 ** Detect if pipe has any data, or over a certain number of lines
-ds:plb            	 Purge branch name(s) from all local git repos associated
 ds:print_comps    	 ** Print non-matching lines on given field numbers in two files (alias ds:pc)
 ds:print_matches  	 ** Print duplicate lines on given field numbers in two files (alias ds:pm)
 ds:re_substr      	 ** Extract a substring from a string with regex anchors
@@ -53,7 +56,7 @@ ds:rev            	 ** Bash-only solution to reverse lines for processing
 ds:root           	 Returns the root volume / of the system
 ds:sbsp           	 Extend fields to include a common subseparator: ds:sbsp file subsep_pattern [nomatch_handler=space]
 ds:searchn        	 Searches current names for string, returns matches
-ds:searchx        	 Search a file with top-level curly braces for a name
+ds:searchx        	 Search a file for a C-lang style (curly-brace) top-level function
 ds:sedi           	 Linux-portable sed in place substitution: ds:sedi file search_pattern [replacement]
 ds:select         	 ** Select code from a file by regex anchors: ds:select file [startline endline]
 ds:sofs           	 Executes Stack Overflow search with args provided
@@ -61,7 +64,9 @@ ds:src            	 Source a piece of file: ds:src file ["searchx" pattern] || [
 ds:stag           	 ** Print field-separated data in staggered rows: ds:stag [awkargs] file
 ds:tmp            	 mktemp -q "/tmp/${filename}"
 ds:todo           	 List todo items found in current directory
+ds:trace          	 Search shell function trace for a pattern: ds:trace "command" [search]
 ds:transpose      	 ** Transpose field values of a text-based field-separated file (alias ds:t)
+ds:unicode        	 Get the UTF-8 unicode for a given character
 ds:webpage_title  	 Downloads html from a webpage and extracts the title text
 ds:zsh            	 Refresh zsh interactive session
 

@@ -76,7 +76,36 @@ f e d c b
 e d c b a'
 reo_output='a c d e b
 f a c d b'
-[ "$(echo "$reo_input" | ds:reo 4,1 5,3-1,4)" = "$reo_output" ] || ds:fail 'reo command failed'
+[ "$(echo "$reo_input" | ds:reo 4,1 5,3..1,4)" = "$reo_output" ] || ds:fail 'reo command failed'
+
+reo_input=$(for i in $(seq -16 16); do
+    printf "%s " $i; printf "%s " $(echo "-1*$i" | bc)
+    if [ $(echo "$i%5" | bc) -eq 0 ]; then echo test; else echo nah; fi
+  done)
+reo_output='-1 nah
+-2 nah
+-3 nah
+-4 nah
+-5 test
+-6 nah
+-7 nah
+-8 nah
+-9 nah
+-10 test
+-11 nah
+-12 nah
+-13 nah
+-14 nah
+-15 test
+-16 nah
+15 test
+10 test
+5 test
+0 test
+-5 test
+-10 test
+-15 test'
+[ "$(echo "$reo_input" | ds:reo "2<0,3~test" "31!=14")" = "$reo_output" ] || ds:fail 'reo command failed extended cases'
 
 [ "$(echo 1 2 3 | ds:join_by ', ')" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'
 [ "$(ds:join_by ', ' 1 2 3)" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'

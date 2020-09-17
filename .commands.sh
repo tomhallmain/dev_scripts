@@ -206,7 +206,7 @@ ds:src() { # Source a piece of file: ds:src file ["searchx" pattern] || [line en
     local line=$2 
     if ds:is_int "$3"; then
       local endline=$3
-      ds:reo "$file" "$line-$endline" > $tmp
+      ds:reo "$file" "$line..$endline" > $tmp
     else
       ds:reo "$file" "$line" > $tmp
     fi
