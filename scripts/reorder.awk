@@ -37,12 +37,22 @@
 #     Rows matching "plant" ^                  ^ Columns where vals in row 3
 #     Followed by rows with alpha chars          match simple decimal pattern
 #
-# Alternatively filter the cross span by a cross-span frame pattern (headers --
+# Alternatively filter the cross-span by a current-span frame pattern (headers --
 # first row and first column -- is default)
 # > awk -f reorder.awk -v r="[Plant~flower" -v c="3[Alps>10000"
 #     Rows where column header matches ^          ^ Columns where vals in col
-#     "Plant" and column value matches "flower"     3 matches "Alps" and which
-#                                                   are greater than 10000
+#     "Plant" and column value matches "flower"     3 match "Alps" and which
+#                                                   have number vals greater
+#                                                   than 10000 (ft presumably)
+#
+# If no expression or search given with frame, simple search is done on the cross
+# span, not the current span (frame rows by column, columns by row)
+# > awk -f reorder.awk -v r="[Alps" -v c="[Plant"
+#       Rows where first col ^            ^ Columns where first row
+#       matches 'Alps'                      matches 'Plant'
+#
+# Note the above args are equivalent to r="1~Alps" c="1~Plant"
+#
 # TODO: quoted fields handling (external)
 # TODO: nomatch regex comparison
 # TODO: ignore case regex
@@ -68,7 +78,7 @@ BEGIN {
 
     for (i = 1; i <= r_len; i++) {
       r_i = r_order[i]
-      if (!r_i) { print "Skipping unparsable 0 row arg"; continue }
+      if (!r_i) continue
 
       token = r_i ~ Re["alltokens"] ? TokenPrecedence(r_i) : ""
       if (debug) debug_print(1)
@@ -95,8 +105,10 @@ BEGIN {
           else if (token == "fr") {
             RRFrames[r_i] = 1
             if (fr_ext) row_fr_ext = 1
-            if (fr == "mat") {
-              reo_r_count = FillReoArr(1, r_i, RRExprs, reo_r_count, ReoR, fr) }
+            if (fr == "mat")
+              reo_r_count = FillReoArr(1, r_i, RRExprs, reo_r_count, ReoR, fr)
+            else if (fr == "re" && fr_idx)
+              reo_r_count = FillReoArr(1, r_i, RRIdxSearches, reo_r_count, ReoR, fr)
             else if (fr == "re")
               reo_r_count = FillReoArr(1, r_i, RRSearches, reo_r_count, ReoR, fr)
           }
@@ -142,6 +154,8 @@ BEGIN {
             RCFrames[c_i] = 1
             if (fr == "mat")
               reo_c_count = FillReoArr(0, c_i, RCExprs, reo_c_count, ReoC, fr)
+            else if (fr == "re" && fr_idx)
+              reo_c_count = FillReoArr(0, c_i, RCIdxSearches, reo_c_count, ReoC, fr)
             else if (fr == "re")
               reo_c_count = FillReoArr(0, c_i, RCSearches, reo_c_count, ReoC, fr)
           }}}}}
@@ -358,6 +372,16 @@ function StoreFieldRefs() {
   # not already positively linked. Fields can be made non-applicable by field 
   # filter within the first subarg of the reo arg.
   if (re) {
+    for (search in RCIdxSearches) {
+      split(search, Fr, "[")
+      if (fr_ext) { test_row = Fr[1] ? Fr[1] : 1 }
+      else test_row = 1
+      if (NR != test_row) continue
+      base_search = Fr[2]
+      for (f = 1; f <= NF; f++) {
+        if ($f ~ base_search) SearchFO[search] = SearchFO[search] f","
+      }}
+
     for (search in RCSearches) {
       split(search, Tmp, "~")
       base_search = Tmp[2]
@@ -366,13 +390,20 @@ function StoreFieldRefs() {
         if (fr_ext) { test_field = Fr[1] ? Fr[1] : 1 }
         else test_field = 1
         if (!($test_field ~ Fr[2])) continue
-        if (!Indexed(SearchFO[search], test_field)) {
-          SearchFO[search] = SearchFO[search] test_field"," } 
-        start = 1; end = NF }
-      else if (Tmp[1] ~ Re["num"]) { start = Tmp[1]; end = start }
-      else { start = 1; end = NF }
+        if (!base_search) {
+            print test_field, $test_field, Fr[2]
+          searchkey = SUBSEP search
+          if (!FrRowIdxSet[search]) {
+            FrRowIdxSet[search] = 1; reo_r_count++
+            ReoR[reo_r_count] = searchkey }
+          SearchRO[searchkey] = SearchRO[searchkey] NR","
+          continue }
+        else if (!Indexed(SearchFO[search], test_field)) {
+          SearchFO[search] = SearchFO[search] test_field"," }}
+      else if (Tmp[1] ~ Re["num"]) { 
+        if (NR != Tmp[1]) continue }
 
-      for (f = start; f <= end; f++) {
+      for (f = 1; f <= NF; f++) {
         if (Indexed(SearchFO[search], f)) continue
         if (debug) debug_print(9) 
         if ($f ~ base_search) SearchFO[search] = SearchFO[search] f","
@@ -431,6 +462,13 @@ function StoreRowRefs() {
   # and stores relevant row numbers. Rows can be made non-applicable by filters
   # within the first subargs of the reo arg.
   if (re) {
+    for (search in RRIdxSearches) {
+      split(search, Fr, "[")
+      if (fr_ext) { test_field = Fr[1] ? Fr[1] : 1 }
+      else test_field = 1
+      if (!($test_field ~ Fr[2])) continue
+      SearchRO[search] = SearchRO[search] NR"," }}
+
     for (search in RRSearches) {
       fr_search = 0
       split(search, Tmp, "~")
@@ -441,9 +479,7 @@ function StoreRowRefs() {
         split(Tmp[1], Fr, "[")
         if (row_fr_ext) { test_row = Fr[1] ? Fr[1] : 1 }
         else test_row = 1
-        frame_re = Fr[2] 
-        if (!frame_re) {
-          print "Frame arg " search " malformed"; err = 1; exit err }}
+        frame_re = Fr[2] }
       else if (Tmp[1] ~ Re["num"]) { start = Tmp[1]; end = start }
       else { start = 1; end = NF }
 
@@ -454,7 +490,7 @@ function StoreRowRefs() {
           else if (NR == test_row) {
             if ($f ~ frame_re) {
               if (!Indexed(SearchRO[search], NR))
-              FrameFields[search] = FrameFields[search] f"," }
+                FrameFields[search] = FrameFields[search] f"," }
             if (f == end) {
               if (FrameFields[search]) # TODO: Should this be kept as a flag setting or default behavior?
                 SearchRO[search] = SearchRO[search] NR","
@@ -466,7 +502,7 @@ function StoreRowRefs() {
         if (Indexed(SearchRO[search], NR)) continue
         if (debug) debug_print(9)
         if ($f ~ base_search) SearchRO[search] = SearchRO[search] NR","
-        }}}
+        }}
 
   if (mat) {
     for (expr in RRExprs) {
@@ -479,9 +515,7 @@ function StoreRowRefs() {
         else test_row = 1
         base_expr = substr(expr, length(Tmp[1])+1)
         start = 1; end = NF; fr_expr = 1
-        frame_re = Fr[2]
-        if (!frame_re) {
-          print "Frame arg " expr " malformed"; err = 1; exit err }}
+        frame_re = Fr[2] }
       else if (substr(expr, 1, 1) ~ Re["intmat"]) { # TODO: put this type of check in TestArg
         split(expr, Tmp, Re["nan"])
         if (Tmp[1]) {
@@ -504,11 +538,9 @@ function StoreRowRefs() {
             if (!Indexed(FrameFields[expr], f)) continue }
           else if (NR == test_row) {
             if ($f ~ frame_re) {
-              print $f, frame_re
               if (!Indexed(ExprRO[expr], NR))
                 FrameFields[expr] = FrameFields[expr] f"," }
             if (f == end) {
-              print FrameFields[expr]
               if (FrameFields[expr]) # TODO: Should this be kept as a flag setting or default behavior?
                 ExprRO[expr] = ExprRO[expr] NR","
               ResolveRowFilterFrame(expr) 
@@ -536,7 +568,6 @@ function StoreRowRefs() {
 }
 
 function ResolveRowFilterFrame(frame) {
-  print FrameFields[frame], 
   fr_type = TypeMap[frame]
   if (!FrameFields[frame]) {
     ExcludeFrame[frame] = 1
@@ -593,7 +624,8 @@ function TestArg(arg, max_i, type) {
       if (!(Subargv[sa_i] ~ Re["int"])) nonint_sarg = 1
     }
     if (nonint_sarg || !(arg ~ Re["matarg1"] || arg ~ Re["matarg2"])) {
-      print "Invalid order expression arg " arg " - expression format examples include: NR%2  2%3=5  NF!=4  *6/8%2=1"
+      print "Invalid order expression arg " arg " - expression format examples include: "
+      print "NR%2  2%3=5  NF!=4  *6/8%2=1"
       exit 1 }}
 
   else if (type == "re") { reo = 1; re = 1
@@ -602,15 +634,18 @@ function TestArg(arg, max_i, type) {
       print "Invalid order search range arg - search arg format examples include: ~search  2~search"
       exit 1 }}
 
-  else if (type == "fr") { reo = 1
+  else if (type == "fr") { reo = 1; fr_idx = 0
     split(arg, Tmp, "[")
     if (Tmp[1]) fr_ext = 1
     if (arg ~ Re["frmat"]) {
       fr = "mat"; mat = 1 }
     else if (arg ~ Re["frre"]) {
       fr = "re"; re = 1 }
+    else if (Tmp[2]) {
+      fr = "re"; re = 1; fr_idx = 1; FrIdx[arg] = 1 }
     else {
-      print "Invalid order frame arg - frame arg format examples include: 5[ColsWhere~search  [RowHeader!=30"
+      print "Invalid order frame arg - frame arg format examples include: "
+      print "[RowHeaderPattern 5[Index5Pattern~search  [HeaderPattern!=30"
       exit 1 }}
 
   return max_i
