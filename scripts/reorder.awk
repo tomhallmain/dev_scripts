@@ -6,26 +6,29 @@
 # > awk -f reorder.awk -v r=1 -v c=1
 #
 # Specific rows and/or columns:
-# > awk -f reorder.awk -v r="{1..100}" -v c=1,4,5
+# > awk -f reorder.awk -v r=1,1000 -v c=1,4,5
+#
+# To pass all rows / columns, don't set the arg. Add field separator if needed:
+# > awk -f reorder.awk -v c=4 -F
 #
 # Range (and/or individual rows and columns):
 # > awk -f reorder.awk -v r=1,100..200 -v c=1..3,5
 #
 # Reorder/repeat:
-# > awk -f reorder.awk -v r=3,3,5,1 -v c=4-1,1,3,5
+# > awk -f reorder.awk -v r=3,3,5,1 -v c=4..1,1,3,5
 #
 # Index numbers evaluating to expression (if no comparison specified, compares 
 # if expression equal to zero):
-# > awk -f reorder.awk -v r="NR**3%2+2,NR**3%2+2=1" -v c="NF<10"
-#    Row numbers evaluating to 0 from these ^          ^ Only print fields
-#    expressions will be printed in given order          with index <10
+# > awk -f reorder.awk -v r="NR%2,NR%2=1" -v c="NF<10"
+#    Row numbers evaluating to these ^          ^ Only print fields
+#    expressions will be printed as ordered       with index <10
 #
 # Filter records by field values and/or fields by record values:
 #
 # -- Using basic numerical expressions, across the entire opposite span:
 # > awk -f reorder.awk -v r="=1,<1" -v c="/5<10"
-#     Rows with field val =1 ^         ^ Columns with field vals less than 10
-#  Followed by rows with a field <1      when divided by 5
+#          Rows with field val =1 ^     ^ Columns with field vals less
+#       Followed by rows with val <1      than 10 when divided by 5
 #
 # -- Using numerical expressions, across given span:
 # > awk -f reorder.awk      -v r="1,8<0" -v c="6!=10"
@@ -38,15 +41,15 @@
 #     Followed by rows with alpha chars          match simple decimal pattern
 #
 # Alternatively filter the cross-span by a current-span frame pattern (headers --
-# first row and first column -- is default)
+# first row and first column -- are the default if not specified):
 # > awk -f reorder.awk -v r="[Plant~flower" -v c="3[Alps>10000"
-#     Rows where column header matches ^          ^ Columns where vals in col
+#     Rows where column header matches ^          ^ Columns where vals in row
 #     "Plant" and column value matches "flower"     3 match "Alps" and which
 #                                                   have number vals greater
 #                                                   than 10000 (ft presumably)
 #
 # If no expression or search given with frame, simple search is done on the cross
-# span, not the current span (frame rows by column, columns by row)
+# span, not the current span (frame rows by column, columns by row):
 # > awk -f reorder.awk -v r="[Alps" -v c="[Plant"
 #       Rows where first col ^            ^ Columns where first row
 #       matches 'Alps'                      matches 'Plant'
@@ -390,14 +393,6 @@ function StoreFieldRefs() {
         if (fr_ext) { test_field = Fr[1] ? Fr[1] : 1 }
         else test_field = 1
         if (!($test_field ~ Fr[2])) continue
-        if (!base_search) {
-            print test_field, $test_field, Fr[2]
-          searchkey = SUBSEP search
-          if (!FrRowIdxSet[search]) {
-            FrRowIdxSet[search] = 1; reo_r_count++
-            ReoR[reo_r_count] = searchkey }
-          SearchRO[searchkey] = SearchRO[searchkey] NR","
-          continue }
         else if (!Indexed(SearchFO[search], test_field)) {
           SearchFO[search] = SearchFO[search] test_field"," }}
       else if (Tmp[1] ~ Re["num"]) { 
