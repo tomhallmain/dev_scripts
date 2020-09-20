@@ -99,7 +99,6 @@ ds:dup_input() { # ** Duplicate input sent to STDIN in aggregate
 
 ds:join_by() { # ** Join a shell array by a text argument provided
   local d=$1; shift
-  local shell="$(ds:sh)"
 
   if ds:pipe_open; then
     local pipeargs=($(cat /dev/stdin))
@@ -188,7 +187,7 @@ ds:root() { # Returns the root volume / of the system
 }
 
 ds:src() { # Source a piece of file: ds:src file ["searchx" pattern] || [line endline] || [pattern linesafter]
-  local tmp=/tmp/ds:src
+  local tmp=/tmp/ds_src
   if [ "$2" = searchx ]; then
     [ $3 ] && ds:searchx "$1" "$3" > $tmp
     if ds:is_cli; then
@@ -221,7 +220,7 @@ ds:src() { # Source a piece of file: ds:src file ["searchx" pattern] || [line en
 }
 
 ds:fsrc() { # Show the source of a shell function
-  local shell=$(ds:sh) tmp=/tmp/fsrc
+  local shell=$(ds:sh) tmp=/tmp/ds_fsrc
   if [[ $shell =~ bash ]]; then
     bash --debugger -c "source ~/.bashrc; declare -F $1" > $tmp
     if [ ! -s $tmp ]; then
@@ -349,7 +348,7 @@ ds:git_recent() { # Display table of commits sorted by recency descending (alias
 alias ds:gr="ds:git_recent"
 
 ds:git_recent_all() { # Display table of recent commits for all home dir branches (alias ds:gra)
-  local start_dir="$PWD" all_recent=/tmp/git_recent_all
+  local start_dir="$PWD" all_recent=/tmp/ds_git_recent_all
   local w="\033[37;1m" nc="\033[0m"
   cd ~
   echo "${w}repo${nc}||${w}branch${nc}||sortfield${nc}||${w}commit time${nc}||${w}commit message${nc}||${w}author${nc}" > $all_recent
@@ -409,7 +408,7 @@ ds:searchx() { # Search a file for a C-lang style (curly-brace) top-level functi
 
 ds:select() { # ** Select code from a file by regex anchors: ds:select file [startline endline]
   if ds:pipe_open; then
-    local file=/tmp/select piped=0 start="$2" end="$3"
+    local file=/tmp/ds_select piped=0 start="$2" end="$3"
     cat /dev/stdin > $file
   else
     ds:file_check "$1"
@@ -421,7 +420,7 @@ ds:select() { # ** Select code from a file by regex anchors: ds:select file [sta
 
 ds:insert() { # ** Redirect input into a file at a specified line number or pattern: ds:insert file [lineno|pattern] [sourcefile]
   ds:file_check "$1"
-  local sink="$1" where="$2" source=/tmp/selectsource tmp=/tmp/select
+  local sink="$1" where="$2" source=/tmp/ds_selectsource tmp=/tmp/ds_select
   local nsinklines=$(cat $sink | wc -l)
   if ds:is_int "$where"; then
     [ $where -lt $nsinklines ] || ds:fail 'Insertion point not provided or invalid'
@@ -457,7 +456,7 @@ ds:jn() { # ** Similar to the join Unix command but with different features
   local args=( "$@" )
   let last_arg=${#args[@]}-1
   if ds:pipe_open; then
-    local file2=/tmp/ajoin_showlater piped=0
+    local file2=/tmp/ds_jn_showlater piped=0
     cat /dev/stdin > $file2
   else
     local file2="${args[@]:$last_arg:1}"
@@ -492,7 +491,7 @@ ds:print_matches() { # ** Print duplicate lines on given field numbers in two fi
   local args=( "$@" )
   let last_arg=${#args[@]}-1
   if ds:pipe_open; then
-    local file2=/tmp/matches_showlater piped=0
+    local file2=/tmp/ds_matches_showlater piped=0
     cat /dev/stdin > $file2
   else
     local file2="${args[@]:$last_arg:1}"
@@ -526,7 +525,7 @@ ds:print_comps() { # ** Print non-matching lines on given field numbers in two f
   local args=( "$@" )
   let last_arg=${#args[@]}-1
   if ds:pipe_open; then
-    local file2=/tmp/complements_showlater piped=0
+    local file2=/tmp/ds_complements_showlater piped=0
     cat /dev/stdin > $file2
   else
     local file2="${args[@]:$last_arg:1}"
@@ -565,7 +564,7 @@ ds:inferk() { # ** Infer join fields in two text data files: ds:inferk file [fil
   local args=( "$@" )
   let last_arg=${#args[@]}-1
   if ds:pipe_open; then
-    local file2=/tmp/inferk_showlater piped=0
+    local file2=/tmp/ds_inferk_showlater piped=0
     cat /dev/stdin > $file2
   else
     local file2="${args[@]:$last_arg:1}"
@@ -619,7 +618,7 @@ ds:inferfs() { # Infer field separator from data: inferfs file [reparse=false] [
 ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit [awkargs] file
   local args=( "$@" ) col_buffer=${col_buffer:-2} tty_size=$(tput cols)
   if ds:pipe_open; then
-    local file=/tmp/fit_showlater piped=0
+    local file=/tmp/ds_fit_showlater piped=0
     cat /dev/stdin > $file
   else
     let last_arg=${#args[@]}-1
@@ -641,7 +640,7 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
 ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [awkargs] file
   local args=( "$@" ) tty_size=$(tput cols)
   if ds:pipe_open; then
-    local file=/tmp/stagger_showlater piped=0
+    local file=/tmp/ds_stagger_showlater piped=0
     cat /dev/stdin > $file
   else
     let last_arg=${#args[@]}-1
@@ -661,7 +660,7 @@ ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [awkargs]
 
 ds:idx() { # ** Prints an index attached to data lines from a file or stdin
   if ds:pipe_open; then
-    local header=$1 args=( "${@:2}" ) file=/tmp/index_showlater piped=0
+    local header=$1 args=( "${@:2}" ) file=/tmp/ds_index_showlater piped=0
     cat /dev/stdin > $file
   else
     local file="$1" header=$2 args=( "${@:3}" )
@@ -678,11 +677,11 @@ ds:idx() { # ** Prints an index attached to data lines from a file or stdin
 
 ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo file [rows] [cols] [awkargs] || cmd | ds:reo [rows] [cols] [awkargs]
   if ds:pipe_open; then
-    local rows="$1" cols="$2" args=( "${@:3}" ) file=$(ds:tmp "reo_showlater") piped=0
+    local rows="${1:-a}" cols="${2:-a}" args=( "${@:3}" ) file=$(ds:tmp "ds_reo_showlater") piped=0
     cat /dev/stdin > $file
   else
     ds:file_check "$1"
-    local file="$1" rows="$2" cols="$3" args=( "${@:4}" )
+    local file="$1" rows="${2:-a}" cols="${3:-a}" args=( "${@:4}" )
   fi
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
@@ -697,7 +696,7 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo file [rows] [cols] [awkar
 ds:decap() { # ** Remove up to a certain number of lines from the start of a file, default is 1
   let n_lines=1+${1:-1}
   if ds:pipe_open; then
-    local file=/tmp/cutheader piped=0
+    local file=/tmp/ds_decap piped=0
     cat /dev/stdin > $file
   else
     ds:file_check "$2"
@@ -710,7 +709,7 @@ ds:decap() { # ** Remove up to a certain number of lines from the start of a fil
 ds:transpose() { # ** Transpose field values of a text-based field-separated file (alias ds:t)
   local args=( "$@" )
   if ds:pipe_open; then
-    local file=/tmp/transpose piped=0
+    local file=/tmp/ds_transpose piped=0
     cat /dev/stdin > $file
   else 
     let last_arg=${#args[@]}-1
@@ -730,9 +729,14 @@ ds:transpose() { # ** Transpose field values of a text-based field-separated fil
 }
 alias ds:t="ds:transpose"
 
-ds:ds() { # Generate statistics about text data: ds:ds file [awkargs]
-  ds:file_check "$1"
-  local file="$1"; shift
+ds:ds() { # ** Generate statistics about text data: ds:ds file [awkargs]
+  if ds:pipe_open; then
+    local file=/tmp/ds_ds piped=0
+    cat /dev/stdin > $file
+  else 
+    ds:file_check "$1"
+    local file="$1"; shift
+  fi
   local args=( "$@" )
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
@@ -740,23 +744,31 @@ ds:ds() { # Generate statistics about text data: ds:ds file [awkargs]
   else
     awk ${args[@]} -f $DS_SCRIPT/power.awk "$file"
   fi
+  ds:pipe_clean $file
 }
 
-ds:fieldcounts() { # Print value counts: ds:fieldcounts file [fields=1] [min=1] [order=a] [awkargs] (alias ds:fc)
-  ds:file_check "$1"
-  local file="$1" fields="${2:-1}" min=$3
-  [ $4 ] && ([ $4 = d ] || [ $4 = desc ]) && local order="r"
-  shift; shift; [ $min ] && shift; [ $order ] && shift; local args=( "$@" )
+ds:fieldcounts() { # ** Print value counts: ds:fieldcounts [file] [fields=1] [min=1] [order=a] [awkargs] (alias ds:fc)
+  if ds:pipe_open; then
+    local file=/tmp/ds_fieldcounts piped=0 
+    cat /dev/stdin > $file
+  else 
+    ds:file_check "$1"
+    local file="$1"; shift
+  fi
+  local fields="${1:-a}" min=$2; [ $1 ] && shift; [ $min ] && shift
   ([ $min ] && test $min -gt 0 2> /dev/null) || local min=1
   let min=$min-1
+  [ $1 ] && ([ $1 = d ] || [ $1 = desc ]) && local order="r"
+  [ $order ] && shift; local args=( "$@" )
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    awk ${@} -v min=$min -v fields="$fields" -F"$fs" -v OFS="||" \
+    awk ${@} -v min=$min -v fields="$fields" -v FS="$fs" \
       -f $DS_SCRIPT/field_counts.awk "$file" 2> /dev/null | sort -n$order
   else
-    awk ${@} -v min=$min -v fields="$fields" -v OFS="||" \
+    awk ${@} -v min=$min -v fields="$fields" \
       -f $DS_SCRIPT/field_counts.awk "$file" 2> /dev/null | sort -n$order
   fi
+  ds:pipe_clean $file
 }
 alias ds:fc="ds:fieldcounts"
 
@@ -794,15 +806,20 @@ ds:asgn() { # Grabbing lines matching standard assignment pattern from a file
   if [ ! $? ]; then echo 'No assignments found in file!'; fi
 }
 
-ds:enti() { # Print text entities from a file separated by a common pattern
-  ds:file_check "$1"
-  local file="$1" sep="$2" min="$3"
-  [ $sep ] || local sep=" "
+ds:enti() { # Print text entities from a file separated by a common pattern: ds:enti [file] [sep= ] [min=1] [order=a]
+  if ds:pipe_open; then
+    local file=/tmp/newfs piped=0
+    cat /dev/stdin > $file
+  else
+    ds:file_check "$1"
+    local file="$1"; shift
+  fi
+  local sep="${1:- }" min="${2:-1}"
   ([ $3 = d ] || [ $3 = desc ]) && local order="r"
   ([ $min ] && test $min -gt 0 2> /dev/null) || min=1
   let min=$min-1
   local program="$DS_SCRIPT/separated_entities.awk"
-  awk -v sep="$sep" -v min=$min -f $program "$file" 2> /dev/null | sort -n$order
+  LC_All='C' awk -v sep="$sep" -v min=$min -f $program "$file" 2> /dev/null | LC_ALL='C' sort -n$order
 }
 
 ds:sbsp() { # Extend fields to include a common subseparator: ds:sbsp file subsep_pattern [nomatch_handler=space]
