@@ -34,7 +34,7 @@ ds:arr_idx() { # Extract first shell array element position matchings pattern
   local idx=$(printf "%s\n" "$@" | awk "/$pattern/{print NR-1; exit}")
   [ "$idx" = "" ] && return 1
   let local idx=$idx+$(ds:arr_base)
-  printf "%s" $idx
+  echo -n $idx
 }
 
 ds:die() { # Output to STDERR and exit with error

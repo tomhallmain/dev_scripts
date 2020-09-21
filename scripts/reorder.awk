@@ -56,7 +56,6 @@
 #
 # Note the above args are equivalent to r="1~Alps" c="1~Plant"
 #
-# TODO: quoted fields handling (external)
 # TODO: nomatch regex comparison
 # TODO: ignore case regex
 # TODO: and/or extended logic
@@ -176,6 +175,7 @@ BEGIN {
   if (mat && ARGV[1]) {
     "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0 }
   if (!(FS=="\\|\\|")) OFS = BuildOFSFromUnescapedFS()
+  if (OFS ~ "\[:space:\]") OFS = " "
   reo_r_len = length(ReoR)
   reo_c_len = length(ReoC)
   if (debug) { debug_print(0); debug_print(7) }

@@ -140,7 +140,7 @@ ds:re_substr() { # ** Extract a substring from a string with regex anchors
   [ $out ] && printf "$out" || echo 'No string match to extract'
 }
 
-ds:iter_str() { # Repeat a string some number of times: rpt_str str [n=1] [fs]
+ds:iter_str() { # Repeat a string some number of times: ds:iter_str str [n=1] [fs]
   local str="$1" fs="${3:- }" liststr="$1"
   let n_repeats=${2:-1}-1
   for ((i=1;i<=$n_repeats;i++)); do liststr="${liststr}${fs}${str}"; done
@@ -219,7 +219,7 @@ ds:src() { # Source a piece of file: ds:src file ["searchx" pattern] || [line en
   :
 }
 
-ds:fsrc() { # Show the source of a shell function
+ds:fsrc() { # Show the source of a shell function: ds:fsrc func
   local shell=$(ds:sh) tmp=/tmp/ds_fsrc
   if [[ $shell =~ bash ]]; then
     bash --debugger -c "source ~/.bashrc; declare -F $1" > $tmp
@@ -244,8 +244,9 @@ ds:fsrc() { # Show the source of a shell function
 }
 
 ds:trace() { # Search shell function trace for a pattern: ds:trace "command" [search]
-  [ -z $1 ] && ds:fail 'Command required for trace'
-  grep --color=always "$2" <(set -x &> /dev/null; eval "$1" 2>&1)
+  [ -z $1 ] && ds:readp 'Press any key to trace last command'
+  [ -z $1 ] && cmd="$(fc -ln -1)" || cmd="$1"
+  grep --color=always "$2" <(set -x &> /dev/null; eval "$cmd" 2>&1)
 }
 
 ds:git_cross_view() { # Generate a cross table of git repos vs branches (alias ds:gcv) - set config in scripts/support/lbv.conf
@@ -396,7 +397,7 @@ ds:todo() { # List todo items found in current directory
   [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
 }
 
-ds:searchx() { # Search a file for a C-lang style (curly-brace) top-level function
+ds:searchx() { # Search a file for a C-lang style (curly-brace) top-level object
   ds:file_check "$1"
   if [ $2 ]; then
     awk -f $DS_SCRIPT/top_curly.awk -v search="$2" "$1" | ds:pipe_check
@@ -406,7 +407,7 @@ ds:searchx() { # Search a file for a C-lang style (curly-brace) top-level functi
   # TODO: Add variable search
 }
 
-ds:select() { # ** Select code from a file by regex anchors: ds:select file [startline endline]
+ds:select() { # ** Select code from a file by regex anchors: ds:select file [startpattern endpattern]
   if ds:pipe_open; then
     local file=/tmp/ds_select piped=0 start="$2" end="$3"
     cat /dev/stdin > $file
@@ -648,7 +649,7 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
       -v buffer=$col_buffer ${args[@]} $dequote{,} 2> /dev/null
   fi
   ds:pipe_clean $file
-  ds:pipe_clean $dequote
+  rm $dequote
 }
 
 ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [awkargs] file
@@ -720,7 +721,7 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [awk
       -f $DS_SCRIPT/reorder.awk $dequote 2>/dev/null
   fi
   ds:pipe_clean "$file"
-  ds:pipe_clean $dequote
+  rm $dequote
 }
 
 ds:decap() { # ** Remove up to a certain number of lines from the start of a file, default is 1
