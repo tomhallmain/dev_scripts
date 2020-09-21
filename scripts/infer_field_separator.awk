@@ -213,7 +213,7 @@ END {
         split(fs2, tmp, "")
         for (i = 1; i <= length(tmp); i++) {
           char = tmp[i]
-          if (char == "\\")
+          if (char == "\\" || char == "\|")
             fs2re = fs2re "\\" char
           else
             fs2re = fs2re char }

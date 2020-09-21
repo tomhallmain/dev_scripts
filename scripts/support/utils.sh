@@ -16,7 +16,25 @@ ds:file_check() { # Test for file validity and fail if invalid
 }
 
 ds:noawkfs() { # Test whether awk arg for setting field separator is present
-  [[ ! "${args[@]}" =~ " -F" && ! "${args[@]}" =~ "-v FS" && ! "${args[@]}" =~ "-v fs" ]]
+  [[ ! "${args[@]}" =~ "^\-F" && ! "${args[@]}" =~ "-v FS" && ! "${args[@]}" =~ "-v fs" ]]
+}
+
+ds:dequote() { # Transform FS of a file with quoted fields which contain FS into non-clashing FS
+  ds:file_check "$1"
+  local file="$1" fs="$2"
+  if [[ ! "${args[@]}" =~ "-v OFS" && ! "${args[@]}" =~ "-v ofs" ]]; then
+    awk -v OFS="||" -v FS="$fs" ${args[@]} -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
+  else
+    awk -v FS="$fs" ${args[@]} -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
+  fi
+}
+
+ds:arr_idx() { # Extract first shell array element position matchings pattern
+  local pattern="$1"; shift
+  local idx=$(printf "%s\n" "$@" | awk "/$pattern/{print NR-1; exit}")
+  [ "$idx" = "" ] && return 1
+  let local idx=$idx+$(ds:arr_base)
+  printf "%s" $idx
 }
 
 ds:die() { # Output to STDERR and exit with error

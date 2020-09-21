@@ -618,7 +618,7 @@ ds:inferfs() { # Infer field separator from data: inferfs file [reparse=false] [
 ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit [awkargs] file
   local args=( "$@" ) col_buffer=${col_buffer:-2} tty_size=$(tput cols)
   if ds:pipe_open; then
-    local file=/tmp/ds_fit_showlater piped=0
+    local file=/tmp/ds_fit piped=0
     cat /dev/stdin > $file
   else
     let last_arg=${#args[@]}-1
@@ -626,15 +626,29 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
     ds:file_check "$file"
     args=( ${args[@]/"$file"} )
   fi
+  local dequote=$(ds:tmp "ds_fit_dequote")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    awk -v FS="$fs" -f $DS_SCRIPT/fit_columns.awk -v tty_size=$tty_size\
-      -v buffer=$col_buffer ${args[@]} "$file"{,} 2> /dev/null
+    ds:dequote "$file" "$fs" > $dequote
+    awk -v FS='\\\|\\\|' -v OFS="$fs" -f $DS_SCRIPT/fit_columns.awk -v tty_size=$tty_size\
+      -v buffer=$col_buffer ${args[@]} $dequote{,} 2> /dev/null
   else
-    awk -f $DS_SCRIPT/fit_columns.awk -v tty_size=$tty_size\
-      -v buffer=$col_buffer ${args[@]} "$file"{,} 2> /dev/null
+    local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
+    if [ "$fs_idx" = "" ]; then
+      local fs_idx="$(ds:arr_idx '^\-F' ${args[@]})"
+      local fs="$(echo $args[$fs_idx] | tr -d '^\-F')"
+    else
+      local fs="$(echo $args[$fs_idx] | tr -d 'FS=')"
+      let local fsv_idx=$fs_idx-1
+      unset "args[$fsv_idx]"
+    fi
+    unset "args[$fs_idx]"
+    ds:dequote "$file" "$fs" > $dequote
+    awk -v FS='\\\|\\\|' -v OFS="$fs" -f $DS_SCRIPT/fit_columns.awk -v tty_size=$tty_size\
+      -v buffer=$col_buffer ${args[@]} $dequote{,} 2> /dev/null
   fi
   ds:pipe_clean $file
+  ds:pipe_clean $dequote
 }
 
 ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [awkargs] file
@@ -675,22 +689,38 @@ ds:idx() { # ** Prints an index attached to data lines from a file or stdin
   ds:pipe_clean $file
 }
 
-ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo file [rows] [cols] [awkargs] || cmd | ds:reo [rows] [cols] [awkargs]
+ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [awkargs]
   if ds:pipe_open; then
-    local rows="${1:-a}" cols="${2:-a}" args=( "${@:3}" ) file=$(ds:tmp "ds_reo_showlater") piped=0
+    local rows="${1:-a}" cols="${2:-a}" args=( "${@:3}" )
+    local file=$(ds:tmp "ds_reo") piped=0
     cat /dev/stdin > $file
   else
     ds:file_check "$1"
     local file="$1" rows="${2:-a}" cols="${3:-a}" args=( "${@:4}" )
   fi
+  local dequote=$(ds:tmp "ds_reo_dequote")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    awk -v FS="$fs" ${args[@]} -v r=$rows -v c=$cols -f $DS_SCRIPT/reorder.awk \
-      "$file" 2> /dev/null
+    ds:dequote "$file" "$fs" > $dequote
+    awk -v FS='\\\|\\\|' -v OFS="$fs" ${args[@]} -v r=$rows -v c=$cols \
+      -f $DS_SCRIPT/reorder.awk $dequote 2>/dev/null
   else
-    awk ${args[@]} -v r=$rows -v c=$cols -f $DS_SCRIPT/reorder.awk "$file" 2> /dev/null
+    local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
+    if [ "$fs_idx" = "" ]; then
+      local fs_idx="$(ds:arr_idx '^\-F' ${args[@]})"
+      local fs="$(echo $args[$fs_idx] | tr -d '^\-F')"
+    else
+      local fs="$(echo $args[$fs_idx] | tr -d 'FS=')"
+      let local fsv_idx=$fs_idx-1
+      unset "args[$fsv_idx]"
+    fi
+    unset "args[$fs_idx]"
+    ds:dequote "$file" "$fs" > $dequote
+    awk ${args[@]} -v FS='\\\|\\\|' -v OFS="$fs" -v r=$rows -v c=$cols \
+      -f $DS_SCRIPT/reorder.awk $dequote 2>/dev/null
   fi
   ds:pipe_clean "$file"
+  ds:pipe_clean $dequote
 }
 
 ds:decap() { # ** Remove up to a certain number of lines from the start of a file, default is 1

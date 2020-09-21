@@ -9,7 +9,7 @@
 # > awk -f reorder.awk -v r=1,1000 -v c=1,4,5
 #
 # To pass all rows / columns, don't set the arg. Add field separator if needed:
-# > awk -f reorder.awk -v c=4 -F
+# > awk -f reorder.awk -v c=4 -F,
 #
 # Range (and/or individual rows and columns):
 # > awk -f reorder.awk -v r=1,100..200 -v c=1..3,5
@@ -43,7 +43,7 @@
 # Alternatively filter the cross-span by a current-span frame pattern (headers --
 # first row and first column -- are the default if not specified):
 # > awk -f reorder.awk -v r="[Plant~flower" -v c="3[Alps>10000"
-#     Rows where column header matches ^          ^ Columns where vals in row
+#     Rows where column header matches ^          ^ Columns where vals in col
 #     "Plant" and column value matches "flower"     3 match "Alps" and which
 #                                                   have number vals greater
 #                                                   than 10000 (ft presumably)
@@ -175,7 +175,7 @@ BEGIN {
 
   if (mat && ARGV[1]) {
     "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0 }
-  if (!(FS ~ "[.+]")) OFS = BuildOFSFromUnescapedFS()
+  if (!(FS=="\\|\\|")) OFS = BuildOFSFromUnescapedFS()
   reo_r_len = length(ReoR)
   reo_c_len = length(ReoC)
   if (debug) { debug_print(0); debug_print(7) }
@@ -215,7 +215,7 @@ reo {
   next
 }
 
-pass { print $0 }
+pass { FieldsPrint($0, 0, 1) }
 
 
 
@@ -266,10 +266,10 @@ END {
 
   for (i = 1; i <= length(ReoR); i++) {
     r_key = ReoR[i]
-    if (pass_c && base_reo) print _[r_key]
+    if (pass_c && base_reo) FieldsPrint(_[r_key])
     else {
       if (r_key ~ Re["int"]) {
-        if (pass_c) print _[r_key]
+        if (pass_c) FieldsPrint(_[r_key])
         else {
           for (j = 1; j <= reo_c_len; j++) {
             c_key = ReoC[j]
@@ -302,7 +302,7 @@ function Reo(key, CrossSpan, reo_row_call) {
     split(rows, PrintRows, ",")
     len_printr = length(PrintRows) - 1
     for (r = 1; r <= len_printr; r++) {
-      if (pass_c) print CrossSpan[PrintRows[r]]
+      if (pass_c) FieldsPrint(CrossSpan[PrintRows[r]])
       else {
         for (j = 1; j <= reo_c_len; j++) {
           c_key = ReoC[j]
@@ -326,8 +326,21 @@ function Reo(key, CrossSpan, reo_row_call) {
       print_field(CrossSpan[PrintFields[f]], f, len_printf) }}
 }
 
-function FieldsPrint(Order, ord_len) {
-  if (pass_c) print $0
+function FieldsPrint(Order, ord_len, run_call) {
+  if (pass_c) {
+    if (run_call) {
+      for (i = 1; i < NF; i++)
+        printf "%s", $i OFS
+
+      print $NF }
+    else {
+      split(Order, PrintFields, FS)
+      len_printf = length(PrintFields)
+      for (i = 1; i < len_printf; i++)
+        printf "%s", PrintFields[i] OFS
+
+      print PrintFields[len_printf]
+    }}
   else {
     for (i = 1; i < ord_len; i++)
       printf "%s", $Order[i] OFS
@@ -703,7 +716,7 @@ function EvalExpr(expr) {
           for(d_i in d){
             split(d[d_i], u, "%")
             for(u_i in u){
-              split(u[u_i], e, "\^")
+              split(u[u_i], e, "(\\^|\\*\\*)")
               for(e_i in e){
                 if (e_i > 1) e[1] = e[1] ** e[e_i] }
               u[u_i] = e[1]; delete e
@@ -723,8 +736,8 @@ function EvalExpr(expr) {
 
 function EvalCompExpr(left, right, comp) {
   return (comp == "="  && left == right) ||
-         (comp == ">"  && eval > compval) ||
-         (comp == "<"  && eval < compval)
+         (comp == ">"  && left > right) ||
+         (comp == "<"  && left < right)
 }
 
 function GetComp(string) {
@@ -795,7 +808,7 @@ function debug_print(case, arg) {
     if (fr_ext) print "frame extended case" }
 
   else if (case == 5) {
-    print "f: " f, "anchor: " anchor, "apply to: " base_expr, "evals to:", eval, "compare:", comp, compval }
+    print "f: " f, " anchor: " anchor, " apply to: " base_expr, " evals to: " eval, " compare: " comp, compval }
   else if (case == 6) {
     if (length(RRExprs)) { print "------------- RRExprs --------------"
       for (ex in RRExprs) print ex, ExprRO[ex] }
@@ -810,6 +823,6 @@ function debug_print(case, arg) {
   else if (case == 8) {
     print "------------- OUTPUT ---------------" }
   else if (case == 9) {
-    print "f: " f, "search: " search, "base search: " base_search, "startf: " start, "endf: " end, "fieldval: " $f }
+    print "f: " f, " search: " search, " base search: " base_search, " startf: " start, " endf: " end, " fieldval: " $f }
 
 }

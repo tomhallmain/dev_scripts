@@ -3,7 +3,7 @@
 
 Scripts and CLI commands to make development and testing workflows easier.
 
-All commands are namespaced to begin with `ds:` so there should be little to no clashing with any existing commands in your local shell environment.
+All commands are namespaced to `ds:*` so there should be little to no clashing with any existing commands in your local shell environment.
 
 # Installation
 
