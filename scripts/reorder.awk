@@ -187,9 +187,9 @@ BEGIN {
 
 indx { if (NR == r) { print $c; exit } next }
 
-base { if (pass_r || NR in R) FieldsPrint(c_order, c_len); next }
+base { if (pass_r || NR in R) FieldsPrint(c_order, c_len, 1); next }
 
-range && !reo { if (pass_r || NR in R) FieldsPrint(ReoC, reo_c_len); next }
+range && !reo { if (pass_r || NR in R) FieldsPrint(ReoC, reo_c_len, 1); next }
 
 reo {
   if (NF > max_nf) max_nf = NF

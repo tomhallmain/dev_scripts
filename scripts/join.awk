@@ -43,6 +43,7 @@ BEGIN {
 
   "wc -l < \""ARGV[1]"\"" | getline f1nr; f1nr+=0 # Get number of rows in file1
   FS = fs1
+  if (!(FS ~ "\\[\:.+\:\\]")) OFS = FS
 }
 
 debug { print NR, FNR, keycount, key, FS }
@@ -76,7 +77,7 @@ NR > FNR {
   if (NF > max_nf2) max_nf2 = NF
   
   if (FNR == 1 && header) { 
-    if (ind) printf OFS
+    if (ind) printf "%s", OFS
     print genOutputString(header1, fs1), genOutputString($0, fs2)
     next
   }
@@ -87,7 +88,7 @@ NR > FNR {
   if (key in s1) {
     while (key in s1) {
       recordcount++
-      if (ind) printf recordcount OFS
+      if (ind) printf "%s", recordcount OFS
       print genOutputString(s1[key], fs1), genOutputString($0, fs2)
       delete s1[key]
       keycount++
@@ -98,7 +99,7 @@ NR > FNR {
 
     while (key in s2) {
       recordcount++
-      if (ind) printf recordcount OFS
+      if (ind) printf "%s", recordcount OFS
       printNullFields(max_nf1)
       print OFS genOutputString(s2[key], fs2)
       keycount++
@@ -113,8 +114,8 @@ END {
   # Print first file unmatched rows
   for (key in s1) {
     recordcount++
-    if (ind) printf recordcount OFS
-    printf genOutputString(s1[key], fs1) OFS
+    if (ind) printf "%s", recordcount OFS
+    printf "%s", genOutputString(s1[key], fs1) OFS
     printNullFields(max_nf2)
     print ""
   }
@@ -135,6 +136,6 @@ function genOutputString(line, fs) {
 }
 function printNullFields(nf) {
   for (i=1; i<=nf; i++)
-    if (i == nf) { printf "<NULL>" } else { printf "<NULL>" OFS }
+    if (i == nf) { printf "%s", "<NULL>" } else { printf "%s", "<NULL>" OFS }
 }
 

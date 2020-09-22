@@ -11,47 +11,33 @@
 
 
 BEGIN {
-  # is integer
-  Re["i"] = "^[0-9]+$"
-  # has integer
-  Re["hi"] = "[0-9]+"
-  # is decimal
-  Re["d"] = "^[0-9]+\.[0-9]+$"
-  # has decimal
-  Re["hd"] = "[0-9]+\.[0-9]+"
-  # is alpha
-  Re["a"] = "[A-z]+"
-  # has alpha
-  Re["ha"] = "[A-z]+"
-  # is uppercase letters
-  Re["u"] = "^[A-Z]+$"
-  # has uppercase letters
-  Re["hu"] = "[A-Z]+"
-  # does not have lowercase letters
-  Re["nl"] = "^[^a-z]+$"
-  # words with spaces
-  Re["w"] = "[A-z ]+"
-  # no spaces
-  Re["ns"] = "^[^[:space:]]$"
-  # the string ` id ` appears in any casing
-  Re["id"] = "(^|_| |\-)?[Ii][Dd](\-|_| |$)"
-  # date1
-  Re["d1"] = "^[0-9]{1,2}[\-\.\/][0-9]{1,2}[\-\.\/]([0-9]{2}|[0-9]{4})$"
-  # date2
-  Re["d2"] = "^[0-9]{4}[\-\.\/][0-9]{1,2}[\-\.\/][0-9]{1,2}$"
-  # link
-  Re["l"] = ":\/\/"
-  # json
-  Re["j"] = "^\{[,:\"\'{}\[\]A-z0-9.\-+ \n\r\t]{2,}\}$"
-  # html/xml
-  Re["h"] = "\<\/\w+\>"
+  Re["i"] = "^[0-9]+$"                       # is integer
+  Re["hi"] = "[0-9]+"                        # has integer
+  Re["d"] = "^[0-9]+\.[0-9]+$"               # is decimal
+  Re["hd"] = "[0-9]+\.[0-9]+"                # has decimal
+  Re["a"] = "[A-z]+"                         # is alpha
+  Re["ha"] = "[A-z]+"                        # has alpha
+  Re["u"] = "^[A-Z]+$"                       # is uppercase letters
+  Re["hu"] = "[A-Z]+"                        # has uppercase letters
+  Re["nl"] = "^[^a-z]+$"                     # does not have lowercase letters
+  Re["w"] = "[A-z ]+"                        # words with spaces
+  Re["ns"] = "^[^[:space:]]$"                # no spaces
+  Re["id"] = "(^|_| |\-)?[Ii][Dd](\-|_| |$)" # the string ` id ` appears in any casing
+  Re["d1"] = "^[0-9]{1,2}[\-\.\/][0-9]{1,2}[\-\.\/]([0-9]{2}|[0-9]{4})$" # date1
+  Re["d2"] = "^[0-9]{4}[\-\.\/][0-9]{1,2}[\-\.\/][0-9]{1,2}$"            # date2
+  Re["l"] = ":\/\/"                                      # link
+  Re["j"] = "^\{[,:\"\'{}\[\]A-z0-9.\-+ \n\r\t]{2,}\}$"  # json
+  Re["h"] = "\<\/\w+\>"                                  # html/xml
 
   if (!fs1) fs1 = FS
   if (!fs2) fs2 = FS
 
+  if (ARGV[1])
+
   max_rows = 50
-  if (!trim) trim = "true"
-  FS = fs2 # Splitting not started until second file reached
+  if (!trim) trim = 1
+  if (!header) header = 1
+  FS = fs2 # Field splitting not started until second file reached
 }
 
 
@@ -83,24 +69,19 @@ NR > FNR && FNR <= max_rows {
         h2 = headers2[j]
         if (trim) {
           h1 = trimField(h1) 
-          h2 = trimField(h2)
-        }
-        if (h1 != h2) { # Give strong advantage to matching headers
-          k1[i, j] += 10000 * rcount1
-          k2[j, i] += 10000 * rcount1
-        }
+          h2 = trimField(h2) }
+        if (h1 == h2) {
+          if (i == j) print i
+          else print i, j
+          keys_found = 1
+          exit }
         if ((h1 ~ h2) < 1) { # Is one header contained within another?
           k1[i, j] += 5000 * rcount1
-          k2[j, i] += 5000 * rcount1
-        }
+          k2[j, i] += 5000 * rcount1 }
         if ((h1 ~ Re["id"]) < 1 && (h2 ~ Re["id"]) < 1) { # ID headers should have advantage
           k1[i, j] += 1000 * rcount1
-          k2[j, i] += 1000 * rcount1
-        }
-      }
-    }
-    next
-  }
+          k2[j, i] += 1000 * rcount1 }}}
+    next }
 
   nf2 = split($0, fr2, fs2)
   
@@ -111,8 +92,7 @@ NR > FNR && FNR <= max_rows {
       f1 = fr1[i]
       if (trim) f1 = trimField(f1)
       if ((header && FNR == 2) || (!header && FNR == 1)) {
-        k1[i, "dlt"] = f1
-      }
+        k1[i, "dlt"] = f1 }
       buildFieldScore(f1, i, k1)
       if (debug) debug_print("endbfsf1")
       
@@ -120,30 +100,23 @@ NR > FNR && FNR <= max_rows {
         f2 = fr2[j]
         if (trim) f2 = trimField(f2)
         if ((header && FNR == 2) || (!header && FNR == 1)) {
-          k2[i, "dlt"] = f2
-        }
+          k2[i, "dlt"] = f2 }
         buildFieldScore(f2, j, k2)
         if (debug) debug_print("endbfsf2")
         
         if (f1 != f2) {
           k1[i, j] += 100
-          k2[j, i] += 100
-        }
+          k2[j, i] += 100 }
         if ((f1 ~ Re["d"]) > 0 || (f2 ~ Re["d"]) > 0) {
           k1[i, j] += 1000 * rcount1
-          k2[j, i] += 1000 * rcount1
-        }
+          k2[j, i] += 1000 * rcount1 }
         if ((f1 ~ Re["j"]) > 0 || (f2 ~ Re["j"]) > 0) {
           k1[i, j] += 1000 * rcount1
-          k2[j, i] += 1000 * rcount1
-        }
+          k2[j, i] += 1000 * rcount1 }
         if ((f1 ~ Re["h"]) > 0 || (f2 ~ Re["h"]) > 0) {
           k1[i, j] += 1000 * rcount1
-          k2[j, i] += 1000 * rcount1
-        }
-      }
-    }
-  }
+          k2[j, i] += 1000 * rcount1 }
+      }}}
 
   if (nf1 > max_nf1) max_nf1 = nf1
   if (nf2 > max_nf2) max_nf2 = nf2
@@ -152,6 +125,8 @@ NR > FNR && FNR <= max_rows {
 
 
 END {
+  if (keys_found) exit
+
   calcSims(k1, k2)
 
   jf1 = 999 # Seeding with high values unlikely to be reached
@@ -161,15 +136,12 @@ END {
   for (i = 1; i <= max_nf1; i++) {
     for (j = 1; j <= max_nf2; j++) {
       if (scores[i, j] < scores[jf1, jf2]) {
-        jf1 = i
-        jf2 = j
-      }
-      if (debug) debug_print(7)
-    }
-  }
+        jf1 = i; jf2 = j }
+      if (debug) debug_print(7) }}
 
-  print jf1, jf2 # Return possible join fields with lowest score
-
+  # Return possible join fields with lowest score
+  if (jf1 == jf2) print jf1
+  else print jf1, jf2
 }
 
 
@@ -179,16 +151,13 @@ function trimField(field) {
 }
 function buildFieldScore(field, position, Keys) {
   if (Keys[position, "dlt"] && field != Keys[position, "dlt"]) {
-    delete Keys[position, "dlt"] 
-  }
+    delete Keys[position, "dlt"] }
   Keys[position, "len"] += length(field)
   for (m in Re) {
     re = Re[m]
     matches = field ~ re
     if (matches > 0) {
-      Keys[position, m] += 1; matchcount++
-    }
-  }
+      Keys[position, m] += 1; matchcount++ }}
   if (debug) debug_print(2)
 }
 function calcSims(Keys1, Keys2) {
@@ -208,12 +177,9 @@ function calcSims(Keys1, Keys2) {
         kscore1 = Keys1[k, m]
         kscore2 = Keys2[l, m]
         scores[k, l] += (kscore1 / rcount1 - kscore2 / rcount2) ** 2
-        if (debug) debug_print(3)
-      }
+        if (debug) debug_print(3) }
 
-      if (debug) debug_print(4) 
-    }
-  }
+      if (debug) debug_print(4) }}
   if (debug) print "--- end calc sim ---"
 }
 function debug_print(case) {

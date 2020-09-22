@@ -257,8 +257,9 @@ NR > FNR {
           type_str = (sn ? ".0e" : "s")
           value = $i }
 
-        if (not_last_f) print_len = f_max[i]
-        else print_len = length(value)
+        #if (not_last_f)
+        print_len = f_max[i]
+        #else print_len = length(value)
 
         justify_str = "%" # Right-align
         fmt_str = justify_str print_len type_str

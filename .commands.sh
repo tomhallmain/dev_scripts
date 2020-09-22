@@ -244,7 +244,7 @@ ds:fsrc() { # Show the source of a shell function: ds:fsrc func
 }
 
 ds:trace() { # Search shell function trace for a pattern: ds:trace "command" [search]
-  [ -z $1 ] && ds:readp 'Press any key to trace last command'
+  [ -z $1 ] && ds:readp 'Press enter to trace last command'
   [ -z $1 ] && cmd="$(fc -ln -1)" || cmd="$1"
   grep --color=always "$2" <(set -x &> /dev/null; eval "$cmd" 2>&1)
 }
@@ -421,7 +421,7 @@ ds:select() { # ** Select code from a file by regex anchors: ds:select file [sta
 
 ds:insert() { # ** Redirect input into a file at a specified line number or pattern: ds:insert file [lineno|pattern] [sourcefile]
   ds:file_check "$1"
-  local sink="$1" where="$2" source=/tmp/ds_selectsource tmp=/tmp/ds_select
+  local sink="$1" where="$2" source=$(ds:tmp 'ds_selectsource') tmp=$(ds:tmp 'ds_select')
   local nsinklines=$(cat $sink | wc -l)
   if ds:is_int "$where"; then
     [ $where -lt $nsinklines ] || ds:fail 'Insertion point not provided or invalid'
@@ -431,10 +431,10 @@ ds:insert() { # ** Redirect input into a file at a specified line number or patt
     if [ $(grep "$pattern" "$sink" | wc -l) -gt 1 ]; then
       local conftext='File contains multiple instaces of pattern - are you sure you want to proceed? (y|n)'
       local confirm="$(ds:readp "$conftext" | ds:downcase)"
-      [ $confirm != y ] && echo 'Exit with no insertion' && return 1
+      [ $confirm != y ] && rm $source $tmp && echo 'Exit with no insertion' && return 1
     fi
   else
-    ds:fail 'Insertion point not provided or invalid'
+    rm $source $tmp; ds:fail 'Insertion point not provided or invalid'
   fi
   if ds:pipe_open; then
     local piped=0; cat /dev/stdin > $source
@@ -444,48 +444,53 @@ ds:insert() { # ** Redirect input into a file at a specified line number or patt
     elif [ $3 ]; then
       echo "$3" > $source
     else
-      ds:fail 'Insertion source not provided'
+      rm $source $tmp; ds:fail 'Insertion source not provided'
     fi
   fi
   awk -v src="$src" -v lineno=$lineno -v pattern="$pattern" \
     -f $DS_SCRIPT/insert.awk "$sink" $source > $tmp
   cat $tmp > "$sink"
-  ds:pipe_clean $source; ds:pipe_clean $tmp
+  rm $source $tmp
 }
 
-ds:jn() { # ** Similar to the join Unix command but with different features
-  local args=( "$@" )
-  let last_arg=${#args[@]}-1
+ds:jn() { # ** Similar to the join Unix command but with different features: ds:jn file1 [file2] [k] [k2] [awkargs]
+  ds:file_check "$1"
+  local f1="$1"
   if ds:pipe_open; then
-    local file2=/tmp/ds_jn_showlater piped=0
-    cat /dev/stdin > $file2
+    local f2=$(ds:tmp 'ds_jn') piped=0
+    cat /dev/stdin > $f2
   else
-    local file2="${args[@]:$last_arg:1}"
-    ds:file_check "$file2"
-    let last_arg-=1
-    local args=( ${args[@]/"$file2"} )
+    ds:file_check "$2"
+    shift; local f2="$1"; shift
   fi
-  
-  local file1="${args[@]:$last_arg:1}"
-  if [ ! -f "$file1" ]; then
-    echo File not provided or invalid!
-    [ $piped ] && rm $file2 &> /dev/null
-    return 1
+
+  local args=( "$@" )
+  local has_keyarg=$(ds:arr_idx '\-k')
+  if [[ "$kas_keyarg" = "" && "$2" = "" ]]; then
+    local k="$(ds:inferk "$f1" "$f2")"
+    if [[ $k =~ " " ]]; then
+      local k2=$(ds:re_substr "$k" " " "") k1=$(ds:re_substr $k "" " ")
+    fi
+  elif [ "$has_keyarg" = "" ]; then
+    ds:is_int $2 && local k=$2
+    ds:is_int $2 && local k1=$k k2="$2"; shift; shift
   fi
-  local args=( ${args[@]/"$file1"} )
+  if [ $k2 ]; then
+    local args=( "$args[@]" -v k1="$k1" -v k2="$k2" )
+  else
+    local args=( "$args[@]" -v k="$k" )
+  fi
+
   if ds:noawkfs; then
-    local fs1="$(ds:inferfs "$file1" true)" fs2="$(ds:inferfs "$file2" true)"
+    local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
 
     awk -v fs1="$fs1" -v fs2="$fs2" -f $DS_SCRIPT/join.awk \
-      "${args[@]}" "$file1" "$file2" 2> /dev/null
+      "${args[@]}" "$f1" "$f2" 2> /dev/null
   else
-    awk -f $DS_SCRIPT/join.awk "${args[@]}" "$file1" "$file2" 2> /dev/mull
+    awk -f $DS_SCRIPT/join.awk "${args[@]}" "$f1" "$f2" 2> /dev/mull
   fi
 
-  ds:pipe_clean $file2
-  # TODO: Add opts, infer keys, sort, statistics
-  # TODO: Twofile handler function to abstract test logic of two file positional
-  # last args
+  ds:pipe_clean $f2
 }
 
 ds:print_matches() { # ** Print duplicate lines on given field numbers in two files (alias ds:pm)
@@ -570,7 +575,7 @@ ds:inferk() { # ** Infer join fields in two text data files: ds:inferk file [fil
   else
     local file2="${args[@]:$last_arg:1}"
     ds:file_check "$file2"
-    let last_arg-=-1
+    let last_arg-=1
     local args=( ${args[@]/"$file2"} )
   fi
   
