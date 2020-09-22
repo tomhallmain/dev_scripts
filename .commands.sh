@@ -455,35 +455,34 @@ ds:insert() { # ** Redirect input into a file at a specified line number or patt
 
 ds:jn() { # ** Similar to the join Unix command but with different features: ds:jn file1 [file2] [k] [k2] [awkargs]
   ds:file_check "$1"
-  local f1="$1"
+  local f1="$1"; shift
   if ds:pipe_open; then
     local f2=$(ds:tmp 'ds_jn') piped=0
     cat /dev/stdin > $f2
   else
-    ds:file_check "$2"
-    shift; local f2="$1"; shift
+    ds:file_check "$1"
+    local f2="$1"; shift
   fi
 
-  local args=( "$@" )
-  local has_keyarg=$(ds:arr_idx '\-k')
-  if [[ "$kas_keyarg" = "" && "$2" = "" ]]; then
+  local has_keyarg=$(ds:arr_idx '\k[12]?=' ${@})
+  if [[ "$has_keyarg" = "" && $(ds:is_int $1) ]]; then
+    ds:is_int $1 && local k=$1; shift
+    ds:is_int $1 && local k1=$k k2="$1" && shift
+  elif [[ "$has_keyarg" = "" && "$1" =~ "-" ]]; then
     local k="$(ds:inferk "$f1" "$f2")"
     if [[ $k =~ " " ]]; then
       local k2=$(ds:re_substr "$k" " " "") k1=$(ds:re_substr $k "" " ")
     fi
-  elif [ "$has_keyarg" = "" ]; then
-    ds:is_int $2 && local k=$2
-    ds:is_int $2 && local k1=$k k2="$2"; shift; shift
   fi
+  local args=( "$@" )
   if [ $k2 ]; then
-    local args=( "$args[@]" -v k1="$k1" -v k2="$k2" )
+    local args=( "${args[@]}" -v k1="$k1" -v k2="$k2" )
   else
-    local args=( "$args[@]" -v k="$k" )
+    local args=( "${args[@]}" -v k="$k" )
   fi
 
   if ds:noawkfs; then
     local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
-
     awk -v fs1="$fs1" -v fs2="$fs2" -f $DS_SCRIPT/join.awk \
       "${args[@]}" "$f1" "$f2" 2> /dev/null
   else
@@ -531,7 +530,7 @@ ds:print_comps() { # ** Print non-matching lines on given field numbers in two f
   local args=( "$@" )
   let last_arg=${#args[@]}-1
   if ds:pipe_open; then
-    local file2=/tmp/ds_complements_showlater piped=0
+    local file2=$(ds:tmp 'ds_complements') piped=0
     cat /dev/stdin > $file2
   else
     local file2="${args[@]:$last_arg:1}"
@@ -559,7 +558,7 @@ ds:print_comps() { # ** Print non-matching lines on given field numbers in two f
   
   ds:pipe_clean $file2
 }
-alias ds:pm="ds:print_matches"
+alias ds:pc="ds:print_comps"
 
 ds:inferh() { # Infer if headers are present in a file: ds:inferh [awkargs] file
   local args=( "$@" )
@@ -653,8 +652,7 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
     awk -v FS='\\\|\\\|' -v OFS="$fs" -f $DS_SCRIPT/fit_columns.awk -v tty_size=$tty_size\
       -v buffer=$col_buffer ${args[@]} $dequote{,} 2> /dev/null
   fi
-  ds:pipe_clean $file
-  rm $dequote
+  ds:pipe_clean $file; rm $dequote
 }
 
 ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [awkargs] file
@@ -685,7 +683,7 @@ ds:idx() { # ** Prints an index attached to data lines from a file or stdin
   else
     local file="$1" header=$2 args=( "${@:3}" )
   fi
-  local program="$([ $header ] && echo '{ print NR-1, $0 }' || echo '{ print NR, $0 }')"
+  local program="$([ $header ] && echo '{ print NR-1 FS $0 }' || echo '{ print NR FS $0 }')"
   if ds:noawkfs; then
     local fs="$(inferfs "$file" true)"
     awk -v FS="$fs" ${args[@]} "$program" "$file" 2> /dev/null
@@ -725,8 +723,7 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [awk
     awk ${args[@]} -v FS='\\\|\\\|' -v OFS="$fs" -v r=$rows -v c=$cols \
       -f $DS_SCRIPT/reorder.awk $dequote 2>/dev/null
   fi
-  ds:pipe_clean "$file"
-  rm $dequote
+  ds:pipe_clean $file; rm $dequote
 }
 
 ds:decap() { # ** Remove up to a certain number of lines from the start of a file, default is 1
@@ -796,15 +793,28 @@ ds:fieldcounts() { # ** Print value counts: ds:fieldcounts [file] [fields=1] [mi
   let min=$min-1
   [ $1 ] && ([ $1 = d ] || [ $1 = desc ]) && local order="r"
   [ $order ] && shift; local args=( "$@" )
+  local dequote=$(ds:tmp "ds_fc_dequote")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    awk ${@} -v min=$min -v fields="$fields" -v FS="$fs" \
-      -f $DS_SCRIPT/field_counts.awk "$file" 2> /dev/null | sort -n$order
+    ds:dequote "$file" "$fs" > $dequote
+    awk -v FS='\\\|\\\|' -v OFS="$fs" ${args[@]} -v min=$min -v fields="$fields" \
+      -v FS="$fs" -f $DS_SCRIPT/field_counts.awk $dequote 2> /dev/null | sort -n$order
   else
-    awk ${@} -v min=$min -v fields="$fields" \
-      -f $DS_SCRIPT/field_counts.awk "$file" 2> /dev/null | sort -n$order
+    local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
+    if [ "$fs_idx" = "" ]; then
+      local fs_idx="$(ds:arr_idx '^\-F' ${args[@]})"
+      local fs="$(echo $args[$fs_idx] | tr -d '^\-F')"
+    else
+      local fs="$(echo $args[$fs_idx] | tr -d 'FS=')"
+      let local fsv_idx=$fs_idx-1
+      unset "args[$fsv_idx]"
+    fi
+    unset "args[$fs_idx]"
+    ds:dequote "$file" "$fs" > $dequote
+    awk ${args[@]} -v FS='\\\|\\\|' -v OFS="$fs" -v min=$min -v fields="$fields" \
+      -f $DS_SCRIPT/field_counts.awk $dequote 2>/dev/null | sort -n$order
   fi
-  ds:pipe_clean $file
+  ds:pipe_clean $file; rm $dequote
 }
 alias ds:fc="ds:fieldcounts"
 
@@ -822,14 +832,27 @@ ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [] [n
   fi
   [ $last_arg -gt 0 ] && local newfs="${args[@]:$last_arg:1}"
   local newfs="${newfs:-,}"
-  local program="BEGIN { OFS=\"${newfs}\" } { for (i = 1; i < NF; i++) {printf \$i OFS} print \$NF }"
+  local dequote=$(ds:tmp "ds_newfs_dequote")
+  local program="{for(i=1;i<NF;i++){printf \"%s\", \$i OFS} print \$NF}"
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    awk -v FS="$fs" $program ${args[@]} "$file" 2> /dev/null
+    ds:dequote "$file" "$fs" > $dequote
+    awk -v FS='\\\|\\\|' -v OFS="$newfs" ${args[@]} $program "$file" 2> /dev/null
   else
-    awk ${args[@]} $program "$file" 2> /dev/null
+    local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
+    if [ "$fs_idx" = "" ]; then
+      local fs_idx="$(ds:arr_idx '^\-F' ${args[@]})"
+      local fs="$(echo $args[$fs_idx] | tr -d '^\-F')"
+    else
+      local fs="$(echo $args[$fs_idx] | tr -d 'FS=')"
+      let local fsv_idx=$fs_idx-1
+      unset "args[$fsv_idx]"
+    fi
+    unset "args[$fs_idx]"
+    ds:dequote "$file" "$fs" > $dequote
+    awk ${args[@]} -v FS='\\\|\\\|' -v OFS="$newfs" $program $dequote 2> /dev/null
   fi
-  ds:pipe_clean $file
+  ds:pipe_clean $file; rm $dequote
 }
 
 ds:asgn() { # Grabbing lines matching standard assignment pattern from a file
