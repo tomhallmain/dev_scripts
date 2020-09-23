@@ -228,7 +228,7 @@ END {
     (!pass_c) debug_print(6)
     debug_print(8) }
 
-  if (!pass_c && max_nf < min_guar_print_nf) {
+  if (!pass_c && !q && max_nf < min_guar_print_nf) {
     will_print = 0
     for (expr in ExprFO) {
       if (ExprFO[expr]) { will_print = 1; break }}
@@ -238,7 +238,7 @@ END {
       print "No matches found"
       exit 1 }}
 
-  if (!pass_r && NR < min_guar_print_nr) {
+  if (!pass_r && !q && NR < min_guar_print_nr) {
     will_print = 0
     for (expr in ExprRO) {
       if (ExprRO[expr]) { will_print = 1; break }}  

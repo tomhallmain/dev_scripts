@@ -6,15 +6,45 @@ DS_SUPPORT="${DS_SCRIPT}/support"
 source "${DS_SUPPORT}/utils.sh"
 
 
-ds:grepvi() { # Grep for a line in a file and open vim on the first match: ds:grepvi search file
-  ds:file_check "$2"
-  local file="$2" search="$1"
-  if ds:nset 'rg'; then
-    line_no=$(rg --line-number "$search" "$file" | head -n1 | ds:reo 1 1 -v FS=":")
+ds:gvi() { # Grep for a line in a file/dir open vim on the first match: ds:grepvi search [file]
+  local search="$1"
+  if [ -f "$2" ]; then local file="$2"
+    if ds:nset 'rg'; then
+      local line=$(rg --line-number "$search" "$file" | head -n1 | ds:reo 1 1 -v FS=":")
+    else
+      local line=$(grep --line-number "$search" "$file" | head -n1 | ds:reo 1 1 -v FS=":")
+    fi
   else
-    line_no=$(grep --line-number "$search" "$file" | head -n1 | ds:reo 1 1 -v FS=":")
+    local tmp=$(ds:tmp 'ds_gvi')
+    [ -d "$2" ] && local dir="$2"
+    if [ -z $dir ]; then
+      local dir="." basedir_f=($(find . -maxdepth 0 -type f | grep -v ":"))
+      [ $2 ] && local filesearch="$2"
+      if ds:nset 'rg'; then
+        rg -Hno --no-heading --hidden --color=never -g '!*:*' -g '!.git' \
+          "$search" ${basedir_f[@]} "$dir" > $tmp
+      else
+        grep -HInors --color=never --exclude ':' --excludedir '.git' \
+          "$search" ${basedir_f[@]} "$dir" > $tmp
+      fi
+      local file=$(ds:reo $tmp "1~$filesearch" 1 -F: -v q=1 | head -n1)
+      local line=$(ds:reo $tmp "1~$filesearch" 2 -F: -v q=1 | head -n1)
+    else
+      local basedir_f=($(find "$dir" -maxdepth 0 -type f | grep -v ":"))
+      if ds:nset 'rg'; then
+        rg -Hno --no-heading --hidden --color=never -g '!*:*' -g '!.git' \
+          "$search" ${basedir_f[@]} "$dir" | head -n1 > $tmp
+      else
+        grep -HInors --color=never --exclude ':' --excludedir '.git' \
+          "$search" ${basedir_f[@]} "$dir" | head -n1 > $tmp
+      fi
+      local file=$(ds:reo $tmp 1 1 -F: -v q=1) line=$(ds:reo $tmp 1 2 -F: -v q=1)
+    fi
+    rm $tmp
+    [ -f "$file" ] || ds:fail 'No match found'
   fi
-  ds:is_int $line_no && vi +$line_no "$file" || return 1
+  ds:is_int $line || ds:fail 'No match found'
+  vi +$line "$file" || return 1
 }
 
 ds:searchn() { # Searches current names for string, returns matches
@@ -53,7 +83,7 @@ ds:bash() { # Refresh bash interactive session
   exec bash
 }
 
-ds:copy() { # Copy standard input in UTF-8
+ds:cp() { # Copy standard input in UTF-8
   LC_CTYPE=UTF-8 pbcopy
 }
 
@@ -117,7 +147,7 @@ ds:join_by() { # ** Join a shell array by a text argument provided
   echo -n "$first"; printf "%s" "${args[@]/#/$d}"
 }
 
-ds:re_substr() { # ** Extract a substring from a string with regex anchors
+ds:substr() { # ** Extract a substring from a string with regex: ds:substr str [leftanc] [rightanc]
   if ds:pipe_open; then
     local str="$(cat /dev/stdin)"
     local leftanc="$1" rightanc="$2"
@@ -125,15 +155,12 @@ ds:re_substr() { # ** Extract a substring from a string with regex anchors
     local str="$1" leftanc="$2" rightanc="$3"
     [ -z $str ] && ds:fail 'String required for substring extraction'
   fi
-  if [[ $leftanc && $rightanc ]]; then
-    local sedstr="s/$leftanc//;s/$rightanc//"
+  if [ $rightanc ]; then
+    [ "$leftanc" = "" ] && local sedstr="s/$rightanc//" || local sedstr="s/$leftanc//;s/$rightanc//"
     local out="$(grep -Eo "$leftanc.*?[^\\]$rightanc" <<< "$str" | sed $sedstr)"
   elif [ $leftanc ]; then
     local sedstr="s/$leftanc//"
     local out="$(grep -Eo "$leftanc.*?[^\\]" <<< "$str" | sed $sedstr)"
-  elif [ $rightanc ]; then
-    local sedstr="s/$rightanc//"
-    local out="$(grep -Eo ".*?[^\\]$rightanc" <<< "$str" | sed $sedstr)"
   else
     out="$str"
   fi
@@ -464,21 +491,18 @@ ds:jn() { # ** Similar to the join Unix command but with different features: ds:
     local f2="$1"; shift
   fi
 
-  local has_keyarg=$(ds:arr_idx '\k[12]?=' ${@})
-  if [[ "$has_keyarg" = "" && $(ds:is_int $1) ]]; then
-    ds:is_int $1 && local k=$1; shift
-    ds:is_int $1 && local k1=$k k2="$1" && shift
-  elif [[ "$has_keyarg" = "" && "$1" =~ "-" ]]; then
-    local k="$(ds:inferk "$f1" "$f2")"
-    if [[ $k =~ " " ]]; then
-      local k2=$(ds:re_substr "$k" " " "") k1=$(ds:re_substr $k "" " ")
+  local has_keyarg=$(ds:arr_idx 'k[12]?=' ${@})
+  if [ "$has_keyarg" = "" ]; then
+    if ds:is_int $1; then
+      local k=$1; shift
+      ds:is_int $1 && local k1=$k k2="$1" && shift
+    elif [[ -z $1 || "$1" =~ "-" ]]; then
+      local k="$(ds:inferk "$f1" "$f2")"
+      [[ $k =~ " " ]] && local k2=$(ds:re_substr "$k" " " "") k1=$(ds:re_substr $k "" " ")
     fi
-  fi
-  local args=( "$@" )
-  if [ $k2 ]; then
-    local args=( "${args[@]}" -v k1="$k1" -v k2="$k2" )
-  else
-    local args=( "${args[@]}" -v k="$k" )
+    local args=( "$@" )
+    [ $k2 ] && local args=("${args[@]}" -v k1="$k1" -v k2="$k2") || local args=("${args[@]}" -v k="$k")
+  else local args=( "$@" )
   fi
 
   if ds:noawkfs; then

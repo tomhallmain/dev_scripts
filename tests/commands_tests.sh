@@ -46,8 +46,9 @@ jnf2="tests/infer_join_fields_test2.csv"
 [ "$(ds:inferfs $jnf1)" = ',' ] || ds:fail 'inferfs failed extension case'
 [ "$(ds:inferfs tests/seps_test.file)" = '\&\%\#' ] || ds:fail 'inferfs failed custom separator case'
 
-[ $(ds:jn "$jnf1" "$jnf2" -v ind=1 | wc -l) -gt 15 ] \
-  || ds:fail 'ds:jn failed pipe_check, or pipe_check failed'
+[ $(ds:jn "$jnf1" "$jnf2" 1 | wc -l) -gt 15 ] || ds:fail 'ds:jn failed one-arg shell case'
+[ $(ds:jn "$jnf1" "$jnf2" -v ind=1 | wc -l) -gt 15 ] || ds:fail 'ds:jn failed awkarg nonkey case'
+[ $(ds:jn "$jnf1" "$jnf2" -v k=1 | wc -l) -gt 15 ] || ds:fail 'ds:jn failed awkarg key case'
 
 [ $(ds:print_comps $jnf1{,} | wc -l) -eq 7 ] || 'print_comps failed no complement case'
 [ $(ds:print_comps -v k1=2 -v k2=3,4 $jnf1 $jnf2 | wc -l) -eq 197 ] \
