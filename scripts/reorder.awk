@@ -56,8 +56,7 @@
 #
 # Note the above args are equivalent to r="1~Alps" c="1~Plant"
 #
-# TODO: nomatch regex comparison
-# TODO: ignore case regex
+# TODO: ignore case regex (use tolower func)
 # TODO: and/or extended logic
 # TODO: reverse, other basic sorts
 # TODO: mechanism for 'all the others, unspecified' (records or fields -
@@ -399,6 +398,7 @@ function StoreFieldRefs() {
       }}
 
     for (search in RCSearches) {
+      exclude = 0
       split(search, Tmp, "~")
       base_search = Tmp[2]
       if (search in RCFrames) {
@@ -414,7 +414,13 @@ function StoreFieldRefs() {
       for (f = 1; f <= NF; f++) {
         if (Indexed(SearchFO[search], f)) continue
         if (debug) debug_print(9) 
-        if ($f ~ base_search) SearchFO[search] = SearchFO[search] f","
+        if (ExcludeRe[search] && !exclude) {
+          if ($f ~ base_search) exclude = 1
+          if (f == NF && !exclude)
+            SearchFO[search] = SearchFO[search] f"," }
+        else if (!exclude) {
+          if ($f ~ base_search)
+            SearchFO[search] = SearchFO[search] f"," }
         }}}
 
   if (mat) {
@@ -478,7 +484,7 @@ function StoreRowRefs() {
       SearchRO[search] = SearchRO[search] NR"," }}
 
     for (search in RRSearches) {
-      fr_search = 0
+      fr_search = 0; exclude = 0
       split(search, Tmp, "~")
       base_search = Tmp[2]
       if (search in RRFrames) {
@@ -509,7 +515,13 @@ function StoreRowRefs() {
             continue }}}
         if (Indexed(SearchRO[search], NR)) continue
         if (debug) debug_print(9)
-        if ($f ~ base_search) SearchRO[search] = SearchRO[search] NR","
+        if (ExcludeRe[search]) {
+          if ($f ~ base_search) exclude = 1
+          if (f == end && !exclude)
+            SearchRO[search] = SearchRO[search] NR"," }
+        else if (!exclude) {
+          if ($f ~ base_search)
+            SearchRO[search] = SearchRO[search] NR"," }
         }}
 
   if (mat) {
@@ -637,6 +649,7 @@ function TestArg(arg, max_i, type) {
       exit 1 }}
 
   else if (type == "re") { reo = 1; re = 1
+    if (arg ~ "!~") ExcludeRe[arg] = 1
     re_test = substr(arg, length(sa1)+1, length(arg))
     if ("" ~ re_test) {
       print "Invalid order search range arg - search arg format examples include: ~search  2~search"

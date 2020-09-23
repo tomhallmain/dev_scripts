@@ -41,6 +41,10 @@ BEGIN {
   for (i in keys2)
     if (! keys2[i] ~ /^\d+$/) { print "Keys must be integers"; err=1; exit err }
 
+  if (join == "left") left = 1
+  else if (join == "right") right = 1
+  else if (join == "inner") inner = 1
+
   "wc -l < \""ARGV[1]"\"" | getline f1nr; f1nr+=0 # Get number of rows in file1
   FS = fs1
   if (!(FS ~ "\\[\:.+\:\\]")) OFS = FS
@@ -99,9 +103,11 @@ NR > FNR {
 
     while (key in s2) {
       recordcount++
-      if (ind) printf "%s", recordcount OFS
-      printNullFields(max_nf1)
-      print OFS genOutputString(s2[key], fs2)
+      if (!inner && !left) {
+        if (ind) printf "%s", recordcount OFS
+        printNullFields(max_nf1)
+        print OFS genOutputString(s2[key], fs2)
+      }
       keycount++
       key = keybase _ keycount
     }
@@ -110,6 +116,7 @@ NR > FNR {
 
 END {
   if (err) exit err
+  if (inner || right) exit
 
   # Print first file unmatched rows
   for (key in s1) {
@@ -123,11 +130,12 @@ END {
 
 function genKeyString(keys) {
   str = ""
-  for (i in keys)
+  for (i in keys) {
     k = keys[i]
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", $k)
     if (length($k) == 0) $k = "<NULL>"
     str = str $k _
+  }
   return str
 }
 function genOutputString(line, fs) {

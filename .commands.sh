@@ -480,7 +480,7 @@ ds:insert() { # ** Redirect input into a file at a specified line number or patt
   rm $source $tmp
 }
 
-ds:jn() { # ** Similar to the join Unix command but with different features: ds:jn file1 [file2] [k] [k2] [awkargs]
+ds:jn() { # ** Join two files, or a file and stdin, with any keyset: ds:jn file1 [file2] [jointype] [k] [k2] [awkargs]
   ds:file_check "$1"
   local f1="$1"; shift
   if ds:pipe_open; then
@@ -489,6 +489,13 @@ ds:jn() { # ** Similar to the join Unix command but with different features: ds:
   else
     ds:file_check "$1"
     local f2="$1"; shift
+  fi
+
+  if [ $1 ]; then
+    [[ $1 =~ '^l' ]] && local type='left'
+    [[ $1 =~ '^i' ]] && local type='inner'
+    [[ $1 =~ '^r' ]] && local type='right'
+    shift
   fi
 
   local has_keyarg=$(ds:arr_idx 'k[12]?=' ${@})
@@ -504,6 +511,7 @@ ds:jn() { # ** Similar to the join Unix command but with different features: ds:
     [ $k2 ] && local args=("${args[@]}" -v k1="$k1" -v k2="$k2") || local args=("${args[@]}" -v k="$k")
   else local args=( "$@" )
   fi
+  [ $type ] && local args=(${args[@]} -v join="$type")
 
   if ds:noawkfs; then
     local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
@@ -702,14 +710,14 @@ ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [awkargs]
 
 ds:idx() { # ** Prints an index attached to data lines from a file or stdin
   if ds:pipe_open; then
-    local header=$1 args=( "${@:2}" ) file=/tmp/ds_index_showlater piped=0
+    local header=$1 args=( "${@:2}" ) file=$(ds:tmp 'ds_idx') piped=0
     cat /dev/stdin > $file
   else
     local file="$1" header=$2 args=( "${@:3}" )
   fi
   local program="$([ $header ] && echo '{ print NR-1 FS $0 }' || echo '{ print NR FS $0 }')"
   if ds:noawkfs; then
-    local fs="$(inferfs "$file" true)"
+    local fs="$(ds:inferfs "$file" true)"
     awk -v FS="$fs" ${args[@]} "$program" "$file" 2> /dev/null
   else
     awk ${args[@]} "$program" "$file" 2> /dev/null
