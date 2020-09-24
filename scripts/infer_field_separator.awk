@@ -17,7 +17,9 @@
 # TODO: Handle stray data that creates empty fields and can lead to custom
 # novar pattern handling breaking (i.e. ,,, winning over , by creating two
 # fields)
-# TODO:mHandle escapes, null chars, SUBSEP
+# TODO: Optional smart inference based on a set of lines with common separator
+# variance (probably external)
+# TODO: Handle escapes, null chars, SUBSEP
 
 BEGIN {
   commonfs["s"] = " "

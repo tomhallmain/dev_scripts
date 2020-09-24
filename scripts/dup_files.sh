@@ -2,8 +2,6 @@
 #
 # Checks a directory for duplicate files and provides user an option to remove
 # duplicates if desired
-#
-# TODO: Tempfile
 
 
 while getopts ":fps:" opt; do
@@ -17,7 +15,7 @@ while getopts ":fps:" opt; do
 done
 
 tempdata=$(mktemp -q /tmp/filedata.XXXXX || echo '/tmp/filedata.XXXXX')
-[ -z $source_folder ] && source_folder="$1"
+[ -z "$source_folder" ] && source_folder="$1"
 
 echo -e "\n Gathering checksum data... \n"
 if [ $PV ]; then
@@ -47,7 +45,7 @@ assured=$(cat "$tempdata" | awk '
     if (md5s[$1] > 1)  {printf "%-100s|||%-100s\n", substr($0,length($1)+3), filename[$1]}
   }
 ')
-md5dup_count=$(echo "$assured" | wc -l)
+let md5dup_count=$(echo "$assured" | wc -l)-1
 
 if [ $md5dup_count -gt 1 ]; then
   echo -e "\n Assured duplicates in md5 checksums: \n"

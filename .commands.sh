@@ -495,7 +495,7 @@ ds:jn() { # ** Join two files, or a file and stdin, with any keyset: ds:jn file1
     [[ $1 =~ '^l' ]] && local type='left'
     [[ $1 =~ '^i' ]] && local type='inner'
     [[ $1 =~ '^r' ]] && local type='right'
-    shift
+    [ $type ] && shift
   fi
 
   local has_keyarg=$(ds:arr_idx 'k[12]?=' ${@})

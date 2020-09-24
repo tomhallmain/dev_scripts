@@ -4,17 +4,21 @@
 #
 # Index a field value:
 # > awk -f reorder.awk -v r=1 -v c=1
+#                           ^ Print the field value at row 1 col 1
 #
 # Specific rows and/or columns:
 # > awk -f reorder.awk -v r=1,1000 -v c=1,4,5
+#    Print row 1 then 1000 ^            ^ Print cols 1, 4 and 5
 #
-# To pass all rows / columns, don't set the arg. Add field separator if needed:
-# > awk -f reorder.awk -v c=4 -F,
+# To pass all rows / columns, don't set the arg or set arg=a. Add field separator if needed:
+# > awk -f reorder.awk -v r=a -v c=4 -F,
+#                           ^ Print all rows, only column 4
 #
 # Range (and/or individual rows and columns):
 # > awk -f reorder.awk -v r=1,100..200 -v c=1..3,5
+#     Ranges are inclusive of ending indices ^
 #
-# Reorder/repeat:
+# Reorder/repeat, duplicate as many times as desired:
 # > awk -f reorder.awk -v r=3,3,5,1 -v c=4..1,1,3,5
 #
 # Index numbers evaluating to expression (if no comparison specified, compares 
@@ -25,42 +29,50 @@
 #
 # Filter records by field values and/or fields by record values:
 #
-# -- Using basic numerical expressions, across the entire opposite span:
+# -- Using basic math expressions, across the entire opposite span:
 # > awk -f reorder.awk -v r="=1,<1" -v c="/5<10"
 #          Rows with field val =1 ^     ^ Columns with field vals less
 #       Followed by rows with val <1      than 10 when divided by 5
 #
-# -- Using numerical expressions, across given span:
+# -- Using basic math expressions, across given span:
 # > awk -f reorder.awk      -v r="1,8<0" -v c="6!=10"
 #   Print the header row followed by ^       ^ Fields where vals in row 6 are
 #   rows where field 8 is negative             not equal to 10
 #
 # -- Using regeular expressions, across the opposite span (full or specified):
-# > awk -f reorder.awk -v r="~plant,~[A-z]" -v c="3~[0-9]+\.[0-9]"
-#     Rows matching "plant" ^                  ^ Columns where vals in row 3
-#     Followed by rows with alpha chars          match simple decimal pattern
+# > awk -f reorder.awk -v r="~plant,!~[A-z]" -v c="3~[0-9]+\.[0-9]" -v cased=1
+#     Rows matching "plant" ^                   ^ Columns where vals in row 3
+#     Followed by rows without alpha chars        match simple decimal pattern
 #
 # Alternatively filter the cross-span by a current-span frame pattern (headers --
 # first row and first column -- are the default if not specified):
-# > awk -f reorder.awk -v r="[Plant~flower" -v c="3[Alps>10000"
+# > awk -f reorder.awk -v r="[plant~flower" -v c="3[alps>10000"
 #     Rows where column header matches ^          ^ Columns where vals in col
-#     "Plant" and column value matches "flower"     3 match "Alps" and which
+#     "plant" and column value matches "flower"     3 match "alps" and which
 #                                                   have number vals greater
 #                                                   than 10000 (ft presumably)
 #
 # If no expression or search given with frame, simple search is done on the cross
 # span, not the current span (frame rows by column, columns by row):
-# > awk -f reorder.awk -v r="[Alps" -v c="[Plant"
+# > awk -f reorder.awk -v r="[europe" -v c="[plant"
 #       Rows where first col ^            ^ Columns where first row
-#       matches 'Alps'                      matches 'Plant'
+#       matches 'europe' (any case)         matches 'plant' (any case)
 #
 # Note the above args are equivalent to r="1~Alps" c="1~Plant"
 #
-# TODO: ignore case regex (use tolower func)
+# Case is ignored globally by default in regex searches. To enable cased
+# matshing set variable cased to any value. To search a case insensitive value
+# while cased is set, append "/i" to the end of the pattern:
+# > awk -f reorder.awk -v r="[europe/i" -v c="[Plant" -v cased=1
+#      Rows where first col matches ^        ^ Columns where first row matches
+#      europe in any case                      'Plant' exactly
+#
 # TODO: and/or extended logic
 # TODO: reverse, other basic sorts
 # TODO: mechanism for 'all the others, unspecified' (records or fields -
 #   reverse all operations and add to end of order list
+# TODO: option (or default?) for preserving original order
+# TODO: string equality / sorting
 
 
 # SETUP
@@ -71,6 +83,7 @@ BEGIN {
   base_r = 1; base_c = 1
   min_guar_print_nf = 1000
   min_guar_print_nr = 100000000
+  if (!cased) ignore_case_global = 1
 
   if (debug) debug_print(-1)
   if (r) {
@@ -95,6 +108,10 @@ BEGIN {
       else {
         max_r_i = TestArg(r_i, max_r_i, token)
         base_r = 0
+        if (ignore_case_global || IgnoreCase[r_i]) {
+          delete IgnoreCase[r_i]
+          r_i = tolower(r_i); gsub("/i", "", r_i)
+          IgnoreCase[r_i] = 1 }
 
         if (token == "rng")
           reo_r_count = FillRange(1, r_i, R, reo_r_count, ReoR)
@@ -143,6 +160,10 @@ BEGIN {
         delete c_order[i]
         max_c_i = TestArg(c_i, max_c_i, token)
         base_c = 0
+        if (ignore_case_global || IgnoreCase[c_i]) {
+          delete IgnoreCase[c_i]
+          c_i = tolower(c_i); gsub("/i", "", c_i) 
+          IgnoreCase[c_i] = 1 }
 
         if (token == "rng")
           reo_c_count = FillRange(0, c_i, C, reo_c_count, ReoC)
@@ -193,11 +214,7 @@ range && !reo { if (pass_r || NR in R) FieldsPrint(ReoC, reo_c_len, 1); next }
 reo {
   if (NF > max_nf) max_nf = NF
   if (pass_r) {
-    if (base_reo) {
-      for (i = 1; i < reo_c_len; i++)
-        printf "%s", $ReoC[i] OFS
-
-      print $ReoC[reo_c_len] }
+    if (base_reo) FieldsPrint(ReoC, reo_c_len, 1)
     else {
       StoreRow(_)
       StoreFieldRefs() }}
@@ -321,8 +338,8 @@ function Reo(key, CrossSpan, reo_row_call) {
 
     split(fields, PrintFields, ",")
     len_printf = length(PrintFields) - 1
-    for (f = 1; f <= len_printf; f++) {
-      print_field(CrossSpan[PrintFields[f]], f, len_printf) }}
+    for (f = 1; f <= len_printf; f++)
+      print_field(CrossSpan[PrintFields[f]], f, len_printf) }
 }
 
 function FieldsPrint(Order, ord_len, run_call) {
@@ -389,23 +406,28 @@ function StoreFieldRefs() {
   if (re) {
     for (search in RCIdxSearches) {
       split(search, Fr, "[")
-      if (fr_ext) { test_row = Fr[1] ? Fr[1] : 1 }
-      else test_row = 1
+      test_row = (fr_ext && Fr[1]) ? Fr[1] : 1
       if (NR != test_row) continue
       base_search = Fr[2]
+      if (!ignore_case_global) ignore_case = IgnoreCase[search]
+      ic = (ignore_case_global || ignore_case)
+      if (ic) base_search = tolower(base_search)
       for (f = 1; f <= NF; f++) {
-        if ($f ~ base_search) SearchFO[search] = SearchFO[search] f","
-      }}
+        field = ic ? tolower($f) : $f
+        if (field ~ base_search) SearchFO[search] = SearchFO[search] f"," }}
 
     for (search in RCSearches) {
       exclude = 0
+      ignore_case = (ignore_case_global || IgnoreCase[search])
       split(search, Tmp, "~")
       base_search = Tmp[2]
+      if (ignore_case) base_search = tolower(base_search)
       if (search in RCFrames) {
         split(Tmp[1], Fr, "[")
-        if (fr_ext) { test_field = Fr[1] ? Fr[1] : 1 }
-        else test_field = 1
-        if (!($test_field ~ Fr[2])) continue
+        test_field = (fr_ext && Fr[1]) ? Fr[1] : 1
+        field = ignore_case ? tolower($test_field) : $test_field
+        frame_re = ignore_case ? tolower(Fr[2]) : Fr[2]
+        if (!(field ~ frame_re)) continue
         else if (!Indexed(SearchFO[search], test_field)) {
           SearchFO[search] = SearchFO[search] test_field"," }}
       else if (Tmp[1] ~ Re["num"]) { 
@@ -413,13 +435,14 @@ function StoreFieldRefs() {
 
       for (f = 1; f <= NF; f++) {
         if (Indexed(SearchFO[search], f)) continue
+        field = ignore_case ? tolower($f) : $f
         if (debug) debug_print(9) 
         if (ExcludeRe[search] && !exclude) {
-          if ($f ~ base_search) exclude = 1
+          if (field ~ base_search) exclude = 1
           if (f == NF && !exclude)
             SearchFO[search] = SearchFO[search] f"," }
         else if (!exclude) {
-          if ($f ~ base_search)
+          if (field ~ base_search)
             SearchFO[search] = SearchFO[search] f"," }
         }}}
 
@@ -428,13 +451,15 @@ function StoreFieldRefs() {
       if (assume_constant_fields && RCExprFieldsSet[expr]) continue
       # ^ may result in missed fields unless the number of fields of first row
       # is gt or equal to number of fields in all other rows
-      compval = 0; settable = 0
+      compval = 0; comp = "="; settable = 0
       if (expr in RCFrames) {
+        ignore_case = (ignore_case_global || IgnoreCase[expr])
         split(expr, Tmp, TkMap["mat"])
         split(Tmp[1], Fr, "[")
-        if (fr_ext) { test_field = Fr[1] ? Fr[1] : 1 }
-        else test_field = 1
-        if (!($test_field ~ Fr[2])) continue
+        test_field = (fr_ext && Fr[1]) ? Fr[1] : 1
+        field = ignore_case ? tolower($test_field) : $test_field
+        frame_re = ignore_case ? tolower(Fr[2]) : Fr[2]
+        if (!(field ~ frame_re)) continue
         if (!Indexed(ExprFO[expr], test_field)) {
           ExprFO[expr] = ExprFO[expr] test_field"," } 
         base_expr = substr(expr, length(Tmp[1])+1)
@@ -456,7 +481,7 @@ function StoreFieldRefs() {
         if (Indexed(ExprFO[expr], f)) continue
         if (settable) anchor = f
         else if ($f ~ Re["decnum"]) {
-          anchor = $f; gsub(",", "", anchor) }
+          anchor = $f; gsub("[\$,]", "", anchor) }
         else if (comp == "!=") anchor = ""
         else continue
         eval = EvalExpr(anchor base_expr)
@@ -478,21 +503,22 @@ function StoreRowRefs() {
   if (re) {
     for (search in RRIdxSearches) {
       split(search, Fr, "[")
-      if (fr_ext) { test_field = Fr[1] ? Fr[1] : 1 }
-      else test_field = 1
-      if (!($test_field ~ Fr[2])) continue
+      test_field = (fr_ext && Fr[1]) ? Fr[1] : 1
+      ignore_case = (ignore_case_global || IgnoreCase[search])
+      field = ignore_case ? tolower($test_field) : $test_field
+      if (!(field ~ Fr[2])) continue
       SearchRO[search] = SearchRO[search] NR"," }}
 
     for (search in RRSearches) {
       fr_search = 0; exclude = 0
+      ignore_case = (ignore_case_global || IgnoreCase[search])
       split(search, Tmp, "~")
       base_search = Tmp[2]
       if (search in RRFrames) {
         if (ExcludeFrame[search]) continue
         start = 1; end = NF; fr_search = 1
         split(Tmp[1], Fr, "[")
-        if (row_fr_ext) { test_row = Fr[1] ? Fr[1] : 1 }
-        else test_row = 1
+        test_row = (row_fr_ext && Fr[1]) ? Fr[1] : 1
         frame_re = Fr[2] }
       else if (Tmp[1] ~ Re["num"]) { start = Tmp[1]; end = start }
       else { start = 1; end = NF }
@@ -502,37 +528,40 @@ function StoreRowRefs() {
           if (FrameSet[search]) {
             if (!Indexed(FrameFields[search], f)) continue }
           else if (NR == test_row) {
-            if ($f ~ frame_re) {
+            field = ignore_case ? tolower($f) : $f
+            if (field ~ frame_re) {
               if (!Indexed(SearchRO[search], NR))
                 FrameFields[search] = FrameFields[search] f"," }
             if (f == end) {
-              if (FrameFields[search]) # TODO: Should this be kept as a flag setting or default behavior?
+              if (FrameFields[search]) # TODO: Should this be a flag setting or default behavior?
                 SearchRO[search] = SearchRO[search] NR","
               ResolveRowFilterFrame(search) }
           else {
-            if (!Indexed(FrameRowFields[search], f) && $f ~ base_search)
+            field = ignore_case ? tolower($f) : $f
+            if (!Indexed(FrameRowFields[search], f) && field ~ base_search)
               FrameRowFields[search] = FrameRowFields[search] NR":"f","
             continue }}}
         if (Indexed(SearchRO[search], NR)) continue
+        field = ignore_case ? tolower($f) : $f
         if (debug) debug_print(9)
         if (ExcludeRe[search]) {
-          if ($f ~ base_search) exclude = 1
+          if (field ~ base_search) exclude = 1
           if (f == end && !exclude)
             SearchRO[search] = SearchRO[search] NR"," }
         else if (!exclude) {
-          if ($f ~ base_search)
+          if (field ~ base_search)
             SearchRO[search] = SearchRO[search] NR"," }
         }}
 
   if (mat) {
     for (expr in RRExprs) {
-      compval = 0; position_test = 0; fr_expr = 0
+      compval = 0; comp = "="; position_test = 0; fr_expr = 0
       if (expr in RRFrames) {
         if (ExcludeFrame[expr]) continue
+        ignore_case = (ignore_case_global || IgnoreCase[expr])
         split(expr, Tmp, TkMap["mat"])
         split(Tmp[1], Fr, "[")
-        if (row_fr_ext) { test_row = Fr[1] ? Fr[1] : 1 }
-        else test_row = 1
+        test_row = (row_fr_ext && Fr[1]) ? Fr[1] : 1
         base_expr = substr(expr, length(Tmp[1])+1)
         start = 1; end = NF; fr_expr = 1
         frame_re = Fr[2] }
@@ -557,18 +586,19 @@ function StoreRowRefs() {
           if (frame_set) {
             if (!Indexed(FrameFields[expr], f)) continue }
           else if (NR == test_row) {
-            if ($f ~ frame_re) {
+            field = ignore_case ? tolower($f) : $f
+            if (field ~ frame_re) {
               if (!Indexed(ExprRO[expr], NR))
                 FrameFields[expr] = FrameFields[expr] f"," }
             if (f == end) {
-              if (FrameFields[expr]) # TODO: Should this be kept as a flag setting or default behavior?
+              if (FrameFields[expr]) # TODO: Should this be a flag setting or default behavior?
                 ExprRO[expr] = ExprRO[expr] NR","
               ResolveRowFilterFrame(expr) 
             }}}
         if (Indexed(ExprRO[expr], NR)) continue
         if (position_test) { if (f > 1) break; else anchor = NR }
         else if ($f ~ Re["decnum"]) {
-          anchor = $f; gsub(",", "", anchor) }
+          anchor = $f; gsub("[\$,]", "", anchor) }
         else if (comp == "!=") anchor = ""
         else continue
         eval = EvalExpr(anchor base_expr)
@@ -640,9 +670,8 @@ function TestArg(arg, max_i, type) {
       max_i = ra2 }}
 
   else if (type == "mat") { reo = 1; mat = 1
-    for (sa_i = 2; sa_i <= length(Subargv); sa_i++) {
+    for (sa_i = 2; sa_i <= length(Subargv); sa_i++)
       if (!(Subargv[sa_i] ~ Re["int"])) nonint_sarg = 1
-    }
     if (nonint_sarg || !(arg ~ Re["matarg1"] || arg ~ Re["matarg2"])) {
       print "Invalid order expression arg " arg " - expression format examples include: "
       print "NR%2  2%3=5  NF!=4  *6/8%2=1"
@@ -650,14 +679,17 @@ function TestArg(arg, max_i, type) {
 
   else if (type == "re") { reo = 1; re = 1
     if (arg ~ "!~") ExcludeRe[arg] = 1
+    if (arg ~ "\/[iI]") IgnoreCase[arg] = 1
     re_test = substr(arg, length(sa1)+1, length(arg))
     if ("" ~ re_test) {
-      print "Invalid order search range arg - search arg format examples include: ~search  2~search"
+      print "Invalid order search range arg " arg "- search arg format examples include: "
+      print "~search  2~search"
       exit 1 }}
 
   else if (type == "fr") { reo = 1; fr_idx = 0
     split(arg, Tmp, "[")
     if (Tmp[1]) fr_ext = 1
+    if (arg ~ "\/[iI]") IgnoreCase[arg] = 1
     if (arg ~ Re["frmat"]) {
       fr = "mat"; mat = 1 }
     else if (arg ~ Re["frre"]) {
@@ -666,7 +698,7 @@ function TestArg(arg, max_i, type) {
       fr = "re"; re = 1; fr_idx = 1; FrIdx[arg] = 1 }
     else {
       print "Invalid order frame arg - frame arg format examples include: "
-      print "[RowHeaderPattern 5[Index5Pattern~search  [HeaderPattern!=30"
+      print "[RowHeaderPattern  5[Index5Pattern~search  [HeaderPattern!=30"
       exit 1 }}
 
   return max_i
@@ -680,12 +712,12 @@ function Indexed(idx_ord, test_idx) {
 function BuildRe(Re) {
   Re["num"] = "[0-9]+"
   Re["int"] = "^[0-9]+$"
-  Re["decnum"] = "^[[:space:]]*(\\-)?(\\()?[0-9,]+([\.][0-9]*)?(\\))?[[:space:]]*$"
+  Re["decnum"] = "^[[:space:]]*(\\-)?(\\()?(\\$)?[0-9,]+([\.][0-9]*)?(\\))?[[:space:]]*$"
   Re["intmat"] = "[0-9!\\+\\-\\*\/%\\^<>=]"
   Re["nan"] = "[^0-9]"
   Re["matarg1"] = "^[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])[0-9]+)?$"
   Re["matarg2"] = "^(NR|NF)?(!=|[=<>])[0-9]+$"
-  Re["frmat"] = "\\[.+(!=|[=<>])[0-9]+$" #]
+  Re["frmat"] = "\\[.+[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])[0-9]+)?$" #]
   Re["frre"] = "\\[.+~.+" #]
   Re["ordsep"] = ",+"
   Re["comp"] = "(<|>|!?=)"
@@ -784,24 +816,24 @@ function debug_print(case, arg) {
   else if (case == 0) {
     print "---------- ARGS FINDINGS -----------"
     print_reo_r_count = pass_r ? "all/undefined" : reo_r_count
-    print "Reorder count (row):", print_reo_r_count
-    printf "Reorder vals (row): "
+    print "Reorder count (row): " print_reo_r_count
+    printf "Reorder vals (row):  "
     if (pass_r) print "all"
     else {
       for (i = 1; i < reo_r_len; i++) printf "%s", ReoR[i] OFS
       print ReoR[reo_r_count] }
     print_reo_c_count = pass_c ? "all/undefined" : reo_c_count
-    print "Reorder count (col):", print_reo_c_count
-    printf "Reorder vals (col): "
+    print "Reorder count (col): " print_reo_c_count
+    printf "Reorder vals (col):  "
     if (pass_c) print "all"
     else { for (i = 1; i < reo_c_len; i++) printf "%s", ReoC[i] OFS
       print ReoC[reo_c_count] }
     if (max_nr) print "max_nr: " max_nr }
 
   else if (case == 1) {
-    print "i: " i, " r_i: " r_i, " r_len: " r_len, " token: " token }
+    print "i: "i, " r_i: "r_i, " r_len: "r_len, " token: "token }
   else if (case == 1.5) {
-    print "i: " i, " c_i: " c_i, " c_len: " c_len, " token: " token }
+    print "i: "i, " c_i: "c_i, " c_len: "c_len, " token: "token }
   else if (case == 2) {
     print "FillRange start: " start, " end: " end }
   else if (case == 3) {
@@ -821,21 +853,20 @@ function debug_print(case, arg) {
     if (fr_ext) print "frame extended case" }
 
   else if (case == 5) {
-    print "f: " f, " anchor: " anchor, " apply to: " base_expr, " evals to: " eval, " compare: " comp, compval }
+    print "NR: "NR, " f: "f, " anchor: "anchor, " apply to: "base_expr, " evals to: "eval, " compare: "comp, compval }
   else if (case == 6) {
     if (length(RRExprs)) { print "------------- RRExprs --------------"
-      for (ex in RRExprs) print ex, ExprRO[ex] }
+      for (ex in RRExprs) print ex " " ExprRO[ex] }
     if (length(RRSearches)) { print "------------- RRSearches -------------"
-      for (se in RRSearches) print se, SearchRO[se] }
+      for (se in RRSearches) print se " " SearchRO[se] }
     if (length(RCExprs)) { print "------------- RCExprs --------------"
-      for (ex in RCExprs) print ex, ExprFO[ex] }
+      for (ex in RCExprs) print ex " " ExprFO[ex] }
     if (length(RCSearches)) { print "------------- RCSearches -------------"
-      for (se in RCSearches) print se, SearchFO[se] }}
+      for (se in RCSearches) print se " " SearchFO[se] }}
   else if (case == 7) {
     print "------ EVALS OR BASIC OUTPUT -------" }
   else if (case == 8) {
     print "------------- OUTPUT ---------------" }
   else if (case == 9) {
-    print "f: " f, " search: " search, " base search: " base_search, " startf: " start, " endf: " end, " fieldval: " $f }
-
+    print "NR: "NR, " f: "f, " search: "search, " base search: "base_search, " startf: "start, " endf: "end, " fieldval: "field }
 }
