@@ -146,7 +146,7 @@ ds:is_cli() { # Detect if shell is interactive
 ds:readp() { # Portable read prompt
   shell="$(ds:sh)"
   if [[ $shell =~ bash ]]; then
-    read -p $"\e[37m$1\e[0m" myvar
+    read -p $'[37m'"$1 "'[0m' myvar
   elif [[ $shell =~ zsh ]]; then
     read "myvar?$1 "
   else

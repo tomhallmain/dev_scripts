@@ -32,7 +32,7 @@ ds:gvi() { # Grep for a line in a file/dir and open vim on the first match: ds:g
     [ -d "$2" ] && local dir="$2"
     if [ -z $dir ]; then
       local dir="." basedir_f=($(find . -maxdepth 0 -type f | grep -v ":"))
-      [ $2 ] && local filesearch="$2"
+      [ $2 ] && local filesearch="1~$2" || local filesearch=1
       if ds:nset 'rg'; then
         rg -Hno --no-heading --hidden --color=never -g '!*:*' -g '!.git' \
           "$search" ${basedir_f[@]} "$dir" > $tmp
@@ -40,8 +40,8 @@ ds:gvi() { # Grep for a line in a file/dir and open vim on the first match: ds:g
         grep -HInors --color=never --exclude ':' --excludedir '.git' \
           "$search" ${basedir_f[@]} "$dir" > $tmp
       fi
-      local file=$(ds:reo $tmp "1~$filesearch" 1 -F: -v q=1 | head -n1)
-      local line=$(ds:reo $tmp "1~$filesearch" 2 -F: -v q=1 | head -n1)
+      local file=$(ds:reo $tmp "$filesearch" 1 -F: -v q=1 | head -n1)
+      local line=$(ds:reo $tmp "$filesearch" 2 -F: -v q=1 | head -n1)
     else
       local basedir_f=($(find "$dir" -maxdepth 0 -type f | grep -v ":"))
       if ds:nset 'rg'; then
@@ -392,7 +392,7 @@ ds:git_recent_all() { # Display table of recent commits for all home dir branche
   local start_dir="$PWD" all_recent=/tmp/ds_git_recent_all
   local w="\033[37;1m" nc="\033[0m"
   cd ~
-  echo "${w}repo${nc}||${w}branch${nc}||sortfield${nc}||${w}commit time${nc}||${w}commit message${nc}||${w}author${nc}" > $all_recent
+  echo -e "${w}repo${nc}||${w}branch${nc}||sortfield${nc}||${w}commit time${nc}||${w}commit message${nc}||${w}author${nc}" > $all_recent
   while IFS=$'\n' read -r dir; do
     [ -d "${dir}/.git" ] && (cd "$dir" && \
       (ds:git_recent parse | awk -v repo="$dir" -F'\\\|\\\|' '
@@ -508,7 +508,7 @@ ds:jn() { # ** Join two files, or a file and stdin, with any keyset: ds:jn file1
     [[ $1 =~ '^l' ]] && local type='left'
     [[ $1 =~ '^i' ]] && local type='inner'
     [[ $1 =~ '^r' ]] && local type='right'
-    [[ ! "$1" =~ '\-' && ! "$1" =~ '^[0-9]+$' ]] && shift
+    [[ ! "$1" =~ '-' && ! "$1" =~ '^[0-9]+$' ]] && shift
   fi
 
   local has_keyarg=$(ds:arr_idx 'k[12]?=' ${@})

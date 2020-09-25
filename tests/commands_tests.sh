@@ -108,6 +108,26 @@ reo_output='-1 nah
 -15 test'
 [ "$(echo "$reo_input" | ds:reo "2<0,3~test" "31!=14")" = "$reo_output" ] || ds:fail 'reo command failed extended cases'
 
+reo_input="$(for i in $(seq -10 20); do 
+    [ $i -eq -10 ] && ds:iter_str test 23 && ds:iter_str _TeST_ 20
+    for j in $(seq -2 20); do 
+      [ $i -ne 0 ] && printf "%s " "$(echo "scale=2; $j/$i" | bc -l)"
+    done
+    [ $i -ne 0 ] && echo
+  done)"
+reo_test_output="$(echo "$reo_input" | ds:reo "1,1,>4,[test,[test/i~ST" ">4,[test~T" -v cased=1)"
+reo_output='test test test test test test test test test test test test test test test test test
+test test test test test test test test test test test test test test test test test
+5.00 6.00 7.00 8.00 9.00 10.00 11.00 12.00 13.00 14.00 15.00 16.00 17.00 18.00 19.00 20.00 -2.00
+2.50 3.00 3.50 4.00 4.50 5.00 5.50 6.00 6.50 7.00 7.50 8.00 8.50 9.00 9.50 10.00 -1.00
+1.66 2.00 2.33 2.66 3.00 3.33 3.66 4.00 4.33 4.66 5.00 5.33 5.66 6.00 6.33 6.66 -.66
+1.25 1.50 1.75 2.00 2.25 2.50 2.75 3.00 3.25 3.50 3.75 4.00 4.25 4.50 4.75 5.00 -.50
+test test test test test test test test test test test test test test test test test
+test test test test test test test test test test test test test test test test test
+_TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_    _TeST_'
+
+[ "$reo_test_output" = "$reo_output" ] || ds:fail 'reo command failed extended cases'
+
 [ "$(echo 1 2 3 | ds:join_by ', ')" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'
 [ "$(ds:join_by ', ' 1 2 3)" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'
 
