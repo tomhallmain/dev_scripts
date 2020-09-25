@@ -30,7 +30,7 @@ BEGIN {
   if (k) {
     k1 = k
     k2 = k
-  } else {
+  } else if (!k1 || !k2) {
     if (!k1) { print "Missing key"; err=1; exit err }
     if (!k2) { print "Missing key"; err=1; exit err }
   }

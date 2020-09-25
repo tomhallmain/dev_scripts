@@ -1,15 +1,6 @@
 #!/bin/bash
 
 
-ds:commands() { # List commands in the dev_scripts/.commands.sh file
-  echo
-  grep '[[:alnum:]_]*()' $DS_LOC/.commands.sh | sed 's/^  function //' \
-    | grep -v grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}'
-  echo
-  echo "** - function supports receiving piped data"
-  echo
-}
-
 ds:file_check() { # Test for file validity and fail if invalid
   local testfile="$1"
   [ ! -f "$testfile" ] && ds:fail 'File not provided or invalid!'

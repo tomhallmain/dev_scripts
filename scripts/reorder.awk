@@ -307,13 +307,13 @@ END {
 # FUNCTIONS
 
 function Reo(key, CrossSpan, reo_row_call) {
-  token = TypeMap[key]
-  if (token == "re") search = key
-  else if (token == "mat") expr = key 
+  type = TypeMap[key]
+  if (type == "re") search = key
+  else if (type == "mat") expr = key 
 
   if (reo_row_call) {
-    if (token == "re") rows = SearchRO[search]
-    else if (token == "mat") rows = ExprRO[expr]
+    if (type == "re") rows = SearchRO[search]
+    else if (type == "mat") rows = ExprRO[expr]
 
     split(rows, PrintRows, ",")
     len_printr = length(PrintRows) - 1
@@ -333,8 +333,8 @@ function Reo(key, CrossSpan, reo_row_call) {
         print "" }}}
 
   else {
-    if (token == "re") fields = SearchFO[search]
-    else if (token == "mat") fields = ExprFO[expr]
+    if (type == "re") fields = SearchFO[search]
+    else if (type == "mat") fields = ExprFO[expr]
 
     split(fields, PrintFields, ",")
     len_printf = length(PrintFields) - 1
@@ -345,21 +345,21 @@ function Reo(key, CrossSpan, reo_row_call) {
 function FieldsPrint(Order, ord_len, run_call) {
   if (pass_c) {
     if (run_call) {
-      for (i = 1; i < NF; i++)
-        printf "%s", $i OFS
+      for (pf = 1; pf < NF; pf++)
+        printf "%s", $pf OFS
 
       print $NF }
     else {
       split(Order, PrintFields, FS)
       len_printf = length(PrintFields)
-      for (i = 1; i < len_printf; i++)
-        printf "%s", PrintFields[i] OFS
+      for (pf = 1; pf < len_printf; pf++)
+        printf "%s", PrintFields[pf] OFS
 
       print PrintFields[len_printf]
     }}
   else {
-    for (i = 1; i < ord_len; i++)
-      printf "%s", $Order[i] OFS
+    for (pf = 1; pf < ord_len; pf++)
+      printf "%s", $Order[pf] OFS
 
     print $Order[ord_len] }
 }
@@ -680,7 +680,7 @@ function TestArg(arg, max_i, type) {
   else if (type == "re") { reo = 1; re = 1
     if (arg ~ "!~") ExcludeRe[arg] = 1
     if (arg ~ "\/[iI]") IgnoreCase[arg] = 1
-    re_test = substr(arg, length(sa1)+1, length(arg))
+    re_test = substr(arg, length(sa1)+2, length(arg))
     if ("" ~ re_test) {
       print "Invalid order search range arg " arg "- search arg format examples include: "
       print "~search  2~search"

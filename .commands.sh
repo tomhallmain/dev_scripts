@@ -1,12 +1,25 @@
 #!/bin/bash
 
-DS_LOC=~/dev_scripts
-DS_SCRIPT=$DS_LOC/scripts
-DS_SUPPORT="${DS_SCRIPT}/support"
+DS_LOC="$HOME/dev_scripts"
+DS_SCRIPT="${DS_LOC}/scripts"
+DS_SUPPORT="${DS_LOC}/support"
 source "${DS_SUPPORT}/utils.sh"
 
+ds:commands() { # List commands in the dev_scripts/.commands.sh file
+  echo
+  grep -h '[[:alnum:]_]*()' $DS_LOC/.commands.sh | sed 's/^  function //' \
+    | grep -hv grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}'
+  echo
+  echo "** - function supports receiving piped data"
+  echo
+}
 
-ds:gvi() { # Grep for a line in a file/dir open vim on the first match: ds:grepvi search [file]
+ds:help() { # Print help for a given command
+  (ds:nset "$1" && [[ "$1" =~ "^ds:" ]]) || ds:fail 'Command not found - see all commands, run ds:commands'
+  ds:commands | ds:reo "~$1" 2 -v FS="[[:space:]]{2,}"
+}
+
+ds:gvi() { # Grep for a line in a file/dir and open vim on the first match: ds:gvi search [file|dir]
   local search="$1"
   if [ -f "$2" ]; then local file="$2"
     if ds:nset 'rg'; then
@@ -495,7 +508,7 @@ ds:jn() { # ** Join two files, or a file and stdin, with any keyset: ds:jn file1
     [[ $1 =~ '^l' ]] && local type='left'
     [[ $1 =~ '^i' ]] && local type='inner'
     [[ $1 =~ '^r' ]] && local type='right'
-    [ $type ] && shift
+    [[ ! "$1" =~ '\-' && ! "$1" =~ '^[0-9]+$' ]] && shift
   fi
 
   local has_keyarg=$(ds:arr_idx 'k[12]?=' ${@})
@@ -508,10 +521,10 @@ ds:jn() { # ** Join two files, or a file and stdin, with any keyset: ds:jn file1
       [[ $k =~ " " ]] && local k2=$(ds:re_substr "$k" " " "") k1=$(ds:re_substr $k "" " ")
     fi
     local args=( "$@" )
-    [ $k2 ] && local args=("${args[@]}" -v k1="$k1" -v k2="$k2") || local args=("${args[@]}" -v k="$k")
+    [ $k2 ] && local args=("${args[@]}" -v "k1=$k1" -v "k2=$k2") || local args=("${args[@]}" -v "k=$k")
   else local args=( "$@" )
   fi
-  [ $type ] && local args=(${args[@]} -v join="$type")
+  [ $type ] && local args=("${args[@]}" -v "join=$type")
 
   if ds:noawkfs; then
     local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
@@ -1071,7 +1084,7 @@ ds:goog() { # Executes Google search with args provided
   open "${base_url}${search_query}"
 }
 
-ds:sofs() { # Executes Stack Overflow search with args provided
+ds:so() { # Executes Stack Overflow search with args provided
   local search_args="$@"
   [ -z $search_args ] && ds:fail 'Arg required for search'
   local base_url="https://www.stackoverflow.com/search?q="
@@ -1117,14 +1130,5 @@ ds:dups() { # Report duplicate files with option for deletion
   ds:nset 'fd' && local use_fd="-f"
   [ -d "$1" ] && local dir="$1" || local dir="$PWD"
   bash $DS_SCRIPT/dup_files.sh -s $dir $use_fd $use_pv
-}
-
-ds:commands() { # List functions defined in the dev_scripts/.commands.sh file
-  echo
-  grep '[[:alnum:]_]*()' $DS_LOC/.commands.sh | sed 's/^  function //' \
-    | grep -hv grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}'
-  echo
-  echo "** - function supports receiving piped data"
-  echo
 }
 

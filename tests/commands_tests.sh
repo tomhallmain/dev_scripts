@@ -23,7 +23,7 @@ elif [[ $shell =~ 'zsh' ]]; then
 elif [[ $shell =~ 'ksh' ]]; then
   echo lets see what happens here..
 else
-  echo 'unhandled shell detected - only zsh/bash supported at this time - exiting test script'
+  echo 'unhandled shell detected - only zsh/bash supported at this time'
   exit 1
 fi
 
@@ -130,7 +130,7 @@ echo $(ds:root) 1> $q || ds:fail 'root_vol command failed'
 
 [ "$(printf "%s\n" a b c d | ds:rev | tr -d '\n')" = "dcba" ] || ds:fail 'rev command failed'
 
-[ $bsh ] && cmds="tests/commands_output_bash" || cmds="tests/commands_output_zsh"
+cmds="tests/commands_output"
 ds:commands > $tmp
 cmp --silent $cmds $tmp || ds:fail 'commands listing failed'
 
