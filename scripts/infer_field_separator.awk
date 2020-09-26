@@ -139,10 +139,13 @@ END {
   if (max_rows > NR) max_rows = NR
 
   # Calculate variance for each separator
+  if (debug) print "\n ---- common sep variance calcs ----"
   for (s in commonfs) {
     average_nf = commonfs_total[s] / max_rows
     
-    if (debug) print s, "average nf: " average_nf
+    if (debug) {
+      printf "%s", s " average nf: " average_nf
+      if(average_nf>= 2)print ", will calc var";else print "" }
 
     if (average_nf < 2) { continue }
 
@@ -153,50 +156,58 @@ END {
     
     fs_var[s] = sum_var[s] / max_rows
 
-    if (debug) print s, "fs_var: " fs_var[s]
-
-    if ( !winning_fs || fs_var[s] < fs_var[winning_fs] ) {
-      winning_fs = s
-      winners[s] = commonfs[s]
-    }
+    if (debug) print s " fs_var: " fs_var[s] 
 
     if (fs_var[s] == 0) {
       novar[s] = commonfs[s]
-      winning_fs = s
+      winning_s = s
       winners[s] = commonfs[s]
+      if (debug) print "novar winning_s set to commonfs[\""s"\"] = \"" commonfs[s] "\""
+    }
+    else if ( !winning_s || fs_var[s] < fs_var[winning_s] ) {
+      winning_s = s
+      winners[s] = commonfs[s]
+      if (debug) print "winning_s set to commonfs[\""s"\"] = \"" commonfs[s] "\""
     }
   }
 
+  if (debug && length(customfs)) print " ---- custom sep variance calcs ----"
   if (custom) {
     for (s in customfs) {
       average_nf = customfs_total[s] / max_rows
-      
+
+      if (debug) {
+        printf "%s", s " average nf: " average_nf
+        if(average_nf>= 2)print ", will calc var";else print "" }
+
       if (average_nf < 2) { continue }
 
       for (j = 3; j <= max_rows; j++) {
         point_var = (customfs_count[s, j] - average_nf) ** 2
         sum_var[s] += point_var
       }
-      
+
       fs_var[s] = sum_var[s] / max_rows
 
-      if (debug) print s, fs_var[s], average_nf
-      
-      if ( !winning_fs || fs_var[s] < fs_var[winning_fs]) {
-        winning_fs = s
-        winners[s] = s
-      }
+      if (debug) print s, fs_var[s]
 
       if (fs_var[s] == 0) {
         novar[s] = s
-        winning_fs = s
+        winning_s = s
         winners[s] = s
+        if (debug) print "novar winning_s set to customfs \"" s "\""
+      }
+      else if ( !winning_s || fs_var[s] < fs_var[winning_s]) {
+        winning_s = s
+        winners[s] = s
+        if (debug) print "novar winning_s set to customfs \"" s "\""
       }
     }    
   }
   
   # Handle cases of multiple separators with no variance
   if (length(novar) > 1) {
+    if (debug) print ""
     for (s in novar) {
       seen[s] = 1
       for (compare_s in novar) {
@@ -208,47 +219,43 @@ END {
         split(fs1, tmp, "")
         for (i = 1; i <= length(tmp); i++) {
           char = tmp[i]
-          if (char == "\\")
-            fs1re = fs1re "\\" char
-          else
-            fs1re = fs1re char }
+          fs1re = (char == "\\") ? fs1re "\\" char : fs1re char }
         split(fs2, tmp, "")
         for (i = 1; i <= length(tmp); i++) {
           char = tmp[i]
-          if (char == "\\" || char == "\|")
-            fs2re = fs2re "\\" char
-          else
-            fs2re = fs2re char }
+          fs2re = (char == "\\" || char == "\|") ? fs2re "\\" char : fs2re = fs2re char }
 
-        if (debug) print "novar handling case", "s: " s, "fs1: " fs1, "compare_s: " compare_s, "fs2: " fs2, "matches:", fs1 ~ fs2
-        if (debug) print "len winner: " length(winners[s]), "len fs1: " length(fs1), "len fs2 " length(fs2)
+        if (debug) {
+          print " ---- novar handling case ----"
+          print "s: \"" s "\", fs1: \"" fs1 "\""
+          print "compare_s: \""compare_s"\", fs2: \""fs2"\""
+          print "matches:", fs1 ~ fs2
+          print "len winner: "length(winners[s])", len fs1: "length(fs1)", len fs2: "length(fs2)
+        }
 
+        # If one separator with no variance is contained inside another, use the longer one
         if (fs1 ~ fs2re || fs2 ~ fs1re) {
-          # If one separator with no field delineation variance is 
-          # contained inside another, use the longer one
-          if (length(winners[winning_fs]) < length(fs2) \
-            && length(fs1) < length(fs2)) {
-            winning_fs = fs2
-            if (debug) print "s: " s, "winning fs switched to: " compare_s
-          } else if (length(winners[winning_fs]) < length(fs1) \
-            && length(fs1) > length(fs2)) {
-            winning_fs = fs1
-            if (debug) print "compare_s: " compare_s, "winning fs switched to: " s
+          if (length(winners[winning_s]) < length(fs2) && length(fs1) < length(fs2)) {
+            winning_s = compare_s
+            if (debug) print "s: \""s"\", compare_s: \""compare_s"\", winning_s switched to: \""compare_s"\""
+          } else if (length(winners[winning_s]) < length(fs1) && length(fs1) > length(fs2)) {
+            winning_s = s
+            if (debug) print "compare_s: \"" compare_s "\", s: \""s"\", winning_s switched to: \""s"\""
           }
         }
       }
     }
   }
 
-  if (high_certainty) {
-    scaled_var = fs_var[winning_fs] * 10
+  if (high_certainty) { # TODO: add this check in novar comparison
+    scaled_var = fs_var[winning_s] * 10
     scaled_var_frac = scaled_var - int(scaled_var)
     winner_unsure = scaled_var_frac != 0
   }
 
-  if ( ! winning_fs || winner_unsure ) 
+  if ( ! winning_s || winner_unsure ) 
     print commonfs["s"] # Space is default separator
   else
-    print winners[winning_fs]
+    print winners[winning_s]
 }
 

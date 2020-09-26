@@ -272,7 +272,7 @@ ds:fsrc() { # Show the source of a shell function: ds:fsrc func
     fi
     echo "$file"
   fi
-  ds:searchx "$file" "$1"
+  ds:searchx "$file" "$1" q
   rm $tmp
 }
 
@@ -434,13 +434,18 @@ ds:todo() { # List todo items found in current directory
   [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
 }
 
-ds:searchx() { # Search a file for a C-lang style (curly-brace) top-level object
+ds:searchx() { # Search a file for a C-lang style (curly-brace) top-level object: ds:searchx file [search] [q]
   ds:file_check "$1"
-  if [ "$2" ]; then
-    awk -f "$DS_SCRIPT/top_curly.awk" -v search="$2" "$1" | ds:pipe_check
+  if [ "$3" ]; then
+    if [ "$2" ]; then
+      awk -f "$DS_SCRIPT/top_curly.awk" -v search="$2" "$1" && return
+    else
+      awk -f "$DS_SCRIPT/top_curly.awk" "$1" && return; fi
   else
-    awk -f "$DS_SCRIPT/top_curly.awk" "$1" | ds:pipe_check
-  fi
+    if [ "$2" ]; then
+      awk -f "$DS_SCRIPT/top_curly.awk" -v search="$2" "$1" | ds:pipe_check
+    else
+      awk -f "$DS_SCRIPT/top_curly.awk" "$1" | ds:pipe_check; fi; fi
   # TODO: Add variable search
 }
 
@@ -823,7 +828,7 @@ ds:ds() { # ** Generate statistics about text data: ds:ds file [awkargs]
 
 ds:fieldcounts() { # ** Print value counts: ds:fieldcounts [file] [fields=1] [min=1] [order=a] [awkargs] (alias ds:fc)
   if ds:pipe_open; then
-    local file=/tmp/ds_fieldcounts piped=0 
+    local file=$(ds:tmp 'ds_fieldcounts') piped=0 
     cat /dev/stdin > $file
   else 
     ds:file_check "$1"
@@ -832,14 +837,17 @@ ds:fieldcounts() { # ** Print value counts: ds:fieldcounts [file] [fields=1] [mi
   local fields="${1:-a}" min="$2"; [ "$1" ] && shift; [ "$min" ] && shift
   ([ "$min" ] && test "$min" -gt 0 2> /dev/null) || local min=1
   let min=$min-1
-  [ "$1" ] && ([ "$1" = d ] || [ "$1" = desc ]) && local order="r"
+  if [ "$1" ]; then
+    ([ "$1" = d ] || [ "$1" = desc ]) && local order="r"
+    [[ ! "$1" =~ "-" ]] && shift; fi
   [ "$order" ] && shift; local args=( "$@" )
   local dequote=$(ds:tmp "ds_fc_dequote")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
     ds:dequote "$file" "$fs" > $dequote
+    grep -Eq "\[.+\]" <(echo "$fs") && fs=" " 
     awk -v FS='\\\|\\\|' -v OFS="$fs" ${args[@]} -v min="$min" -v fields="$fields" \
-      -v FS="$fs" -f "$DS_SCRIPT/field_counts.awk" $dequote 2> /dev/null | sort -n$order
+      -f "$DS_SCRIPT/field_counts.awk" $dequote 2> /dev/null | sort -n$order
   else
     local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
     if [ "$fs_idx" = "" ]; then
@@ -859,26 +867,21 @@ ds:fieldcounts() { # ** Print value counts: ds:fieldcounts [file] [fields=1] [mi
 }
 alias ds:fc="ds:fieldcounts"
 
-ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [] [newfs=,] [file]
-  local args=( "$@" )
-  let last_arg=${#args[@]}-1
+ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file] [newfs=,] [awkargs]
   if ds:pipe_open; then
-    local file=/tmp/newfs piped=0
+    local file=$(ds:tmp 'newfs') piped=0
     cat /dev/stdin > $file
   else 
-    local file="${args[@]:$last_arg:1}"
-    ds:file_check "$file"
-    let last_arg-=1
-    local args=( ${args[@]/"$file"} )
+    ds:file_check "$1"
+    local file="$1"; shift
   fi
-  [ $last_arg -gt 0 ] && local newfs="${args[@]:$last_arg:1}"
-  local newfs="${newfs:-,}"
-  local dequote=$(ds:tmp "ds_newfs_dequote")
-  local program="{for(i=1;i<NF;i++){printf \"%s\", \$i OFS} print \$NF}"
+  [ "$1" ] && local newfs="$1" && shift
+  local args=( "$@" ) newfs="${newfs:-,}" dequote=$(ds:tmp "ds_newfs_dequote")
+  local program='{for(i=1;i<NF;i++){printf "%s", $i OFS} print $NF}'
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
     ds:dequote "$file" "$fs" > $dequote
-    awk -v FS='\\\|\\\|' -v OFS="$newfs" ${args[@]} $program "$file" 2> /dev/null
+    awk -v FS='\\\|\\\|' -v OFS="$newfs" ${args[@]} $program $dequote 2> /dev/null
   else
     local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
     if [ "$fs_idx" = "" ]; then
@@ -1132,5 +1135,24 @@ ds:dups() { # Report duplicate files with option for deletion
   ds:nset 'fd' && local use_fd="-f"
   [ -d "$1" ] && local dir="$1" || local dir="$PWD"
   bash "$DS_SCRIPT/dup_files.sh" -s "$dir" $use_fd $use_pv
+}
+
+ds:deps() { # Identify the dependencies of a shell function: ds:deps name [filter] [ntype_filter] [calling_func] [data]
+  [ "$1" ] || return 1
+  local tmp=$(ds:tmp 'ds_deps') srch="$2"
+  [ "$3" ] && local scope="$3" || local scope="(FUNC|ALIAS)"
+  [ "$4" ] && local cf="$1"
+  if [ -f "$5" ]; then local ndt="$5"
+  else
+    local ndt=$(ds:tmp 'ds_ndata') rm_dt=0
+    ds:ndata | awk "\$1~\"$scope\"{print \$2}" | sort > $ndt
+  fi
+  if [ $(which "ds:help" | wc -l) -gt 1  ]; then
+    which "$1" | ds:decap > $tmp
+  else
+    ds:fsrc "$1" | ds:decap 2 > $tmp
+  fi
+  awk -v search="$srch" -v calling_func="$cf" -f "$DS_SCRIPT/shell_deps.awk" $tmp $ndt
+  rm $tmp; [ "$rm_dt" ] && rm $ndt
 }
 
