@@ -5,6 +5,8 @@
 #
 # Example sorting with custom FS on field 3 then 2 in descending order:
 # > awk -F||| -f fields_qsort.awk -v k=3,2 -v order=d file
+#
+# TODO: Multikey numeric sort
 
 BEGIN {
   if (k)

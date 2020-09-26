@@ -49,4 +49,4 @@ awk 'FNR == 1 {f++}
 
 ds:reo $tmp "1~^Command,1~^ds:" a | sort -nk3 | ds:fit
 tail $tmp -n4
-#rm $tmp
+rm $tmp

@@ -820,13 +820,13 @@ function debug_print(case, arg) {
     printf "Reorder vals (row):  "
     if (pass_r) print "all"
     else {
-      for (i = 1; i < reo_r_len; i++) printf "%s", ReoR[i] OFS
+      for (i = 1; i < reo_r_len; i++) printf "%s", ReoR[i] ","
       print ReoR[reo_r_count] }
     print_reo_c_count = pass_c ? "all/undefined" : reo_c_count
     print "Reorder count (col): " print_reo_c_count
     printf "Reorder vals (col):  "
     if (pass_c) print "all"
-    else { for (i = 1; i < reo_c_len; i++) printf "%s", ReoC[i] OFS
+    else { for (i = 1; i < reo_c_len; i++) printf "%s", ReoC[i] ","
       print ReoC[reo_c_count] }
     if (max_nr) print "max_nr: " max_nr }
 

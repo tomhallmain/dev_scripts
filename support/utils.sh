@@ -7,7 +7,7 @@ ds:file_check() { # Test for file validity and fail if invalid
 }
 
 ds:noawkfs() { # Test whether awk arg for setting field separator is present
-  [[ ! "${args[@]}" =~ "^\-F" && ! "${args[@]}" =~ "-v FS" && ! "${args[@]}" =~ "-v fs" ]]
+  [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" && ! "${args[@]}" =~ "-v fs" ]]
 }
 
 ds:dequote() { # Transform FS of a file with quoted fields which contain FS into non-clashing FS

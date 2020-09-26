@@ -21,7 +21,7 @@ ds:git_branch     	 Run git branch for all repos (alias ds:gb)
 ds:git_checkout   	 Checkout a branch in the current repo matching a given pattern (alias ds:gco)
 ds:git_cross_view 	 Generate a cross table of git repos vs branches (alias ds:gcv) - set config in scripts/support/lbv.conf
 ds:git_graph      	 Print colorful git history graph (alias ds:gg)
-ds:git_purge_local	 Purge branch name(s) from all local git repos associated (alias ds:gplb)
+ds:git_purge_local	 Purge branch name(s) from all local git repos associated (alias ds:gpl)
 ds:git_push_cur   	 git push origin for current branch (alias ds:gp)
 ds:git_recent     	 Display table of commits sorted by recency descending (alias ds:gr)
 ds:git_recent_all 	 Display table of recent commits for all home dir branches (alias ds:gra)
@@ -33,11 +33,9 @@ ds:gvi            	 Grep for a line in a file/dir and open vim on the first matc
 ds:gwdf           	 Git word diff shortcut
 ds:help           	 Print help for a given command
 ds:idx            	 ** Prints an index attached to data lines from a file or stdin
-ds:inferfs        	 Infer field separator from data: inferfs file [reparse=false] [try_custom=true] [use_file_ext=true]
+ds:inferfs        	 Infer field separator from data: inferfs file [reparse=false] [try_custom=true] [use_file_ext=true] [high_certainty=true]
 ds:inferh         	 Infer if headers are present in a file: ds:inferh [awkargs] file
 ds:inferk         	 ** Infer join fields in two text data files: ds:inferk file [file (can be piped)]
-ds:infsort        	 ** Sort with an inferred field separator of exactly 1 char
-ds:infsortm       	 ** Sort with an inferred field separator of 1 or more character (alias ds:ism)
 ds:insert         	 ** Redirect input into a file at a specified line number or pattern: ds:insert file [lineno|pattern] [sourcefile]
 ds:iter_str       	 Repeat a string some number of times: ds:iter_str str [n=1] [fs]
 ds:jn             	 ** Join two files, or a file and stdin, with any keyset: ds:jn file1 [file2] [jointype] [k] [k2] [awkargs]
@@ -61,12 +59,14 @@ ds:searchx        	 Search a file for a C-lang style (curly-brace) top-level obj
 ds:sedi           	 Linux-portable sed in place substitution: ds:sedi file search_pattern [replacement]
 ds:select         	 ** Select code from a file by regex anchors: ds:select file [startpattern endpattern]
 ds:so             	 Executes Stack Overflow search with args provided
+ds:sort           	 ** Sort with an inferred field separator of exactly 1 char
+ds:sortm          	 ** Sort with an inferred field separator of 1 or more character (alias ds:s): ds:sortm [keys] [order=a|d]
 ds:src            	 Source a piece of file: ds:src file ["searchx" pattern] || [line endline] || [pattern linesafter]
 ds:stag           	 ** Print field-separated data in staggered rows: ds:stag [awkargs] file
 ds:substr         	 ** Extract a substring from a string with regex: ds:substr str [leftanc] [rightanc]
 ds:tmp            	 mktemp -q "/tmp/${filename}"
 ds:todo           	 List todo items found in current directory
-ds:trace          	 Search shell function trace for a pattern: ds:trace "command" [search]
+ds:trace          	 Search shell trace for a pattern: ds:trace ["command"] [search]
 ds:transpose      	 ** Transpose field values of a text-based field-separated file (alias ds:t)
 ds:unicode        	 Get the UTF-8 unicode for a given character
 ds:webpage_title  	 Downloads html from a webpage and extracts the title text

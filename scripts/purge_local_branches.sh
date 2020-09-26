@@ -12,7 +12,8 @@ BLUE="\033[0;34m"
 GREEN="\033[0;32m"
 NC="\033[0m" # No Color
 
-HOME_DIRS=( $(cd ~ ; ls -d */ | sed 's#/##') )
+[ -d "$1" ] && BASE_DIR="$1" || BASE_DIR="$HOME"
+BASE_DIRS=( $(cd $BASE_DIR ; ls -d */ | sed 's#/##') )
 ALL_REPOS=()
 ALL_BRANCHES=()
 UNIQ_BRANCHES=()
@@ -61,7 +62,7 @@ generateFilterString() {
 
 # Find repos and unique branches, set up and sort more variables
 
-for dir in ${HOME_DIRS[@]} ; do
+for dir in ${BASE_DIRS[@]} ; do
   check_dir=$( git -C ${dir} rev-parse 2> /dev/null; echo $? )
   if [ $check_dir = 0 ] ; then ALL_REPOS=( " ${ALL_REPOS[@]} " "${dir}" ) ; fi
 done
