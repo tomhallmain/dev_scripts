@@ -12,7 +12,5 @@ else
   exit 1
 fi
 
-source .commands.sh
-
-bash tests/commands_tests.sh || echo 'Failed bash run'
+#bash tests/commands_tests.sh || echo 'Failed bash run'
 zsh tests/commands_tests.sh || echo 'Failed zsh run'

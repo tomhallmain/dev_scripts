@@ -4,6 +4,7 @@ ds:bash           	 Refresh bash interactive session
 ds:commands       	 List commands in the dev_scripts/.commands.sh file
 ds:cp             	 Copy standard input in UTF-8
 ds:decap          	 ** Remove up to a certain number of lines from the start of a file, default is 1
+ds:deps           	 Identify the dependencies of a shell function: ds:deps name [filter] [ntype_filter] [calling_func] [data]
 ds:dff            	 Diff shortcut for more relevant changes: ds:dff file1 file2 [suppress_common]
 ds:ds             	 ** Generate statistics about text data: ds:ds file [awkargs]
 ds:dup_input      	 ** Duplicate input sent to STDIN in aggregate
@@ -42,7 +43,7 @@ ds:jn             	 ** Join two files, or a file and stdin, with any keyset: ds:
 ds:join_by        	 ** Join a shell array by a text argument provided
 ds:mactounix      	 Converts ^M return characters into simple carriage returns in place
 ds:mini           	 ** Crude minify, remove whitespace including newlines except space
-ds:newfs          	 ** Outputs a file with an updated field separator: ds:newfs [] [newfs=,] [file]
+ds:newfs          	 ** Outputs a file with an updated field separator: ds:newfs [file] [newfs=,] [awkargs]
 ds:nset           	 Test if name (function, alias, variable) is defined in context
 ds:ntype          	 Test name type (function, alias, variable) if defined in context
 ds:path_elements  	 Returns dirname, filename, and extension from a filepath
@@ -55,7 +56,7 @@ ds:rev            	 ** Bash-only solution to reverse lines for processing
 ds:root           	 Returns the root volume / of the system
 ds:sbsp           	 Extend fields to include a common subseparator: ds:sbsp file subsep_pattern [nomatch_handler=space]
 ds:searchn        	 Searches current names for string, returns matches
-ds:searchx        	 Search a file for a C-lang style (curly-brace) top-level object
+ds:searchx        	 Search a file for a C-lang style (curly-brace) top-level object: ds:searchx file [search] [q]
 ds:sedi           	 Linux-portable sed in place substitution: ds:sedi file search_pattern [replacement]
 ds:select         	 ** Select code from a file by regex anchors: ds:select file [startpattern endpattern]
 ds:so             	 Executes Stack Overflow search with args provided

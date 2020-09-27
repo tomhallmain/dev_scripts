@@ -30,13 +30,25 @@ fi
 # BASICS TESTS
 
 [[ $(ds:sh | wc -l) = 1 && $(ds:sh) =~ sh ]] || ds:fail 'sh command failed'
+cmds="tests/commands_output"
+ds:commands > $tmp
+cmp --silent $cmds $tmp || ds:fail 'commands listing failed'
 ds_help_output="Print help for a given command"
 [ "$(ds:help 'ds:help')" = "$ds_help_output" ] || ds:fail 'help command failed'
 ds:nset 'ds:nset' 1> $q || ds:fail 'nset command failed'
 ds:searchn 'ds:searchn' 1> $q || ds:fail 'searchn failed on func search'
 ds:searchn 'test_var' 1> $q || ds:fail 'searchn failed on var search'
 [ "$(ds:ntype 'ds:ntype')" = 'FUNC' ] || ds:fail 'ntype commmand failed'
+# zsh trace output in subshell lists a file descriptor
+if [[ $shell =~ 'zsh' ]]; then
+  ds:trace 'echo test' &>$tmp
+  grep -e "+ds:trace:8> eval 'echo test'" -e "+(eval):1> echo test" $tmp &>/dev/null || ds:fail 'trace command failed'
+elif [[ $shell =~ 'bash' ]]; then
+  trace_expected_bash="++++ echo test\ntest"
+  [ "$(ds:trace 'echo test' 2>/dev/null)" = "$(echo -e "$trace_expected_bash")" ] || ds:fail 'trace command failed'
+fi
 
+# GIT COMMANDS TESTS
 
 [ $(ds:git_recent_all | awk '{print $3}' | wc -l) -gt 2 ] \
   || echo 'git recent all failed, possibly due to no git dirs in home'
@@ -162,7 +174,7 @@ fc_actual="$(ds:fieldcounts tests/company_funding_data.csv a 2)"
 [ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed all field case'
 fc_expected='54,1-Jan-08
 54,1-Oct-07'
-fc_actual="$(ds:fieldcounts tests/company_funding_data.csv 7 20)"
+fc_actual="$(ds:fieldcounts tests/company_funding_data.csv 7 50)"
 [ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed single field case'
 fc_expected='7,450,Palo Alto,facebook'
 fc_actual="$(ds:fieldcounts tests/company_funding_data.csv 3,5,1 6)"
@@ -211,17 +223,11 @@ todo_expected='tests/commands_tests.sh:# TODO: Negative tests'
 [ "$(ds:todo tests | head -n1)" = "$todo_expected" ] || ds:fail 'todo command failed'
 fsrc_expected='support/utils.sh'
 [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$fsrc_expected" ]] || ds:fail 'fsrc command failed'
-trace_expected="+ds:trace:8> eval 'echo test'
-+(eval):1> echo test
-test"
-[ "$(ds:trace 'echo test')" = "$trace_expected" ] || ds:fail 'trace command failed'
-deps_expected=''
-[ "$(ds:deps ds:help)" = "$deps_expected" ] || ds:fail 'deps command failed'
-
-cmds="tests/commands_output"
-ds:commands > $tmp
-cmp --silent $cmds $tmp || ds:fail 'commands listing failed'
-
+help_deps='ds:fail
+ds:reo
+ds:nset
+ds:commands'
+[[ "$(ds:deps ds:help)" = "$help_deps" ]] || ds:fail 'deps command failed'
 
 # CLEANUP
 
