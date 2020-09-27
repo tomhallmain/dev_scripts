@@ -377,7 +377,7 @@ ds:git_recent() { # Display table of commits sorted by recency descending (alias
   if [ "$run_context" = display ]; then
     local format='%(HEAD) %(color:yellow)%(refname:short)||%(color:bold green)%(committerdate:relative)||%(color:blue)%(subject)||%(color:magenta)%(authorname)%(color:reset)'
     git for-each-ref --sort=-committerdate refs/heads \
-      --format="$format" --color=always | ds:fit -F'\\\|\\\|'
+      --format="$format" --color=always | ds:fit -F"$DS_SEP"
   else
     # If not for immediate display, return extra field for further parsing
     local format='%(HEAD) %(color:yellow)%(refname:short)||%(committerdate:short)||%(color:bold green)%(committerdate:relative)||%(color:blue)%(subject)||%(color:magenta)%(authorname)%(color:reset)'
@@ -387,19 +387,19 @@ ds:git_recent() { # Display table of commits sorted by recency descending (alias
 alias ds:gr="ds:git_recent"
 
 ds:git_recent_all() { # Display table of recent commits for all home dir branches (alias ds:gra)
-  local start_dir="$PWD" all_recent=/tmp/ds_git_recent_all
+  local start_dir="$PWD" all_recent=$(ds:tmp 'ds_git_recent_all')
   local w="\033[37;1m" nc="\033[0m"
   cd ~
   echo -e "${w}repo${nc}||${w}branch${nc}||sortfield${nc}||${w}commit time${nc}||${w}commit message${nc}||${w}author${nc}" > $all_recent
   while IFS=$'\n' read -r dir; do
     [ -d "${dir}/.git" ] && (cd "$dir" && \
-      (ds:git_recent parse | awk -v repo="$dir" -F'\\\|\\\|' '
+      (ds:git_recent parse | awk -v repo="$dir" -F"$DS_SEP" '
         {print "\033[34m" repo "\033[0m||", $0}') >> $all_recent )
   done < <(find * -maxdepth 0 -type d)
   echo
-  ds:sortm -v order=d -F'\\\|\\\|' -v k=3 $all_recent \
-    | awk -F'\\\|\\\|' 'BEGIN {OFS="||"} {print $1, $2, $4, $5, $6}' | \
-      (ds:nset 'ds:fit' && ds:fit -F'\\\|\\\|' -v color=never || cat)
+  ds:sortm -v order=d -F"$DS_SEP" -v k=3 $all_recent \
+    | awk -F"$DS_SEP" "BEGIN {OFS=\"$DS_SEP\"} {print \$1, \$2, \$4, \$5, \$6}" \
+    | ds:fit -F"$DS_SEP" -v color=never
   local stts=$?
   echo
   rm $all_recent
@@ -612,7 +612,7 @@ ds:inferh() { # Infer if headers are present in a file: ds:inferh [awkargs] file
   awk -f "$DS_SCRIPT/infer_headers.awk" "${args[@]}" 2> /dev/null
 }
 
-ds:inferk() { # ** Infer join fields in two text data files: ds:inferk file [file (can be piped)]
+ds:inferk() { # ** Infer join fields in two text data files: ds:inferk file [file]
   local args=( "$@" )
   let last_arg=${#args[@]}-1
   if ds:pipe_open; then
@@ -683,7 +683,7 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true true true $hc)"
     ds:dequote "$file" "$fs" > $dequote
-    awk -v FS='\\\|\\\|' -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" -v tty_size=$tty_size\
+    awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" -v tty_size=$tty_size\
       -v buffer="$col_buffer" ${args[@]} $dequote{,} 2> /dev/null
   else
     local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
@@ -697,7 +697,7 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
     fi
     unset "args[$fs_idx]"
     ds:dequote "$file" "$fs" > $dequote
-    awk -v FS='\\\|\\\|' -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" -v tty_size=$tty_size\
+    awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" -v tty_size=$tty_size\
       -v buffer="$col_buffer" ${args[@]} $dequote{,} 2> /dev/null
   fi
   ds:pipe_clean $file; rm $dequote
@@ -741,21 +741,27 @@ ds:idx() { # ** Prints an index attached to data lines from a file or stdin
   ds:pipe_clean $file
 }
 
-ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [awkargs]
+ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [dequote=true] [awkargs]
   if ds:pipe_open; then
-    local rows="${1:-a}" cols="${2:-a}" args=( "${@:3}" )
+    local rows="${1:-a}" cols="${2:-a}" base=4
     local file=$(ds:tmp "ds_reo") piped=0
     cat /dev/stdin > $file
   else
     ds:file_check "$1"
-    local file="$1" rows="${2:-a}" cols="${3:-a}" args=( "${@:4}" )
+    local file="$1" rows="${2:-a}" cols="${3:-a}" base=5
   fi
-  local dequote=$(ds:tmp "ds_reo_dequote")
+  echo "$4" | grep -Eq "(t|true|f|false)" && local dq="$4" || let local base-=1
+  local args=( "${@:$base}" )
+  [ ! "$dq" ] && local dequote=$(ds:tmp "ds_reo_dequote")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    ds:dequote "$file" "$fs" > $dequote
-    awk -v FS='\\\|\\\|' -v OFS="$fs" ${args[@]} -v r="$rows" -v c="$cols" \
-      -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null
+    if [ ! "$dq" ]; then
+      ds:dequote "$file" "$fs" > $dequote
+      awk -v FS="$DS_SEP" -v OFS="$fs" ${args[@]} -v r="$rows" -v c="$cols" \
+        -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null
+    else
+      awk -v FS="$DS_SEP" ${args[@]} -v r="$rows" -v c="$cols" \
+        -f "$DS_SCRIPT/reorder.awk" $file 2>/dev/null; fi
   else
     local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
     if [ "$fs_idx" = "" ]; then
@@ -767,11 +773,15 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [awk
       unset "args[$fsv_idx]"
     fi
     unset "args[$fs_idx]"
-    ds:dequote "$file" "$fs" > $dequote
-    awk ${args[@]} -v FS='\\\|\\\|' -v OFS="$fs" -v r="$rows" -v c="$cols" \
-      -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null
+    if [ ! "$dq" ]; then
+      ds:dequote "$file" "$fs" > $dequote
+      awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v r="$rows" -v c="$cols" \
+        -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null
+    else
+      awk -v FS="$DS_SEP" ${args[@]} -v r="$rows" -v c="$cols" \
+        -f "$DS_SCRIPT/reorder.awk" $file 2>/dev/null; fi
   fi
-  ds:pipe_clean $file; rm $dequote
+  ds:pipe_clean $file; [ ! "$dq" ] && rm $dequote
 }
 
 ds:decap() { # ** Remove up to a certain number of lines from the start of a file, default is 1
@@ -846,7 +856,7 @@ ds:fieldcounts() { # ** Print value counts: ds:fieldcounts [file] [fields=1] [mi
     local fs="$(ds:inferfs "$file" true)"
     ds:dequote "$file" "$fs" > $dequote
     grep -Eq "\[.+\]" <(echo "$fs") && fs=" " 
-    awk -v FS='\\\|\\\|' -v OFS="$fs" ${args[@]} -v min="$min" -v fields="$fields" \
+    awk -v FS="$DS_SEP" -v OFS="$fs" ${args[@]} -v min="$min" -v fields="$fields" \
       -f "$DS_SCRIPT/field_counts.awk" $dequote 2> /dev/null | sort -n$order
   else
     local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
@@ -860,7 +870,7 @@ ds:fieldcounts() { # ** Print value counts: ds:fieldcounts [file] [fields=1] [mi
     fi
     unset "args[$fs_idx]"
     ds:dequote "$file" "$fs" > $dequote
-    awk ${args[@]} -v FS='\\\|\\\|' -v OFS="$fs" -v min="$min" -v fields="$fields" \
+    awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v min="$min" -v fields="$fields" \
       -f "$DS_SCRIPT/field_counts.awk" $dequote 2>/dev/null | sort -n$order
   fi
   ds:pipe_clean $file; rm $dequote
@@ -881,7 +891,7 @@ ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
     ds:dequote "$file" "$fs" > $dequote
-    awk -v FS='\\\|\\\|' -v OFS="$newfs" ${args[@]} $program $dequote 2> /dev/null
+    awk -v FS="$DS_SEP" -v OFS="$newfs" ${args[@]} $program $dequote 2> /dev/null
   else
     local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
     if [ "$fs_idx" = "" ]; then
@@ -894,7 +904,7 @@ ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file
     fi
     unset "args[$fs_idx]"
     ds:dequote "$file" "$fs" > $dequote
-    awk ${args[@]} -v FS='\\\|\\\|' -v OFS="$newfs" $program $dequote 2> /dev/null
+    awk ${args[@]} -v FS="$DS_SEP" -v OFS="$newfs" $program $dequote 2> /dev/null
   fi
   ds:pipe_clean $file; rm $dequote
 }
@@ -1066,6 +1076,7 @@ ds:sedi() { # Linux-portable sed in place substitution: ds:sedi file search_patt
   local file="$1" search="$(printf "%q" "$2")"
   [ "$3" ] && local replace="$(printf "%q" "$3")"
   perl -pi -e "s/${search}/${replace}/g" "$file"
+  # TODO: Fix for forward slash replacement case
 }
 
 ds:dff() { # Diff shortcut for more relevant changes: ds:dff file1 file2 [suppress_common]
@@ -1138,7 +1149,7 @@ ds:dups() { # Report duplicate files with option for deletion
 }
 
 ds:deps() { # Identify the dependencies of a shell function: ds:deps name [filter] [ntype_filter] [calling_func] [data]
-  [ "$1" ] || return 1
+  [ "$1" ] || (ds:help ds:deps && return 1)
   local tmp=$(ds:tmp 'ds_deps') srch="$2"
   [ "$3" ] && local scope="$3" || local scope="(FUNC|ALIAS)"
   [ "$4" ] && local cf="$1"
@@ -1154,5 +1165,31 @@ ds:deps() { # Identify the dependencies of a shell function: ds:deps name [filte
   fi
   awk -v search="$srch" -v calling_func="$cf" -f "$DS_SCRIPT/shell_deps.awk" $tmp $ndt
   rm $tmp; [ "$rm_dt" ] && rm $ndt
+}
+
+ds:gexec() { # Generate a script from pieces of another script and run it: ds:gexec run=false srcfile scriptdir reo_match_patterns [clean] [verbose]
+  [ "$1" ] && local run="$1" && shift || (ds:help ds:gexec && return 1)
+  ds:file_check "$1"
+  [ -d "$2" ] || ds:fail 'second arg must be a directory'
+  [ "$3" ] || ds:fail 'missing required match patterns'
+  local src="$1" scriptdir="$2" r_args="$3" clean="$4"
+  [ "$5" ] && local run_verbose=-x
+  read -r dirpath filename extension <<<$(ds:path_elements "$src")
+  local gscript="$scriptdir/ds_gexec_from_$filename$extension"
+
+  ds:reo $src "$r_args" a false > "$gscript"
+  echo -e "\n\033[0;33mNew file: $gscript\033[0m\n"
+  chmod 777 "$gscript"; cat "$gscript"
+
+  [ "$run" = "true" ] && echo && local conf=$(ds:readp 'Confirm script run (y/n):' | ds:downcase)
+  if [ "$conf" = y ]; then
+    echo -e "\n\033[0;33mRunning file $gscript\033[0m\n"
+    bash $run_verbose "$gscript"; local stts="$?"
+  else
+    echo -e "\n\033[0;33mScript not executed!\033[0m"
+  fi
+
+  [ $clean ] && rm "$gscript" && echo -e "\n\033[0;33mRemoved file $gscript\033[0m"
+  if [ "$stts" ]; then return "$stts"; fi
 }
 

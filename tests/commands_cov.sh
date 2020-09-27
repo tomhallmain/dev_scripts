@@ -3,19 +3,13 @@
 # Stats about test coverage for dev_scripts repo
 
 shell=$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')
-
-if [[ $shell =~ 'bash' ]]; then
-  bsh=0
-  cd "${BASH_SOURCE%/*}/.."
-elif [[ $shell =~ 'zsh' ]]; then
-  cd "$(dirname $0)/.."
+if [[ $shell =~ 'bash' ]]; then cd "${BASH_SOURCE%/*}/.."
+elif [[ $shell =~ 'zsh' ]]; then cd "$(dirname $0)/.."
 else
   echo 'unhandled shell detected - only zsh/bash supported at this time'
   exit 1
 fi
-
 source .commands.sh
-
 tmp=$(ds:tmp 'ds_commands_cov')
 tmp1=$(ds:tmp 'ds_commands_cov1')
 tmpndata=$(ds:tmp 'ds_ndata')
@@ -26,6 +20,7 @@ util_funcs=$(grep -ho '[[:alnum:]_:]*()' "$DS_SUPPORT/utils.sh" \
   | sed 's/^  function //' | sed 's/()//' | sort)
 test_funcs=$(grep -Eho 'ds:[a-z_]+' tests/commands_tests.sh | sort)
 test_funcs="$test_funcs\n$(grep -Eho 'ds:[a-z_]+' tests/commands_cov.sh | sort)"
+test_funcs="$test_funcs\n$(grep -Eho 'ds:[a-z_]+' tests/commands_variants.sh | sort)"
 
 awk 'FNR == 1 {f++}
   f == 1 { Funcs[$0]++ }

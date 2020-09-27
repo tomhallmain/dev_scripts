@@ -36,7 +36,7 @@ ds:help           	 Print help for a given command
 ds:idx            	 ** Prints an index attached to data lines from a file or stdin
 ds:inferfs        	 Infer field separator from data: inferfs file [reparse=false] [try_custom=true] [use_file_ext=true] [high_certainty=true]
 ds:inferh         	 Infer if headers are present in a file: ds:inferh [awkargs] file
-ds:inferk         	 ** Infer join fields in two text data files: ds:inferk file [file (can be piped)]
+ds:inferk         	 ** Infer join fields in two text data files: ds:inferk file [file]
 ds:insert         	 ** Redirect input into a file at a specified line number or pattern: ds:insert file [lineno|pattern] [sourcefile]
 ds:iter_str       	 Repeat a string some number of times: ds:iter_str str [n=1] [fs]
 ds:jn             	 ** Join two files, or a file and stdin, with any keyset: ds:jn file1 [file2] [jointype] [k] [k2] [awkargs]

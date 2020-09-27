@@ -1,27 +1,25 @@
 #!/bin/bash
 # This test script should produce no output if test run is successful
-# TODO: Negative tests
+# TODO: Negative tests, Git tests
 
 test_var=1
 tmp=/tmp/commands_tests
 q=/dev/null
 shell=$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')
+jnf1="tests/infer_join_fields_test1.csv"
+jnf2="tests/infer_join_fields_test2.csv"
+seps_base="tests/seps_test_base"
+
 
 if [[ $shell =~ 'bash' ]]; then
   bsh=0
-  cd "${BASH_SOURCE%/*}/.."
-  source .commands.sh
-  $(ds:fail 'testfail' &> $tmp)
-  testfail=$(cat $tmp)
+  cd "${BASH_SOURCE%/*}/.."; source .commands.sh
+  $(ds:fail 'testfail' &> $tmp); testfail=$(cat $tmp)
   [[ $testfail =~ '_err_: testfail' ]] || echo 'fail command failed in bash case'
 elif [[ $shell =~ 'zsh' ]]; then
-  cd "$(dirname $0)/.."
-  source .commands.sh
-  $(ds:fail 'testfail' &> $tmp)
-  testfail=$(cat $tmp)
+  cd "$(dirname $0)/.."; source .commands.sh
+  $(ds:fail 'testfail' &> $tmp); testfail=$(cat $tmp)
   [[ $testfail =~ '_err_: Operation intentionally failed' ]] || echo 'fail command failed in zsh case'
-elif [[ $shell =~ 'ksh' ]]; then
-  echo lets see what happens here..
 else
   echo 'unhandled shell detected - only zsh/bash supported at this time'
   exit 1
@@ -55,10 +53,6 @@ fi
 
 
 # JN, PC, PM, IFS TESTS
-
-jnf1="tests/infer_join_fields_test1.csv"
-jnf2="tests/infer_join_fields_test2.csv"
-seps_base="tests/seps_test_base"
 
 [ "$(ds:inferfs $jnf1)" = ',' ] || ds:fail 'inferfs failed extension case'
 [ "$(ds:inferfs $seps_base)" = '\&\%\#' ] || ds:fail 'inferfs failed custom separator case'
@@ -219,7 +213,7 @@ mini_output="1;2;3;4;5;6;7;8;9;10"
 [ "$(cat $tmp | ds:mini)" = "$mini_output" ] || ds:fail 'mini command failed'
 [ "$(ds:unicode "cats😼😻")" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed'
 [ "$(ds:webpage_title https://www.google.com)" = Google ] || ds:fail 'webpage title command failed or internet is out'
-todo_expected='tests/commands_tests.sh:# TODO: Negative tests'
+todo_expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 [ "$(ds:todo tests | head -n1)" = "$todo_expected" ] || ds:fail 'todo command failed'
 fsrc_expected='support/utils.sh'
 [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$fsrc_expected" ]] || ds:fail 'fsrc command failed'

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+DS_SEP=$'@@@'
 
 ds:file_check() { # Test for file validity and fail if invalid
   local testfile="$1"
@@ -14,7 +15,7 @@ ds:dequote() { # Transform FS of a file with quoted fields which contain FS into
   ds:file_check "$1"
   local file="$1" fs="$2"
   if [[ ! "${args[@]}" =~ "-v OFS" && ! "${args[@]}" =~ "-v ofs" ]]; then
-    awk -v OFS="||" -v FS="$fs" ${args[@]} -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
+    awk -v OFS="$DS_SEP" -v FS="$fs" ${args[@]} -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
   else
     awk -v FS="$fs" ${args[@]} -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
   fi
@@ -247,4 +248,9 @@ ds:termcolors() { # Check terminal colors
     printf '\e[0m';
     [ ! $((($i - 15) % 6)) -eq 0 ] && printf ' ' || printf '\n'
   done
+}
+
+ds:ascii() { # List characters in ASCII code point range
+  ds:is_int "$1" && ds:is_int "$2" || ds:fail 'Code point endpoint args must be integers'
+  for i in $(seq $1 $2); do printf "%s " $i; printf -v n "%x" $i; echo "\U$n"; done
 }

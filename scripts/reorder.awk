@@ -21,6 +21,9 @@
 # Reorder/repeat, duplicate as many times as desired:
 # > awk -f reorder.awk -v r=3,3,5,1 -v c=4..1,1,3,5
 #
+# Reverse rows and/or columns:
+# > awk -f reorder.awk -v r=r -v c=r
+#
 # Index numbers evaluating to expression (if no comparison specified, compares 
 # if expression equal to zero):
 # > awk -f reorder.awk -v r="NR%2,NR%2=1" -v c="NF<10"
@@ -32,7 +35,7 @@
 # -- Using basic math expressions, across the entire opposite span:
 # > awk -f reorder.awk -v r="=1,<1" -v c="/5<10"
 #          Rows with field val =1 ^     ^ Columns with field vals less
-#       Followed by rows with val <1      than 10 when divided by 5
+#      Followed by rows with val <1       than 10 when divided by 5
 #
 # -- Using basic math expressions, across given span:
 # > awk -f reorder.awk      -v r="1,8<0" -v c="6!=10"
@@ -68,11 +71,12 @@
 #      europe in any case                      'Plant' exactly
 #
 # TODO: and/or extended logic
-# TODO: reverse, other basic sorts
-# TODO: mechanism for 'all the others, unspecified' (records or fields -
-#   reverse all operations and add to end of order list
 # TODO: option (or default?) for preserving original order
+# TODO: basic sorts
 # TODO: string equality / sorting
+# TODO: reverse from a particular point (for example, keep header)
+# TODO: Index number output
+# TODO: Pattern anchors /pattern/../pattern/
 
 
 # SETUP
@@ -87,18 +91,27 @@ BEGIN {
 
   if (debug) debug_print(-1)
   if (r) {
-    split(r, r_order, Re["ordsep"])
-    r_len = length(r_order)
+    split(r, ROrder, Re["ordsep"])
+    r_len = length(ROrder)
 
     for (i = 1; i <= r_len; i++) {
-      r_i = r_order[i]
+      r_i = ROrder[i]
       if (!r_i) continue
 
       token = r_i ~ Re["alltokens"] ? TokenPrecedence(r_i) : ""
       if (debug) debug_print(1)
 
       if (!token) {
-        # Add reverse/sort cases here
+        if ("reverse" ~ "^"tolower(r_i)) {
+          r_i = "rev"
+          base_r = 0; reo = 1; rev = 1; rev_r = 1
+          reo_r_count = FillReoArr(1, r_i, R, reo_r_count, ReoR, "rev")
+          continue }
+        if ("others" ~ "^"tolower(r_i)) {
+          r_i = "oth"
+          base_r = 0; reo = 1; oth = 1; oth_r = 1
+          reo_r_count = FillReoArr(1, r_i, R, reo_r_count, ReoR, "oth")
+          continue }
         if (!(r_i ~ Re["int"])) continue
         reo_r_count = FillReoArr(1, r_i, R, reo_r_count, ReoR)
         if (!reo && r_i > max_r_i)
@@ -136,20 +149,29 @@ BEGIN {
   if (!reo_r_count) pass_r = 1
 
   if (c) {
-    split(c, c_order, Re["ordsep"])
-    c_len = length(c_order)
+    split(c, COrder, Re["ordsep"])
+    c_len = length(COrder)
 
     for (i = 1; i <= c_len; i++) {
-      c_i = c_order[i]
+      c_i = COrder[i]
       if (!c_i) {
         print "Skipping unparsable 0 col arg"
-        delete c_order[i] }
+        delete COrder[i] }
 
       token = c_i ~ Re["alltokens"] ? TokenPrecedence(c_i) : ""
       if (debug) debug_print(1.5)
 
       if (!token) {
-        # Add reverse/sort cases here
+        if ("reverse" ~ tolower(c_i)) {
+          c_i = "rev"
+          base_c = 0; reo = 1; rev = 1; rev_c = 1
+          reo_c_count = FillReoArr(0, c_i, C, reo_c_count, ReoC, "rev")
+          continue }
+        if ("others" ~ "^"tolower(c_i)) {
+          c_i = "oth"
+          base_c = 0; reo = 1; oth = 1; oth_c = 1
+          reo_c_count = FillReoArr(0, c_i, C, reo_c_count, ReoC, "oth")
+          continue }
         if (!(c_i ~ Re["int"])) continue
         reo_c_count = FillReoArr(0, c_i, RangeC, reo_c_count, ReoC)
         if (!reo && c_i > max_c_i)
@@ -157,7 +179,7 @@ BEGIN {
         else {
           reo = 1; base_c = 0 }}
       else {
-        delete c_order[i]
+        delete COrder[i]
         max_c_i = TestArg(c_i, max_c_i, token)
         base_c = 0
         if (ignore_case_global || IgnoreCase[c_i]) {
@@ -189,12 +211,11 @@ BEGIN {
     indx = 1
   else if (!range && !reo)
     base = 1
-  else if (reo && !mat && !re)
+  else if (reo && !mat && !re && !rev && !oth)
     base_reo = 1
 
-  if (mat && ARGV[1]) {
-    "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0 }
-  if (!(FS=="\\|\\|")) OFS = BuildOFSFromUnescapedFS()
+  if (ARGV[1]) { "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0 }
+  if (!(FS == "@@@")) OFS = BuildOFSFromUnescapedFS()
   if (OFS ~ "\[:space:\]") OFS = " "
   reo_r_len = length(ReoR)
   reo_c_len = length(ReoC)
@@ -207,12 +228,11 @@ BEGIN {
 
 indx { if (NR == r) { print $c; exit } next }
 
-base { if (pass_r || NR in R) FieldsPrint(c_order, c_len, 1); next }
+base { if (pass_r || NR in R) FieldsPrint(COrder, c_len, 1); next }
 
 range && !reo { if (pass_r || NR in R) FieldsPrint(ReoC, reo_c_len, 1); next }
 
 reo {
-  if (NF > max_nf) max_nf = NF
   if (pass_r) {
     if (base_reo) FieldsPrint(ReoC, reo_c_len, 1)
     else {
@@ -222,11 +242,15 @@ reo {
     row_os = 1
     if (NR in R) {
       StoreRow(_)
-      if (base_reo) next }
+      if (base_reo) {
+        if (NF > max_nf) max_nf = NF
+        next }}
 
     if (row_os) StoreRow(_)
     if (!base_c) StoreFieldRefs()
     if (!base_r) StoreRowRefs() }
+
+  if (NF > max_nf) max_nf = NF
 
   next
 }
@@ -240,11 +264,16 @@ pass { FieldsPrint($0, 0, 1) }
 END {
   if (debug) debug_print(4) 
   if (err || !reo || (base_reo && pass_r)) exit err
+  if (oth) {
+    if (debug) debug_print(10)
+    if (oth_c) remaining_fo = GenRemainder(0, ReoC, max_nf)
+    if (oth_r) remaining_ro = GenRemainder(1, ReoR, NR) }
+
   if (debug) {
     (!pass_c) debug_print(6)
     debug_print(8) }
 
-  if (!pass_c && !q && max_nf < min_guar_print_nf) {
+  if (!pass_c && !q && !rev_c && max_nf < min_guar_print_nf) {
     will_print = 0
     for (expr in ExprFO) {
       if (ExprFO[expr]) { will_print = 1; break }}
@@ -254,7 +283,7 @@ END {
       print "No matches found"
       exit 1 }}
 
-  if (!pass_r && !q && NR < min_guar_print_nr) {
+  if (!pass_r && !q && !rev_r && NR < min_guar_print_nr) {
     will_print = 0
     for (expr in ExprRO) {
       if (ExprRO[expr]) { will_print = 1; break }}  
@@ -265,37 +294,37 @@ END {
       exit 1 }}
 
   if (pass_r) {
-    for (i = 1; i <= length(_); i++) {
-      for (j = 1; j <= reo_c_len; j++) {
-        c_key = ReoC[j]
-        row = _[i]
+    for (rr = 1; rr <= length(_); rr++) {
+      for (rc = 1; rc <= reo_c_len; rc++) {
+        c_key = ReoC[rc]
+        row = _[rr]
         split(row, Row, FS)
         if (c_key ~ Re["int"])
-          print_field(Row[c_key], j, reo_c_len)
+          print_field(Row[c_key], rc, reo_c_len)
         else {
-          if (j!=1) printf "%s", OFS
-          Reo(c_key, Row, 0) }}
+          Reo(c_key, Row, 0)
+          if (rc!=reo_c_len) printf "%s", OFS }}
 
       print "" }
 
     exit }
 
-  for (i = 1; i <= length(ReoR); i++) {
-    r_key = ReoR[i]
+  for (rr = 1; rr <= length(ReoR); rr++) {
+    r_key = ReoR[rr]
     if (pass_c && base_reo) FieldsPrint(_[r_key])
     else {
       if (r_key ~ Re["int"]) {
         if (pass_c) FieldsPrint(_[r_key])
         else {
-          for (j = 1; j <= reo_c_len; j++) {
-            c_key = ReoC[j]
+          for (rc = 1; rc <= reo_c_len; rc++) {
+            c_key = ReoC[rc]
             row = _[r_key]
             split(row, Row, FS)
             if (c_key ~ Re["int"])
-              print_field(Row[c_key], j, reo_c_len)
+              print_field(Row[c_key], rc, reo_c_len)
             else {
-              if (j!=1) printf "%s", OFS
-              Reo(c_key, Row, 0) }}
+              Reo(c_key, Row, 0)
+              if (rc!=reo_c_len) printf "%s", OFS }}
 
           print "" }}
       else Reo(r_key, _, 1)
@@ -306,35 +335,30 @@ END {
 
 # FUNCTIONS
 
-function Reo(key, CrossSpan, reo_row_call) {
-  type = TypeMap[key]
-  if (type == "re") search = key
-  else if (type == "mat") expr = key 
-
-  if (reo_row_call) {
-    if (type == "re") rows = SearchRO[search]
-    else if (type == "mat") rows = ExprRO[expr]
+function Reo(key, CrossSpan, row_call) {
+  if (row_call) {
+    rows = GetOrder(1, key)
 
     split(rows, PrintRows, ",")
     len_printr = length(PrintRows) - 1
-    for (r = 1; r <= len_printr; r++) {
-      if (pass_c) FieldsPrint(CrossSpan[PrintRows[r]])
+    for (pr = 1; pr <= len_printr; pr++) {
+      pr_key = PrintRows[pr]
+      if (pass_c) FieldsPrint(CrossSpan[pr_key])
       else {
-        for (j = 1; j <= reo_c_len; j++) {
-          c_key = ReoC[j]
-          row = CrossSpan[PrintRows[r]]
+        for (rc = 1; rc <= reo_c_len; rc++) {
+          c_key = ReoC[rc]
+          row = CrossSpan[pr_key]
           split(row, Row, FS)
           if (c_key ~ Re["int"])
-            print_field(Row[c_key], j, reo_c_len)
+            print_field(Row[c_key], rc, reo_c_len)
           else {
-            if (j!=1) printf "%s", OFS
-            Reo(c_key, Row, 0) }}
+            Reo(c_key, Row, 0)
+            if (rc!=reo_c_len) printf "%s", OFS }}
 
         print "" }}}
 
   else {
-    if (type == "re") fields = SearchFO[search]
-    else if (type == "mat") fields = ExprFO[expr]
+    fields = GetOrder(0, key)
 
     split(fields, PrintFields, ",")
     len_printf = length(PrintFields) - 1
@@ -381,8 +405,8 @@ function FillRange(row_call, range_arg, RangeArr, reo_count, ReoArr) {
 }
 
 function FillReoArr(row_call, val, KeyArr, count, ReoArray, type) {
-  KeyArr[val] = 1
   count++
+  KeyArr[val] = 1
   ReoArray[count] = val
   if (type)
     TypeMap[val] = type
@@ -494,6 +518,9 @@ function StoreFieldRefs() {
         if (EvalCompExpr(eval, compval, comp))
             ExprFO[expr] = ExprFO[expr] f","
       }}}
+
+  if (rev_c) {
+    for (f = max_nf + 1; f <= NF; f++) rev_fo = f"," rev_fo }
 }
 
 function StoreRowRefs() {
@@ -615,6 +642,8 @@ function StoreRowRefs() {
           else
             ExprRO[expr] = ExprRO[expr] NR","
         }}}}
+
+  if (rev_r) rev_ro = NR"," rev_ro
 }
 
 function ResolveRowFilterFrame(frame) {
@@ -634,6 +663,77 @@ function ResolveRowFilterFrame(frame) {
       if (fr_type == "re") SearchRO[frame] = SearchRO[frame] row","
       else if (fr_type == "mat" ) ExprRO[frame] = ExprRO[frame] row"," }}
   FrameSet[frame] = 1
+}
+
+function ResolveFilterExtensions(RLogic, c) {
+
+}
+
+function Sort(Arr, order) {
+  if (!order || order == "asc") {
+
+  }
+  else
+}
+
+function qsorta(A,lft,rght,    x,last) {
+  if (lft >= rght) return
+
+  swap(A, lft, lft + int((rght-lft+1)*rand()))
+  last = lft
+
+  for (x = lft+1; x <= rght; x++)
+    if (A[x] < A[lft])
+      swap(A, ++last, x)
+
+  swap(A, left, last)
+  qsorta(A, left, last-1)
+  qsorta(A, last+1, right)
+}
+function qsortd(A,lft,rght,    x,last) {
+  if (lft >= rght) return
+
+  swap(A, lft, lft + int((rght-lft+1)*rand()))
+  last = lft
+
+  for (x = lft+1; x <= rght; x++)
+    if (A[x] > A[lft])
+      swap(A, ++last, x)
+
+  swap(A, lft, last)
+  qsortd(A, lft, last-1)
+  qsortd(A, last+1, rght)
+}
+function swap(A,B,x,y,z) {
+  z = A[x]; A[x] = A[y]; A[y] = z
+  z = B[x]; B[x] = B[y]; B[y] = z
+}
+
+function GenRemainder(row_call, ReoArr, max_val) {
+  all_reo = ""; rem_idx = ""
+  for (i in ReoArr)
+    all_reo = all_reo GetOrder(row_call, ReoArr[i])
+
+  for (i = 1; i <= max_val; i++)
+    if (!Indexed(all_reo, i)) rem_idx = rem_idx i","
+
+  if (debug) debug_print(11)
+  return rem_idx
+}
+
+function GetOrder(row_call, key) {
+  if (key ~ Re["int"]) return key","
+  type = TypeMap[key]
+  if (row_call) {
+    if (type == "rev") return rev_ro
+    else if (type == "oth") return remaining_ro
+    else if (type == "re") return SearchRO[key]
+    else if (type == "mat") return ExprRO[key] }
+  else {
+    if (type == "rev") return rev_fo
+    else if (type == "oth") return remaining_fo
+    else if (type == "re") return SearchFO[key]
+    else if (type == "mat") return ExprFO[key] }
 }
 
 function TokenPrecedence(arg) {
@@ -723,6 +823,7 @@ function BuildRe(Re) {
   Re["comp"] = "(<|>|!?=)"
   Re["alltokens"] = "[(\\.\\.)\\~\\+\\-\\*\\/%\\^<>(!=)=\\[]"
   Re["ws"] = "^[:space:]+$"
+  Re["inter"] = "(&&|\\|\\|)"
 }
 
 function BuildTokenMap(TkMap) {
@@ -831,11 +932,11 @@ function debug_print(case, arg) {
     if (max_nr) print "max_nr: " max_nr }
 
   else if (case == 1) {
-    print "i: "i, " r_i: "r_i, " r_len: "r_len, " token: "token }
+    print "i: "i ", r_i: "r_i ", r_len: "r_len ", token: "token }
   else if (case == 1.5) {
-    print "i: "i, " c_i: "c_i, " c_len: "c_len, " token: "token }
+    print "i: "i ", c_i: "c_i ", c_len: "c_len ", token: "token }
   else if (case == 2) {
-    print "FillRange start: " start, " end: " end }
+    print "FillRange start: " start ", end: " end }
   else if (case == 3) {
     print arg, tk, tk_loc }
   else if (case == 4) {
@@ -844,7 +945,11 @@ function debug_print(case, arg) {
     if (base) print "base case"
     else if (base_r) print "base row case"
     else if (base_c) print "base column case"
+    if (num) print "line number case"
     if (reo) print "reorder case"
+    if (rev) print "reverse case"
+    if (sort) print "sort case"
+    if (oth) print "remainder case"
     if (base_reo) print "base reorder case"
     if (range) print "range case"
     if (mat) print "expression case"
@@ -853,7 +958,7 @@ function debug_print(case, arg) {
     if (fr_ext) print "frame extended case" }
 
   else if (case == 5) {
-    print "NR: "NR, " f: "f, " anchor: "anchor, " apply to: "base_expr, " evals to: "eval, " compare: "comp, compval }
+    print "NR: "NR ", f: "f ", anchor: "anchor ", apply to: "base_expr ", evals to: "eval ", compare: "comp, compval }
   else if (case == 6) {
     if (length(RRExprs)) { print "------------- RRExprs --------------"
       for (ex in RRExprs) print ex " " ExprRO[ex] }
@@ -868,5 +973,9 @@ function debug_print(case, arg) {
   else if (case == 8) {
     print "------------- OUTPUT ---------------" }
   else if (case == 9) {
-    print "NR: "NR, " f: "f, " search: "search, " base search: "base_search, " startf: "start, " endf: "end, " fieldval: "field }
+    print "NR: "NR ", f: "f ", search: "search ", base search: "base_search ", startf: "start ", endf: "end ", fieldval: "field }
+  else if (case == 10) {
+    print "----------- REMAINDERS ------------" }
+  else if (case == 11) {
+    print "all_reo: " all_reo " rem_idx: " rem_idx }
 }
