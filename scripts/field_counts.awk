@@ -26,7 +26,10 @@ END {
   for (i in _) {
     if (_[i] > min) {
       printf "%s", _[i] OFS
-      split(i, Vals, fsre)
-      for (j = 1; j < len_f; j++)
-        printf "%s", Vals[j] OFS
-      print Vals[len_f] }}}
+      if (!Fields[1])
+        print i
+      else {
+        split(i, Vals, fsre)
+        for (j = 1; j < len_f; j++)
+          printf "%s", Vals[j] OFS
+        print Vals[len_f] }}}}

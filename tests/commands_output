@@ -16,6 +16,7 @@ ds:fieldcounts    	 ** Print value counts: ds:fieldcounts [file] [fields=1] [min
 ds:filename_str   	 Adds a string to the beginning or end of a filename
 ds:fit            	 ** Print field-separated data in columns with dynamic width: ds:fit [awkargs] file
 ds:fsrc           	 Show the source of a shell function: ds:fsrc func
+ds:gexec          	 Generate a script from pieces of another script and run it: ds:gexec run=false srcfile scriptdir reo_match_patterns [clean] [verbose]
 ds:git_add_all    	 Add all untracked git files (alias ds:ga)
 ds:git_add_com_push	 Add all untracked files, commit with message, push current branch (alias ds:gacmp)
 ds:git_branch     	 Run git branch for all repos (alias ds:gb)
@@ -51,7 +52,7 @@ ds:pipe_check     	 ** Detect if pipe has any data, or over a certain number of 
 ds:print_comps    	 ** Print non-matching lines on given field numbers in two files (alias ds:pc)
 ds:print_matches  	 ** Print duplicate lines on given field numbers in two files (alias ds:pm)
 ds:recent         	 ls files modified last 7 days: ds:recent [custom_dir] [recurse=r] [hidden=h]
-ds:reo            	 ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [awkargs]
+ds:reo            	 ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [dequote=true] [awkargs]
 ds:rev            	 ** Bash-only solution to reverse lines for processing
 ds:root           	 Returns the root volume / of the system
 ds:sbsp           	 Extend fields to include a common subseparator: ds:sbsp file subsep_pattern [nomatch_handler=space]

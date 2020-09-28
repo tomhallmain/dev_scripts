@@ -63,6 +63,10 @@
 #
 # Note the above args are equivalent to r="1~Alps" c="1~Plant"
 #
+# Combine filters using && and || for more selective or expansive queries (||
+# is calculated first):
+# > awk -f reorder.awk -v r="[plant~flower||[plant~tree&&[country~italy" -v c="a"
+#
 # Case is ignored globally by default in regex searches. To enable cased
 # matshing set variable cased to any value. To search a case insensitive value
 # while cased is set, append "/i" to the end of the pattern:
@@ -77,134 +81,35 @@
 # TODO: reverse from a particular point (for example, keep header)
 # TODO: Index number output
 # TODO: Pattern anchors /pattern/../pattern/
-
+# TODO: Remove frame print if already indexed, and don't print if no match (?)
 
 # SETUP
 
 BEGIN {
   BuildRe(Re); BuildTokens(Tk); BuildTokenMap(TkMap)
-  assume_constant_fields = 0
-  base_r = 1; base_c = 1
-  min_guar_print_nf = 1000
-  min_guar_print_nr = 100000000
+  assume_constant_fields = 0; base_r = 1; base_c = 1
+  min_guar_print_nf = 1000; min_guar_print_nr = 100000000
   if (!cased) ignore_case_global = 1
 
   if (debug) debug_print(-1)
   if (r) {
-    split(r, ROrder, Re["ordsep"])
-    r_len = length(ROrder)
-
-    for (i = 1; i <= r_len; i++) {
-      r_i = ROrder[i]
-      if (!r_i) continue
-
-      token = r_i ~ Re["alltokens"] ? TokenPrecedence(r_i) : ""
-      if (debug) debug_print(1)
-
-      if (!token) {
-        if ("reverse" ~ "^"tolower(r_i)) {
-          r_i = "rev"
-          base_r = 0; reo = 1; rev = 1; rev_r = 1
-          reo_r_count = FillReoArr(1, r_i, R, reo_r_count, ReoR, "rev")
-          continue }
-        if ("others" ~ "^"tolower(r_i)) {
-          r_i = "oth"
-          base_r = 0; reo = 1; oth = 1; oth_r = 1
-          reo_r_count = FillReoArr(1, r_i, R, reo_r_count, ReoR, "oth")
-          continue }
-        if (!(r_i ~ Re["int"])) continue
-        reo_r_count = FillReoArr(1, r_i, R, reo_r_count, ReoR)
-        if (!reo && r_i > max_r_i)
-          max_r_i = r_i
-        else
-          reo = 1 }
-      else {
-        max_r_i = TestArg(r_i, max_r_i, token)
-        base_r = 0
-        if (ignore_case_global || IgnoreCase[r_i]) {
-          delete IgnoreCase[r_i]
-          r_i = tolower(r_i); gsub("/i", "", r_i)
-          IgnoreCase[r_i] = 1 }
-
-        if (token == "rng")
-          reo_r_count = FillRange(1, r_i, R, reo_r_count, ReoR)
-        else {
-          if (token == "mat")
-            reo_r_count = FillReoArr(1, r_i, RRExprs, reo_r_count, ReoR, token)
-          else if (token == "re")
-            reo_r_count = FillReoArr(1, r_i, RRSearches, reo_r_count, ReoR, token)
-          else if (token == "fr") {
-            RRFrames[r_i] = 1
-            if (fr_ext) row_fr_ext = 1
-            if (fr == "mat")
-              reo_r_count = FillReoArr(1, r_i, RRExprs, reo_r_count, ReoR, fr)
-            else if (fr == "re" && fr_idx)
-              reo_r_count = FillReoArr(1, r_i, RRIdxSearches, reo_r_count, ReoR, fr)
-            else if (fr == "re")
-              reo_r_count = FillReoArr(1, r_i, RRSearches, reo_r_count, ReoR, fr)
-          }
-        }}}}
+    Setup(1, r, reo_r_count, R, RangeR, ReoR, base_r, rev_r, oth_r, RRExprs, RRSearches, RRIdxSearches, RRFrames, RExtensions)
+    r_len = SetupVars["len"]
+    reo_r_count = SetupVars["count"]
+    base_r = SetupVars["base_status"]
+    rev_r = SetupVars["rev"]
+    oth_r = SetupVars["oth"] }
   else { pass_r = 1 }
-
   if (!reo_r_count) pass_r = 1
 
   if (c) {
-    split(c, COrder, Re["ordsep"])
-    c_len = length(COrder)
-
-    for (i = 1; i <= c_len; i++) {
-      c_i = COrder[i]
-      if (!c_i) {
-        print "Skipping unparsable 0 col arg"
-        delete COrder[i] }
-
-      token = c_i ~ Re["alltokens"] ? TokenPrecedence(c_i) : ""
-      if (debug) debug_print(1.5)
-
-      if (!token) {
-        if ("reverse" ~ tolower(c_i)) {
-          c_i = "rev"
-          base_c = 0; reo = 1; rev = 1; rev_c = 1
-          reo_c_count = FillReoArr(0, c_i, C, reo_c_count, ReoC, "rev")
-          continue }
-        if ("others" ~ "^"tolower(c_i)) {
-          c_i = "oth"
-          base_c = 0; reo = 1; oth = 1; oth_c = 1
-          reo_c_count = FillReoArr(0, c_i, C, reo_c_count, ReoC, "oth")
-          continue }
-        if (!(c_i ~ Re["int"])) continue
-        reo_c_count = FillReoArr(0, c_i, RangeC, reo_c_count, ReoC)
-        if (!reo && c_i > max_c_i)
-          max_c_i = c_i
-        else {
-          reo = 1; base_c = 0 }}
-      else {
-        delete COrder[i]
-        max_c_i = TestArg(c_i, max_c_i, token)
-        base_c = 0
-        if (ignore_case_global || IgnoreCase[c_i]) {
-          delete IgnoreCase[c_i]
-          c_i = tolower(c_i); gsub("/i", "", c_i) 
-          IgnoreCase[c_i] = 1 }
-
-        if (token == "rng")
-          reo_c_count = FillRange(0, c_i, C, reo_c_count, ReoC)
-        else {
-          if (token == "mat")
-            reo_c_count = FillReoArr(0, c_i, RCExprs, reo_c_count, ReoC, token)
-          else if (token == "re")
-            reo_c_count = FillReoArr(0, c_i, RCSearches, reo_c_count, ReoC, token)
-          else if (token == "fr") {
-            RCFrames[c_i] = 1
-            if (fr == "mat")
-              reo_c_count = FillReoArr(0, c_i, RCExprs, reo_c_count, ReoC, fr)
-            else if (fr == "re" && fr_idx)
-              reo_c_count = FillReoArr(0, c_i, RCIdxSearches, reo_c_count, ReoC, fr)
-            else if (fr == "re")
-              reo_c_count = FillReoArr(0, c_i, RCSearches, reo_c_count, ReoC, fr)
-          }}}}}
+    Setup(0, c, reo_c_count, C, RangeC, ReoC, base_c, rev_c, oth_c, RCExprs, RCSearches, RCIdxSearches, RCFrames, CExtensions)
+    c_len = SetupVars["len"]
+    reo_c_count = SetupVars["count"]
+    base_c = SetupVars["base_status"]
+    rev_c = SetupVars["rev"]
+    oth_c = SetupVars["oth"] }
   else { pass_c = 1 }
-
   if (!reo_c_count) pass_c = 1
   if (pass_r && pass_c) pass = 1
   if (r_len == 1 && c_len == 1 && !pass_r && !pass_c && !range && !reo)
@@ -268,35 +173,24 @@ END {
     if (debug) debug_print(10)
     if (oth_c) remaining_fo = GenRemainder(0, ReoC, max_nf)
     if (oth_r) remaining_ro = GenRemainder(1, ReoR, NR) }
-
+  if (ext) {
+    ResolveFilterExtensions(0, CExtensions, ReoC, ExtFO, max_nf)
+    ResolveFilterExtensions(1, RExtensions, ReoR, ExtRO, NR)
+    if (debug) debug_print(12) }
   if (debug) {
     (!pass_c) debug_print(6)
     debug_print(8) }
 
-  if (!pass_c && !q && !rev_c && max_nf < min_guar_print_nf) {
-    will_print = 0
-    for (expr in ExprFO) {
-      if (ExprFO[expr]) { will_print = 1; break }}
-    for (search in SearchFO) {
-      if (SearchFO[search]) { will_print = 1; break }}
-    if (!will_print) {
-      print "No matches found"
-      exit 1 }}
-
-  if (!pass_r && !q && !rev_r && NR < min_guar_print_nr) {
-    will_print = 0
-    for (expr in ExprRO) {
-      if (ExprRO[expr]) { will_print = 1; break }}  
-    for (search in SearchRO) {
-      if (SearchRO[search]) { will_print = 1; break }}
-    if (!will_print) {
-      print "No matches found"
-      exit 1 }}
+  if (!pass_c && !q && !rev_c && !oth_c && max_nf < min_guar_print_nf)
+    MatchCheck(ExprFO, SearchFO)
+  if (!pass_r && !q && !rev_r && !oth_r && NR < min_guar_print_nr)
+    MatchCheck(ExprRO, SearchRO)
 
   if (pass_r) {
-    for (rr = 1; rr <= length(_); rr++) {
+    for (rr = 1; rr <= NR; rr++) {
       for (rc = 1; rc <= reo_c_len; rc++) {
         c_key = ReoC[rc]
+        if (!c_key) continue
         row = _[rr]
         split(row, Row, FS)
         if (c_key ~ Re["int"])
@@ -304,13 +198,12 @@ END {
         else {
           Reo(c_key, Row, 0)
           if (rc!=reo_c_len) printf "%s", OFS }}
-
       print "" }
-
     exit }
 
-  for (rr = 1; rr <= length(ReoR); rr++) {
+  for (rr = 1; rr <= reo_r_len; rr++) {
     r_key = ReoR[rr]
+    if (!r_key) continue
     if (pass_c && base_reo) FieldsPrint(_[r_key])
     else {
       if (r_key ~ Re["int"]) {
@@ -318,6 +211,7 @@ END {
         else {
           for (rc = 1; rc <= reo_c_len; rc++) {
             c_key = ReoC[rc]
+            if (!c_key) continue
             row = _[r_key]
             split(row, Row, FS)
             if (c_key ~ Re["int"])
@@ -347,6 +241,7 @@ function Reo(key, CrossSpan, row_call) {
       else {
         for (rc = 1; rc <= reo_c_len; rc++) {
           c_key = ReoC[rc]
+          if (!c_key) continue
           row = CrossSpan[pr_key]
           split(row, Row, FS)
           if (c_key ~ Re["int"])
@@ -354,7 +249,6 @@ function Reo(key, CrossSpan, row_call) {
           else {
             Reo(c_key, Row, 0)
             if (rc!=reo_c_len) printf "%s", OFS }}
-
         print "" }}}
 
   else {
@@ -391,7 +285,6 @@ function FieldsPrint(Order, ord_len, run_call) {
 function FillRange(row_call, range_arg, RangeArr, reo_count, ReoArr) {
   split(range_arg, RngAnc, TkMap["rng"])
   start = RngAnc[1]; end = RngAnc[2]
-
   if (debug) debug_print(2)
 
   if (start > end) { reo = 1
@@ -414,7 +307,7 @@ function FillReoArr(row_call, val, KeyArr, count, ReoArray, type) {
     min_guar_print_nr = val
   else if (!row_call && val < min_guar_print_nf)
     min_guar_print_nf = val
-  
+ 
   return count
 }
 
@@ -467,8 +360,7 @@ function StoreFieldRefs() {
             SearchFO[search] = SearchFO[search] f"," }
         else if (!exclude) {
           if (field ~ base_search)
-            SearchFO[search] = SearchFO[search] f"," }
-        }}}
+            SearchFO[search] = SearchFO[search] f"," }}}}
 
   if (mat) {
     for (expr in RCExprs) {
@@ -516,8 +408,7 @@ function StoreFieldRefs() {
             else if (NR == anchor_row) ExprFO[expr] = ExprFO[expr] f"," }
           continue }
         if (EvalCompExpr(eval, compval, comp))
-            ExprFO[expr] = ExprFO[expr] f","
-      }}}
+            ExprFO[expr] = ExprFO[expr] f"," }}}
 
   if (rev_c) {
     for (f = max_nf + 1; f <= NF; f++) rev_fo = f"," rev_fo }
@@ -665,55 +556,43 @@ function ResolveRowFilterFrame(frame) {
   FrameSet[frame] = 1
 }
 
-function ResolveFilterExtensions(RLogic, c) {
-
+function ResolveFilterExtensions(row_call, Extensions, ReoArr, OrdArr, max_val) {
+  if (length(Extensions)) {
+    for (ext_i in Extensions) {
+      split(Extensions[ext_i], DeleteKeys, ",")
+      OrdArr[ext_i] = ResolveMultisetLogic(row_call, ext_i, max_val)
+      ReoArr[DeleteKeys[1]] = ext_i; TypeMap[ext_i] = "ext"; delete DeleteKeys[1]
+      for (del_key_i in DeleteKeys) {
+        delete ReoArr[DeleteKeys[del_key_i]] } }}
 }
 
-function Sort(Arr, order) {
-  if (!order || order == "asc") {
+function ResolveMultisetLogic(row_call, key, max_val) {
+  combin_idx = ""
+  split(key, Ands, "&&")
+  for (and_i in Ands) {
+    ors_idx = ""
+    split(Ands[and_i], Ors, "\\|\\|")
+    for (ors_i in Ors)
+      ors_idx = ors_idx GetOrder(row_call, Ors[ors_i])
+    AndOrder[and_i] = ors_idx }
 
-  }
-  else
-}
-
-function qsorta(A,lft,rght,    x,last) {
-  if (lft >= rght) return
-
-  swap(A, lft, lft + int((rght-lft+1)*rand()))
-  last = lft
-
-  for (x = lft+1; x <= rght; x++)
-    if (A[x] < A[lft])
-      swap(A, ++last, x)
-
-  swap(A, left, last)
-  qsorta(A, left, last-1)
-  qsorta(A, last+1, right)
-}
-function qsortd(A,lft,rght,    x,last) {
-  if (lft >= rght) return
-
-  swap(A, lft, lft + int((rght-lft+1)*rand()))
-  last = lft
-
-  for (x = lft+1; x <= rght; x++)
-    if (A[x] > A[lft])
-      swap(A, ++last, x)
-
-  swap(A, lft, last)
-  qsortd(A, lft, last-1)
-  qsortd(A, last+1, rght)
-}
-function swap(A,B,x,y,z) {
-  z = A[x]; A[x] = A[y]; A[y] = z
-  z = B[x]; B[x] = B[y]; B[y] = z
+  for (i = 1; i <= max_val; i++) {
+    continue2 = 0
+    for (and_i in Ands) {
+      if (AndOrder[and_i] == "") {
+        break2 = 1; break }
+      if (!Indexed(AndOrder[and_i], i)) {
+        continue2 = 1; break }}
+    if (continue2) continue
+    if (break2) break
+    combin_idx = combin_idx i"," }
+  return combin_idx
 }
 
 function GenRemainder(row_call, ReoArr, max_val) {
   all_reo = ""; rem_idx = ""
   for (i in ReoArr)
     all_reo = all_reo GetOrder(row_call, ReoArr[i])
-
   for (i = 1; i <= max_val; i++)
     if (!Indexed(all_reo, i)) rem_idx = rem_idx i","
 
@@ -728,12 +607,93 @@ function GetOrder(row_call, key) {
     if (type == "rev") return rev_ro
     else if (type == "oth") return remaining_ro
     else if (type == "re") return SearchRO[key]
-    else if (type == "mat") return ExprRO[key] }
+    else if (type == "mat") return ExprRO[key] 
+    else if (type == "ext") return ExtRO[key] }
   else {
     if (type == "rev") return rev_fo
     else if (type == "oth") return remaining_fo
     else if (type == "re") return SearchFO[key]
-    else if (type == "mat") return ExprFO[key] }
+    else if (type == "mat") return ExprFO[key] 
+    else if (type == "ext") return ExtFO[key] }
+}
+
+function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, rev_o, oth_o, ExprArr, SearchArr, IdxSearchArr, FramesArr, ExtArr) {
+  max_o_i = 0; prior_count = 0
+  split(order_arg, Order, Re["ordsep"])
+  len = length(Order)
+
+  for (i = 1; i <= len; i++) {
+    base_i = Order[i]
+    if (!base_i) delete Order[i]
+    if (base_i ~ Re["ext"]) { ExtArr[base_i] = 1; ext = 1 }
+    split(base_i, ExtOrder, Re["ext"])
+    ext_len = length(ExtOrder)
+    for (j = 1; j <= ext_len; j++) {
+      o_i = ExtOrder[j]
+
+      token = o_i ~ Re["alltokens"] ? TokenPrecedence(o_i) : ""
+      if (debug) { row_call ? debug_print(1) : debug_print(1.5) }
+
+      if (!token) {
+        if ("reverse" ~ tolower(o_i)) {
+          o_i = "rev"; base_o = 0; reo = 1; rev = 1; rev_o = 1
+          reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, "rev")
+          continue }
+        if ("others" ~ "^"tolower(o_i)) {
+          o_i = "oth"; base_o = 0; reo = 1; oth = 1; oth_o = 1
+          reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, "oth")
+          continue }
+        if (!(o_i ~ Re["int"])) continue
+        reo_count = FillReoArr(row_call, o_i, RangeArr, reo_count, ReoArr)
+        if (!reo && o_i > max_o_i)
+          max_o_i = o_i
+        else {
+          reo = 1; base_o = 0 }}
+      else {
+        delete Order[i]; delete ExtOrder[j]
+        max_o_i = TestArg(o_i, max_o_i, token)
+        base_o = 0
+        if (ignore_case_global || IgnoreCase[o_i]) {
+          delete IgnoreCase[o_i]
+          if (!(o_i ~ Re["matarg2"])) { 
+            o_i = tolower(o_i)
+            gsub("/i", "", o_i) }
+          IgnoreCase[o_i] = 1 }
+
+        if (token == "rng")
+          reo_count = FillRange(row_call, o_i, OArr, reo_count, ReoArr)
+        else {
+          if (token == "mat")
+            reo_count = FillReoArr(row_call, o_i, ExprArr, reo_count, ReoArr, token)
+          else if (token == "re")
+            reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, token)
+          else if (token == "fr") {
+            FramesArr[o_i] = 1
+            if (fr == "mat")
+              reo_count = FillReoArr(row_call, o_i, ExprArr, reo_count, ReoArr, fr)
+            else if (fr == "re" && fr_idx)
+              reo_count = FillReoArr(row_call, o_i, IdxSearchArr, reo_count, ReoArr, fr)
+            else if (fr == "re")
+              reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, fr) }
+        }}}
+
+      if (ExtArr[base_i]) {
+        ExtArr[base_i] = ""
+        for (k = prior_count+1; k <= reo_count; k++) 
+          ExtArr[base_i] = ExtArr[base_i] k","}
+      prior_count = reo_count }
+
+  if (row_call) { 
+    for (ord in Order) ROrder[ord] = Order[ord] 
+    for (ord in ExtOrder) RExtOrder[ord] = ExtOrder[ord] }
+  else {
+    for (ord in Order) COrder[ord] = Order[ord]
+    for (ord in ExtOrder) RExtOrder[ord] = ExtOrder[ord] }
+  SetupVars["len"] = len
+  SetupVars["count"] = reo_count
+  SetupVars["base_status"] = base_o
+  SetupVars["rev"] = rev_o
+  SetupVars["oth"] = oth_o
 }
 
 function TokenPrecedence(arg) {
@@ -804,6 +764,16 @@ function TestArg(arg, max_i, type) {
   return max_i
 }
 
+function MatchCheck(ExprOrder, SearchOrder) {
+  will_print = 0
+  for (expr in ExprOrder) {
+    if (ExprOrder[expr]) { will_print = 1; break }}
+  for (search in SearchOrder) {
+    if (SearchOrder[search]) { will_print = 1; break }}
+  if (!will_print) {
+    print "No matches found"; exit 1 }
+}
+
 function Indexed(idx_ord, test_idx) {
   test_re = "^" test_idx ",|," test_idx ",|:" test_idx ","
   return idx_ord ~ test_re
@@ -823,7 +793,7 @@ function BuildRe(Re) {
   Re["comp"] = "(<|>|!?=)"
   Re["alltokens"] = "[(\\.\\.)\\~\\+\\-\\*\\/%\\^<>(!=)=\\[]"
   Re["ws"] = "^[:space:]+$"
-  Re["inter"] = "(&&|\\|\\|)"
+  Re["ext"] = "(&&|\\|\\|)"
 }
 
 function BuildTokenMap(TkMap) {
@@ -849,30 +819,29 @@ function BuildTokens(Tk) {
   Tk["^"] = "mat"
 }
 
-
 function EvalExpr(expr) {
   res = 0
   split(expr, a, "+")
   for(a_i in a){
     split(a[a_i], s, "-")
-      for(s_i in s){
-        split(s[s_i], m, "*")
-        for(m_i in m){
-          split(m[m_i], d, "/")
-          for(d_i in d){
-            split(d[d_i], u, "%")
-            for(u_i in u){
-              split(u[u_i], e, "(\\^|\\*\\*)")
-              for(e_i in e){
-                if (e_i > 1) e[1] = e[1] ** e[e_i] }
-              u[u_i] = e[1]; delete e
-              if (u_i > 1) u[1] = u[1] % u[u_i] }
-            d[d_i] = u[1]; delete u
-            if (d_i > 1) d[1] /= d[d_i] }
-          m[m_i] = d[1]; delete d
-          if (m_i > 1) m[1] *= m[m_i] }
-        s[s_i] = m[1]; delete m
-        if (s_i > 1) s[1] -= s[s_i] }
+    for(s_i in s){
+      split(s[s_i], m, "*")
+      for(m_i in m){
+        split(m[m_i], d, "/")
+        for(d_i in d){
+          split(d[d_i], u, "%")
+          for(u_i in u){
+            split(u[u_i], e, "(\\^|\\*\\*)")
+            for(e_i in e){
+              if (e_i > 1) e[1] = e[1] ** e[e_i] }
+            u[u_i] = e[1]; delete e
+            if (u_i > 1) u[1] = u[1] % u[u_i] }
+          d[d_i] = u[1]; delete u
+          if (d_i > 1) d[1] /= d[d_i] }
+        m[m_i] = d[1]; delete d
+        if (m_i > 1) m[1] *= m[m_i] }
+      s[s_i] = m[1]; delete m
+      if (s_i > 1) s[1] -= s[s_i] }
     a[a_i] = s[1]; delete s }
 
   for (a_i in a)
@@ -910,6 +879,44 @@ function print_field(field_val, field_no, end_field_no) {
   printf "%s", field_val
 }
 
+function Sort(Arr, order) {
+  if (!order || order == "asc") {}
+  else
+}
+
+function qsorta(A,lft,rght,    x,last) {
+  if (lft >= rght) return
+
+  swap(A, lft, lft + int((rght-lft+1)*rand()))
+  last = lft
+
+  for (x = lft+1; x <= rght; x++)
+    if (A[x] < A[lft])
+      swap(A, ++last, x)
+
+  swap(A, left, last)
+  qsorta(A, left, last-1)
+  qsorta(A, last+1, right)
+}
+function qsortd(A,lft,rght,    x,last) {
+  if (lft >= rght) return
+
+  swap(A, lft, lft + int((rght-lft+1)*rand()))
+  last = lft
+
+  for (x = lft+1; x <= rght; x++)
+    if (A[x] > A[lft])
+      swap(A, ++last, x)
+
+  swap(A, lft, last)
+  qsortd(A, lft, last-1)
+  qsortd(A, last+1, rght)
+}
+function swap(A,B,x,y,z) {
+  z = A[x]; A[x] = A[y]; A[y] = z
+  z = B[x]; B[x] = B[y]; B[y] = z
+}
+
 
 function debug_print(case, arg) {
   if (case == -1) {
@@ -932,13 +939,13 @@ function debug_print(case, arg) {
     if (max_nr) print "max_nr: " max_nr }
 
   else if (case == 1) {
-    print "i: "i ", r_i: "r_i ", r_len: "r_len ", token: "token }
+    print "i: "i ", r_i: "o_i ", r_len: "len ", token: "token }
   else if (case == 1.5) {
-    print "i: "i ", c_i: "c_i ", c_len: "c_len ", token: "token }
+    print "i: "i ", c_i: "o_i ", c_len: "len ", token: "token }
   else if (case == 2) {
     print "FillRange start: " start ", end: " end }
   else if (case == 3) {
-    print arg, tk, tk_loc }
+    print "arg: "arg", tk: "tk", tk_loc: "tk_loc }
   else if (case == 4) {
     print "----------- CASE MATCHES -----------"
     if (indx) print "index case"
@@ -953,7 +960,8 @@ function debug_print(case, arg) {
     if (base_reo) print "base reorder case"
     if (range) print "range case"
     if (mat) print "expression case"
-    if (re) print "search case" 
+    if (re) print "search case"
+    if (ext) print "extended logic case"
     if (fr) print "header/frame base case"
     if (fr_ext) print "frame extended case" }
 
@@ -964,10 +972,14 @@ function debug_print(case, arg) {
       for (ex in RRExprs) print ex " " ExprRO[ex] }
     if (length(RRSearches)) { print "------------- RRSearches -------------"
       for (se in RRSearches) print se " " SearchRO[se] }
+    if (length(RRFrames)) { print "------------- RRFrames ---------------"
+      for (fr in RRFrames) print fr }
     if (length(RCExprs)) { print "------------- RCExprs --------------"
       for (ex in RCExprs) print ex " " ExprFO[ex] }
     if (length(RCSearches)) { print "------------- RCSearches -------------"
-      for (se in RCSearches) print se " " SearchFO[se] }}
+      for (se in RCSearches) print se " " SearchFO[se] }
+    if (length(RCFrames)) { print "------------- RCFrames ---------------"
+      for (fr in RCFrames) print fr }}
   else if (case == 7) {
     print "------ EVALS OR BASIC OUTPUT -------" }
   else if (case == 8) {
@@ -978,4 +990,8 @@ function debug_print(case, arg) {
     print "----------- REMAINDERS ------------" }
   else if (case == 11) {
     print "all_reo: " all_reo " rem_idx: " rem_idx }
+  else if (case == 12) {
+    print "----- RESOLVING EXTENDED LOGIC -----"
+    for (ex in RExtensions) print "RowExt: "ex", Reorder span: "RExtensions[ex]" ExtRowOrder: "ExtRO[ex]
+    for (ex in CExtensions) print "ColExt: "ex", Reorder span: "CExtensions[ex]" ExtFieldOrder: "ExtFO[ex] }
 }

@@ -375,12 +375,12 @@ ds:git_recent() { # Display table of commits sorted by recency descending (alias
   ds:not_git && return 1
   local run_context="${1:-display}"
   if [ "$run_context" = display ]; then
-    local format='%(HEAD) %(color:yellow)%(refname:short)||%(color:bold green)%(committerdate:relative)||%(color:blue)%(subject)||%(color:magenta)%(authorname)%(color:reset)'
+    local format='%(HEAD) %(color:yellow)%(refname:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
     git for-each-ref --sort=-committerdate refs/heads \
       --format="$format" --color=always | ds:fit -F"$DS_SEP"
   else
     # If not for immediate display, return extra field for further parsing
-    local format='%(HEAD) %(color:yellow)%(refname:short)||%(committerdate:short)||%(color:bold green)%(committerdate:relative)||%(color:blue)%(subject)||%(color:magenta)%(authorname)%(color:reset)'
+    local format='%(HEAD) %(color:yellow)%(refname:short)@@@%(committerdate:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
     git for-each-ref refs/heads --format="$format" --color=always
   fi
 }
@@ -389,20 +389,19 @@ alias ds:gr="ds:git_recent"
 ds:git_recent_all() { # Display table of recent commits for all home dir branches (alias ds:gra)
   local start_dir="$PWD" all_recent=$(ds:tmp 'ds_git_recent_all')
   local w="\033[37;1m" nc="\033[0m"
-  cd ~
-  echo -e "${w}repo${nc}||${w}branch${nc}||sortfield${nc}||${w}commit time${nc}||${w}commit message${nc}||${w}author${nc}" > $all_recent
+  [ -d "$1" ] && cd "$1" || cd ~
+  echo -e "${w}repo${nc}@@@${w}branch${nc}@@@sortfield${nc}@@@${w}commit time${nc}@@@${w}commit message${nc}@@@${w}author${nc}" > $all_recent
   while IFS=$'\n' read -r dir; do
     [ -d "${dir}/.git" ] && (cd "$dir" && \
       (ds:git_recent parse | awk -v repo="$dir" -F"$DS_SEP" '
-        {print "\033[34m" repo "\033[0m||", $0}') >> $all_recent )
+        {print "\033[34m" repo "\033[0m@@@", $0}') >> $all_recent )
   done < <(find * -maxdepth 0 -type d)
   echo
   ds:sortm -v order=d -F"$DS_SEP" -v k=3 $all_recent \
-    | awk -F"$DS_SEP" "BEGIN {OFS=\"$DS_SEP\"} {print \$1, \$2, \$4, \$5, \$6}" \
-    | ds:fit -F"$DS_SEP" -v color=never
+    | ds:reo "a" "NF!=3" -F"$DS_SEP" -v OFS="$DS_SEP" | ds:fit 
   local stts=$?
   echo
-  rm $all_recent
+  #rm $all_recent
   cd "$start_dir"
   return $stts
 }
@@ -851,29 +850,30 @@ ds:fieldcounts() { # ** Print value counts: ds:fieldcounts [file] [fields=1] [mi
     ([ "$1" = d ] || [ "$1" = desc ]) && local order="r"
     [[ ! "$1" =~ "-" ]] && shift; fi
   [ "$order" ] && shift; local args=( "$@" )
-  local dequote=$(ds:tmp "ds_fc_dequote")
-  if ds:noawkfs; then
-    local fs="$(ds:inferfs "$file" true)"
+  if [ ! "$fields" = "a" ]; then
+    if ds:noawkfs; then local fs="$(ds:inferfs "$file" true)"
+    else
+      local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
+      if [ "$fs_idx" = "" ]; then
+        local fs_idx="$(ds:arr_idx '^\-F' ${args[@]})"
+        local fs="$(echo ${args[$fs_idx]} | tr -d '\-F')"
+      else
+        local fs="$(echo ${args[$fs_idx]} | tr -d 'FS=')"
+        let local fsv_idx=$fs_idx-1
+        unset "args[$fsv_idx]"
+      fi
+      unset "args[$fs_idx]"
+    fi
+    local dequote=$(ds:tmp "ds_fc_dequote")
     ds:dequote "$file" "$fs" > $dequote
     grep -Eq "\[.+\]" <(echo "$fs") && fs=" " 
-    awk -v FS="$DS_SEP" -v OFS="$fs" ${args[@]} -v min="$min" -v fields="$fields" \
-      -f "$DS_SCRIPT/field_counts.awk" $dequote 2> /dev/null | sort -n$order
-  else
-    local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
-    if [ "$fs_idx" = "" ]; then
-      local fs_idx="$(ds:arr_idx '^\-F' ${args[@]})"
-      local fs="$(echo ${args[$fs_idx]} | tr -d '\-F')"
-    else
-      local fs="$(echo ${args[$fs_idx]} | tr -d 'FS=')"
-      let local fsv_idx=$fs_idx-1
-      unset "args[$fsv_idx]"
-    fi
-    unset "args[$fs_idx]"
-    ds:dequote "$file" "$fs" > $dequote
     awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v min="$min" -v fields="$fields" \
       -f "$DS_SCRIPT/field_counts.awk" $dequote 2>/dev/null | sort -n$order
+  else
+    awk ${args[@]}-v min="$min" -v fields="$fields" \
+      -f "$DS_SCRIPT/field_counts.awk" "$file" 2>/dev/null | sort -n$order
   fi
-  ds:pipe_clean $file; rm $dequote
+  ds:pipe_clean $file; [ "$dequote" ] && rm $dequote; :
 }
 alias ds:fc="ds:fieldcounts"
 

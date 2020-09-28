@@ -150,6 +150,29 @@ test test test test test test test test test test test test test test test test 
 test test test test test test test test test test test test test test test test test
 _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_    _TeST_'
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended cases'
+reo_input='d c a b f
+f e c b a
+f e d c b
+e d c b a'
+reo_actual="$(echo "$reo_input" | ds:reo "1,1,others,[a" ">4,rev,[f~d")"
+reo_expected=' f b a c d d a
+ f b a c d d a
+ a b c e f f c
+ b c d e f f d
+ a b c d e e c'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended others or reverse cases'
+reo_actual="$(echo "$reo_input" | ds:reo "1,1,others,[a" ">4,rev,[f~d")"
+reo_expected=' f b a c d d a
+ f b a c d d a
+ a b c e f f c
+ b c d e f f d
+ a b c d e e c'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended others or reverse cases'
+reo_actual="$(echo "$reo_input" | ds:reo "[a~c&&5~a" "[f~d||[e~a&&NF>3")"
+reo_expected='a 
+a '
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended logic cases'
+
 
 
 # FIT TESTS
@@ -162,8 +185,8 @@ fit_actual="$(ds:fit tests/addresses.csv | ds:reo 5 6 '-F {2,}')"
 
 # FC TESTS
 
-fc_expected='2,mozy||Mozy||26||web||American Fork||UT||1-May-05||1900000||USD||a
-2,zoominfo||ZoomInfo||80||web||Waltham||MA||1-Jul-04||7000000||USD||a'
+fc_expected='2 mozy,Mozy,26,web,American Fork,UT,1-May-05,1900000,USD,a
+2 zoominfo,ZoomInfo,80,web,Waltham,MA,1-Jul-04,7000000,USD,a'
 fc_actual="$(ds:fieldcounts tests/company_funding_data.csv a 2)"
 [ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed all field case'
 fc_expected='54,1-Jan-08

@@ -24,6 +24,6 @@ tests="$1"
 
 case "$tests" in
   fit) ds:gexec true tests/commands_tests.sh tests "1..27,~fit" ;;
-  reo) ds:gexec true tests/commands_tests.sh tests "1..27,97..153" ;;
+  reo) ds:gexec true tests/commands_tests.sh tests "1..27,97..174" ;;
   sort) ds:gexec true tests/commands_tests.sh tests "1..27,73..94" ;;
 esac
