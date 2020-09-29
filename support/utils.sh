@@ -1,6 +1,7 @@
 #!/bin/bash
 
 DS_SEP=$'@@@'
+# TODO: Extract FS from args
 
 ds:file_check() { # Test for file validity and fail if invalid
   local testfile="$1"
@@ -36,6 +37,14 @@ ds:die() { # Output to STDERR and exit with error
 
 ds:pipe_open() { # ** Detect if pipe is open
   [ -p /dev/stdin ]
+}
+
+ds:ttyf() { # ** Detect if output is to a terminal and run ds:fit on output if it is
+  if [ -t 1 ]; then
+    ds:arr_idx 'debug' "${args[@]}" && cat && return
+    [ "$1" ] && ds:fit -v FS="$1" && return
+    ds:fit
+  else cat; fi
 }
 
 ds:pipe_clean() { # Remove a temp file created via stdin if piping has been detected
@@ -105,15 +114,17 @@ ds:os() { # Return computer operating system if supported
   if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     echo "Linux"
   elif [[ "$OSTYPE" == "darwin"* ]]; then
-    echo "Mac OSX"
+    echo "MacOSX"
   elif [[ "$OSTYPE" == "cygwin" ]]; then
-    echo "MS Windows"
+    echo "MSWindows"
   elif [[ "$OSTYPE" == "msys" ]]; then
-    echo "MS Windows"
+    echo "MSWindows"
   elif [[ "$OSTYPE" == "win32" ]]; then
-    echo "MS Windows"
+    echo "MSWindows"
   elif [[ "$OSTYPE" == "freebsd"* ]]; then
     echo "FreeBSD"
+  else
+    echo "Failed to detect OS" && return 1
   fi
 }
 

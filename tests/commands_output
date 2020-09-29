@@ -40,6 +40,7 @@ ds:inferh         	 Infer if headers are present in a file: ds:inferh [awkargs] 
 ds:inferk         	 ** Infer join fields in two text data files: ds:inferk file [file]
 ds:insert         	 ** Redirect input into a file at a specified line number or pattern: ds:insert file [lineno|pattern] [sourcefile]
 ds:iter_str       	 Repeat a string some number of times: ds:iter_str str [n=1] [fs]
+ds:jira           	 Opens Jira at specified workspace and issue: ds:jira workspace_subdomain [issue]
 ds:jn             	 ** Join two files, or a file and stdin, with any keyset: ds:jn file1 [file2] [jointype] [k] [k2] [awkargs]
 ds:join_by        	 ** Join a shell array by a text argument provided
 ds:mactounix      	 Converts ^M return characters into simple carriage returns in place
@@ -66,6 +67,7 @@ ds:sortm          	 ** Sort with an inferred field separator of 1 or more charac
 ds:src            	 Source a piece of file: ds:src file ["searchx" pattern] || [line endline] || [pattern linesafter]
 ds:stag           	 ** Print field-separated data in staggered rows: ds:stag [awkargs] file
 ds:substr         	 ** Extract a substring from a string with regex: ds:substr str [leftanc] [rightanc]
+ds:test           	 ** Test input quietly using with extended regex: ds:test regex [str|file] [test_file=f]
 ds:tmp            	 mktemp -q "/tmp/${filename}"
 ds:todo           	 List todo items found in current directory
 ds:trace          	 Search shell trace for a pattern: ds:trace ["command"] [search]

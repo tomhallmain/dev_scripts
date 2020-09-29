@@ -1,6 +1,28 @@
 #!/usr/bin/awk
 #
+#
 # Reorder, repeat or slice the rows and columns of fielded data
+#
+# ds:reo is the caller function for the reorder.awk script.
+# To run any of the examples below, map awk args as follows:
+#
+# $ ds:reo [file] [r_args_str] [c_args_str] [dequote=true] [all_other_awkargs]
+#
+# $ ds:reo addresses.csv "1,~Main St" "[ZIP" -v cased=1
+#
+# When running with piped data, the args are shifted:
+#
+# $ data_in | ds:reo [r_args_str] [c_args_str] [dequote=true] [awkargs]
+#
+# When running ds:reo, an attempt is made to infer a field selector. If none
+# is found, FS will be set to defaul value, a single space = " "
+#
+# When running with ds:reo, an attempt is made extract relevant instances of 
+# field selectors in the case that a field selector appears in field values. 
+# To turn this off set dequote to false in the positional arg.
+#
+#
+# EXAMPLES:
 #
 # Index a field value:
 # > awk -f reorder.awk -v r=1 -v c=1
@@ -80,15 +102,15 @@
 #    Print rows 3, 4, then any not in ^          ^ Print fields where header
 #           the set 1,3,4, then row 1            matches 'Tests', then the rest
 #
-# TODO: option (or default?) for preserving original order
-# TODO: basic sorts
-# TODO: string equality / sorting
-# TODO: reverse from a particular point (for example, keep header)
-# TODO: Index number output
-# TODO: Pattern anchors /pattern/../pattern/
-# TODO: Remove frame print if already indexed, and don't print if no match (?)
+## TODO: option (or default?) for preserving original order
+## TODO: basic sorts
+## TODO: string equality / sorting
+## TODO: reverse from a particular point (for example, keep header)
+## TODO: Index number output
+## TODO: Pattern anchors /pattern/../pattern/
+## TODO: Remove frame print if already indexed, and don't print if no match (?)
 
-# SETUP
+## SETUP
 
 BEGIN {
   BuildRe(Re); BuildTokens(Tk); BuildTokenMap(TkMap)
@@ -134,7 +156,7 @@ BEGIN {
 
 
 
-# SIMPLE PROCESSING/DATA GATHERING
+## SIMPLE PROCESSING/DATA GATHERING
 
 indx { if (NR == r) { print $c; exit } next }
 
@@ -167,7 +189,7 @@ pass { FieldsPrint($0, 0, 1) }
 
 
 
-# FINAL PROCESSING FOR REORDER CASES
+## FINAL PROCESSING FOR REORDER CASES
 
 END {
   if (debug) debug_print(4) 
@@ -229,7 +251,7 @@ END {
 
 
 
-# FUNCTIONS
+## FUNCTIONS
 
 function Reo(key, CrossSpan, row_call) {
   if (row_call) {

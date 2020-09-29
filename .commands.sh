@@ -16,6 +16,7 @@ ds:commands() { # List commands in the dev_scripts/.commands.sh file
 
 ds:help() { # Print help for a given command
   (ds:nset "$1" && [[ "$1" =~ "ds:" ]]) || ds:fail 'Command not found - to see all commands, run ds:commands'
+  [[ "$1" =~ 'reo' ]] && ds:reo -h && return
   ds:commands | ds:reo "~$1" 2 -v FS="[[:space:]]{2,}"
 }
 
@@ -149,6 +150,12 @@ ds:join_by() { # ** Join a shell array by a text argument provided
   fi
 
   echo -n "$first"; printf "%s" "${args[@]/#/$d}"
+}
+
+ds:test() { # ** Test input quietly using with extended regex: ds:test regex [str|file] [test_file=f]
+  ds:pipe_open && grep -Eq "$1" && return $?
+  [[ ! "$3" =~ t ]] && echo "$2" | grep -Eq "$1" && return $?
+  [ -f "$2" ] && grep -Eq "$1" "$2"
 }
 
 ds:substr() { # ** Extract a substring from a string with regex: ds:substr str [leftanc] [rightanc]
@@ -416,7 +423,7 @@ alias ds:gg="ds:git_graph"
 ds:todo() { # List todo items found in current directory
   ds:nset 'rg' && local RG=true
   if [ -z $1 ]; then
-    [ "$RG" ] && rg 'TODO:' || grep -rs 'TODO:' --color=always .
+    [ "$RG" ] && rg -s 'TODO' || grep -irs 'TODO:' --color=always .
     echo
   else
     local search_paths=( "${@}" )
@@ -530,9 +537,9 @@ ds:jn() { # ** Join two files, or a file and stdin, with any keyset: ds:jn file1
   if ds:noawkfs; then
     local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
     awk -v fs1="$fs1" -v fs2="$fs2" -f "$DS_SCRIPT/join.awk" \
-      "${args[@]}" "$f1" "$f2" 2> /dev/null
+      "${args[@]}" "$f1" "$f2" 2> /dev/null | ds:ttyf "%fs1"
   else
-    awk -f "$DS_SCRIPT/join.awk" "${args[@]}" "$f1" "$f2" 2> /dev/mull
+    awk -f "$DS_SCRIPT/join.awk" "${args[@]}" "$f1" "$f2" 2> /dev/mull | ds:ttyf
   fi
 
   ds:pipe_clean $f2
@@ -563,9 +570,10 @@ ds:print_matches() { # ** Print duplicate lines on given field numbers in two fi
     local fs1="$(ds:inferfs "$file1" true)" fs2="$(ds:inferfs "$file2" true)"
 
     awk -v fs1="$fs1" -v fs2="$fs2" -f "$DS_SCRIPT/matches.awk" \
-      "${args[@]}" "$file1" "$file2" 2> /dev/null
+      "${args[@]}" "$file1" "$file2" 2> /dev/null | ds:ttyf
   else
-    awk -f "$DS_SCRIPT/matches.awk" "${args[@]}" "$file1" "$file2" 2> /dev/null
+    awk -f "$DS_SCRIPT/matches.awk" "${args[@]}" "$file1" "$file2" \
+      2> /dev/null | ds:ttyf
   fi
   
   ds:pipe_clean $file2
@@ -597,9 +605,10 @@ ds:print_comps() { # ** Print non-matching lines on given field numbers in two f
     local fs1="$(ds:inferfs "$file1" true)" fs2="$(ds:inferfs "$file2" true)"
 
     awk -v fs1="$fs1" -v fs2="$fs2" -f "$DS_SCRIPT/complements.awk" \
-      "${args[@]}" "$file1" "$file2" 2> /dev/null
+      "${args[@]}" "$file1" "$file2" 2> /dev/null | ds:ttyf "$fs1"
   else
-    awk -f "$DS_SCRIPT/complements.awk" "${args[@]}" "$file1" "$file2" 2> /dev/null
+    awk -f "$DS_SCRIPT/complements.awk" "${args[@]}" "$file1" "$file2" \
+      2> /dev/null | ds:ttyf
   fi
   
   ds:pipe_clean $file2
@@ -740,27 +749,30 @@ ds:idx() { # ** Prints an index attached to data lines from a file or stdin
   ds:pipe_clean $file
 }
 
-ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [dequote=true] [awkargs]
+ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [dequote=true] [awkargs] -- or run [-h|--help]
   if ds:pipe_open; then
-    local rows="${1:-a}" cols="${2:-a}" base=4
+    local rows="${1:-a}" cols="${2:-a}" base=3
     local file=$(ds:tmp "ds_reo") piped=0
     cat /dev/stdin > $file
   else
+    ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/reorder.awk" \
+      | tr -d "#" | less && return
     ds:file_check "$1"
-    local file="$1" rows="${2:-a}" cols="${3:-a}" base=5
+    local file="$1" rows="${2:-a}" cols="${3:-a}" base=4
   fi
-  echo "$4" | grep -Eq "(t|true|f|false)" && local dq="$4" || let local base-=1
   local args=( "${@:$base}" )
-  [ ! "$dq" ] && local dequote=$(ds:tmp "ds_reo_dequote")
+  if ds:test "(t|true|f|false)" "${args[1]}"; then
+    local dq_off="${args[1]}" args=( "${args[@]:1}" ); fi
+  [ ! "$dq_off" ] && local dequote=$(ds:tmp "ds_reo_dequote")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    if [ ! "$dq" ]; then
+    if [ ! "$dq_off" ]; then
       ds:dequote "$file" "$fs" > $dequote
       awk -v FS="$DS_SEP" -v OFS="$fs" ${args[@]} -v r="$rows" -v c="$cols" \
-        -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null
+        -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null | ds:ttyf
     else
-      awk -v FS="$DS_SEP" ${args[@]} -v r="$rows" -v c="$cols" \
-        -f "$DS_SCRIPT/reorder.awk" $file 2>/dev/null; fi
+      awk -v FS="$fs" ${args[@]} -v r="$rows" -v c="$cols" \
+        -f "$DS_SCRIPT/reorder.awk" "$file" 2>/dev/null | ds:ttyf; fi
   else
     local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
     if [ "$fs_idx" = "" ]; then
@@ -772,15 +784,15 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [deq
       unset "args[$fsv_idx]"
     fi
     unset "args[$fs_idx]"
-    if [ ! "$dq" ]; then
+    if [ ! "$dq_off" ]; then
       ds:dequote "$file" "$fs" > $dequote
       awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v r="$rows" -v c="$cols" \
-        -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null
+        -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null | ds:ttyf "$fs"
     else
-      awk -v FS="$DS_SEP" ${args[@]} -v r="$rows" -v c="$cols" \
-        -f "$DS_SCRIPT/reorder.awk" $file 2>/dev/null; fi
-  fi
-  ds:pipe_clean $file; [ ! "$dq" ] && rm $dequote
+      awk -v FS="$fs" ${args[@]} -v r="$rows" -v c="$cols" \
+        -f "$DS_SCRIPT/reorder.awk" "$file" 2>/dev/null
+    fi; fi
+  #ds:pipe_clean $file; [ ! "$dq_off" ] && rm $dequote; :
 }
 
 ds:decap() { # ** Remove up to a certain number of lines from the start of a file, default is 1
@@ -809,9 +821,9 @@ ds:transpose() { # ** Transpose field values of a text-based field-separated fil
   fi
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    awk -v FS="$fs" -f "$DS_SCRIPT/transpose.awk" ${args[@]} "$file" 2> /dev/null
+    awk -v FS="$fs" -f "$DS_SCRIPT/transpose.awk" ${args[@]} "$file" 2> /dev/null | ds:ttyf "$fs"
   else
-    awk -f "$DS_SCRIPT/transpose.awk" ${args[@]} "$file" 2> /dev/null
+    awk -f "$DS_SCRIPT/transpose.awk" ${args[@]} "$file" 2> /dev/null | ds:ttyf
   fi
   ds:pipe_clean $file
 }
@@ -828,9 +840,9 @@ ds:ds() { # ** Generate statistics about text data: ds:ds file [awkargs]
   local args=( "$@" )
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    awk ${args[@]} -v FS="$fs" -f "$DS_SCRIPT/power.awk" "$file"
+    awk ${args[@]} -v FS="$fs" -f "$DS_SCRIPT/power.awk" "$file" 2>/dev/null
   else
-    awk ${args[@]} -f "$DS_SCRIPT/power.awk" "$file"
+    awk ${args[@]} -f "$DS_SCRIPT/power.awk" "$file" 2>/dev/null
   fi
   ds:pipe_clean $file
 }
@@ -866,12 +878,12 @@ ds:fieldcounts() { # ** Print value counts: ds:fieldcounts [file] [fields=1] [mi
     fi
     local dequote=$(ds:tmp "ds_fc_dequote")
     ds:dequote "$file" "$fs" > $dequote
-    grep -Eq "\[.+\]" <(echo "$fs") && fs=" " 
+    ds:test "\[.+\]" "$fs" && fs=" " 
     awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v min="$min" -v fields="$fields" \
-      -f "$DS_SCRIPT/field_counts.awk" $dequote 2>/dev/null | sort -n$order
+      -f "$DS_SCRIPT/field_counts.awk" $dequote 2>/dev/null | sort -n$order | ds:ttyf "$fs"
   else
     awk ${args[@]}-v min="$min" -v fields="$fields" \
-      -f "$DS_SCRIPT/field_counts.awk" "$file" 2>/dev/null | sort -n$order
+      -f "$DS_SCRIPT/field_counts.awk" "$file" 2>/dev/null | sort -n$order | ds:ttyf "$fs"
   fi
   ds:pipe_clean $file; [ "$dequote" ] && rm $dequote; :
 }
@@ -1097,7 +1109,9 @@ ds:goog() { # Executes Google search with args provided
   [ -z "$search_args" ] && ds:fail 'Arg required for search'
   local base_url="https://www.google.com/search?query="
   local search_query=$(echo $search_args | sed -e "s/ /+/g")
-  open "${base_url}${search_query}"
+  local OS="$(ds:os)" search_url="${base_url}${search_query}"
+  [ "$OS" = "Linux" ] && xdg-open "$search_url" && return
+  open "$search_url"
 }
 
 ds:so() { # Executes Stack Overflow search with args provided
@@ -1105,28 +1119,35 @@ ds:so() { # Executes Stack Overflow search with args provided
   [ -z "$search_args" ] && ds:fail 'Arg required for search'
   local base_url="https://www.stackoverflow.com/search?q="
   local search_query=$(echo $search_args | sed -e "s/ /+/g")
-  open "${base_url}${search_query}"
+  local OS="$(ds:os)" search_url="${base_url}${search_query}"
+  [ "$OS" = "Linux" ] && xdg-open "$search_url" && return
+  open "$search_url"
+}
+
+ds:jira() { # Opens Jira at specified workspace and issue: ds:jira workspace_subdomain [issue]
+  [ -z "$1" ] && ds:help ds:jira &&  ds:fail 'Subdomain arg missing'
+  local OS="$(ds:os)" j_url="https://$1.atlassian.net"
+  ds:test "[A-Z]+-[0-9]+" "$2" && local j_url="$j_url/browse/$2"
+  [ "$OS" = "Linux" ] && xdg-open "$j_url" && return
+  open "$j_url"
 }
 
 ds:unicode() { # Get the UTF-8 unicode for a given character
   ! ds:nset 'xxd' && ds:fail 'utility xxd required for this command'
-  local str="$1"
-  local prg='{ if ($3) {
-        b[1]=substr($2,5,4);b[2]=substr($3,3,6)
-        b[3]=substr($4,3,6);b[4]=substr($5,3,6)
-      } else { b[1]=substr($2,2,7) }
-      for(i=1;i<=length(b);i++){d=d b[i]}
-      print "obase=16; ibase=2; " d}'
+  local str="$1" prg='{ if ($3) {
+                     b[1]=substr($2,5,4);b[2]=substr($3,3,6)
+                     b[3]=substr($4,3,6);b[4]=substr($5,3,6)
+                   } else { b[1]=substr($2,2,7) }
+                   for(i=1;i<=length(b);i++){d=d b[i]}
+                   print "obase=16; ibase=2; " d}'
   for i in $(echo "$str" | grep -ho .); do
     local code="$(printf "$i" | xxd -b | awk -F"[[:space:]]" "$prg" | bc)"
     printf "\\\U$code"
-  done
-  echo
+  done; echo
 }
 
 ds:webpage_title() { # Downloads html from a webpage and extracts the title text
-  local location="$1"
-  local tr_file="$DS_SUPPORT/named_entities_escaped.sed"
+  local location="$1" tr_file="$DS_SUPPORT/named_entities_escaped.sed"
   local unescaped_title="$( wget -qO- "$location" |
     perl -l -0777 -ne 'print $1 if /<title.*?>\s*(.*?)\s*<\/title/si' )"
 
@@ -1177,7 +1198,7 @@ ds:gexec() { # Generate a script from pieces of another script and run it: ds:ge
   read -r dirpath filename extension <<<$(ds:path_elements "$src")
   local gscript="$scriptdir/ds_gexec_from_$filename$extension"
 
-  ds:reo $src "$r_args" a false > "$gscript"
+  ds:reo $src "$r_args" a false -v FS="$DS_SEP" > "$gscript"
   echo -e "\n\033[0;33mNew file: $gscript\033[0m\n"
   chmod 777 "$gscript"; cat "$gscript"
 
