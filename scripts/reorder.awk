@@ -12,7 +12,7 @@
 #
 # To pass all rows / columns, don't set the arg or set arg=a. Add field separator if needed:
 # > awk -f reorder.awk -v r=a -v c=4 -F,
-#                           ^ Print all rows, only column 4
+#    Print all rows, only column 4 ^
 #
 # Range (and/or individual rows and columns):
 # > awk -f reorder.awk -v r=1,100..200 -v c=1..3,5
@@ -64,17 +64,22 @@
 # Note the above args are equivalent to r="1~Alps" c="1~Plant"
 #
 # Combine filters using && and || for more selective or expansive queries (||
-# is calculated first):
+# is currently calculated first):
 # > awk -f reorder.awk -v r="[plant~flower||[plant~tree&&[country~italy" -v c="a"
 #
 # Case is ignored globally by default in regex searches. To enable cased
-# matshing set variable cased to any value. To search a case insensitive value
+# matching set variable cased to any value. To search a case insensitive value
 # while cased is set, append "/i" to the end of the pattern:
 # > awk -f reorder.awk -v r="[europe/i" -v c="[Plant" -v cased=1
 #      Rows where first col matches ^        ^ Columns where first row matches
 #      europe in any case                      'Plant' exactly
 #
-# TODO: and/or extended logic
+# To print any columns or rows that did not match the filter args, add the
+# string o[thers] anywhere in either dimension:
+# > awk -v reorder.awk -v r="3,4,others,1" -v c="[Tests,others"
+#    Print rows 3, 4, then any not in ^          ^ Print fields where header
+#           the set 1,3,4, then row 1            matches 'Tests', then the rest
+#
 # TODO: option (or default?) for preserving original order
 # TODO: basic sorts
 # TODO: string equality / sorting
@@ -144,14 +149,12 @@ reo {
       StoreRow(_)
       StoreFieldRefs() }}
   else {
-    row_os = 1
-    if (NR in R) {
+    if (base_reo && NR in R) {
       StoreRow(_)
-      if (base_reo) {
-        if (NF > max_nf) max_nf = NF
-        next }}
+      if (NF > max_nf) max_nf = NF
+      next }
 
-    if (row_os) StoreRow(_)
+    StoreRow(_)
     if (!base_c) StoreFieldRefs()
     if (!base_r) StoreRowRefs() }
 
@@ -178,8 +181,7 @@ END {
     ResolveFilterExtensions(1, RExtensions, ReoR, ExtRO, NR)
     if (debug) debug_print(12) }
   if (debug) {
-    (!pass_c) debug_print(6)
-    debug_print(8) }
+    if (!pass_c) debug_print(6); debug_print(8) }
 
   if (!pass_c && !q && !rev_c && !oth_c && max_nf < min_guar_print_nf)
     MatchCheck(ExprFO, SearchFO)
@@ -313,7 +315,6 @@ function FillReoArr(row_call, val, KeyArr, count, ReoArray, type) {
 
 function StoreRow(_) {
   _[NR] = $0
-  row_os = 0
 }
 
 function StoreFieldRefs() {
@@ -567,7 +568,7 @@ function ResolveFilterExtensions(row_call, Extensions, ReoArr, OrdArr, max_val) 
 }
 
 function ResolveMultisetLogic(row_call, key, max_val) {
-  combin_idx = ""
+  combin_idx = ""; break2 = 0
   split(key, Ands, "&&")
   for (and_i in Ands) {
     ors_idx = ""
@@ -627,6 +628,7 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
     if (!base_i) delete Order[i]
     if (base_i ~ Re["ext"]) { ExtArr[base_i] = 1; ext = 1 }
     split(base_i, ExtOrder, Re["ext"])
+    split(base_i, Operators, Re["extcomp"])
     ext_len = length(ExtOrder)
     for (j = 1; j <= ext_len; j++) {
       o_i = ExtOrder[j]
@@ -650,15 +652,11 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
         else {
           reo = 1; base_o = 0 }}
       else {
-        delete Order[i]; delete ExtOrder[j]
+        if (!row_call) delete Order[i]
         max_o_i = TestArg(o_i, max_o_i, token)
         base_o = 0
-        if (ignore_case_global || IgnoreCase[o_i]) {
-          delete IgnoreCase[o_i]
-          if (!(o_i ~ Re["matarg2"])) { 
-            o_i = tolower(o_i)
-            gsub("/i", "", o_i) }
-          IgnoreCase[o_i] = 1 }
+        if (IgnoreCase[o_i]) {
+          o_i = tolower(o_i); gsub("/i", "", o_i); IgnoreCase[o_i] = 1; ExtOrder[j] = o_i }
 
         if (token == "rng")
           reo_count = FillRange(row_call, o_i, OArr, reo_count, ReoArr)
@@ -678,9 +676,12 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
         }}}
 
       if (ExtArr[base_i]) {
-        ExtArr[base_i] = ""
-        for (k = prior_count+1; k <= reo_count; k++) 
-          ExtArr[base_i] = ExtArr[base_i] k","}
+        delete ExtArr[base_i]; base_i = ""
+        for (k = 1; k <= length(ExtOrder); k++)
+          base_i = base_i ExtOrder[k] Operators[k+1]; 
+        for (l = prior_count+1; l <= reo_count; l++)
+          ExtArr[base_i] = ExtArr[base_i] l","
+        delete ExtOrder; delete Operators }
       prior_count = reo_count }
 
   if (row_call) { 
@@ -739,7 +740,7 @@ function TestArg(arg, max_i, type) {
 
   else if (type == "re") { reo = 1; re = 1
     if (arg ~ "!~") ExcludeRe[arg] = 1
-    if (arg ~ "\/[iI]") IgnoreCase[arg] = 1
+    if (ignore_case_global || arg ~ "\/[iI]") IgnoreCase[arg] = 1
     re_test = substr(arg, length(sa1)+2, length(arg))
     if ("" ~ re_test) {
       print "Invalid order search range arg " arg "- search arg format examples include: "
@@ -749,7 +750,7 @@ function TestArg(arg, max_i, type) {
   else if (type == "fr") { reo = 1; fr_idx = 0
     split(arg, Tmp, "[")
     if (Tmp[1]) fr_ext = 1
-    if (arg ~ "\/[iI]") IgnoreCase[arg] = 1
+    if (ignore_case_global || arg ~ "\/[iI]") IgnoreCase[arg] = 1
     if (arg ~ Re["frmat"]) {
       fr = "mat"; mat = 1 }
     else if (arg ~ Re["frre"]) {
@@ -794,6 +795,7 @@ function BuildRe(Re) {
   Re["alltokens"] = "[(\\.\\.)\\~\\+\\-\\*\\/%\\^<>(!=)=\\[]"
   Re["ws"] = "^[:space:]+$"
   Re["ext"] = "(&&|\\|\\|)"
+  Re["extcomp"] = "[^(&&|\\|\\|)]+"
 }
 
 function BuildTokenMap(TkMap) {
