@@ -3,7 +3,8 @@
 # Print fields containing a field separator as one field as long as they are
 # surrounded by single or double quotes
 #
-# > awk -f quoted_fields.awk
+# Example execution:
+# > awk -v FS="," -f quoted_fields.awk file.csv
 
 BEGIN {
   sq = "'"
@@ -13,6 +14,10 @@ BEGIN {
   sqre = "(^|" FS ")" sq ".*" sq "(" FS "|$)"
   dqre = "(^|" FS ")" dq ".+" dq "(" FS "|$)"
   na = (FS == "" || FS ~ sq || FS ~ dq)
+  q_cut_len = retain_outer_quotes ? 0 : 2
+  mod_f_len1 = retain_outer_quotes ? 1 : 2
+  mod_f_len0 = retain_outer_quotes ? 0 : 1
+  if (debug) debugPrint(0)
 }
 
 na || !($0 ~ FS) { print; next }
@@ -21,21 +26,27 @@ na || !($0 ~ FS) { print; next }
   init = 1; nf = 0
   if (!dqset) { dqset = ($0 ~ dqre)
     if (dqset) { q = dq; qq = "\"\""
-      qfs = q FS; qqfs = q q FS }}
+      qq_replace = retain_outer_quotes ? qq : q
+      qfs = q FS; qqfs = q q FS; fsq = FS q }}
   if (!dqset && !sqset) { sqset = ($0 ~ sqre)
-    if (sqsiet) { q = sq; qq = "\'\'"
-      qfs = q FS; qqfs = q q FS }}
+    if (sqset) { q = sq; qq = "\'\'"
+      qq_replace = retain_outer_quotes ? qq : q
+      qfs = q FS; qqfs = q q FS; fsq = FS q }}
 
   if (dqset) {
     for (i = 1; i < 1000; i++) {
+      gsub(qq, "_qqqq_", $0)
       len0 = length($0)
       if (len0 < 1) break
       nf++
       iqfs = index($0, qfs)
       while (substr($0, iqfs-1, 1) == q && substr($0, iqfs-2, 1) != q) {
         iqfs += index(substr($0, iqfs + lenfs, len0), qfs) }
+      ifsq = index($0, fsq)
       ifs = index($0, FS)
       iq = index($0, q)
+      iqq = index($0, qq)
+      if (iq == 1 && !(iqq == 1)) qset = 1
       q_cut = 0
 
       if (debug) {
@@ -43,36 +54,34 @@ na || !($0 ~ FS) { print; next }
         if (_[previ]) pi = _[previ]
         debugPrint(1) }
 
-      if (init) {
-        init = 0
-        if (iq == 1 && iqfs) {
-          startf = 2; endf = iqfs - 2
-          q_cut = 2 }
-        else {
-          startf = 1; endf = ifs - 1 }}
-      else if (!qset) {
+      if (qset) {
+        qset = 0; q_cut = q_cut_len
+        startf = lenfs + mod_f_len0
+        endf = iqfs - q_cut_len
+        if (endf < 1) endf = len0 - 1 - mod_f_len0 }
+      else {
         if (iq == 0 && ifs == 0) {
           startf = 1; endf = len0 }
+        else if ((iqfs > 0 || substr($0,len0) == q) && ifsq == ifs) {
+          startf = 1; endf = ifsq - 1
+          qset = 1}#; q_cut = q_cut_len }
         else if (ifs == 0) {
           startf = lenfs + 1; endf = len0 - 1 }
         else if (iq - ifs == 1) {
           if (iqfs || index(substr($0,2),q) == len0) {
             qset = 1
-            startf = 1; endf = ifs - 1 }
+            startf = 1; endf = ifs - mod_f_len1 }
           else {
-            startf = 2 + lenfs; endf = len0 - 1 }}
+            startf = lenfs; endf = len0 - mod_f_len1 }}
         else if (iq == 0) {
           startf = 1; endf = ifs - 1 }
         else if (iq - ifs > 1 || ifs - iq > 1) {
           startf = 1; endf = ifs - 1 }
         else {
           startf = 1; endf = ifs - 1 }}
-      else if (qset) {
-        qset = 0; q_cut = 2
-        startf = lenfs + 1; endf = iqfs - 2 }
 
       _[i] = substr($0, startf, endf)
-      gsub(qq, q, _[i])
+      gsub("_qqqq_", qq_replace, _[i])
       $0 = substr($0, endf + lenfs + q_cut + 1)
       if (debug) debugPrint(2) }}
   else {
@@ -86,12 +95,19 @@ na || !($0 ~ FS) { print; next }
 }
 
 function debugPrint(case) {
-  if (case == 1 ) {
-    print i, qset, len0, $0
-    print "previ:" pi
-    print "ifs: " ifs, "iq: " iq, "iqfs: " iqfs
+  if (case == 0) {
+    print "-------- SETUP --------"
+    print "retain_outer_quotes: "retain_outer_quotes" q_cut_len: "q_cut_len" mod_f_len0: "mod_f_len0" mod_f_len1: "mod_f_len1
+    print "---- CALCS / OUTPUT ----"
+  } else if (case == 1 ) {
+    print "----- CALCS FIELD "i" ------"
+    print "NR: "NR" qset: " qset " len0: " len0 " $0: " $0
+    print "previ: " pi
+    print "ifs: "ifs" iq: "iq" iqfs: "iqfs" ifsq: "ifsq" iqq: "iqq
   } else if (case == 2) {
-    print "substr($0, " startf ", " endf ")"
+    print "_["i"] = substr($0, " startf ", " endf ")"
+    print "$0 = substr($0, "endf" + "lenfs" + "q_cut" + 1)"
+    print "----- OUTPUT FIELD "i" -----"
     print _[i]
     print ""
   }

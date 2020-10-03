@@ -6,10 +6,11 @@ test_var=1
 tmp=/tmp/commands_tests
 q=/dev/null
 shell=$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')
-jnf1="tests/infer_join_fields_test1.csv"
-jnf2="tests/infer_join_fields_test2.csv"
-seps_base="tests/seps_test_base"
-
+jnf1="tests/data/infer_join_fields_test1.csv"
+jnf2="tests/data/infer_join_fields_test2.csv"
+seps_base="tests/data/seps_test_base"
+complex_csv1="tests/data/addresses.csv"
+complex_csv2="tests/data/Sample100.csv"
 
 if [[ $shell =~ 'bash' ]]; then
   bsh=0
@@ -99,6 +100,13 @@ reo_input='d c a b f
 f e c b a
 f e d c b
 e d c b a'
+reo_output='f e c b a'
+[ "$(echo "$reo_input" | ds:reo 2)" = "$reo_output" ] || ds:fail 'reo command failed base row case'
+reo_output='c
+e
+e
+d'
+[ "$(echo "$reo_input" | ds:reo a 2)" = "$reo_output" ] || ds:fail 'reo command failed base column case'
 reo_output='a c d e b
 f a c d b'
 [ "$(echo "$reo_input" | ds:reo 4,1 5,3..1,4)" = "$reo_output" ] || ds:fail 'reo command failed'
@@ -177,18 +185,24 @@ a '
 
 # FIT TESTS
 
-fit_var_present="$(head tests/addresses.csv | ds:fit | awk '{cl=length($0);if(pl && pl!=cl) {print 1;exit};pl=cl}')"
+fit_var_present="$(head "$complex_csv1" | ds:fit | awk '{cl=length($0);if(pl && pl!=cl) {print 1;exit};pl=cl}')"
 [ "$fit_var_present" = 1 ] && ds:fail 'fit command failed pipe case'
-fit_expected='SomeTown'
-fit_actual="$(ds:fit tests/addresses.csv | ds:reo 5 6 '-F {2,}')"
+fit_expected='Desert City'
+fit_actual="$(ds:fit "$complex_csv1" | ds:reo 7 4 '-F {2,}')"
 [ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit command failed base case'
+fit_expected='Company Name                            Employee Markme       Description
+INDIAN HERITAGE ,ART & CULTURE          MADHUKAR              ACCESS PUBLISHING INDIA PVT.LTD
+ETHICS, INTEGRITY & APTITUDE ( 3RD/E)   P N ROY ,G SUBBA RAO  ACCESS PUBLISHING INDIA PVT.LTD
+PHYSICAL, HUMAN AND ECONOMIC GEOGRAPHY  D R KHULLAR           ACCESS PUBLISHING INDIA PVT.LTD'
+fit_actual="$(ds:reo "$complex_csv2" 1,35,37,42 2..4 | ds:fit -F,)"
+[ "$(echo -e "$fit_expected")" = "$fit_actual" ] || ds:fail 'fit command failed quoted field case'
 
 # FC TESTS
 
 fc_expected='2 mozy,Mozy,26,web,American Fork,UT,1-May-05,1900000,USD,a
 2 zoominfo,ZoomInfo,80,web,Waltham,MA,1-Jul-04,7000000,USD,a'
 fc_actual="$(ds:fieldcounts tests/company_funding_data.csv a 2)"
-[ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed all field case'
+[ "($fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed all field case'
 fc_expected='54,1-Jan-08
 54,1-Oct-07'
 fc_actual="$(ds:fieldcounts tests/company_funding_data.csv 7 50)"
@@ -209,7 +223,7 @@ nfs_actual="$(ds:newfs tests/addresses.csv :: | grep Joan)"
 [ "$(echo 1 2 3 | ds:join_by ', ')" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'
 [ "$(ds:join_by ', ' 1 2 3)" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'
 [ "$(ds:embrace 'test')" = '{test}' ] || ds:fail 'embrace command failed'
-path_el_arr=( tests/ infer_join_fields_test1 '.csv' )
+path_el_arr=( tests/data/ infer_join_fields_test1 '.csv' )
 [ -z $bsh ] && let count=1 || let count=0
 for el in $(IFS='\t' ds:path_elements $jnf1); do
   test_el=${path_el_arr[count]}

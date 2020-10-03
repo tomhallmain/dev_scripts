@@ -10,6 +10,7 @@
   for (i = 1; i <= NF; i++) {
     _[i, NR] = $i 
   }
+  if (!VAR_OFS && !(FS ~ "\[.+\]")) OFS = FS
 }
 
 END {

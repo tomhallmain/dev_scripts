@@ -105,6 +105,7 @@
 ## TODO: option (or default?) for preserving original order
 ## TODO: basic sorts
 ## TODO: string equality / sorting
+## TODO: negative indices meaning indices from end?
 ## TODO: reverse from a particular point (for example, keep header)
 ## TODO: Index number output
 ## TODO: Pattern anchors /pattern/../pattern/
@@ -120,22 +121,26 @@ BEGIN {
 
   if (debug) debug_print(-1)
   if (r) {
+    ReoR[0] = 1
     Setup(1, r, reo_r_count, R, RangeR, ReoR, base_r, rev_r, oth_r, RRExprs, RRSearches, RRIdxSearches, RRFrames, RExtensions)
     r_len = SetupVars["len"]
     reo_r_count = SetupVars["count"]
     base_r = SetupVars["base_status"]
     rev_r = SetupVars["rev"]
-    oth_r = SetupVars["oth"] }
+    oth_r = SetupVars["oth"];
+    delete ReoR[0] }
   else { pass_r = 1 }
   if (!reo_r_count) pass_r = 1
 
   if (c) {
+    ReoC[0] = 1
     Setup(0, c, reo_c_count, C, RangeC, ReoC, base_c, rev_c, oth_c, RCExprs, RCSearches, RCIdxSearches, RCFrames, CExtensions)
     c_len = SetupVars["len"]
     reo_c_count = SetupVars["count"]
     base_c = SetupVars["base_status"]
     rev_c = SetupVars["rev"]
-    oth_c = SetupVars["oth"] }
+    oth_c = SetupVars["oth"] 
+    delete ReoC[0] }
   else { pass_c = 1 }
   if (!reo_c_count) pass_c = 1
   if (pass_r && pass_c) pass = 1
@@ -321,16 +326,20 @@ function FillRange(row_call, range_arg, RangeArr, reo_count, ReoArr) {
   return reo_count
 }
 
-function FillReoArr(row_call, val, KeyArr, count, ReoArray, type) {
+function FillReoArr(row_call, val, KeyArr, count, ReoArr, type) {
   count++
   KeyArr[val] = 1
-  ReoArray[count] = val
+  ReoArr[count] = val
   if (type)
     TypeMap[val] = type
-  else if (row_call && val < min_guar_print_nr)
-    min_guar_print_nr = val
-  else if (!row_call && val < min_guar_print_nf)
-    min_guar_print_nf = val
+  else if (row_call) {
+    R[val] = 1
+    if (val < min_guar_print_nr)
+      min_guar_print_nr = val }
+  else if (!row_call) {
+    C[val] = 1
+    if (val < min_guar_print_nf)
+      min_guar_print_nf = val }
  
   return count
 }
@@ -706,7 +715,7 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
         delete ExtOrder; delete Operators }
       prior_count = reo_count }
 
-  if (row_call) { 
+  if (row_call) {
     for (ord in Order) ROrder[ord] = Order[ord] 
     for (ord in ExtOrder) RExtOrder[ord] = ExtOrder[ord] }
   else {
@@ -903,10 +912,10 @@ function print_field(field_val, field_no, end_field_no) {
   printf "%s", field_val
 }
 
-function Sort(Arr, order) {
-  if (!order || order == "asc") {}
-  else
-}
+#function Sort(Arr, order) {
+#  if (!order || order == "asc") {}
+#  else
+#}
 
 function qsorta(A,lft,rght,    x,last) {
   if (lft >= rght) return

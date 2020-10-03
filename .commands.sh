@@ -659,8 +659,8 @@ ds:inferfs() { # Infer field separator from data: inferfs file [reparse=false] [
   if [ "$use_file_ext" = true ]; then
     read -r dirpath filename extension <<<$(ds:path_elements "$file")
     if [ "$extension" ]; then
-      [ ".tsv" = "$extension" ] && echo "\t" && return
       [ ".csv" = "$extension" ] && echo ',' && return
+      [ ".tsv" = "$extension" ] && echo "\t" && return
     fi
   fi
 
@@ -690,7 +690,7 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
   local dequote=$(ds:tmp "ds_fit_dequote")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true true true $hc)"
-    ds:dequote "$file" "$fs" > $dequote
+    ds:prefield "$file" "$fs" 0 > $dequote
     awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" -v tty_size=$tty_size\
       -v buffer="$col_buffer" ${args[@]} $dequote{,} 2> /dev/null
   else
@@ -704,7 +704,7 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
       unset "args[$fsv_idx]"
     fi
     unset "args[$fs_idx]"
-    ds:dequote "$file" "$fs" > $dequote
+    ds:prefield "$file" "$fs" 0 > $dequote
     awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" -v tty_size=$tty_size\
       -v buffer="$col_buffer" ${args[@]} $dequote{,} 2> /dev/null
   fi
@@ -760,19 +760,20 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [deq
     ds:file_check "$1"
     local file="$1" rows="${2:-a}" cols="${3:-a}" base=4
   fi
+  local arr_base=$(ds:arr_base)
   local args=( "${@:$base}" )
-  if ds:test "(t|true|f|false)" "${args[1]}"; then
-    local dq_off="${args[1]}" args=( "${args[@]:1}" ); fi
+  if ds:test "(t|true|f|false)" "${args[$arr_base]}"; then
+    local dq_off="${args[$arr_base]}" args=( "${args[@]:1}" ); fi
   [ ! "$dq_off" ] && local dequote=$(ds:tmp "ds_reo_dequote")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
     if [ ! "$dq_off" ]; then
-      ds:dequote "$file" "$fs" > $dequote
+      ds:prefield "$file" "$fs" 1 > $dequote
       awk -v FS="$DS_SEP" -v OFS="$fs" ${args[@]} -v r="$rows" -v c="$cols" \
-        -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null | ds:ttyf
+        -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null | ds:ttyf "$fs"
     else
       awk -v FS="$fs" ${args[@]} -v r="$rows" -v c="$cols" \
-        -f "$DS_SCRIPT/reorder.awk" "$file" 2>/dev/null | ds:ttyf; fi
+        -f "$DS_SCRIPT/reorder.awk" "$file" 2>/dev/null | ds:ttyf "$fs"; fi
   else
     local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
     if [ "$fs_idx" = "" ]; then
@@ -785,12 +786,12 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [deq
     fi
     unset "args[$fs_idx]"
     if [ ! "$dq_off" ]; then
-      ds:dequote "$file" "$fs" > $dequote
+      ds:prefield "$file" "$fs" 1 > $dequote
       awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v r="$rows" -v c="$cols" \
         -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null | ds:ttyf "$fs"
     else
-      awk -v FS="$fs" ${args[@]} -v r="$rows" -v c="$cols" \
-        -f "$DS_SCRIPT/reorder.awk" "$file" 2>/dev/null
+      awk -v FS="$fs" -v OFS="$fs" ${args[@]} -v r="$rows" -v c="$cols" \
+        -f "$DS_SCRIPT/reorder.awk" "$file" 2>/dev/null | ds:ttyf "$fs"
     fi; fi
   #ds:pipe_clean $file; [ ! "$dq_off" ] && rm $dequote; :
 }
@@ -877,7 +878,7 @@ ds:fieldcounts() { # ** Print value counts: ds:fieldcounts [file] [fields=1] [mi
       unset "args[$fs_idx]"
     fi
     local dequote=$(ds:tmp "ds_fc_dequote")
-    ds:dequote "$file" "$fs" > $dequote
+    ds:prefield "$file" "$fs" > $dequote
     ds:test "\[.+\]" "$fs" && fs=" " 
     awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v min="$min" -v fields="$fields" \
       -f "$DS_SCRIPT/field_counts.awk" $dequote 2>/dev/null | sort -n$order | ds:ttyf "$fs"
@@ -902,7 +903,7 @@ ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file
   local program='{for(i=1;i<NF;i++){printf "%s", $i OFS} print $NF}'
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    ds:dequote "$file" "$fs" > $dequote
+    ds:prefield "$file" "$fs" > $dequote
     awk -v FS="$DS_SEP" -v OFS="$newfs" ${args[@]} $program $dequote 2> /dev/null
   else
     local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
@@ -915,7 +916,7 @@ ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file
       unset "args[$fsv_idx]"
     fi
     unset "args[$fs_idx]"
-    ds:dequote "$file" "$fs" > $dequote
+    ds:prefield "$file" "$fs" > $dequote
     awk ${args[@]} -v FS="$DS_SEP" -v OFS="$newfs" $program $dequote 2> /dev/null
   fi
   ds:pipe_clean $file; rm $dequote

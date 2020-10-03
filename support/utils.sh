@@ -12,13 +12,15 @@ ds:noawkfs() { # Test whether awk arg for setting field separator is present
   [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" && ! "${args[@]}" =~ "-v fs" ]]
 }
 
-ds:dequote() { # Transform FS of a file with quoted fields which contain FS into non-clashing FS
+ds:prefield() { # Transform FS of a file with quoted fields which contain FS into non-clashing FS
   ds:file_check "$1"
-  local file="$1" fs="$2"
+  local file="$1" fs="$2" dequote=${3:-0}
   if [[ ! "${args[@]}" =~ "-v OFS" && ! "${args[@]}" =~ "-v ofs" ]]; then
-    awk -v OFS="$DS_SEP" -v FS="$fs" ${args[@]} -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
+    awk -v OFS="$DS_SEP" -v FS="$fs" -v retain_outer_quotes="$dequote" ${args[@]} \
+      -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
   else
-    awk -v FS="$fs" ${args[@]} -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
+    awk -v FS="$fs" -v retain_outer_quotes="$dequote" ${args[@]} \
+      -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
   fi
 }
 

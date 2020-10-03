@@ -50,8 +50,8 @@ BEGIN {
     red = "\033[1;31m"
     no_color = "\033[0m" }
 
-  decimal_re = "^[[:space:]]*[0-9]+[\.][0-9]+[[:space:]]*$"
-  num_re = "^[[:space:]]*[0-9]+([\.][0-9]*)?[[:space:]]*$"
+  decimal_re = "^[[:space:]]*$?-?$?[0-9]+[\.][0-9]+[[:space:]]*$"
+  num_re = "^[[:space:]]*$?-?$?[0-9]+([\.][0-9]*)?[[:space:]]*$"
 
   if (!tty_size)
     "tput cols" | getline tty_size; tty_size += 0
@@ -235,17 +235,17 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
       }
       else {
         if (shrink_f[i]) {
-          color = yellow
+          color = yellow; color_off = no_color
           value = substr($i, 1, max_f_len[i]) }
         else {
-          color = ""
+          color = ""; color_off = ""
           value = $i }
 
         if (not_last_f) print_len = max_f_len[i]
         else print_len = length(value)
 
         justify_str = "%-" # Left-align
-        fmt_str = color justify_str print_len "s" no_color
+        fmt_str = color justify_str print_len "s" color_off
         printf fmt_str, value
         if (not_last_f) print_buffer()
       }}
