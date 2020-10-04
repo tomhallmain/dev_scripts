@@ -1,12 +1,10 @@
 #!/usr/bin/awk
 #
-# Infers a field separator in a text data file based on
-# likelihood of common field separators and commonly found
-# substrings in the data of up to three characters.
+# Infers a field separator in a text data file based on likelihood of common field 
+# separators and commonly found substrings in the data of up to three characters.
 # 
-# The newline separator is not inferable via this script.
-# Custom field separators containing alphanumeric characters 
-# are also not supported.
+# The newline separator is not inferable via this script. Custom field separators 
+# containing alphanumeric characters are also not supported.
 #
 # Run as:
 # > awk -f infer_field_separator.awk "data_file"
@@ -14,12 +12,11 @@
 # To infer a custom separator, set var `custom` to any value:
 # > awk -f infer_field_separator.awk -v custom=true "data_file"
 #
-# TODO: Handle stray data that creates empty fields and can lead to custom
-# novar pattern handling breaking (i.e. ,,, winning over , by creating two
-# fields)
-# TODO: Optional smart inference based on a set of lines with common separator
-# variance (probably external)
-# TODO: Handle escapes, null chars, SUBSEP
+## TODO: Handle stray data that creates empty fields and can lead to custom novar 
+## pattern handling breaking (i.e. ,,, winning over , by creating two fields)
+## TODO: Optional smart inference based on a set of lines with common separator
+## variance (probably external)
+## TODO: Handle escapes, null chars, SUBSEP
 
 BEGIN {
   commonfs["s"] = " "
@@ -33,6 +30,8 @@ BEGIN {
   if (!max_rows) max_rows = 500
   custom = length(custom)
 }
+
+NR > max_rows { exit }
 
 custom && NR == 1 {
   # Remove leading and trailing spaces
@@ -51,26 +50,21 @@ custom && NR == 1 {
       if ( ! char ~ /[\s\|;:]/ ) {
         char_nf = split($0, chartest, char)
         if (debug) print "char:" char, char_nf
-        if (char_nf > 1) charfs_count[char] = char_nf
-      }
+        if (char_nf > 1) charfs_count[char] = char_nf }
 
       if (j > 1) {
         prevchar = "\\" chars[j-1]
         twochar = prevchar char
         twochar_nf = split($0, twochartest, twochar)
         if (debug) print "twochar:" twochar, twochar_nf
-        if (twochar_nf > 1) { twocharfs_count[twochar] = twochar_nf }
-      }
+        if (twochar_nf > 1) { twocharfs_count[twochar] = twochar_nf }}
 
       if (j > 2) {
         twoprevchar = "\\" chars[j-2]
         thrchar = twoprevchar prevchar char
         thrchar_nf = split($0, thrchartest, thrchar)
         if (debug) print "thrchar:" thrchar, thrchar_nf
-        if (thrchar_nf > 1) thrcharfs_count[thrchar] = thrchar_nf
-      }
-    }
-  }
+        if (thrchar_nf > 1) thrcharfs_count[thrchar] = thrchar_nf }}}
 }
 
 custom && NR == 2 {
@@ -106,15 +100,14 @@ custom && NR == 2 {
   }
 }
 
-NR <= max_rows { 
+{ 
   gsub(/^[[:space:]]+|[[:space:]]+$/,"",$0)
 
   for (s in commonfs) {
     fs = commonfs[s]
     nf = split($0, _, fs)
     commonfs_count[s, NR] = nf
-    commonfs_total[s] += nf
-  }
+    commonfs_total[s] += nf }
 
   if (custom && NR > 2) {
     if (NR == 3) {
@@ -122,17 +115,12 @@ NR <= max_rows {
         for (fs in customfs) {
           nf = split(line[i], _, fs)
           customfs_count[fs, NR] = nf
-          customfs_total[fs] += nf 
-        }
-      }
-    }
+          customfs_total[fs] += nf }}}
 
     for (fs in customfs) {
       nf = split($0, _, fs)
       customfs_count[fs, NR] = nf
-      customfs_total[fs] += nf 
-    }
-  }
+      customfs_total[fs] += nf }}
 }
 
 END {
@@ -151,8 +139,7 @@ END {
 
     for (j = 1; j <= max_rows; j++) {
       point_var = (commonfs_count[s, j] - average_nf) ** 2
-      sum_var[s] += point_var
-    }
+      sum_var[s] += point_var }
     
     fs_var[s] = sum_var[s] / max_rows
 
@@ -162,14 +149,11 @@ END {
       novar[s] = commonfs[s]
       winning_s = s
       winners[s] = commonfs[s]
-      if (debug) print "novar winning_s set to commonfs[\""s"\"] = \"" commonfs[s] "\""
-    }
+      if (debug) print "novar winning_s set to commonfs[\""s"\"] = \"" commonfs[s] "\"" }
     else if ( !winning_s || fs_var[s] < fs_var[winning_s] ) {
       winning_s = s
       winners[s] = commonfs[s]
-      if (debug) print "winning_s set to commonfs[\""s"\"] = \"" commonfs[s] "\""
-    }
-  }
+      if (debug) print "winning_s set to commonfs[\""s"\"] = \"" commonfs[s] "\"" }}
 
   if (debug && length(customfs)) print " ---- custom sep variance calcs ----"
   if (custom) {
@@ -184,8 +168,7 @@ END {
 
       for (j = 3; j <= max_rows; j++) {
         point_var = (customfs_count[s, j] - average_nf) ** 2
-        sum_var[s] += point_var
-      }
+        sum_var[s] += point_var }
 
       fs_var[s] = sum_var[s] / max_rows
 
@@ -195,15 +178,11 @@ END {
         novar[s] = s
         winning_s = s
         winners[s] = s
-        if (debug) print "novar winning_s set to customfs \"" s "\""
-      }
+        if (debug) print "novar winning_s set to customfs \""s"\"" }
       else if ( !winning_s || fs_var[s] < fs_var[winning_s]) {
         winning_s = s
         winners[s] = s
-        if (debug) print "novar winning_s set to customfs \"" s "\""
-      }
-    }    
-  }
+        if (debug) print "novar winning_s set to customfs \""s"\"" }}}
   
   # Handle cases of multiple separators with no variance
   if (length(novar) > 1) {
@@ -227,31 +206,24 @@ END {
 
         if (debug) {
           print " ---- novar handling case ----"
-          print "s: \"" s "\", fs1: \"" fs1 "\""
+          print "s: \""s"\", fs1: \""fs1"\""
           print "compare_s: \""compare_s"\", fs2: \""fs2"\""
           print "matches:", fs1 ~ fs2
-          print "len winner: "length(winners[s])", len fs1: "length(fs1)", len fs2: "length(fs2)
-        }
+          print "len winner: "length(winners[s])", len fs1: "length(fs1)", len fs2: "length(fs2) }
 
         # If one separator with no variance is contained inside another, use the longer one
         if (fs1 ~ fs2re || fs2 ~ fs1re) {
           if (length(winners[winning_s]) < length(fs2) && length(fs1) < length(fs2)) {
             winning_s = compare_s
-            if (debug) print "s: \""s"\", compare_s: \""compare_s"\", winning_s switched to: \""compare_s"\""
-          } else if (length(winners[winning_s]) < length(fs1) && length(fs1) > length(fs2)) {
+            if (debug) print "s: \""s"\", compare_s: \""compare_s"\", winning_s switched to: \""compare_s"\"" }
+          else if (length(winners[winning_s]) < length(fs1) && length(fs1) > length(fs2)) {
             winning_s = s
-            if (debug) print "compare_s: \"" compare_s "\", s: \""s"\", winning_s switched to: \""s"\""
-          }
-        }
-      }
-    }
-  }
+            if (debug) print "compare_s: \"" compare_s "\", s: \""s"\", winning_s switched to: \""s"\"" }}}}}
 
   if (high_certainty) { # TODO: add this check in novar comparison
     scaled_var = fs_var[winning_s] * 10
     scaled_var_frac = scaled_var - int(scaled_var)
-    winner_unsure = scaled_var_frac != 0
-  }
+    winner_unsure = scaled_var_frac != 0 }
 
   if ( ! winning_s || winner_unsure ) 
     print commonfs["s"] # Space is default separator

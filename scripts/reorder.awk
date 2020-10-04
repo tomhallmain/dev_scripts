@@ -8,16 +8,23 @@
 #       ds:reo [-h|--help|file] [r_args_str] [c_args_str] [dequote=true] [all_other_awkargs]
 #
 # DESCRIPTION
-#       reorder.awk is a script that reorders, repeats or slices the rows and columns 
-#       of fielded data. To run the script, ensure awk is installed on your machine
-#       and that it is in your path (on most Linux and OS X machines it should be), and 
-#       call on a file:
+#       reorder.awk is a script that reorders, repeats, or slices the rows and columns of 
+#       fielded data. It can also be used on non-fielded data but its usefulness may be 
+#       limited to rows in this case. To run the script, ensure AWK is installed and in 
+#       your path (on most Unix-based systems it should be), and call it on on a file:
 #
 #    > awk -f reorder.awk -v r=1 -v c=1 file
 #
+#       Where r and c refer to row and column order args respectively.
+#
+#       Comma is the order arg separator. To escape a comma, it must have two backslashes 
+#       when passed to AWK, so it must have three slashes if in double quotes.
+#
+#    > awk -f reorder.awk -v r="~\\\," c='~\\,'
+#
 #       ds:reo is the caller function for the reorder.awk script. To run any of the 
-#       examples below, map awk args as given in SYNOPSIS. For example, to print columns 
-#       where the header matches "ZIP" on the first row and all rows matching "Main St":
+#       examples below, map AWK args as given in SYNOPSIS. For example, to print columns 
+#       where the header matches "ZIP" on the first row where rows match "Main St":
 #
 #    $ ds:reo addresses.csv "1,~Main St" "[ZIP" -v cased=1
 #
@@ -28,24 +35,33 @@
 #       When running ds:reo, an attempt is made to infer a field separator of up to
 #       three characters. If none is found, FS will be set to default value, a single 
 #       space = " ". To override the FS, add as a trailing awkarg. Be sure to escape 
-#       and quote if needed:
+#       and quote if needed. AWK's extended regex can be used as FS:
 #
-#    $ ds:reo addresses_where_words_don't_matter 8..10,7..1 1..4 -v FS='[A-z]+'
+#    $ ds:reo datafile a 1,4 -v FS=" {2,}"
 #
-#    $ ds:reo addresses_with_bad_sep.csv a rev -F'\\\|\\\|'
+#    $ ds:reo data_where_words_dont_matter 7..1 1..4 -v FS='[A-z]+'
 #
-#    $ ds:reo addresses_with_bad_sep.csv '[ZIP%3' a -v FS=""
+#    $ ds:reo addresses_with_bad_sep a rev -F'\\\|\\\|'
 #
 #       If FS is set to an empty string, all characters will be separated.
 #
-#       When running with ds:reo, an attempt is made extract relevant instances of 
-#       field separators in the case that a field separator appears in field values. 
-#       To turn this off set dequote to false in the positional arg.
+#    $ ds:reo addresses_with_bad_sep.csv '[ZIP%3' a -v FS=""
+#
+#       When running ds:reo, an attempt is made to extract relevant instances of field 
+#       separators in the case that a field separator appears in field values. To turn this 
+#       off set dequote to false in the positional arg.
 #
 #    $ ds:reo simple_data.csv 1,500..2 a [f|false]
 #
+#       If ds:reo detects it is connected to a terminal, it will attempt to fit the data 
+#       into the terminal width using the same field separator. If the data is being sent to 
+#       a file or a pipe, no attempt to fit will be made. One easy way to turn off fit is to 
+#       cat the output.
 #
-# EXAMPLES
+#    $ echo "data" | ds:reo 1,2,3 | cat
+#
+#
+# FUNCTIONS
 #       Print help:
 #
 #    $ ds:reo -h
@@ -59,12 +75,12 @@
 #
 #    $ ds:reo 1,1000 1,4,5
 #
-#       Pass all rows / columns for given index - don't set arg / set arg=[a|all] 
-#       (Print all rows, only column 4)
+#       Pass all rows / columns for given index - don't set arg or set arg=[a|all] (Print
+#       all rows, only column 4)
 #
 #    $ ds:reo a 4
 #
-#       Print index range (ranges are inclusive of ending indices:
+#       Print index range (ranges are inclusive of ending indices):
 #
 #    $ ds:reo 1,100..200 1..3,5
 #
@@ -84,27 +100,27 @@
 #
 #       Filter records by field values and/or fields by record values:
 #
-#       -- Using basic math expressions, across the entire opposite span (Print rows 
-#       with field val =1, followed by rows with val <1, and fields with vals less 
-#       than 10 when divided by 5):
+#       -- Using basic math expressions, across the entire opposite span (Print rows with 
+#       field value =1, followed by rows with value <1, and fields with values less than 
+#       11 when divided by 5):
 #
-#    $ ds:reo "=1,<1" "/5<10"
+#    $ ds:reo "=1,<1" "/5<11"
 #
 #       -- Using basic math expressions, across given span (Print the header row followed
-#       by rows where field 8 is negative, only fields with vals in row 6 not equal to 10
+#       by rows where field 8 is negative, only fields with values in row 6 not equal to 10
 #
 #    $ ds:reo "1,8<0" "6!=10"
 #
 #       -- Using regular expressions across the opposite span, full or specified 
 #       (Print Rows matching "plant" followed by rows without alpha chars, only fields
-#       with vals in row 3 that match simple decimal pattern):
+#       with values in row 3 that match simple decimal pattern):
 #
 #    $ ds:reo "~plant,!~[A-z]" "3~[0-9]+\.[0-9]" -v cased=1
 #
 #       Alternatively filter the cross-span by a current-span frame pattern. Headers --
 #       first row and first column -- are the default if not specified (Print rows where 
 #       column header matches "plant" and column value matches "flower", fields where 
-#       vals in col 3 match "alps" and which have number vals greater than 10000
+#       values in col 3 match "alps" and which have number values greater than 10000
 #
 #    $ ds:reo "[plant~flower" "3[alps>10000"
 #
@@ -115,7 +131,7 @@
 #
 #    $ ds:reo file "[europe" "[plant"
 #
-#       Note the above args are equivalent to r="1~europe" c="1~plant".
+#       Note the above args are equivalent to "1~europe" "1~plant".
 #
 #       Combine filters using && and || for more selective or expansive queries ||
 #       is currently calculated first (Print rows where field vals in fields
@@ -146,6 +162,7 @@
 ## TODO: Index number output
 ## TODO: Pattern anchors /pattern/../pattern/
 ## TODO: Remove frame print if already indexed, and don't print if no match (?)
+## TODO: Expressions and comparisons against cross-index total
 
 ## SETUP
 
@@ -157,6 +174,7 @@ BEGIN {
 
   if (debug) debug_print(-1)
   if (r) {
+    gsub("\\\\,", "?ECSOCMAMPA?", r) # Unescape comma searches
     ReoR[0] = 1
     Setup(1, r, reo_r_count, R, RangeR, ReoR, base_r, rev_r, oth_r, RRExprs, RRSearches, RRIdxSearches, RRFrames, RExtensions)
     r_len = SetupVars["len"]
@@ -169,6 +187,7 @@ BEGIN {
   if (!reo_r_count) pass_r = 1
 
   if (c) {
+    gsub("\\\\,", "?ECSOCMAMPA?", c) # Unescape comma searches
     ReoC[0] = 1
     Setup(0, c, reo_c_count, C, RangeC, ReoC, base_c, rev_c, oth_c, RCExprs, RCSearches, RCIdxSearches, RCFrames, CExtensions)
     c_len = SetupVars["len"]
@@ -184,11 +203,13 @@ BEGIN {
     indx = 1
   else if (!range && !reo)
     base = 1
+  else if (range && !reo)
+    base_range = 1
   else if (reo && !mat && !re && !rev && !oth)
     base_reo = 1
 
   if (ARGV[1]) { "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0 }
-  if (!(FS == "@@@")) OFS = BuildOFSFromUnescapedFS()
+  if (OFS ~ "\\") OFS = UnescapeOFS()
   if (OFS ~ "\[:space:\]") OFS = " "
   reo_r_len = length(ReoR)
   reo_c_len = length(ReoC)
@@ -203,7 +224,7 @@ indx { if (NR == r) { print $c; exit } next }
 
 base { if (pass_r || NR in R) FieldsPrint(COrder, c_len, 1); next }
 
-range && !reo { if (pass_r || NR in R) FieldsPrint(ReoC, reo_c_len, 1); next }
+base_range { if (pass_r || NR in R) FieldsPrint(ReoC, reo_c_len, 1); next }
 
 reo {
   if (pass_r) {
@@ -286,8 +307,7 @@ END {
               if (rc!=reo_c_len) printf "%s", OFS }}
 
           print "" }}
-      else Reo(r_key, _, 1)
-    }}
+      else Reo(r_key, _, 1) }}
 }
 
 
@@ -692,7 +712,8 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
 
   for (i = 1; i <= len; i++) {
     base_i = Order[i]
-    if (!base_i) delete Order[i]
+    gsub("\\?ECSOCMAMPA\\?", ",", base_i)
+    if (!base_i) { delete Order[i]; continue }
     if (base_i ~ Re["ext"]) { ExtArr[base_i] = 1; ext = 1 }
     split(base_i, ExtOrder, Re["ext"])
     split(base_i, Operators, Re["extcomp"])
@@ -704,7 +725,7 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
       if (debug) { row_call ? debug_print(1) : debug_print(1.5) }
 
       if (!token) {
-        if ("reverse" ~ tolower(o_i)) {
+        if ("reverse" ~ "^"tolower(o_i)) {
           o_i = "rev"; base_o = 0; reo = 1; rev = 1; rev_o = 1
           reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, "rev")
           continue }
@@ -781,7 +802,7 @@ function TestArg(arg, max_i, type) {
     if (arg ~ Re["int"])
       return arg
     else {
-      print "Order arg " arg " not parsable - simple order arg format is integer"
+      print "Order arg "arg" not parsable - simple order arg format is integer"
       exit 1 }} 
 
   split(arg, Subargv, TkMap[type])
@@ -790,7 +811,7 @@ function TestArg(arg, max_i, type) {
 
   if (type == "rng") { range = 1
     if (len_sargv != 2 || !(sa1 ~ Re["int"]) || !(sa2 ~ Re["int"])) {
-      print "Invalid order range arg " arg " - range format is for example: 1..9"
+      print "Invalid order range arg "arg" - range format is for example: 1..9"
       exit 1
     if (reo || sa1 >= sa2 || sa1 <= max_i)
       reo = 1
@@ -801,7 +822,7 @@ function TestArg(arg, max_i, type) {
     for (sa_i = 2; sa_i <= length(Subargv); sa_i++)
       if (!(Subargv[sa_i] ~ Re["int"])) nonint_sarg = 1
     if (nonint_sarg || !(arg ~ Re["matarg1"] || arg ~ Re["matarg2"])) {
-      print "Invalid order expression arg " arg " - expression format examples include: "
+      print "Invalid order expression arg "arg" - expression format examples include: "
       print "NR%2  2%3=5  NF!=4  *6/8%2=1"
       exit 1 }}
 
@@ -810,7 +831,7 @@ function TestArg(arg, max_i, type) {
     if (ignore_case_global || arg ~ "\/[iI]") IgnoreCase[arg] = 1
     re_test = substr(arg, length(sa1)+2, length(arg))
     if ("" ~ re_test) {
-      print "Invalid order search range arg " arg "- search arg format examples include: "
+      print "Invalid order search range arg "arg" - search arg format examples include: "
       print "~search  2~search"
       exit 1 }}
 
@@ -825,7 +846,7 @@ function TestArg(arg, max_i, type) {
     else if (Tmp[2]) {
       fr = "re"; re = 1; fr_idx = 1; FrIdx[arg] = 1 }
     else {
-      print "Invalid order frame arg - frame arg format examples include: "
+      print "Invalid order frame arg "arg" - frame arg format examples include: "
       print "[RowHeaderPattern  5[Index5Pattern~search  [HeaderPattern!=30"
       exit 1 }}
 
@@ -934,11 +955,11 @@ function GetComp(string) {
   Tmp[0] = comp
 }
 
-function BuildOFSFromUnescapedFS() {
+function UnescapeOFS() {
+  split(OFS, OFSTokens, "\\")
   OFS = ""
-  split(FS, fstokens, "\\")
-  for (i = 1; i <= length(fstokens); i++) {
-    OFS = OFS fstokens[i]
+  for (i = 1; i <= length(OFSTokens); i++) {
+    OFS = OFS OFSTokens[i]
   }
   return OFS
 }
@@ -1014,15 +1035,16 @@ function debug_print(case, arg) {
     print "----------- CASE MATCHES -----------"
     if (indx) print "index case"
     if (base) print "base case"
-    else if (base_r) print "base row case"
-    else if (base_c) print "base column case"
+    if (base_r) print "base row case"
+    if (base_c) print "base column case"
+    if (range) print "range case"
+    if (base_range) print "base range case"
     if (num) print "line number case"
     if (reo) print "reorder case"
     if (rev) print "reverse case"
     if (sort) print "sort case"
     if (oth) print "remainder case"
     if (base_reo) print "base reorder case"
-    if (range) print "range case"
     if (mat) print "expression case"
     if (re) print "search case"
     if (ext) print "extended logic case"

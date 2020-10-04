@@ -950,11 +950,12 @@ ds:enti() { # Print text entities from a file separated by a common pattern: ds:
 
 ds:sbsp() { # Extend fields to include a common subseparator: ds:sbsp file subsep_pattern [nomatch_handler=space]
   ds:file_check "$1"
-  local file="$1" fs="$(ds:inferfs "$file")"
-  [ $2 ] && local ssp="-v subsep_pattern=$2"
-  [ $3 ] && local nmh="-v nomatch_handler=$3"
-  awk -v FS=$fs $ssp $nmh -f "$DS_SCRIPT/subseparator.awk" \
-    "$file" 2> /dev/null
+  local file="$1" fs="$(ds:inferfs "$1")"
+  [ $2 ] && local ssp=(-v subsep_pattern="$2")
+  [ $3 ] && local nmh=(-v nomatch_handler="$3")
+  local args=("${@:4}")
+  awk -v FS="$fs" -v OFS="$fs" ${ssp[@]} ${nmh[@]} ${args[@]} -f "$DS_SCRIPT/subseparator.awk" \
+    "$file" "$file" 2> /dev/null
 }
 
 ds:mactounix() { # Converts ^M return characters into simple carriage returns in place
