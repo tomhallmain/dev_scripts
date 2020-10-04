@@ -1,106 +1,142 @@
 #!/usr/bin/awk
+# DS:REO
+#
+# NAME
+#       ds:reo, reorder.awk
+#
+# SYNOPSIS
+#       ds:reo [-h|--help|file] [r_args_str] [c_args_str] [dequote=true] [all_other_awkargs]
+#
+# DESCRIPTION
+#       reorder.awk is a script that reorders, repeats or slices the rows and columns 
+#       of fielded data. To run the script, ensure awk is installed on your machine
+#       and that it is in your path (on most Linux and OS X machines it should be), and 
+#       call on a file:
+#
+#    > awk -f reorder.awk -v r=1 -v c=1 file
+#
+#       ds:reo is the caller function for the reorder.awk script. To run any of the 
+#       examples below, map awk args as given in SYNOPSIS. For example, to print columns 
+#       where the header matches "ZIP" on the first row and all rows matching "Main St":
+#
+#    $ ds:reo addresses.csv "1,~Main St" "[ZIP" -v cased=1
+#
+#       When running with piped data, the args are shifted:
+#
+#    $ data_in | ds:reo [r_args_str] [c_args_str] [dequote=true] [awkargs]
+#
+#       When running ds:reo, an attempt is made to infer a field separator of up to
+#       three characters. If none is found, FS will be set to default value, a single 
+#       space = " ". To override the FS, add as a trailing awkarg. Be sure to escape 
+#       and quote if needed:
+#
+#    $ ds:reo addresses_where_words_don't_matter 8..10,7..1 1..4 -v FS='[A-z]+'
+#
+#    $ ds:reo addresses_with_bad_sep.csv a rev -F'\\\|\\\|'
+#
+#    $ ds:reo addresses_with_bad_sep.csv '[ZIP%3' a -v FS=""
+#
+#       If FS is set to an empty string, all characters will be separated.
+#
+#       When running with ds:reo, an attempt is made extract relevant instances of 
+#       field separators in the case that a field separator appears in field values. 
+#       To turn this off set dequote to false in the positional arg.
+#
+#    $ ds:reo simple_data.csv 1,500..2 a [f|false]
 #
 #
-# Reorder, repeat or slice the rows and columns of fielded data
+# EXAMPLES
+#       Print help:
 #
-# ds:reo is the caller function for the reorder.awk script.
-# To run any of the examples below, map awk args as follows:
+#    $ ds:reo -h
 #
-# $ ds:reo [file] [r_args_str] [c_args_str] [dequote=true] [all_other_awkargs]
+#       Index a field value (Print the field value at row 1 col 1):
 #
-# $ ds:reo addresses.csv "1,~Main St" "[ZIP" -v cased=1
+#    $ ds:reo 1 1
 #
-# When running with piped data, the args are shifted:
+#       Print multiple specific rows and/or columns (Print row 1 then 1000, only cols 1, 
+#       4 and 5):
 #
-# $ data_in | ds:reo [r_args_str] [c_args_str] [dequote=true] [awkargs]
+#    $ ds:reo 1,1000 1,4,5
 #
-# When running ds:reo, an attempt is made to infer a field selector. If none
-# is found, FS will be set to defaul value, a single space = " "
+#       Pass all rows / columns for given index - don't set arg / set arg=[a|all] 
+#       (Print all rows, only column 4)
 #
-# When running with ds:reo, an attempt is made extract relevant instances of 
-# field selectors in the case that a field selector appears in field values. 
-# To turn this off set dequote to false in the positional arg.
+#    $ ds:reo a 4
 #
+#       Print index range (ranges are inclusive of ending indices:
 #
-# EXAMPLES:
+#    $ ds:reo 1,100..200 1..3,5
 #
-# Index a field value:
-# > awk -f reorder.awk -v r=1 -v c=1
-#                           ^ Print the field value at row 1 col 1
+#       Reorder/repeat rows and fields, duplicate as many times as desired:
 #
-# Specific rows and/or columns:
-# > awk -f reorder.awk -v r=1,1000 -v c=1,4,5
-#    Print row 1 then 1000 ^            ^ Print cols 1, 4 and 5
+#    $ ds:reo file 3,3,5,1 4..1,1,3,5
 #
-# To pass all rows / columns, don't set the arg or set arg=a. Add field separator if needed:
-# > awk -f reorder.awk -v r=a -v c=4 -F,
-#    Print all rows, only column 4 ^
+#       Reverse indices by adding the string r[everse] anywhere in the order:
 #
-# Range (and/or individual rows and columns):
-# > awk -f reorder.awk -v r=1,100..200 -v c=1..3,5
-#     Ranges are inclusive of ending indices ^
+#    $ ds:reo 1,r all,rev
 #
-# Reorder/repeat, duplicate as many times as desired:
-# > awk -f reorder.awk -v r=3,3,5,1 -v c=4..1,1,3,5
+#       Index numbers evaluating to expression. If no comparison specified, compares 
+#       if expression equal to zero. NR and NF refer to the index number and must be
+#       used on the left side of the expression:
 #
-# Reverse rows and/or columns:
-# > awk -f reorder.awk -v r=r -v c=r
+#    $ ds:reo "NR%2,NR%2=1" "NF<10"
 #
-# Index numbers evaluating to expression (if no comparison specified, compares 
-# if expression equal to zero):
-# > awk -f reorder.awk -v r="NR%2,NR%2=1" -v c="NF<10"
-#    Row numbers evaluating to these ^          ^ Only print fields
-#    expressions will be printed as ordered       with index <10
+#       Filter records by field values and/or fields by record values:
 #
-# Filter records by field values and/or fields by record values:
+#       -- Using basic math expressions, across the entire opposite span (Print rows 
+#       with field val =1, followed by rows with val <1, and fields with vals less 
+#       than 10 when divided by 5):
 #
-# -- Using basic math expressions, across the entire opposite span:
-# > awk -f reorder.awk -v r="=1,<1" -v c="/5<10"
-#          Rows with field val =1 ^     ^ Columns with field vals less
-#      Followed by rows with val <1       than 10 when divided by 5
+#    $ ds:reo "=1,<1" "/5<10"
 #
-# -- Using basic math expressions, across given span:
-# > awk -f reorder.awk      -v r="1,8<0" -v c="6!=10"
-#   Print the header row followed by ^       ^ Fields where vals in row 6 are
-#   rows where field 8 is negative             not equal to 10
+#       -- Using basic math expressions, across given span (Print the header row followed
+#       by rows where field 8 is negative, only fields with vals in row 6 not equal to 10
 #
-# -- Using regeular expressions, across the opposite span (full or specified):
-# > awk -f reorder.awk -v r="~plant,!~[A-z]" -v c="3~[0-9]+\.[0-9]" -v cased=1
-#     Rows matching "plant" ^                   ^ Columns where vals in row 3
-#     Followed by rows without alpha chars        match simple decimal pattern
+#    $ ds:reo "1,8<0" "6!=10"
 #
-# Alternatively filter the cross-span by a current-span frame pattern (headers --
-# first row and first column -- are the default if not specified):
-# > awk -f reorder.awk -v r="[plant~flower" -v c="3[alps>10000"
-#     Rows where column header matches ^          ^ Columns where vals in col
-#     "plant" and column value matches "flower"     3 match "alps" and which
-#                                                   have number vals greater
-#                                                   than 10000 (ft presumably)
+#       -- Using regular expressions across the opposite span, full or specified 
+#       (Print Rows matching "plant" followed by rows without alpha chars, only fields
+#       with vals in row 3 that match simple decimal pattern):
 #
-# If no expression or search given with frame, simple search is done on the cross
-# span, not the current span (frame rows by column, columns by row):
-# > awk -f reorder.awk -v r="[europe" -v c="[plant"
-#       Rows where first col ^            ^ Columns where first row
-#       matches 'europe' (any case)         matches 'plant' (any case)
+#    $ ds:reo "~plant,!~[A-z]" "3~[0-9]+\.[0-9]" -v cased=1
 #
-# Note the above args are equivalent to r="1~Alps" c="1~Plant"
+#       Alternatively filter the cross-span by a current-span frame pattern. Headers --
+#       first row and first column -- are the default if not specified (Print rows where 
+#       column header matches "plant" and column value matches "flower", fields where 
+#       vals in col 3 match "alps" and which have number vals greater than 10000
 #
-# Combine filters using && and || for more selective or expansive queries (||
-# is currently calculated first):
-# > awk -f reorder.awk -v r="[plant~flower||[plant~tree&&[country~italy" -v c="a"
+#    $ ds:reo "[plant~flower" "3[alps>10000"
 #
-# Case is ignored globally by default in regex searches. To enable cased
-# matching set variable cased to any value. To search a case insensitive value
-# while cased is set, append "/i" to the end of the pattern:
-# > awk -f reorder.awk -v r="[europe/i" -v c="[Plant" -v cased=1
-#      Rows where first col matches ^        ^ Columns where first row matches
-#      europe in any case                      'Plant' exactly
+#       If no expression or search given with frame, simple search is done on the cross
+#       span, not the current span -- frame rows by column, columns by row (Print rows 
+#       where first col matches 'europe' (any case), fields where first row matches 
+#       'plant' (any case)):
 #
-# To print any columns or rows that did not match the filter args, add the
-# string o[thers] anywhere in either dimension:
-# > awk -v reorder.awk -v r="3,4,others,1" -v c="[Tests,others"
-#    Print rows 3, 4, then any not in ^          ^ Print fields where header
-#           the set 1,3,4, then row 1            matches 'Tests', then the rest
+#    $ ds:reo file "[europe" "[plant"
+#
+#       Note the above args are equivalent to r="1~europe" c="1~plant".
+#
+#       Combine filters using && and || for more selective or expansive queries ||
+#       is currently calculated first (Print rows where field vals in fields
+#       with headers matching "plant" match "flower" OR where the same match
+#       tree and field vals in fields in the same row with headers matching
+#       "country" match "italy", and print all fields in reverse order):
+#
+#    $ ds:reo file "[plant~flower||[plant~tree&&[country~italy" rev
+#
+#       Case is ignored globally by default in regex searches. To enable cased matching 
+#       set variable cased to any value. To search a case insensitive value while cased 
+#       is set, append "/i" to the end of the pattern (Print rows where first col matches
+#       "europe" in any case, fields where first row matches "Plant" exactly):
+#
+#    $ ds:reo file "[europe/i" "[Plant" -v cased=1
+#
+#       To print any columns or rows that did not match the filter args, add the string 
+#       o[thers] anywhere in either dimension (Print rows 3, 4, then any not in the set 
+#       1,3,4, then row 1; fields where header matches "tests", then any remaining fields):
+#
+#    $ ds:reo file "3,4,others,1" "[Tests,others"
 #
 ## TODO: option (or default?) for preserving original order
 ## TODO: basic sorts
@@ -911,11 +947,6 @@ function print_field(field_val, field_no, end_field_no) {
   if (!(field_no == end_field_no)) field_val = field_val OFS
   printf "%s", field_val
 }
-
-#function Sort(Arr, order) {
-#  if (!order || order == "asc") {}
-#  else
-#}
 
 function qsorta(A,lft,rght,    x,last) {
   if (lft >= rght) return
