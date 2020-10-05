@@ -7,8 +7,12 @@ source "${DS_SUPPORT}/utils.sh"
 
 ds:commands() { # List commands in the dev_scripts/.commands.sh file
   echo
+  echo "** - function supports receiving piped data"
+  echo
   grep -h '[[:alnum:]_]*()' "$DS_LOC/.commands.sh" | sed 's/^  function //' \
-    | grep -hv grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}'
+    | grep -hv grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
+    | ds:sbsp '\\\*\\\*' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 \
+    -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" | ds:reo a 2,1,3 | ds:fit -v FS="$DS_SEP"
   echo
   echo "** - function supports receiving piped data"
   echo
@@ -17,7 +21,7 @@ ds:commands() { # List commands in the dev_scripts/.commands.sh file
 ds:help() { # Print help for a given command
   (ds:nset "$1" && [[ "$1" =~ "ds:" ]]) || ds:fail 'Command not found - to see all commands, run ds:commands'
   [[ "$1" =~ 'reo' ]] && ds:reo -h && return
-  ds:commands | ds:reo "~$1" 2 -v FS="[[:space:]]{2,}"
+  ds:commands | ds:reo "2~$1" 3 -v FS="[[:space:]]{2,}"
 }
 
 ds:gvi() { # Grep for a line in a file/dir and open vim on the first match: ds:gvi search [file|dir]
@@ -259,6 +263,7 @@ ds:src() { # Source a piece of file: ds:src file ["searchx" pattern] || [line en
 
 ds:fsrc() { # Show the source of a shell function: ds:fsrc func
   local shell=$(ds:sh) tmp=$(ds:tmp 'ds_fsrc')
+  # TODO: Fix both cases
   if [[ $shell =~ bash ]]; then
     bash --debugger -c 'echo' &> /dev/null
     [ $? -eq 0 ] && \
@@ -405,10 +410,11 @@ ds:git_recent_all() { # Display table of recent commits for all home dir branche
   done < <(find * -maxdepth 0 -type d)
   echo
   ds:sortm -v order=d -F"$DS_SEP" -v k=3 $all_recent \
-    | ds:reo "a" "NF!=3" -F"$DS_SEP" -v OFS="$DS_SEP" | ds:fit 
+    | ds:reo "a" "NF!=3" -F"$DS_SEP" -v OFS="$DS_SEP" | ds:fit
+  # TODO: Fix alignment
   local stts=$?
   echo
-  #rm $all_recent
+  rm $all_recent
   cd "$start_dir"
   return $stts
 }
@@ -420,20 +426,20 @@ ds:git_graph() { # Print colorful git history graph (alias ds:gg)
 }
 alias ds:gg="ds:git_graph"
 
-ds:todo() { # List todo items found in current directory
+ds:todo() { # List todo items found in paths
   ds:nset 'rg' && local RG=true
   if [ -z $1 ]; then
-    [ "$RG" ] && rg -s 'TODO' || grep -irs 'TODO:' --color=always .
+    [ "$RG" ] && rg -His 'TODO' || grep -irs 'TODO' --color=always .
     echo
   else
     local search_paths=( "${@}" )
     for search_path in ${search_paths[@]} ; do
-      if [ ! -d "$search_path" ]; then
-        echo "${search_path} is not a directory or is not found"
+      if [[ ! -d "$search_path" && ! -f "$search_path" ]]; then
+        echo "$search_path is not a file or directory or is not found"
         local bad_dir=0; continue
       fi
-      [ "$RG" ] && rg 'TODO:' "$search_path" \
-        || grep -rs 'TODO:' --color=always "$search_path"
+      [ "$RG" ] && rg -His 'TODO' "$search_path" \
+        || grep -irs 'TODO' --color=always "$search_path"
       echo
     done
   fi
@@ -793,7 +799,7 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [file] [rows] [cols] [deq
       awk -v FS="$fs" -v OFS="$fs" ${args[@]} -v r="$rows" -v c="$cols" \
         -f "$DS_SCRIPT/reorder.awk" "$file" 2>/dev/null | ds:ttyf "$fs"
     fi; fi
-  #ds:pipe_clean $file; [ ! "$dq_off" ] && rm $dequote; :
+  ds:pipe_clean $file; [ ! "$dq_off" ] && rm $dequote; :
 }
 
 ds:decap() { # ** Remove up to a certain number of lines from the start of a file, default is 1
@@ -904,7 +910,7 @@ ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
     ds:prefield "$file" "$fs" > $dequote
-    awk -v FS="$DS_SEP" -v OFS="$newfs" ${args[@]} $program $dequote 2> /dev/null
+    awk -v FS="$DS_SEP" -v OFS="$newfs" ${args[@]} "$program" $dequote 2> /dev/null
   else
     local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
     if [ "$fs_idx" = "" ]; then
@@ -917,7 +923,7 @@ ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file
     fi
     unset "args[$fs_idx]"
     ds:prefield "$file" "$fs" > $dequote
-    awk ${args[@]} -v FS="$DS_SEP" -v OFS="$newfs" $program $dequote 2> /dev/null
+    awk ${args[@]} -v FS="$DS_SEP" -v OFS="$newfs" "$program" $dequote 2> /dev/null
   fi
   ds:pipe_clean $file; rm $dequote
 }
@@ -948,14 +954,23 @@ ds:enti() { # Print text entities from a file separated by a common pattern: ds:
   LC_All='C' awk -v sep="$sep" -v min=$min -f $program "$file" 2> /dev/null | LC_ALL='C' sort -n$order
 }
 
-ds:sbsp() { # Extend fields to include a common subseparator: ds:sbsp file subsep_pattern [nomatch_handler=space]
-  ds:file_check "$1"
-  local file="$1" fs="$(ds:inferfs "$1")"
-  [ $2 ] && local ssp=(-v subsep_pattern="$2")
-  [ $3 ] && local nmh=(-v nomatch_handler="$3")
-  local args=("${@:4}")
-  awk -v FS="$fs" -v OFS="$fs" ${ssp[@]} ${nmh[@]} ${args[@]} -f "$DS_SCRIPT/subseparator.awk" \
+ds:sbsp() { # ** Extend fields to include a common subseparator: ds:sbsp file subsep_pattern [nomatch_handler=space] [awkargs]
+  if ds:pipe_open; then
+    local file=$(ds:tmp 'ds_sbsp') piped=0
+    cat /dev/stdin > $file
+  else 
+    ds:file_check "$1"
+    local file="$1"; shift
+  fi
+  [ $1 ] && local ssp=(-v subsep_pattern="$1")
+  [ $2 ] && local nmh=(-v nomatch_handler="$2")
+  local args=("${@:3}")
+  if ds:noawkfs; then
+    local fs="$(ds:inferfs "$file")"
+    local fsargs=(-v FS="$fs" -v OFS="$fs"); fi
+  awk ${fsargs[@]} ${ssp[@]} ${nmh[@]} ${args[@]} -f "$DS_SCRIPT/subseparator.awk" \
     "$file" "$file" 2> /dev/null
+  ds:pipe_clean $file
 }
 
 ds:mactounix() { # Converts ^M return characters into simple carriage returns in place
@@ -968,7 +983,7 @@ ds:mactounix() { # Converts ^M return characters into simple carriage returns in
 
 ds:mini() { # ** Crude minify, remove whitespace including newlines except space
   if ds:pipe_open; then
-    local file=$(ds:tmp 'mini') piped=0
+    local file=$(ds:tmp 'ds_mini') piped=0
     cat /dev/stdin > $file
   else
     ds:file_check "$1"

@@ -6,11 +6,11 @@ test_var=1
 tmp=/tmp/commands_tests
 q=/dev/null
 shell=$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')
-jnf1="tests/data/infer_join_fields_test1.csv"
-jnf2="tests/data/infer_join_fields_test2.csv"
-seps_base="tests/data/seps_test_base"
-complex_csv1="tests/data/addresses.csv"
-complex_csv2="tests/data/Sample100.csv"
+jnf1="tests/data/infer_join_fields_test1.csv" jnf2="tests/data/infer_join_fields_test2.csv"
+seps_base="tests/data/seps_test_base" seps_sorted="tests/data/seps_test_sorted" 
+simple_csv="tests/data/company_funding_data.csv"
+complex_csv1="tests/data/addresses.csv" complex_csv2="tests/data/Sample100.csv"
+
 
 if [[ $shell =~ 'bash' ]]; then
   bsh=0
@@ -29,7 +29,7 @@ fi
 # BASICS TESTS
 
 [[ $(ds:sh | wc -l) = 1 && $(ds:sh) =~ sh ]] || ds:fail 'sh command failed'
-cmds="tests/commands_output"
+cmds="tests/data/commands_output"
 ds:commands > $tmp
 cmp --silent $cmds $tmp || ds:fail 'commands listing failed'
 ds_help_output="Print help for a given command"
@@ -81,7 +81,7 @@ sort_expected='5r:test:2%f.:dew::
 :test:test:one two:2'
 [ "$sort_actual" = "$sort_expected" ] || ds:fail 'sort command failed'
 sortm_actual="$(cat $seps_base | ds:sortm 2,3,7 d)"
-sortm_expected="$(cat tests/seps_test_sorted)"
+sortm_expected="$(cat $seps_sorted)"
 [ "$sortm_actual" = "$sortm_expected" ] || ds:fail 'sortm command failed'
 sort_input='d c a b f
 f e c b a
@@ -180,6 +180,10 @@ reo_actual="$(echo "$reo_input" | ds:reo "[a~c&&5~a" "[f~d||[e~a&&NF>3")"
 reo_expected='a 
 a '
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended logic cases'
+reo_actual="$(ds:reo $seps_base ">100&&%7" "%7" | ds:fit -v FS="\\\&\\\%\\\#")"
+reo_expected='2    7
+1  420'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended logic cases'
 
 
 
@@ -201,21 +205,21 @@ fit_actual="$(ds:reo "$complex_csv2" 1,35,37,42 2..4 | ds:fit -F,)"
 
 fc_expected='2 mozy,Mozy,26,web,American Fork,UT,1-May-05,1900000,USD,a
 2 zoominfo,ZoomInfo,80,web,Waltham,MA,1-Jul-04,7000000,USD,a'
-fc_actual="$(ds:fieldcounts tests/company_funding_data.csv a 2)"
-[ "($fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed all field case'
+fc_actual="$(ds:fieldcounts $simple_csv a 2)"
+[ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed all field case'
 fc_expected='54,1-Jan-08
 54,1-Oct-07'
-fc_actual="$(ds:fieldcounts tests/company_funding_data.csv 7 50)"
+fc_actual="$(ds:fieldcounts $simple_csv 7 50)"
 [ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed single field case'
 fc_expected='7,450,Palo Alto,facebook'
-fc_actual="$(ds:fieldcounts tests/company_funding_data.csv 3,5,1 6)"
+fc_actual="$(ds:fieldcounts $simple_csv 3,5,1 6)"
 [ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed multifield case'
 
 # NEWFS TESTS
 
 nfs_expected='Joan "the bone", Anne::Jet::9th, at Terrace plc::Desert City::CO::00123'
-nfs_actual="$(ds:newfs tests/addresses.csv :: | grep Joan)"
-[ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed multifield case'
+nfs_actual="$(ds:newfs $complex_csv1 :: | grep Joan)"
+[ "$nfs_expected" = "$nfs_actual" ] || ds:fail 'newfs command failed'
 
 
 # ASSORTED COMMANDS TESTS
@@ -237,7 +241,7 @@ idx_expected='1 5
 4 3
 5 1'
 [ "$idx_actual" = "$idx_expected" ] || ds:fail 'idx command failed'
-[ "$(ds:filename_str $jnf1 '-1')" = 'tests/infer_join_fields_test1-1.csv' ] \
+[ "$(ds:filename_str $jnf1 '-1')" = 'tests/data/infer_join_fields_test1-1.csv' ] \
   || ds:fail 'filename_str command failed'
 [ "$(ds:iter_str "a" 3)" = 'a a a' ] || ds:fail 'iter_str command failed'
 echo $(ds:root) 1> $q || ds:fail 'root_vol command failed'
@@ -250,8 +254,12 @@ mini_output="1;2;3;4;5;6;7;8;9;10"
 [ "$(cat $tmp | ds:mini)" = "$mini_output" ] || ds:fail 'mini command failed'
 [ "$(ds:unicode "cats😼😻")" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed'
 [ "$(ds:webpage_title https://www.google.com)" = Google ] || ds:fail 'webpage title command failed or internet is out'
+sbsp_actual="$(ds:sbsp tests/data/subseps_test "SEP" | ds:reo 1,7 | cat)"
+sbsp_expected='A;A;A;A
+G;G;G;G'
+[ "$sbsp_expected" = "$sbsp_actual" ] || ds:fail 'sbsp command failed'
 todo_expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
-[ "$(ds:todo tests | head -n1)" = "$todo_expected" ] || ds:fail 'todo command failed'
+[ "$(ds:todo tests/commands_tests.sh | head -n1)" = "$todo_expected" ] || ds:fail 'todo command failed'
 fsrc_expected='support/utils.sh'
 [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$fsrc_expected" ]] || ds:fail 'fsrc command failed'
 help_deps='ds:fail

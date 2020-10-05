@@ -258,11 +258,11 @@ END {
   if (err || !reo || (base_reo && pass_r)) exit err
   if (oth) {
     if (debug) debug_print(10)
-    if (oth_c) remaining_fo = GenRemainder(0, ReoC, max_nf)
-    if (oth_r) remaining_ro = GenRemainder(1, ReoR, NR) }
+    if (oth_r) remaining_ro = GenRemainder(1, ReoR, NR)
+    if (oth_c) remaining_fo = GenRemainder(0, ReoC, max_nf) }
   if (ext) {
-    ResolveFilterExtensions(0, CExtensions, ReoC, ExtFO, max_nf)
     ResolveFilterExtensions(1, RExtensions, ReoR, ExtRO, NR)
+    ResolveFilterExtensions(0, CExtensions, ReoC, ExtFO, max_nf)
     if (debug) debug_print(12) }
   if (debug) {
     if (!pass_c) debug_print(6); debug_print(8) }

@@ -26,6 +26,7 @@ BEGIN {
       if (!(af ~ "^[0-9]+$")) continue
       RelevantFields[af] = 1 }
     if (length(RelevantFields) < 1) exit 1 }
+  unescaped_pattern = Unescape(subsep_pattern)
 }
 
 NR == FNR {
@@ -33,25 +34,26 @@ NR == FNR {
     for (f in RelevantFields) {
       num_subseps = split($f, SubseparatedLine, subsep_pattern)
       if (num_subseps > 1 && num_subseps > max_subseps[f]) {
+        if (debug) debug_print(3)
         max_subseps[f] = num_subseps
         for (j = 1; j <= num_subseps; j++) {
           if (!trim(SubseparatedLine[j])) {
-            subfield_shift[f]--  }}}}}
+            SubfieldShifts[f]--  }}}}}
   else {
     for (f = 1; f <= NF; f++) {
       num_subseps = split($f, SubseparatedLine, subsep_pattern)
       if (num_subseps > 1 && num_subseps > max_subseps[f]) {
+        if (debug) debug_print(3)
         max_subseps[f] = num_subseps
         for (j = 1; j <= num_subseps; j++) {
-          if (!trim(subseparated_line[j])) {
-            subfield_shift[f]--  }}}}}
+          if (!trim(SubseparatedLine[j])) {
+            SubfieldShifts[f]--  }}}}}
 }
 
 NR > FNR {
   for (f = 1; f <= NF; f++) {
     last_field = f == NF
-    conditional_ofs = (last_field ? "" : OFS)
-    shift = subfield_shift[f]
+    shift = SubfieldShifts[f]
     n_outer_subfields = max_subseps[f] + shift
     subfield_partitions = n_outer_subfields * 2 - 1 - shift
     if (subfield_partitions > 0) {
@@ -71,16 +73,25 @@ NR > FNR {
             printf conditional_ofs }
         else {
           if (outer_subfield)
-            printf trim(SubseparatedLine[k]) conditional_ofs
+            printf trim(SubseparatedLine[k-shift]) conditional_ofs
           else if (retain_pattern)
-            printf unescaped(subsep_pattern) OFS }}}
-    else
-      printf trim($f) conditional_ofs }
+            printf unescaped_pattern OFS }}}
+    else {
+      conditional_ofs = (last_field ? "" : OFS)
+      printf trim($f) conditional_ofs }}
 
   print ""
 }
 
 
+function Unescape(string) {
+  split(string, Tokens, "\\")
+  string = ""
+  for (i = 1; i <= length(Tokens); i++) {
+    string = string Tokens[i]
+  }
+  return string
+}
 function trim(string) {
   gsub(/^[[:space:]]+|[[:space:]]+$/, "", string)
   return string
@@ -89,13 +100,12 @@ function escaped(string) {
   gsub(/[\\.^$(){}\[\]|*+?]/, "\\\\&", string)
   return string
 }
-function unescaped(string) {
-  gsub("\\", "", string)
-  return string
-}
 function debug_print(case) {
   if (case == 1) {
-    print "FNR: "FNR" f: "f" shift: "shift" nos: "n_outer_subfields" sf_part: "subfield_partitions" cofs: "conditional_ofs }
+    print "\nFNR: "FNR" f: "f" shift: "shift" nos: "n_outer_subfields" sf_part: "subfield_partitions" cofs: "conditional_ofs }
   else if (case == 2) {
-    print "FNR: "FNR" f: "f" shift: "shift" nos: "n_outer_subfields" sf_part: "subfield_partitions" cofs: "conditional_ofs" osf: "outer_subfield" k: "k }
+    print "\nFNR: "FNR" f: "f" shift: "shift" nos: "n_outer_subfields" sf_part: "subfield_partitions" cofs: "conditional_ofs" osf: "outer_subfield" k: "k
+    print "num_subseps < n_outer_subfields - shift: "(num_subseps < n_outer_subfields - shift) }
+  else if (case == 3) {
+    print "FNR: "FNR" f: "f" max_subseps set to: "num_subseps }
 }

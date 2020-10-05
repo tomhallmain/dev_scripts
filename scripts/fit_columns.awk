@@ -172,7 +172,7 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
     if (shrink) {
       if (!(color == "never")) print_warning()
 
-      while (g_max_len / total_f_len > 0.5) {
+      while (g_max_len / total_f_len > 0.8) {
         for (i in g_max) {
           cut_len = int(f_max[i]/10)
           f_max[i] -= cut_len
