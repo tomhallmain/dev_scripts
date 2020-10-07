@@ -6,6 +6,7 @@ DS_SUPPORT="${DS_LOC}/support"
 source "${DS_SUPPORT}/utils.sh"
 
 ds:commands() { # List commands in the dev_scripts/.commands.sh file
+  # TODO: Split out / map aliases
   echo
   echo "** - function supports receiving piped data"
   echo
@@ -21,6 +22,8 @@ ds:commands() { # List commands in the dev_scripts/.commands.sh file
 ds:help() { # Print help for a given command
   (ds:nset "$1" && [[ "$1" =~ "ds:" ]]) || ds:fail 'Command not found - to see all commands, run ds:commands'
   [[ "$1" =~ 'reo' ]] && ds:reo -h && return
+  [[ "$1" =~ 'fit' ]] && ds:fit -h && return
+  [[ "$1" =~ 'stag' ]] && ds:stag -h && return
   ds:commands | ds:reo "2~$1" 3 -v FS="[[:space:]]{2,}"
 }
 
@@ -182,11 +185,11 @@ ds:substr() { # ** Extract a substring from a string with regex: ds:substr str [
   [ "$out" ] && printf "$out" || echo 'No string match to extract'
 }
 
-ds:iter_str() { # Repeat a string some number of times: ds:iter_str str [n=1] [fs]
+ds:iter() { # Repeat a string some number of times: ds:iter str [n=1] [fs]
   local str="$1" fs="${3:- }" liststr="$1"
   let n_repeats=${2:-1}-1
   for ((i=1;i<=$n_repeats;i++)); do liststr="${liststr}${fs}${str}"; done
-  echo "$liststr"
+  echo -n "$liststr"
 }
 
 ds:embrace() { # Enclose a string in braces: embrace string [openbrace="{"] [closebrace="}"]
@@ -507,6 +510,15 @@ ds:insert() { # ** Redirect input into a file at a specified line number or patt
   rm $source $tmp
 }
 
+ds:shape() { # Print the shape of data linearly based on the given field separator: ds:shape [file] [FS] [out]
+  ds:file_check "$1"
+  local file="$1" lines=$(cat "$1" | wc -l); shift
+  ds:is_int "$2" && local printlns=$2 || local printlns=15
+  let local span=$lines/$printlns
+  awk -v FS="${1:- }" -v span=$span -v tty_size="$(tput cols)" -v lines="$lines" \
+    -f "$DS_SCRIPT/shape.awk" "$file" 2>/dev/null
+}
+
 ds:jn() { # ** Join two files, or a file and stdin, with any keyset: ds:jn file1 [file2] [jointype] [k] [k2] [awkargs]
   ds:file_check "$1"
   local f1="$1"; shift
@@ -682,23 +694,23 @@ ds:inferfs() { # Infer field separator from data: inferfs file [reparse=false] [
   fi
 }
 
-ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit [awkargs] file
-  local args=( "$@" ) col_buffer=${col_buffer:-2} tty_size=$(tput cols)
+ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit file [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_fit') piped=0 hc=f
     cat /dev/stdin > $file
   else
-    let last_arg=${#args[@]}-1
-    local file="${args[@]:$last_arg:1}" hc=true
-    ds:file_check "$file"
-    args=( ${args[@]/"$file"} )
+    ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/fit_columns.awk" \
+      | tr -d "#" | less && return
+    ds:file_check "$1"
+    local file="$1" hc=true; shift
   fi
+  local args=( "$@" ) col_buffer=${col_buffer:-2} tty_size=$(tput cols)
   local dequote=$(ds:tmp "ds_fit_dequote")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true true true $hc)"
     ds:prefield "$file" "$fs" 0 > $dequote
-    awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" -v tty_size=$tty_size\
-      -v buffer="$col_buffer" ${args[@]} $dequote{,} 2> /dev/null
+    awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" -v tty_size=$tty_size \
+      -v buffer="$col_buffer" ${args[@]} $dequote{,} 2>/dev/null
   else
     local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
     if [ "$fs_idx" = "" ]; then
@@ -711,8 +723,8 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
     fi
     unset "args[$fs_idx]"
     ds:prefield "$file" "$fs" 0 > $dequote
-    awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" -v tty_size=$tty_size\
-      -v buffer="$col_buffer" ${args[@]} $dequote{,} 2> /dev/null
+    awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" -v tty_size=$tty_size \
+      -v buffer="$col_buffer" ${args[@]} $dequote{,} 2>/dev/null
   fi
   ds:pipe_clean $file; rm $dequote
 }
@@ -723,6 +735,8 @@ ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [awkargs]
     local file=$(ds:tmp 'ds_stagger') piped=0
     cat /dev/stdin > $file
   else
+    ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/stagger.awk" \
+      | tr -d "#" | less && return
     let last_arg=${#args[@]}-1
     local file="${args[@]:$last_arg:1}"
     ds:file_check "$file"
@@ -909,8 +923,6 @@ ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file
   local program='{for(i=1;i<NF;i++){printf "%s", $i OFS} print $NF}'
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    ds:prefield "$file" "$fs" > $dequote
-    awk -v FS="$DS_SEP" -v OFS="$newfs" ${args[@]} "$program" $dequote 2> /dev/null
   else
     local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
     if [ "$fs_idx" = "" ]; then
@@ -922,10 +934,42 @@ ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file
       unset "args[$fsv_idx]"
     fi
     unset "args[$fs_idx]"
-    ds:prefield "$file" "$fs" > $dequote
-    awk ${args[@]} -v FS="$DS_SEP" -v OFS="$newfs" "$program" $dequote 2> /dev/null
   fi
+  ds:prefield "$file" "$fs" > $dequote
+  awk -v FS="$DS_SEP" -v OFS="$newfs" ${args[@]} "$program" $dequote 2> /dev/null
   ds:pipe_clean $file; rm $dequote
+}
+
+ds:hist() { # ** Print histograms for numerical fields in a data file: ds:hist [file] [n_bins] [bar_len] [awkargs]
+  if ds:pipe_open; then
+    local file=$(ds:tmp 'newfs') piped=0
+    cat /dev/stdin > $file
+  else 
+    ds:file_check "$1"
+    local file="$1"; shift
+  fi
+  ds:is_int "$1" && local n_bins="$1" && shift
+  ds:is_int "$1" && local bar_len="$1" && shift
+  local args=( "$@" ) dequote=$(ds:tmp "ds_newfs_dequote")
+  if ds:noawkfs; then
+    local fs="$(ds:inferfs "$file" true)"
+  else
+    local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
+    if [ "$fs_idx" = "" ]; then
+      local fs_idx="$(ds:arr_idx '^\-F' ${args[@]})"
+      local fs="$(echo ${args[$fs_idx]} | tr -d '\-F')"
+    else
+      local fs="$(echo ${args[$fs_idx]} | tr -d 'FS=')"
+      let local fsv_idx=$fs_idx-1
+      unset "args[$fsv_idx]"
+    fi
+    unset "args[$fs_idx]"
+  fi
+  ds:prefield "$file" "$fs" > $dequote
+  awk -v FS="$DS_SEP" -v OFS="$fs" -v n_bins=$n_bins -v max_bar_leb=$bar_len \
+    ${args[@]} -f "$DS_SCRIPT/hist.awk" $dequote 2> /dev/null
+  ds:pipe_clean $file; rm $dequote
+
 }
 
 ds:asgn() { # Grabbing lines matching standard assignment pattern from a file
@@ -1142,7 +1186,7 @@ ds:so() { # Executes Stack Overflow search with args provided
 }
 
 ds:jira() { # Opens Jira at specified workspace and issue: ds:jira workspace_subdomain [issue]
-  [ -z "$1" ] && ds:help ds:jira &&  ds:fail 'Subdomain arg missing'
+  [ -z "$1" ] && ds:help ds:jira && ds:fail 'Subdomain arg missing'
   local OS="$(ds:os)" j_url="https://$1.atlassian.net"
   ds:test "[A-Z]+-[0-9]+" "$2" && local j_url="$j_url/browse/$2"
   [ "$OS" = "Linux" ] && xdg-open "$j_url" && return

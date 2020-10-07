@@ -141,7 +141,7 @@ reo_output='-1 nah
 -15 test'
 [ "$(echo "$reo_input" | ds:reo "2<0,3~test" "31!=14")" = "$reo_output" ] || ds:fail 'reo command failed extended cases'
 reo_input="$(for i in $(seq -10 20); do 
-    [ $i -eq -10 ] && ds:iter_str test 23 && ds:iter_str _TeST_ 20
+    [ $i -eq -10 ] && ds:iter test 23 && echo && ds:iter _TeST_ 20 && echo
     for j in $(seq -2 20); do 
       [ $i -ne 0 ] && printf "%s " "$(echo "scale=2; $j/$i" | bc -l)"
     done
@@ -243,8 +243,8 @@ idx_expected='1 5
 [ "$idx_actual" = "$idx_expected" ] || ds:fail 'idx command failed'
 [ "$(ds:filename_str $jnf1 '-1')" = 'tests/data/infer_join_fields_test1-1.csv' ] \
   || ds:fail 'filename_str command failed'
-[ "$(ds:iter_str "a" 3)" = 'a a a' ] || ds:fail 'iter_str command failed'
-echo $(ds:root) 1> $q || ds:fail 'root_vol command failed'
+[ "$(ds:iter "a" 3)" = 'a a a' ] || ds:fail 'iter command failed'
+echo $(ds:root) 1> $q || ds:fail 'root command failed'
 [ "$(printf "%s\n" a b c d | ds:rev | tr -d '\n')" = "dcba" ] || ds:fail 'rev command failed'
 
 echo > $tmp; for i in $(seq 1 10); do echo test$i >> $tmp; done; ds:sedi $tmp 'test'
@@ -262,7 +262,9 @@ todo_expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 [ "$(ds:todo tests/commands_tests.sh | head -n1)" = "$todo_expected" ] || ds:fail 'todo command failed'
 fsrc_expected='support/utils.sh'
 [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$fsrc_expected" ]] || ds:fail 'fsrc command failed'
-help_deps='ds:fail
+help_deps='ds:stag
+ds:fail
+ds:fit
 ds:reo
 ds:nset
 ds:commands'

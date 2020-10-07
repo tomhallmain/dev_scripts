@@ -12,27 +12,41 @@ if [[ ! ( -d .git || $(git rev-parse --is-inside-work-tree 2> /dev/null) ) ]]; t
   exit 1
 fi
 
-branches=($(git for-each-ref --format='%(refname:short)' refs/heads 2> /dev/null))
+LOCAL_BRANCHES=($(git for-each-ref --format='%(refname:short)' refs/heads 2> /dev/null | sort))
 
 if [ $1 ]; then
-  branches=($(printf "%s\n" "${branches[@]}" | awk -v search="$1" '$0 ~ search {print}'))
+  MATCH_BRANCHES=($(printf "%s\n" "${LOCAL_BRANCHES[@]}" | awk -v search="$1" '$0 ~ search {print}'))
 fi
 
-let n_matches=${#branches[@]}
+let n_matches=${#MATCH_BRANCHES[@]}
 
 if [[ -z $n_matches || $n_matches -lt 1 ]]; then
-  echo -e "${ORANGE} No branches found for search pattern on current repo\n" && exit 1
+  read -p $'\e[37;1m No local branches found for search pattern on current repo. Search remote? (y/n): \e[0m' remote
+  remote=$(echo "${remote}" | tr "[:upper:]" "[:lower:]")
+  [[ "$remote" = "y" ]] || exit 1
+  REMOTE_BRANCHES=($(git for-each-ref --format="%(refname:short)" refs/remotes 2> /dev/null \
+      | sed 's:^origin/::g' | grep -Ev -e HEAD -e "^[0-9]+$"))
+  REMOTE_BRANCHES=($(awk 'FNR==NR{_[$0]=1} FNR<NR{if(!($0 in _))print}' \
+      <(printf "%s\n" "${LOCAL_BRANCHES[@]}") \
+      <(printf "%s\n" "${REMOTE_BRANCHES[@]}") | sort))
+  MATCH_BRANCHES=($(printf "%s\n" "${REMOTE_BRANCHES[@]}" | awk -v search="$1" '$0 ~ search {print}'))
+fi
+
+let n_matches=${#MATCH_BRANCHES[@]}
+
+if [[ -z $n_matches || $n_matches -lt 1 ]]; then
+  echo -e "${ORANGE} No remote branches found for search pattern on current repo\n" && exit 1
 elif [ $n_matches -eq 1 ]; then
-  branch="$branches"
+  branch="$MATCH_BRANCHES"
   git checkout "$branch" && exit
 else
   while [ ! $confirmed ]; do
     unset selections_confirmed
     echo 'Multiple branches found matching search:'
-    printf "%s\n" "${branches[@]}" | awk '{print NR, $0}'
+    printf "%s\n" "${MATCH_BRANCHES[@]}" | awk '{print NR, $0}'
     echo
     read -p $'\e[37;1m Enter branch number to check out: \e[0m' to_ck
-
+    
     while [ ! $selections_confirmed ]; do
       while [[ -z "$to_ck" ]]; do
         echo -e "\n${ORANGE} No value found, please try again or quit by Ctrl+C${NC}\n"
@@ -47,8 +61,8 @@ else
       confirmed=true
     done
   done
-  let to_ck--; branch="${branches[$to_ck]}"
+  let to_ck--; branch="${MATCH_BRANCHES[$to_ck]}"
   git checkout "$branch" && exit
 fi
 
-[ $? -gt 0 ] && echo "Unable to check out branch ${branch}" && exit 1
+[ $? -gt 0 ] && echo "Possible issue encountered while checking out branch ${branch}" && exit 1

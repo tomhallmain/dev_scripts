@@ -1,9 +1,5 @@
 #!/bin/bash
 set -o pipefail
-cd ~
-
-
-# Initialize variables
 
 ORANGE="\033[0;33m"
 RED="\033[0;31m"
@@ -13,13 +9,13 @@ GREEN="\033[0;32m"
 NC="\033[0m" # No Color
 
 [ -d "$1" ] && BASE_DIR="$1" || BASE_DIR="$HOME"
-BASE_DIRS=( $(cd $BASE_DIR ; ls -d */ | sed 's#/##') )
+cd "$BASE_DIR"
+BASE_DIRS=( $(ls -d */ | sed 's#/##') )
 ALL_REPOS=()
 ALL_BRANCHES=()
 UNIQ_BRANCHES=()
 
-
-# Define methods
+# Methods
 
 generateAllowedVarName() {
   # shell doesn't allow some chars in var names
@@ -60,25 +56,31 @@ generateFilterString() {
 }
 
 
-# Find repos and unique branches, set up and sort more variables
+# Find repos and unique branches
 
-for dir in ${BASE_DIRS[@]} ; do
+for dir in ${BASE_DIRS[@]}; do
   check_dir=$( git -C ${dir} rev-parse 2> /dev/null; echo $? )
-  if [ $check_dir = 0 ] ; then ALL_REPOS=( " ${ALL_REPOS[@]} " "${dir}" ) ; fi
+  if [ $check_dir = 0 ]; then ALL_REPOS=( " ${ALL_REPOS[@]} " "${dir}" ) ; fi
 done
 
 REPOS=( ${ALL_REPOS[@]} )
 
-for repo in ${ALL_REPOS[@]} ; do
-  cd ~
+for repo in ${ALL_REPOS[@]}; do
+  cd "$BASE_DIR"
   cd "$repo"
   BRANCHES=()
 
   eval "$(git for-each-ref --shell --format='BRANCHES+=(%(refname:lstrip=2))' refs/heads/)"
 
-  # Remove master and main branches to disallow their deletion
+  repo_key=$(genAllowedVarName "$repo")
+  extendAssociativeArray "$repo_key" "${BRANCHES[@]}"
+  # Remove common master branches to disallow their deletion
   BRANCHES=( ${BRANCHES[@]//"master"} )
   BRANCHES=( ${BRANCHES[@]//"main"} )
+  BRANCHES=( ${BRANCHES[@]//"dev"} )
+  BRANCHES=( ${BRANCHES[@]//"develop"} )
+  BRANCHES=( ${BRANCHES[@]//"integration"} )
+  BRANCHES=( ${BRANCHES[@]//"integrations"} )
   ALL_BRANCHES=( " ${ALL_BRANCHES[@]} " " ${BRANCHES[@]} ")
 
   for branch in "${BRANCHES[@]}" ; do
@@ -86,7 +88,7 @@ for repo in ${ALL_REPOS[@]} ; do
     branch_key_base=$(generateAllowedVarName "$branch")
     branch_key="${branch_key_base}_key"
 
-    extendAssociativeArray $branch_key $repo
+    extendAssociativeArray "$branch_key" "$repo"
   done
 done
 
@@ -164,10 +166,22 @@ for branch in ${PURGE_BRANCHES[@]}; do
   branch_key="${branch_key_base}_key"
   for repo in ${!branch_key}; do
     echo -e "Deleting ${branch} from ${repo}"
-    cd ~
-    cd $repo
-    git checkout master
-    git branch -D $branch
+    cd "$BASE_DIR"
+    cd "$repo"
+    repo_key="$(genAllowedVarName "$repo")"
+    REPO_BRANCHES="${!repo_key}"
+    if echo "$REPO_BRANCHES" | grep -q master; then
+      git checkout master
+    elif echo "$REPO_BRANCHES" | grep -q main; then
+      git checkout main
+    elif echo "$REPO_BRANCHES" | grep -q develop; then
+      git checkout develop
+    elif echo "$REPO_BRANCHES" | grep -q integration; then
+      git checkout integration
+    else
+      git checkout master
+    fi
+    git branch -D "$branch"
   done
 done
 

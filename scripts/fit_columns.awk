@@ -1,32 +1,60 @@
 #!/usr/bin/awk
-#
-# Script to print a table of values with dynamic column 
-# lengths. Data must be passed to Awk twice.
-#
-# Running on a single file "same/file":
-# > awk -f fit_columns.awk same/file same/file
+# DS:FIT
 # 
-# Running with a custom buffer (default is 1):
-# -v buffer=5
+# NAME
+#       ds:fit, fit_columns.awk
 #
-# Running with a custom decimal setting (default is the max for 
-# column value):
-# -v d=4
+# SYNOPSIS
+#       ds:fit [-h|--help|file] [awkargs]
 #
-# Running with custom decimal setting of zero:
-# -v d=z (why? awk coerces 0 to false)
+# DESCRIPTION
+#       fit_columns.awk is a sript to print a table of values with dynamic column 
+#       lengths. If running with AWK, data must be passed twice.
 #
-# Running with no color or warning:
-# -v color=never
+#       Running on a single file:
+#    > awk -f fit_columns.awk file{,}
 #
-# Running without decimal transformations:
-# -v dec_off=1
+#       ds:fit is the caller function for the fit_columns.awk script. To run with 
+#       any of the overrides below, map AWK args as given in SYNOPSIS.
 #
-# Running with scientific notation:
-# -v sn=1
+#       When running with piped data, args are shifted:
 #
-# Custom character for buffer/separator:
-# -v bufferchar="|"
+#    $ data_in | ds:fit [awkargs]
+#
+#       When running with ds:fit, an attempt will be made to infer a field separator 
+#       of up to three characters. If none is found, FS will be set to default value,
+#       a single space = " ". To override the FS, add as a trailing awkarg. Be sure 
+#       to escape and quote if needed. AWK's extended regex can be used as FS:
+#
+#    $ ds:fit datafile a 1,4 -v FS=" {2,}"
+#
+#       When running ds:reo, an attempt is made to extract relevant instances of field
+#       separators in the case that a field separator appears in field values. This is 
+#       currently a persistent setting.
+#
+# FUNCTIONS
+#    -h Print help
+#
+#       Run with custom buffer (default is 1):
+#    -v buffer=5
+#
+#       Run with custom decimal setting (default is the max for column value):
+#    -v d=4
+#
+#       Run with custom decimal setting of zero (why? awk coerces 0 to false):
+#    -v d=z
+#
+#       Run with no color or warning:
+#    -v color=never
+#
+#       Run without decimal transformations:
+#    -v dec_off=1
+#
+#       Run with scientific notation on decimal/number-valued fields:
+#    -v d=-1
+#
+#       Custom character for buffer/separator:
+#    -v bufferchar="|"
 
 
 BEGIN {
