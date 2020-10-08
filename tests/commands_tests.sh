@@ -252,7 +252,8 @@ echo > $tmp; for i in $(seq 1 10); do echo test$i >> $tmp; done; ds:sedi $tmp 't
 
 mini_output="1;2;3;4;5;6;7;8;9;10"
 [ "$(cat $tmp | ds:mini)" = "$mini_output" ] || ds:fail 'mini command failed'
-[ "$(ds:unicode "cats😼😻")" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed'
+[ "$(ds:unicode "cats😼😻")" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed base case'
+[ "$(echo "cats😼😻" | ds:unicode)" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed pipe case'
 [ "$(ds:webpage_title https://www.google.com)" = Google ] || ds:fail 'webpage title command failed or internet is out'
 sbsp_actual="$(ds:sbsp tests/data/subseps_test "SEP" | ds:reo 1,7 | cat)"
 sbsp_expected='A;A;A;A
@@ -260,6 +261,26 @@ G;G;G;G'
 [ "$sbsp_expected" = "$sbsp_actual" ] || ds:fail 'sbsp command failed'
 todo_expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 [ "$(ds:todo tests/commands_tests.sh | head -n1)" = "$todo_expected" ] || ds:fail 'todo command failed'
+
+pow_expected="
+24 Mark 0
+25 ACK 0
+27 ACER PRESS 0
+27 ACK
+28 ACER PRESS
+28 Mark
+76 0"
+pow_actual="$(ds:pow $complex_csv2 20)"
+[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed base case'
+pow_expected='
+0.22 3 5
+0.26 3
+0.52 4 5
+0.55 4
+0.76 5'
+pow_actual="$(ds:pow $complex_csv2 20 t)"
+[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed combin counts case'
+
 fsrc_expected='support/utils.sh'
 [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$fsrc_expected" ]] || ds:fail 'fsrc command failed'
 help_deps='ds:stag

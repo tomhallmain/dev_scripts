@@ -1,7 +1,7 @@
 
 # dev_scripts
 
-Scripts and CLI commands to make development and testing workflows easier.
+Scripts and CLI commands to make development and data analysis workflows more efficient.
 
 All commands are namespaced to `ds:*` so there should be little to no clashing with any existing commands in your local shell environment.
 

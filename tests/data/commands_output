@@ -1,14 +1,14 @@
 
 ** - function supports receiving piped data
 
-    ds:asgn               Grabbing lines matching standard assignment pattern from a file
+    COMMAND               DESCRIPTION
+    ds:asgn               Get lines matching standard assignment pattern from a file: ds:asgn file
     ds:bash               Refresh bash interactive session
     ds:commands           List commands in the dev_scripts/.commands.sh file
     ds:cp                 Copy standard input in UTF-8
 **  ds:decap              Remove up to a certain number of lines from the start of a file, default is 1
     ds:deps               Identify the dependencies of a shell function: ds:deps name [filter] [ntype_filter] [calling_func] [data]
     ds:dff                Diff shortcut for more relevant changes: ds:dff file1 file2 [suppress_common]
-**  ds:ds                 Generate statistics about text data: ds:ds file [awkargs]
 **  ds:dup_input          Duplicate input sent to STDIN in aggregate
     ds:dups               Report duplicate files with option for deletion
     ds:embrace            Enclose a string in braces: embrace string [openbrace="{"] [closebrace="}"]
@@ -40,19 +40,20 @@
 **  ds:idx                Prints an index attached to data lines from a file or stdin
     ds:inferfs            Infer field separator from data: inferfs file [reparse=false] [try_custom=true] [use_file_ext=true] [high_certainty=true]
     ds:inferh             Infer if headers are present in a file: ds:inferh [awkargs] file
-**  ds:inferk             Infer join fields in two text data files: ds:inferk file [file]
+**  ds:inferk             Infer join fields in two text data files: ds:inferk [awkargs] file [file]
 **  ds:insert             Redirect input into a file at a specified line number or pattern: ds:insert file [lineno|pattern] [sourcefile]
     ds:iter               Repeat a string some number of times: ds:iter str [n=1] [fs]
     ds:jira               Opens Jira at specified workspace and issue: ds:jira workspace_subdomain [issue]
 **  ds:jn                 Join two files, or a file and stdin, with any keyset: ds:jn file1 [file2] [jointype] [k] [k2] [awkargs]
 **  ds:join_by            Join a shell array by a text argument provided
     ds:mactounix          Converts ^M return characters into simple carriage returns in place
-**  ds:mini               Crude minify, remove whitespace including newlines except space
+**  ds:mini               Crude minify, remove whitespace including newlines except space: ds:mini [file] [newline_sep=;]
 **  ds:newfs              Outputs a file with an updated field separator: ds:newfs [file] [newfs=,] [awkargs]
     ds:nset               Test if name (function, alias, variable) is defined in context
     ds:ntype              Test name type (function, alias, variable) if defined in context
     ds:path_elements      Returns dirname, filename, and extension from a filepath
 **  ds:pipe_check         Detect if pipe has any data, or over a certain number of lines
+**  ds:pow                Print the power set frequency distribution of fielded text data: ds:pow [file] [min] [return_fields=f] [invert=f]
 **  ds:print_comps        Print non-matching lines on given field numbers in two files (alias ds:pc)
 **  ds:print_matches      Print duplicate lines on given field numbers in two files (alias ds:pm)
     ds:recent             ls files modified last 7 days: ds:recent [custom_dir] [recurse=r] [hidden=h]
@@ -64,10 +65,10 @@
     ds:searchx            Search a file for a C-lang style (curly-brace) top-level object: ds:searchx file [search] [q]
     ds:sedi               Linux-portable sed in place substitution: ds:sedi file search_pattern [replacement]
 **  ds:select             Select code from a file by regex anchors: ds:select file [startpattern endpattern]
-    ds:shape              Print the shape of data linearly based on the given field separator: ds:shape [file] [FS] [out]
+    ds:shape              Print text data shape by length or given field separator: ds:shape [file] [FS] [out]
     ds:so                 Executes Stack Overflow search with args provided
-**  ds:sort               Sort with an inferred field separator of exactly 1 char
-**  ds:sortm              Sort with an inferred field separator of 1 or more character (alias ds:s): ds:sortm [keys] [order=a|d]
+**  ds:sort               Sort with an inferred field separator of exactly 1 char: ds:sort [unixsortargs] [file]
+**  ds:sortm              Sort with an inferred field separator of 1 or more character (alias ds:s): ds:sortm [keys] [order=a|d] [awkargs] [file]
     ds:src                Source a piece of file: ds:src file ["searchx" pattern] || [line endline] || [pattern linesafter]
 **  ds:stag               Print field-separated data in staggered rows: ds:stag [awkargs] file
 **  ds:substr             Extract a substring from a string with regex: ds:substr str [leftanc] [rightanc]
@@ -76,7 +77,7 @@
     ds:todo               List todo items found in paths
     ds:trace              Search shell trace for a pattern: ds:trace ["command"] [search]
 **  ds:transpose          Transpose field values of a text-based field-separated file (alias ds:t)
-    ds:unicode            Get the UTF-8 unicode for a given character
+**  ds:unicode            Get the UTF-8 unicode for a character sequence: ds:unicode [str]
     ds:webpage_title      Downloads html from a webpage and extracts the title text
     ds:zsh                Refresh zsh interactive session
 

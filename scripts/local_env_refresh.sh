@@ -19,11 +19,12 @@ arrayContains() {
   local pattern="$1"
   shift
   local idx=$(printf "%s\n" "$@" | awk "/$pattern/{print NR-1; exit}")
-  [ "$idx" = "" ] && return 1
+  [ ! "$idx" = "" ]
 }
 
 refreshBranch() {
-  local repo="$1" branch ="$2"
+  local repo="$1"
+  local branch ="$2"
   git checkout "$branch"
   git pull
   wait
@@ -56,10 +57,10 @@ for repo in ${REPOS[@]}; do
   fi
   echo -e "${MAGENTA} Pulling latest for ${repo} ${NC}\n"
   BRANCHES=($(git for-each-ref --format='%(refname:short)' refs/heads))
-  arrayContains "master" ${BRANCHES[@]} && refreshBranch "$repo" "master"
-  arrayContains "main" ${BRANCHES[@]} && refreshBranch "$repo" "main"
-  arrayContains "develop" ${BRANCHES[@]} && refreshBranch "$repo" "develop"
   arrayContains "integration" ${BRANCHES[@]} && refreshBranch "$repo" "integration"
+  arrayContains "main" ${BRANCHES[@]} && refreshBranch "$repo" "main"
+  arrayContains "master" ${BRANCHES[@]} && refreshBranch "$repo" "master"
+  arrayContains "develop" ${BRANCHES[@]} && refreshBranch "$repo" "develop"
   echo -e "${GREEN} Done with ${repo}! ${NC}"
 done
 echo -e "\n\n${CYAN}--------------------------------------${NC}\n\n"

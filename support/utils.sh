@@ -5,7 +5,17 @@ DS_SEP=$'@@@'
 
 ds:file_check() { # Test for file validity and fail if invalid
   local testfile="$1"
-  [ ! -f "$testfile" ] && ds:fail 'File not provided or invalid!'
+  if [ "$2" ]; then
+    if [ -f "$testfile" ]; then
+      echo -n "$testfile"
+    else
+      local f=$(which 'fd' &> /dev/null && fd -1 "$1" || find . -type f -name "$1" | head -n1)
+      local conf=$(ds:readp "Arg is not a file - run on closest match $f? (y/n)" | ds:downcase)
+      [ "$conf" = "y" ] && echo -n "$f" && return || ds:fail 'File not provided or invalid!'
+    fi
+  else
+    [ ! -f "$testfile" ] && ds:fail 'File not provided or invalid!'
+  fi
 }
 
 ds:noawkfs() { # Test whether awk arg for setting field separator is present

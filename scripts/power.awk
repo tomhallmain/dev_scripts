@@ -5,6 +5,7 @@
 #
 # > awk -f power.awk file
 #
+# TODO: Fix overcounting in empty fields cases
 # TODO: Link between fields and combination sets
 # TODO: Refactor as set, not as left->right ordered combination (may not be
 # feasible performance wise
@@ -47,6 +48,7 @@ invert && NR == 1 && c_counts {
 
     for (j = 1; j <= NF; j++)
       if (i % (2^j) < 2^(j-1)) {
+        if (!$j) continue
         if (debug && FNR < 3) debug_print(1)
         str = str $j OFS
         if (c_counts) c_str = c_str j OFS }
@@ -97,14 +99,14 @@ END {
           t2 = M[metakey2]
           if (!(C[t1] && C[t2])) continue
           if (debug) debug_print(3)
-          split(t1, tmp1, OFS)
-          split(t2, tmp2, OFS)
+          split(t1, Tmp1, OFS)
+          split(t2, Tmp2, OFS)
           matchcount = 0
-          for (l in tmp1) {
-            for (m in tmp2) {
-              if (tmp1[l] == tmp2[m]) matchcount++ }}
-          l1 = length(tmp1)
-          l2 = length(tmp2)
+          for (l in Tmp1) {
+            for (m in Tmp2) {
+              if (Tmp1[l] == Tmp2[m]) matchcount++ }}
+          l1 = length(Tmp1)
+          l2 = length(Tmp2)
           if (matchcount >= l1 || matchcount >= l2) {
             if (l1 > l2) {
               if (debug) debug_print(4)

@@ -209,7 +209,7 @@ BEGIN {
     base_reo = 1
 
   if (ARGV[1]) { "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0 }
-  if (OFS ~ "\\") OFS = UnescapeOFS()
+  if (OFS ~ "\\\\") OFS = UnescapeOFS()
   if (OFS ~ "\[:space:\]") OFS = " "
   reo_r_len = length(ReoR)
   reo_c_len = length(ReoC)
@@ -958,9 +958,9 @@ function GetComp(string) {
 function UnescapeOFS() {
   split(OFS, OFSTokens, "\\")
   OFS = ""
-  for (i = 1; i <= length(OFSTokens); i++) {
+  for (i = 1; i <= length(OFSTokens); i++)
     OFS = OFS OFSTokens[i]
-  }
+
   return OFS
 }
 
