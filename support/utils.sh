@@ -4,17 +4,17 @@ DS_SEP=$'@@@'
 # TODO: Extract FS from args
 
 ds:file_check() { # Test for file validity and fail if invalid
-  local testfile="$1"
+  local tf="$1"
   if [ "$2" ]; then
-    if [ -f "$testfile" ]; then
-      echo -n "$testfile"
+    if [ -f "$tf" ]; then
+      echo -n "$tf"
     else
-      local f=$(which 'fd' &> /dev/null && fd -1 "$1" || find . -type f -name "$1" | head -n1)
-      local conf=$(ds:readp "Arg is not a file - run on closest match $f? (y/n)" | ds:downcase)
+      local f=$(ds:nset 'fd' && fd -1 "$1" || find . -type f -name "*$1*" | head -n1)
+      local conf=$(ds:readp "Arg is not a file - run on closest match ${f}? (y/n)" | ds:downcase)
       [ "$conf" = "y" ] && echo -n "$f" && return || ds:fail 'File not provided or invalid!'
     fi
   else
-    [ ! -f "$testfile" ] && ds:fail 'File not provided or invalid!'
+    [ ! -f "$tf" ] && ds:fail 'File not provided or invalid!'
   fi
 }
 

@@ -37,21 +37,23 @@ invert && NR == 1 && c_counts {
     CHeaders[c_str] = h_str }
 }
 
-{
-  C[$0]++
-  
+{  
   if (debug && FNR < 3) debug_print(0)
 
-  for (i = 1; i <= 2^NF - 2; i++) {
+  for (i = 1; i <= 2^NF-2; i++) {
     str = ""
     c_str = ""
 
     for (j = 1; j <= NF; j++)
-      if (i % (2^j) < 2^(j-1)) {
-        if (!$j) continue
-        if (debug && FNR < 3) debug_print(1)
+      if (i%(2^j) < 2^(j-1)) {
+        if ($j ~ "^[[:space:]]*$") continue
         str = str $j OFS
-        if (c_counts) c_str = c_str j OFS }
+        if (debug && FNR < 3) debug_print(1)
+        c_str = c_str j OFS }
+
+    RC[c_str]++
+    if (str ~ "^[[:space:]]*$" || RC[c_str] > 1) continue
+    if (debug && FNR < 3) debug_print(0.5)
 
     if (c_counts) {
       c_str = substr(c_str, 1, length(c_str) - len_ofs)
@@ -59,6 +61,10 @@ invert && NR == 1 && c_counts {
     else {
       str = substr(str, 1, length(str) - len_ofs)
       C[str]++ }}
+
+  gsub(FS, OFS)
+  C[$0]++
+  delete RC
 }
 
 END {
@@ -78,6 +84,7 @@ END {
         if (!(i in CCount)) delete CHeaders[i] }}
 
   else {
+    if (debug) debug_print(1.5)
     for (i in C) {
       j = C[i]
       if (j < min) { 
@@ -98,7 +105,7 @@ END {
           t1 = M[metakey1]
           t2 = M[metakey2]
           if (!(C[t1] && C[t2])) continue
-          if (debug) debug_print(3)
+          #if (debug) debug_print(3)
           split(t1, Tmp1, OFS)
           split(t2, Tmp2, OFS)
           matchcount = 0
@@ -129,16 +136,26 @@ END {
 
 function debug_print(case) {
   if (case == 0) {
-    print "i", "j", "2*j", "i % (2*j)", "2^(j-1)" }
+    print "----------- NEW RECORD ------------"
+    print $0
+    printf "%5s%5s%7s%15s%15s  %s\n", "[i]", "[j]", "[2*j]", "[i % (2*j)]", "[2^(j-1)]", "[str]" }
   else if (case == 1) {
-    print i, j, 2*j, i % (2*j), 2^(j-1) }
+    printf "%5s%5s%7s%15s%15s  %s\n", i, j, 2*j, i % (2*j), 2^(j-1), str }
+  else if (case == 0.5) {
+    printf "%s\n\n", "SAVE COMBIN:  " str }
+  else if (case == 1.5) {
+    printf "%5s  %-80s%10s%10s  %-80s\n", "[j]", "[i]", "N[j]", "[metakey]", "M[metakey]" }
   else if (case == 2) {
-    print j, "", i, "", N[j], "", metakey, "", M[metakey] }
+    printf "%5s  %-80s%10s%10s  %-80s\n", j, i, N[j], metakey, M[metakey] }
   else if (case == 3) {
-    print "iOFSj " j, metakey1, " t1 " t1, " l1 " l1, " C[t1] " C[t1] "  | " " iOFSk" k, metakey2, " t2 " t2, " l2 " l2, " C[t2] " C[t2] }
+    print "------- COMBIN COMP --------"
+    printf "%-12s%-10s%-10s%-10s%s\n", "[iOFSj] " j, metakey1, " [l1] " l1, " C[t1] " C[t1], " [t1] " t1
+    printf "%-12s%-10s%-10s%-10s%s\n", "[iOFSk] " k, metakey2, " [l2] " l2, " C[t2] " C[t2], " [t2] " t2 }
   else if (case == 4) {
-    print "deleting t2 " t2 " and keeping t1 " t1 }
+    print "<< delete [t2] "t2
+    print ">> keep   [t1] "t1"\n" }
   else if (case == 5) {
-    print "deleting t1 " t1 " and keeping t2 " t2 }
+    print "<< delete [t1] "t1
+    print ">> keep   [t2] "t2"\n" }
 }
 

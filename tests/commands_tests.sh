@@ -262,22 +262,27 @@ G;G;G;G'
 todo_expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 [ "$(ds:todo tests/commands_tests.sh | head -n1)" = "$todo_expected" ] || ds:fail 'todo command failed'
 
+[ "$(ds:substr "TEST" "T" "ST")" = "E" ] || ds:fail 'substr command failed base case'
+[ "$(echo "TEST" | ds:substr "T" "ST")" = "E" ] || ds:fail 'substr command failed pipee case'
+substr_actual="$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")"
+[ "4" = "$substr_actual" ] || ds:fail 'substr command failed extended regex case'
+
 pow_expected="
-24 Mark 0
-25 ACK 0
-27 ACER PRESS 0
-27 ACK
-28 ACER PRESS
-28 Mark
-76 0"
+23,ACK,0
+24,Mark,0
+25,ACK
+27,ACER PRESS,0
+28,ACER PRESS
+28,Mark
+74,0"
 pow_actual="$(ds:pow $complex_csv2 20)"
 [ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed base case'
-pow_expected='
-0.22 3 5
-0.26 3
-0.52 4 5
-0.55 4
-0.76 5'
+pow_expected="
+0.22,3,5
+0.26,3
+0.5,4,5
+0.53,4
+0.74,5"
 pow_actual="$(ds:pow $complex_csv2 20 t)"
 [ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed combin counts case'
 

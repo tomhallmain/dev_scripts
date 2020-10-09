@@ -170,17 +170,17 @@ ds:test() { # ** Test input quietly using with extended regex: ds:test regex [st
 ds:substr() { # ** Extract a substring from a string with regex: ds:substr str [leftanc] [rightanc]
   if ds:pipe_open; then
     local str="$(cat /dev/stdin)"
-    local leftanc="$1" rightanc="$2"
   else
-    local str="$1" leftanc="$2" rightanc="$3"
-    [ -z "$str" ] && ds:fail 'String required for substring extraction'
+    local str="$1"; shift
   fi
+  [ -z "$str" ] && ds:fail 'Empty string detected - a string required for substring extraction'
+  local leftanc="$1" rightanc="$2"
   if [ "$rightanc" ]; then
     [ -z "$leftanc" ] && local sedstr="s/$rightanc//" || local sedstr="s/$leftanc//;s/$rightanc//"
-    local out="$(grep -Eo "$leftanc.*?[^\\]$rightanc" <<< "$str" | sed $sedstr)"
+    local out="$(grep -Eo "$leftanc.*?[^\\]$rightanc" <<< "$str" | sed -E $sedstr)"
   elif [ "$leftanc" ]; then
     local sedstr="s/$leftanc//"
-    local out="$(grep -Eo "$leftanc.*?[^\\]" <<< "$str" | sed $sedstr)"
+    local out="$(grep -Eo "$leftanc.*?[^\\]" <<< "$str" | sed -E $sedstr)"
   else
     out="$str"
   fi
@@ -884,8 +884,8 @@ ds:pow() { # ** Print the power set frequency distribution of fielded text data:
     unset "args[$fs_idx]"
   fi
   ds:prefield "$file" "$fs" 1 > $dequote
-  awk -v FS="$DS_SEP" -v min=$min -v c_counts=$flds -v invert=$inv ${args[@]} \
-    -f "$DS_SCRIPT/power.awk" $dequote 2>/dev/null | sort -n
+  awk -v FS="$DS_SEP" -v OFS="$fs" -v min=$min -v c_counts=$flds -v invert=$inv \
+    ${args[@]} -f "$DS_SCRIPT/power.awk" $dequote 2>/dev/null | sort -n
   ds:pipe_clean $file; rm $dequote
 }
 

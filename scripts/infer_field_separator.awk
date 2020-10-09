@@ -17,6 +17,7 @@
 ## TODO: Optional smart inference based on a set of lines with common separator
 ## variance (probably external)
 ## TODO: Handle escapes, null chars, SUBSEP
+## TODO: Prefield within this file in each unique separator case
 
 BEGIN {
   commonfs["s"] = " "

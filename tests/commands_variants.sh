@@ -23,9 +23,11 @@ fi
 tests="$1"
 
 case "$tests" in
-  fit) ds:gexec true tests/commands_tests.sh tests "1..27,190..202" ;;
-  reo) ds:gexec true tests/commands_tests.sh tests "1..27,98..187" ;;
-  sort) ds:gexec true tests/commands_tests.sh tests "1..27,75..96" ;;
-  newfs) ds:gexec true tests/commands_tests.sh tests "1..27,~nfs" ;;
-  todo) ds:gexec true tests/commands_tests.sh tests "1..27,~todo" ;;
+  fit)    ds:gexec true tests/commands_tests.sh tests "1..27,190..202" ;;
+  reo)    ds:gexec true tests/commands_tests.sh tests "1..27,98..187"  ;;
+  sort)   ds:gexec true tests/commands_tests.sh tests "1..27,75..96"   ;;
+  newfs)  ds:gexec true tests/commands_tests.sh tests "1..27,~nfs"     ;;
+  todo)   ds:gexec true tests/commands_tests.sh tests "1..27,~todo"    ;;
+  substr) ds:gexec true tests/commands_tests.sh tests "1..27,~substr"  ;;
+  pow)    ds:gexec true tests/commands_tests.sh tests "1..27,270..288" ;;
 esac
