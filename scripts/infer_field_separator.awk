@@ -28,11 +28,19 @@ BEGIN {
   commonfs["o"] = ","
   commonfs["w"] = "[[:space:]]+"
   commonfs["2w"] = "[[:space:]]{2,}"
+  DS_SEP = "@@@"
   if (!max_rows) max_rows = 500
   custom = length(custom)
 }
 
 NR > max_rows { exit }
+
+NR < 3 {
+  if ($0 ~ DS_SEP) {
+    ds_sep = 1
+    print DS_SEP
+    exit }
+}
 
 custom && NR == 1 {
   # Remove leading and trailing spaces
@@ -125,6 +133,8 @@ custom && NR == 2 {
 }
 
 END {
+  if (ds_sep) exit
+
   if (max_rows > NR) max_rows = NR
 
   # Calculate variance for each separator

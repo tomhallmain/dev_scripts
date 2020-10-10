@@ -390,15 +390,15 @@ alias ds:gacmp="ds:git_add_com_push"
 
 ds:git_recent() { # Display table of commits sorted by recency descending (alias ds:gr)
   ds:not_git && return 1
-  local run_context="${1:-display}"
+  local refs="${1:-heads}" run_context="${2:-display}"
   if [ "$run_context" = display ]; then
-    local format='%(HEAD) %(color:yellow)%(refname:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
-    git for-each-ref --sort=-committerdate refs/heads \
+    local format='%(HEAD) %(color:bold yellow)%(refname:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
+    git for-each-ref --sort=-committerdate refs/"$refs" \
       --format="$format" --color=always | ds:fit -F"$DS_SEP"
   else
     # If not for immediate display, return extra field for further parsing
-    local format='%(HEAD) %(color:yellow)%(refname:short)@@@%(committerdate:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
-    git for-each-ref refs/heads --format="$format" --color=always
+    local format='%(HEAD) %(color:bold yellow)%(refname:short)@@@%(committerdate:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
+    git for-each-ref refs/$refs --format="$format" --color=always
   fi
 }
 alias ds:gr="ds:git_recent"
@@ -406,16 +406,17 @@ alias ds:gr="ds:git_recent"
 ds:git_recent_all() { # Display table of recent commits for all home dir branches (alias ds:gra)
   local start_dir="$PWD" all_recent=$(ds:tmp 'ds_git_recent_all')
   local w="\033[37;1m" nc="\033[0m"
-  [ -d "$1" ] && cd "$1" || cd ~
-  echo -e "${w}repo${nc}@@@${w}branch${nc}@@@sortfield${nc}@@@${w}commit time${nc}@@@${w}commit message${nc}@@@${w}author${nc}" > $all_recent
+  local refs="$1"
+  [ -d "$2" ] && cd "$2" || cd ~
+  echo -e "${w}repo${nc}@@@   ${w}branch@@@sortfield@@@${w}commit time@@@${w}commit message@@@${w}author${nc}" > $all_recent
   while IFS=$'\n' read -r dir; do
     [ -d "${dir}/.git" ] && (cd "$dir" && \
-      (ds:git_recent parse | awk -v repo="$dir" -F"$DS_SEP" '
-        {print "\033[34m" repo "\033[0m@@@", $0}') >> $all_recent )
+      (ds:git_recent "$refs" parse | awk -v repo="$dir" -F"$DS_SEP" '
+        {print "\033[1;31m" repo "\033[0m@@@", $0}') >> $all_recent )
   done < <(find * -maxdepth 0 -type d)
   echo
   ds:sortm -v order=d -F"$DS_SEP" -v k=3 $all_recent \
-    | ds:reo "a" "NF!=3" -F"$DS_SEP" -v OFS="$DS_SEP" | ds:fit
+    | ds:reo "a" "NF!=3" -F"$DS_SEP" -v OFS="$DS_SEP" | cat
   # TODO: Fix alignment
   local stts=$?
   echo
@@ -723,8 +724,8 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
     unset "args[$fs_idx]"
   fi
   ds:prefield "$file" "$fs" 0 > $dequote
-  awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" -v tty_size=$tty_size \
-    -v buffer="$col_buffer" ${args[@]} $dequote{,} 2>/dev/null
+  awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SUPPORT/wcwidth.awk" -f "$DS_SCRIPT/fit_columns.awk" \
+    -v tty_size=$tty_size -v buffer="$col_buffer" ${args[@]} $dequote{,} 2>/dev/null
   ds:pipe_clean $file; rm $dequote
 }
 
