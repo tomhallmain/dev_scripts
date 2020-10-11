@@ -73,11 +73,14 @@ BEGIN {
   if (!buffer) buffer = 2
 
   if (!(color == "never")) {
-    yellow = "\033[1;93m"
+    hl = "\033[1;93m"
     orange = "\033[38;2;255;165;1m"
     red = "\033[1;31m"
     no_color = "\033[0m" }
 
+  # TODO: Support more complex color defs like orange above
+  color_re = "\x1b\[((0|1);)?(3|4)?[0-7](;(0|1))?m"
+  trailing_color_re = "[^^]\x1b\[((0|1);)?(3|4)?[0-7](;(0|1))?m"
   decimal_re = "^[[:space:]]*$?-?$?[0-9]+[\.][0-9]+[[:space:]]*$"
   num_re = "^[[:space:]]*$?-?$?[0-9]+([\.][0-9]*)?[[:space:]]*$"
 
@@ -87,18 +90,31 @@ BEGIN {
 
 NR == FNR { # First pass, gather field info
   for (i = 1; i <= NF; i++) {
-    f = $i
-#    gsub(/\x1b\[((0|1);)?(3|4)?[0-7](;(0|1))?m/, "", f) # Remove ANSI color codes
+    init_f = $i
+    init_len = length(init_f)
+    if (init_len < 1) continue
+
+    f_ntc = StripTrailingColors(init_f)
+    len_ntc = length(f_ntc)
+    tc_diff = init_len - len_ntc
+    if (tc_diff > 0) {
+      color_detected = 1
+      COLOR_DIFF[NR, i] = tc_diff }
+
+    f = StripColors(init_f)
     len = length(f)
-    wcw = wcscolumns(f)
-    wcw_diff = len - wcw
-    if (wcw_diff > 0)
-      WCWIDTH_DIFF[NR, i] = wcw_diff
     if (len < 1) continue
+
     orig_max = f_max[i]
     l_diff = len - orig_max
     d_diff = 0
     f_diff = 0
+
+    f_wcw = StripStandardASCII(f)
+    wcw_diff = length(f_wcw)
+    if (wcw_diff) {
+      WCWIDTH_DIFF[NR, i] = wcw_diff
+      if (debug) DebugPrint(10) }
 
     # If column unconfirmed as decimal and the current field is decimal
     # set decimal for column and handle field length changes
@@ -113,7 +129,7 @@ NR == FNR { # First pass, gather field info
       n_overset[i] = 1
       if (debug) DebugPrint(8)
       if (save_n_max[i] > f_max[i] && save_n_max[i] > save_s_max[i]) {
-        recap_n_diff = max(save_n_max[i] - f_max[i], 0)
+        recap_n_diff = Max(save_n_max[i] - f_max[i], 0)
         f_max[i] += recap_n_diff
         total_f_len += recap_n_diff }}
 
@@ -132,7 +148,7 @@ NR == FNR { # First pass, gather field info
       if (sn) {
         if (!d) sn_len = 2 + d_len + 4
         sn_diff = sn_len - orig_max
-        f_diff = max(sn_diff, 0) }
+        f_diff = Max(sn_diff, 0) }
       else {
         int_len = length(int(n_parts[1]))
         int_diff = int_len + 1 + d_len - len
@@ -142,7 +158,7 @@ NR == FNR { # First pass, gather field info
         else {
           d_diff = (d ? d - d_len : 0) }
 
-        f_diff = max(l_diff + int_diff + d_diff, 0) }
+        f_diff = Max(l_diff + int_diff + d_diff, 0) }
 
       if (debug && f_diff) debug_print(2) }
 
@@ -155,7 +171,7 @@ NR == FNR { # First pass, gather field info
         if (sn) {
           if (!d) sn_len = 2 + d_max[i] + 4
           sn_diff = sn_len - orig_max
-          f_diff = max(sn_diff, 0) }
+          f_diff = Max(sn_diff, 0) }
         else {
           int_len = length(int(n_parts[1]))
           dot = (d_len == 0 ? 0 : 1)
@@ -164,13 +180,13 @@ NR == FNR { # First pass, gather field info
         if (d == "z") {
           d_len + dot 
           d_diff = -1 * d_len
-          f_diff = max(l_diff + int_diff + d_diff, 0) }
+          f_diff = Max(l_diff + int_diff + d_diff, 0) }
         else {
           dot = (!dot)
           dec = (d ? d : d_max[i])
           if (l_diff + dec + dot > 0) {
             d_diff = dec - d_len + dot
-            f_diff = max(l_diff + int_diff + d_diff, 0) }}}
+            f_diff = Max(l_diff + int_diff + d_diff, 0) }}}
 
       if (debug && f_diff) DebugPrint(3) }
 
@@ -194,7 +210,10 @@ NR == FNR { # First pass, gather field info
 NR > FNR { # Second pass, scale down fields if length > tty_size and print
   if (FNR == 1) {
     for (i = 1; i <= max_nf; i++) {
-      if (f_max[i]) { max_f_len[i] = f_max[i]; total_f_len += buffer
+      if (f_max[i]) {
+        max_f_len[i] = f_max[i]
+        total_f_len += buffer
+
         if (f_max[i] / total_f_len > 0.4 ) { 
           g_max[i] = f_max[i] + buffer
           g_max_len += g_max[i]
@@ -205,15 +224,16 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
     if (shrink) {
       if (!(color == "never")) PrintWarning()
 
-      while (g_max_len / total_f_len > 0.8) {
+      while (g_max_len / total_f_len / length(g_max) > Min(length(g_max) / max_nf * 2, 1) \
+              && total_f_len > tty_size) {
         for (i in g_max) {
-          cut_len = int(f_max[i]/10)
+          cut_len = int(f_max[i]/30)
           f_max[i] -= cut_len
           total_f_len -= cut_len
           g_max_len -= cut_len
           shrink_f[i] = 1
           max_f_len[i] = f_max[i]
-          if (debug) print "g_max_cut: " cut_len, "max_f_len: " max_f_len[i] }
+          if (debug) DebugPrint(9) }
       }
 
       reduction_scaler = 14
@@ -258,27 +278,31 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
           value = $i }
 
         #if (not_last_f)
-        print_len = f_max[i] + WCWIDTH_DIFF[FNR, i]
+        print_len = f_max[i] + COLOR_DIFF[FNR, I] + WCWIDTH_DIFF[FNR, i]
         #else print_len = length(value)
 
         justify_str = "%" # Right-align
         fmt_str = justify_str print_len type_str
+
         printf fmt_str, value
         if (not_last_f) PrintBuffer()
       }
       else {
         if (shrink_f[i]) {
-          color = yellow; color_off = no_color
-          value = substr($i, 1, max_f_len[i]) }
+          color = hl; color_off = no_color
+          value = CutStringByVisibleLen($i, max_f_len[i] + WCWIDTH_DIFF[FNR, i]) }
         else {
           color = ""; color_off = ""
           value = $i }
 
-        if (not_last_f) print_len = max_f_len[i] + WCWIDTH_DIFF[FNR, i]
-        else print_len = length(value) + WCWDITH_DIFF[FNR, i]
+        if (not_last_f)
+          print_len = max_f_len[i] + COLOR_DIFF[FNR, i] + WCWIDTH_DIFF[FNR, i]
+        else
+          print_len = length(value) + COLOR_DIFF[FNR, i] + WCWIDTH_DIFF[FNR, i]
 
         justify_str = "%-" # Left-align
         fmt_str = color justify_str print_len "s" color_off
+
         printf fmt_str, value
         if (not_last_f) PrintBuffer()
       }}
@@ -288,6 +312,38 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
 }
 
 
+function StripTrailingColors(str) {
+  gsub(trailing_color_re, "", str) # Remove ANSI color codes
+  return str
+}
+function StripColors(str) {
+  gsub(color_re, "", str) # Remove ANSI color codes
+  return str
+}
+function StripStandardASCII(str) {
+  # TODO: Strengthen cases where not multibyte-safe
+  gsub(/[ -~ -¬®-˿Ͱ-ͷͺ-Ϳ΄-ΊΌΎ-ΡΣ-҂Ҋ-ԯԱ-Ֆՙ-՟ա-և։֊־׀׃׆א-תװ-״]+/, "", str)
+  return str
+}
+function CutStringByVisibleLen(str, red_len) {
+  if (str ~ trailing_color_re) {
+    rem_str = str; red_str = ""; red_str_len = 0; next_color = ""
+    split(str, PrintStr, trailing_color_re)
+    p_len = length(PrintStr)
+    for (p = 1; p <= p_len && red_str_len <= red_len; p++) {
+      p_cur = p == 1 ? PrintStr[p] : substr(PrintStr[p], 2)
+      add = substr(p_cur, 1, Max(red_len - red_str_len, 0))
+      rem_str = substr(rem_str, index(rem_str, p_cur) + length(p_cur) + 1)
+      next_color = p == p_len ? rem_str : substr(rem_str, 1, index(rem_str, PrintStr[p+1]))
+          #print p, PrintStr[p], rem_str
+          if (FNR==15 && i == 1) print p, "PCUR:" p_cur, "ADD:" add, "REMSTR" rem_str
+      red_str = red_str add next_color
+      red_str_len += length(add) }}
+  else {
+    red_str = substr(str, 1, red_len) }
+
+  return red_str
+}
 function Max(a, b) {
   if (a > b) return a
   else if (a < b) return b
@@ -300,7 +356,7 @@ function Min(a, b) {
 }
 function PrintWarning() {
   print orange "WARNING: Total max field lengths larger than display width!" no_color
-  print "Columns cut printed in " yellow "YELLOW" no_color
+  if (!color_detected) print "Columns cut printed in " hl "HIGHLIGHT" no_color
   print ""
 }
 function PrintBuffer() {
@@ -310,22 +366,30 @@ function PrintBuffer() {
 function DebugPrint(case) {
   # Switch statement not supported in all Awk implementations
   if (debug_col && i != debug_col) return
-  if (case == 1)
-    printf "%-20s%5s%5s%5s%5s%5s%5s", "max change: ", FNR, i, len, orig_max, f_max[i], l_diff
+  if (case == 1) {
+    if (!title_printed) { title_printed=1
+      printf "%-20s%5s%5s%5s%5s%5s%5s\n", "", "FNR", "i", "len", "ogmx", "fmxi", "ldf" }
+    printf "%-20s%5s%5s%5s%5s%5s%5s", "max change: ", FNR, i, len, orig_max, f_max[i], l_diff }
   else if (case == 2)
     printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s", "decimal setting: ", FNR, i, d, d_len, d_len,  orig_max, len, int_diff, d_diff, l_diff, f_diff
   else if (case == 3)
     printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s", "decimal adjustment: ", FNR, i, d, d_len, d_max[i],  orig_max, len, int_diff, d_diff, l_diff, f_diff
-  else if (case == 4)
-    printf "%-15s%10s%5s%5s%5s%5s", "shrink step: ", avg_f_len, max_nf, reduction_scaler, total_f_len, tty_size
+  else if (case == 4) {
+    if (!s_title_printed) { s_title_printed=1
+      printf "%-15s%5s%5s%5s%5s%5s%5s%5s\n", "", "i", "fmxi", "avfl", "mxnf", "rdsc", "tfl", "ttys" }
+    printf "%-15s%15s%5s%5s%5s%5s", "shrink step: ", avg_f_len, max_nf, reduction_scaler, total_f_len, tty_size }
   else if (case == 5)
     printf "%-15s%5s%5s", "shrink field: ", i, f_max[i]
   else if (case == 6)
     { print ""; print i, fmt_str, $i, value; print "" }
   else if (case == 7)
-    print "Number pattern set for col:", NR, i
+    printf "%s %s %s" "Number pattern set for col:", NR, i
   else if (case == 8) 
-    print "Number pattern overset for col:" NR, i
+    printf "%s %s %s" "Number pattern overset for col:" NR, i
+  else if (case == 9) 
+    printf "%s %s %s" "g_max_cut: "cut_len, "max_f_len: "max_f_len[i], "total_f_len: "total_f_len
+  else if (case == 10)
+    printf "%s %s %s %s %s %s %s %s" "wcwdiff: " NR, i, init_len, len, wcw_diff, cs, f, f_wcw
 
   print ""
 }

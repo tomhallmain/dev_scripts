@@ -14,8 +14,7 @@ ds:file_check() { # Test for file validity and fail if invalid
       [ "$conf" = "y" ] && echo -n "$f" && return || ds:fail 'File not provided or invalid!'
     fi
   else
-    [ ! -f "$tf" ] && ds:fail 'File not provided or invalid!'
-  fi
+    [ ! -f "$tf" ] && ds:fail 'File not provided or invalid!'; fi
 }
 
 ds:noawkfs() { # Test whether awk arg for setting field separator is present
@@ -30,8 +29,7 @@ ds:prefield() { # Transform FS of a file with quoted fields which contain FS int
       -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
   else
     awk -v FS="$fs" -v retain_outer_quotes="$dequote" ${args[@]} \
-      -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
-  fi
+      -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null; fi
 }
 
 ds:arr_idx() { # Extract first shell array element position matchings pattern
@@ -82,8 +80,7 @@ ds:arr_base() { # Return first array index for shell
   elif [[ $shell =~ zsh ]]; then
     printf 1
   else
-    ds:fail 'This shell unsupported at this time'
-  fi
+    ds:fail 'This shell unsupported at this time'; fi
 }
 
 ds:needs_arg() { # Test if argument is missing and handle UX if it's not
@@ -112,8 +109,7 @@ ds:opts() { # General flag opts handling
       s1|sep1) local FS1="$OPTARG" ;;
       s2|sep2) local FS2="$OPTARG" ;;
 
-      *) echo "Option not supported" 1>&2; return ;;
-    esac
+      *) echo "Option not supported" 1>&2; return ;; esac
   done
   shift $((OPTIND-1))
   echo reached end
@@ -136,8 +132,7 @@ ds:os() { # Return computer operating system if supported
   elif [[ "$OSTYPE" == "freebsd"* ]]; then
     echo "FreeBSD"
   else
-    echo "Failed to detect OS" && return 1
-  fi
+    echo "Failed to detect OS" && return 1; fi
 }
 
 ds:not_git() { # Check if directory is not part of a git repo
@@ -163,20 +158,38 @@ ds:is_cli() { # Detect if shell is interactive
     [[ $PS1 =~ "(base)" ]]
     [ $? = 1 ]
   else
-    ds:fail 'This shell unsupported at this time'
-  fi
+    ds:fail 'This shell unsupported at this time'; fi
 }
 
 ds:readp() { # Portable read prompt
   shell="$(ds:sh)"
   if [[ $shell =~ bash ]]; then
-    read -p $'[37m'"$1 "'[0m' myvar
+    read -p $'[37m'"$1 "'[0m' readvar
   elif [[ $shell =~ zsh ]]; then
-    read "myvar?$1 "
+    read "readvar?$1 "
   else
-    ds:fail 'This shell unsupported at this time'
-  fi
-  echo $myvar; unset myvar
+    ds:fail 'This shell unsupported at this time'; fi
+  ds:downcase $readvar; unset readvar
+}
+
+# TODO: Remove these unnecessary git methods
+ds:git_push_cur() { # git push origin for current branch
+  ds:not_git && return 1
+  local current_branch=$(git rev-parse --abbrev-ref HEAD)
+  git push origin "$current_branch"
+};
+
+ds:git_add_all() { # Add all untracked git files
+  ds:not_git && return 1
+  local all_untracked=( $(git ls-files -o --exclude-standard) )
+  if [ -z "${all_untracked[$(ds:arr_base)]}" ]; then
+    echo 'No untracked files found to add'
+  else
+    startdir="$PWD"
+    rootdir="$(git rev-parse --show-toplevel)"
+    cd "$rootdir"
+    git add .
+    cd "$startdir"; fi
 }
 
 ds:gcam() { # Git commit add message
@@ -184,8 +197,7 @@ ds:gcam() { # Git commit add message
   if [ $1 ]; then
     git commit -am "$1"
   else
-    git commit
-  fi
+    git commit; fi
 }
 
 ds:downcase() { # Downcase strings
@@ -250,6 +262,13 @@ ds:ndata() { # Gathers data about names in current context
     <(printf '%s\n' ${_builtin})      \
     <(printf '%s\n' ${_usrbin})       \
     <(printf '%s\n' ${_usrlocalbin})  | sort
+}
+
+ds:root() { # Returns the root volume / of the system
+  for vol in /Volumes/*; do
+    if [ "$(readlink "$vol")" = / ]; then
+      local root=$vol
+      printf $root; fi; done
 }
 
 ds:termcolors() { # Check terminal colors

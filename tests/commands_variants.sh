@@ -30,4 +30,5 @@ case "$tests" in
   todo)   ds:gexec true tests/commands_tests.sh tests "1..27,~todo"    ;;
   substr) ds:gexec true tests/commands_tests.sh tests "1..27,~substr"  ;;
   pow)    ds:gexec true tests/commands_tests.sh tests "1..27,270..288" ;;
+  deps)   ds:gexec true tests/commands_tests.sh tests "1..27,291..297" ;;
 esac

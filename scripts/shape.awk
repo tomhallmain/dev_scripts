@@ -13,6 +13,7 @@ BEGIN {
     if (FS == " ") measure = 0
     else measure = 1
   }
+  if (FS == " ") FS = "[[:space:]]"
   measure_desc = measure ? "FS "FS : "length"
   if (pattern) {
     pat_len = length(pattern)
@@ -45,18 +46,19 @@ END {
     _[l] = j }
   if (!max_j) { print "Data not found with given parameters"; exit }
   avg_f = totalnf / NR
-  mod_j = max_j <= output_space ? 1 : output_space / max_j
   len_ = length(_)
   print "lines: "NR
   print "lines with "measure_desc": "match_lines
   print "fields: "max_nf
   print "average fields: "avg_f
-  print "approx field var: "(max_nf-avg_f)**2
-  printf "%"lineno_size"s ", "lineno"
-  print "distribution of "measure_desc
-  for (i = 1; i <= len_; i++) {
-    printf " %"lineno_size"s ", i * span
-    printf "%.*s\n", _[i] * mod_j, pattern_string }
+  if (!simple) {
+    print "approx field var: "(max_nf-avg_f)**2
+    printf "%"lineno_size"s ", "lineno"
+    mod_j = max_j <= output_space ? 1 : output_space / max_j
+    print "distribution of "measure_desc
+    for (i = 1; i <= len_; i++) {
+      printf " %"lineno_size"s ", i * span
+      printf "%.*s\n", _[i] * mod_j, pattern_string }}
 }
 
 function SetMeasure(measure) {
