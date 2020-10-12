@@ -172,7 +172,7 @@ BEGIN {
   min_guar_print_nf = 1000; min_guar_print_nr = 100000000
   if (!cased) ignore_case_global = 1
 
-  if (debug) debug_print(-1)
+  if (debug) DebugPrint(-1)
   if (r) {
     gsub("\\\\,", "?ECSOCMAMPA?", r) # Unescape comma searches
     ReoR[0] = 1
@@ -213,7 +213,7 @@ BEGIN {
   if (OFS ~ "\[:space:\]") OFS = " "
   reo_r_len = length(ReoR)
   reo_c_len = length(ReoC)
-  if (debug) { debug_print(0); debug_print(7) }
+  if (debug) { DebugPrint(0); DebugPrint(7) }
 }
 
 
@@ -254,18 +254,18 @@ pass { FieldsPrint($0, 0, 1) }
 ## FINAL PROCESSING FOR REORDER CASES
 
 END {
-  if (debug) debug_print(4) 
+  if (debug) DebugPrint(4) 
   if (err || !reo || (base_reo && pass_r)) exit err
   if (oth) {
-    if (debug) debug_print(10)
+    if (debug) DebugPrint(10)
     if (oth_r) remaining_ro = GenRemainder(1, ReoR, NR)
     if (oth_c) remaining_fo = GenRemainder(0, ReoC, max_nf) }
   if (ext) {
     ResolveFilterExtensions(1, RExtensions, ReoR, ExtRO, NR)
     ResolveFilterExtensions(0, CExtensions, ReoC, ExtFO, max_nf)
-    if (debug) debug_print(12) }
+    if (debug) DebugPrint(12) }
   if (debug) {
-    if (!pass_c) debug_print(6); debug_print(8) }
+    if (!pass_c) DebugPrint(6); DebugPrint(8) }
 
   if (!pass_c && !q && !rev_c && !oth_c && max_nf < min_guar_print_nf)
     MatchCheck(ExprFO, SearchFO)
@@ -370,7 +370,7 @@ function FieldsPrint(Order, ord_len, run_call) {
 function FillRange(row_call, range_arg, RangeArr, reo_count, ReoArr) {
   split(range_arg, RngAnc, TkMap["rng"])
   start = RngAnc[1]; end = RngAnc[2]
-  if (debug) debug_print(2)
+  if (debug) DebugPrint(2)
 
   if (start > end) { reo = 1
     for (k = start; k >= end; k--)
@@ -441,7 +441,7 @@ function StoreFieldRefs() {
       for (f = 1; f <= NF; f++) {
         if (Indexed(SearchFO[search], f)) continue
         field = ignore_case ? tolower($f) : $f
-        if (debug) debug_print(9) 
+        if (debug) DebugPrint(9) 
         if (ExcludeRe[search] && !exclude) {
           if (field ~ base_search) exclude = 1
           if (f == NF && !exclude)
@@ -489,7 +489,7 @@ function StoreFieldRefs() {
         else if (comp == "!=") anchor = ""
         else continue
         eval = EvalExpr(anchor base_expr)
-        if (debug) debug_print(5)
+        if (debug) DebugPrint(5)
         if (comp == "!=") {
           if (!ExcludeCol[expr, f]) {
             if (eval == compval) ExcludeCol[expr, f] = 1
@@ -523,10 +523,10 @@ function StoreRowRefs() {
       if (search in RRFrames) {
         if (ExcludeFrame[search]) continue
         start = 1; end = NF; fr_search = 1
-        split(Tmp[1], Fr, "[")
-        test_row = (row_fr_ext && Fr[1]) ? Fr[1] : 1
+        split(Tmp[1], Fr, "(\\[|!$)")
+        test_row = (fr_ext && Fr[1]) ? Fr[1] : 1
         frame_re = Fr[2] }
-      else if (Tmp[1] ~ Re["num"]) { start = Tmp[1]; end = start }
+      else if (Tmp[1] ~ Re["int"]) { start = Tmp[1]; end = start }
       else { start = 1; end = NF }
 
       for (f = start; f <= end; f++) {
@@ -535,24 +535,29 @@ function StoreRowRefs() {
             if (!Indexed(FrameFields[search], f)) continue }
           else if (NR == test_row) {
             field = ignore_case ? tolower($f) : $f
-            if (field ~ frame_re) {
-              if (!Indexed(SearchRO[search], NR))
-                FrameFields[search] = FrameFields[search] f"," }
+            if (!Indexed(SearchRO[search], NR) && field ~ frame_re)
+                FrameFields[search] = FrameFields[search] f","
             if (f == end) {
               if (FrameFields[search]) # TODO: Should this be a flag setting or default behavior?
                 SearchRO[search] = SearchRO[search] NR","
-              ResolveRowFilterFrame(search) }
+              MaxFrameField[search] = ResolveRowFilterFrame(search) }
+              continue }
           else {
             field = ignore_case ? tolower($f) : $f
-            if (!Indexed(FrameRowFields[search], f) && field ~ base_search)
+            rel_match = field ~ base_search
+            if (ExcludeRe[search]) {
+              if (!rel_match)
+                FrameRowFields[search] = FrameRowFields[search] NR":"f"," }
+            else if (rel_match)
               FrameRowFields[search] = FrameRowFields[search] NR":"f","
-            continue }}}
+            continue }}
         if (Indexed(SearchRO[search], NR)) continue
         field = ignore_case ? tolower($f) : $f
-        if (debug) debug_print(9)
+        if (debug) DebugPrint(9)
         if (ExcludeRe[search]) {
           if (field ~ base_search) exclude = 1
-          if (f == end && !exclude)
+          last_f = fr_search ? MaxFrameField[search] : end
+          if (f == last_f && !exclude)
             SearchRO[search] = SearchRO[search] NR"," }
         else if (!exclude) {
           if (field ~ base_search)
@@ -561,13 +566,13 @@ function StoreRowRefs() {
 
   if (mat) {
     for (expr in RRExprs) {
-      compval = 0; comp = "="; position_test = 0; fr_expr = 0
+      compval = 0; comp = "="; position_test = 0; fr_expr = 0; exclude = 0; frame_set = 0; open_frame = 0
       if (expr in RRFrames) {
         if (ExcludeFrame[expr]) continue
         ignore_case = (ignore_case_global || IgnoreCase[expr])
         split(expr, Tmp, TkMap["mat"])
         split(Tmp[1], Fr, "[")
-        test_row = (row_fr_ext && Fr[1]) ? Fr[1] : 1
+        test_row = (fr_ext && Fr[1]) ? Fr[1] : 1
         base_expr = substr(expr, length(Tmp[1])+1)
         start = 1; end = NF; fr_expr = 1
         frame_re = Fr[2] }
@@ -581,14 +586,13 @@ function StoreRowRefs() {
         base_expr = expr; position_test = 1 
         start = 1; end = NF }
 
-      anchor_col = end
-
       if (base_expr ~ Re["comp"]) { GetComp(base_expr)
         comp = Tmp[0]; base_expr = Tmp[1]; compval = Tmp[2] }
 
       for (f = start; f <= end; f++) {
         if (fr_expr) {
           frame_set = FrameSet[expr]
+          open_frame = !frame_set
           if (frame_set) {
             if (!Indexed(FrameFields[expr], f)) continue }
           else if (NR == test_row) {
@@ -599,25 +603,29 @@ function StoreRowRefs() {
             if (f == end) {
               if (FrameFields[expr]) # TODO: Should this be a flag setting or default behavior?
                 ExprRO[expr] = ExprRO[expr] NR","
-              ResolveRowFilterFrame(expr) 
-            }}}
+              MaxFrameField[expr] = ResolveRowFilterFrame(expr) }
+            continue }}
         if (Indexed(ExprRO[expr], NR)) continue
+        if (exclude && !open_frame) continue
         if (position_test) { if (f > 1) break; else anchor = NR }
         else if ($f ~ Re["decnum"]) {
           anchor = $f; gsub("[\$,]", "", anchor) }
         else if (comp == "!=") anchor = ""
         else continue
         eval = EvalExpr(anchor base_expr)
-        if (debug) debug_print(5)
+        if (debug) DebugPrint(5)
         if (comp == "!=") {
-          if (!ExcludeRow[expr, NR]) {
-            if (eval == compval) ExcludeRow[expr, NR] = 1
-            else if (f == anchor_col) ExprRO[expr] = ExprRO[expr] NR"," }
+          if (!exclude) exclude = eval == compval
+          last_f = frame_set ? MaxFrameField[expr] : end
+          if (!exclude) {
+            if (open_frame) {
+              FrameRowFields[expr] = FrameRowFields[expr] NR":"f"," }
+            else if (f == last_f)
+              ExprRO[expr] = ExprRO[expr] NR"," }
           continue }
         if (EvalCompExpr(eval, compval, comp)) {
-          if (fr_expr && !frame_set) {
-            if (!Indexed(FrameRowFields[search], f))
-              FrameRowFields[search] = FrameRowFields[search] NR":"f"," }
+          if (fr_expr && !frame_set)
+            FrameRowFields[expr] = FrameRowFields[expr] NR":"f","
           else
             ExprRO[expr] = ExprRO[expr] NR","
         }}}}
@@ -627,6 +635,7 @@ function StoreRowRefs() {
 
 function ResolveRowFilterFrame(frame) {
   fr_type = TypeMap[frame]
+  if (debug) DebugPrint(13)
   if (!FrameFields[frame]) {
     ExcludeFrame[frame] = 1
     if (fr_type == "re") SearchRO[frame] = ""
@@ -634,14 +643,17 @@ function ResolveRowFilterFrame(frame) {
     return }
   FrameFieldsTest = FrameFields[frame]
   split(FrameRowFields[frame], FrameRowsTest, ",")
-  for (i in FrameRowsTest) {
-    split(i, RowField, ":")
+  for (rf_i in FrameRowsTest) {
+    split(FrameRowsTest[rf_i], RowField, ":")
     row = RowField[1]
     field = RowField[2]
+    if (debug) DebugPrint(14)
     if (Indexed(FrameFieldsTest, field)) {
+      if (field > max_frame_f) max_frame_f = field
       if (fr_type == "re") SearchRO[frame] = SearchRO[frame] row","
       else if (fr_type == "mat" ) ExprRO[frame] = ExprRO[frame] row"," }}
   FrameSet[frame] = 1
+  return max_frame_f
 }
 
 function ResolveFilterExtensions(row_call, Extensions, ReoArr, OrdArr, max_val) {
@@ -651,7 +663,7 @@ function ResolveFilterExtensions(row_call, Extensions, ReoArr, OrdArr, max_val) 
       OrdArr[ext_i] = ResolveMultisetLogic(row_call, ext_i, max_val)
       ReoArr[DeleteKeys[1]] = ext_i; TypeMap[ext_i] = "ext"; delete DeleteKeys[1]
       for (del_key_i in DeleteKeys) {
-        delete ReoArr[DeleteKeys[del_key_i]] } }}
+        delete ReoArr[DeleteKeys[del_key_i]] }}}
 }
 
 function ResolveMultisetLogic(row_call, key, max_val) {
@@ -684,7 +696,7 @@ function GenRemainder(row_call, ReoArr, max_val) {
   for (i = 1; i <= max_val; i++)
     if (!Indexed(all_reo, i)) rem_idx = rem_idx i","
 
-  if (debug) debug_print(11)
+  if (debug) DebugPrint(11)
   return rem_idx
 }
 
@@ -722,7 +734,7 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
       o_i = ExtOrder[j]
 
       token = o_i ~ Re["alltokens"] ? TokenPrecedence(o_i) : ""
-      if (debug) { row_call ? debug_print(1) : debug_print(1.5) }
+      if (debug) { row_call ? DebugPrint(1) : DebugPrint(1.5) }
 
       if (!token) {
         if ("reverse" ~ "^"tolower(o_i)) {
@@ -789,7 +801,7 @@ function TokenPrecedence(arg) {
   found_token = ""; loc_min = 100000
   for (tk in Tk) {
     tk_loc = index(arg, tk)
-    if (debug) debug_print(3, arg)
+    if (debug) DebugPrint(3, arg)
     if (tk_loc && tk_loc < loc_min) {
       loc_min = tk_loc
       found_token = Tk[tk] }
@@ -836,19 +848,22 @@ function TestArg(arg, max_i, type) {
       exit 1 }}
 
   else if (type == "fr") { reo = 1; fr_idx = 0
-    split(arg, Tmp, "[")
-    if (Tmp[1]) fr_ext = 1
+    if (sa1) fr_ext = 1
     if (ignore_case_global || arg ~ "\/[iI]") IgnoreCase[arg] = 1
     if (arg ~ Re["frmat"]) {
       fr = "mat"; mat = 1 }
-    else if (arg ~ Re["frre"]) {
-      fr = "re"; re = 1 }
-    else if (Tmp[2]) {
+    else if (arg ~ Re["frre"]) { fr = "re"; re = 1
+      if (arg ~ "!~") ExcludeRe[arg] = 1 }
+    else if (sa2) {
       fr = "re"; re = 1; fr_idx = 1; FrIdx[arg] = 1 }
     else {
       print "Invalid order frame arg "arg" - frame arg format examples include: "
       print "[RowHeaderPattern  5[Index5Pattern~search  [HeaderPattern!=30"
       exit 1 }}
+
+  #else if (type == "anc") {
+  #  test=1
+  #}
 
   return max_i
 }
@@ -876,14 +891,15 @@ function BuildRe(Re) {
   Re["nan"] = "[^0-9]"
   Re["matarg1"] = "^[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])[0-9]+)?$"
   Re["matarg2"] = "^(NR|NF)?(!=|[=<>%])[0-9]+$"
-  Re["frmat"] = "\\[.+[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])[0-9]+)?$" #]
-  Re["frre"] = "\\[.+~.+" #]
+  Re["frmat"] = "\\[[^~]+[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])[0-9]+)?$" #]
+  Re["frre"] = "\\[.+!?~.+" #]
   Re["ordsep"] = ",+"
   Re["comp"] = "(<|>|!?=)"
-  Re["alltokens"] = "[(\\.\\.)\\~\\+\\-\\*\\/%\\^<>(!=)=\\[]"
+  Re["alltokens"] = "[(\\.\\.)\\~\\+\\-\\*\\/%\\^<>(!=)=\\[(##)]"
   Re["ws"] = "^[:space:]+$"
   Re["ext"] = "(&&|\\|\\|)"
   Re["extcomp"] = "[^(&&|\\|\\|)]+"
+  Re["anc"] = "(.+##.?|.?##.+)"
 }
 
 function BuildTokenMap(TkMap) {
@@ -891,6 +907,7 @@ function BuildTokenMap(TkMap) {
   TkMap["fr"] = "\\[" #]
   TkMap["re"] = "!?\~"
   TkMap["mat"] = "(!=|[\\+\\-\\*\/%\\^<>=])"
+  TkMap["anc"] = "##"
 }
 
 function BuildTokens(Tk) {
@@ -907,6 +924,7 @@ function BuildTokens(Tk) {
   Tk["/"] = "mat"
   Tk["%"] = "mat"
   Tk["^"] = "mat"
+ # Tk["##"] = "anc"
 }
 
 function EvalExpr(expr) {
@@ -1003,7 +1021,7 @@ function swap(A,B,x,y,z) {
 }
 
 
-function debug_print(case, arg) {
+function DebugPrint(case, arg) {
   if (case == -1) {
     print "----------- ARGS TESTS -------------" }
   else if (case == 0) {
@@ -1049,7 +1067,8 @@ function debug_print(case, arg) {
     if (re) print "search case"
     if (ext) print "extended logic case"
     if (fr) print "header/frame base case"
-    if (fr_ext) print "frame extended case" }
+    if (fr_ext) print "frame extended case" 
+    if (anc) print "anchor search case" }
 
   else if (case == 5) {
     print "NR: "NR ", f: "f ", anchor: "anchor ", apply to: "base_expr ", evals to: "eval ", compare: "comp, compval }
@@ -1080,4 +1099,10 @@ function debug_print(case, arg) {
     print "----- RESOLVING EXTENDED LOGIC -----"
     for (ex in RExtensions) print "RowExt: "ex", Reorder span: "RExtensions[ex]" ExtRowOrder: "ExtRO[ex]
     for (ex in CExtensions) print "ColExt: "ex", Reorder span: "CExtensions[ex]" ExtFieldOrder: "ExtFO[ex] }
+  else if (case == 13) {
+    print "-------- RESOLVE ROW FRAME --------"
+    frame = fr_type == "re" ? search : expr
+    print "frame: "frame", fr_type: "fr_type", FrameFields[frame]: "FrameFields[frame]", FrameRowFields[frame]: "FrameRowFields[frame] }
+  else if (case == 14) {
+    print "rf: "rf, "row: "row, "field: "field }
 }

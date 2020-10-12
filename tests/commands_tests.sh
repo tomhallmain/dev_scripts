@@ -14,11 +14,11 @@ complex_csv1="tests/data/addresses.csv" complex_csv2="tests/data/Sample100.csv"
 
 if [[ $shell =~ 'bash' ]]; then
   bsh=0
-  cd "${BASH_SOURCE%/*}/.."; source .commands.sh
+  cd "${BASH_SOURCE%/*}/.."; source commands.sh
   $(ds:fail 'testfail' &> $tmp); testfail=$(cat $tmp)
   [[ $testfail =~ '_err_: testfail' ]] || echo 'fail command failed in bash case'
 elif [[ $shell =~ 'zsh' ]]; then
-  cd "$(dirname $0)/.."; source .commands.sh
+  cd "$(dirname $0)/.."; source commands.sh
   $(ds:fail 'testfail' &> $tmp); testfail=$(cat $tmp)
   [[ $testfail =~ '_err_: Operation intentionally failed' ]] || echo 'fail command failed in zsh case'
 else
@@ -32,7 +32,7 @@ fi
 cmds="tests/data/commands_output"
 ds:commands > $tmp
 cmp --silent $cmds $tmp || ds:fail 'commands listing failed'
-ds_help_output="Print help for a given command"
+ds_help_output="Print help for a given command ds:help ds_command"
 [ "$(ds:help 'ds:help')" = "$ds_help_output" ] || ds:fail 'help command failed'
 ds:nset 'ds:nset' 1> $q || ds:fail 'nset command failed'
 ds:searchn 'ds:searchn' 1> $q || ds:fail 'searchn failed on func search'
@@ -184,8 +184,8 @@ reo_actual="$(ds:reo $seps_base ">100&&%7" "%7" | ds:fit -v FS="\\\&\\\%\\\#")"
 reo_expected='2    7
 1  420'
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended logic cases'
-
-
+reo_actual="$(ds:reo $seps_base '5[2!~2' | grep -h "^1")"
+[ "$(ds:reo $seps_base '5[2!=2&&5[2!=23' | grep -h "^1")" = "$reo_actual" ] || ds:fail 'reo command failed comparison case'
 
 # FIT TESTS
 
@@ -218,7 +218,7 @@ fc_actual="$(ds:fieldcounts $simple_csv 3,5,1 6)"
 # NEWFS TESTS
 
 nfs_expected='Joan "the bone", Anne::Jet::9th, at Terrace plc::Desert City::CO::00123'
-nfs_actual="$(ds:newfs $complex_csv1 :: | grep Joan)"
+nfs_actual="$(ds:newfs $complex_csv1 :: | grep -h Joan)"
 [ "$nfs_expected" = "$nfs_actual" ] || ds:fail 'newfs command failed'
 
 
@@ -272,10 +272,10 @@ pow_expected="
 24,Mark,0
 25,ACK
 27,ACER PRESS,0
-28,ACER PRESS
 28,Mark
+28,ACER PRESS
 74,0"
-pow_actual="$(ds:pow $complex_csv2 20)"
+pow_actual="$(ds:pow $complex_csv2 20 | cat)"
 [ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed base case'
 pow_expected="
 0.22,3,5
@@ -283,7 +283,7 @@ pow_expected="
 0.5,4,5
 0.53,4
 0.74,5"
-pow_actual="$(ds:pow $complex_csv2 20 t)"
+pow_actual="$(ds:pow $complex_csv2 20 t | cat)"
 [ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed combin counts case'
 
 fsrc_expected='support/utils.sh'

@@ -5,12 +5,12 @@ DS_SCRIPT="${DS_LOC}/scripts"
 DS_SUPPORT="${DS_LOC}/support"
 source "${DS_SUPPORT}/utils.sh"
 
-ds:commands() { # List commands in the dev_scripts/.commands.sh file: ds:commands
+ds:commands() { # List commands in the dev_scripts/commands.sh file: ds:commands
   # TODO: Split out aliases
   echo
   echo "** - function supports receiving piped data"
   echo
-  grep -h '[[:alnum:]_]*()' "$DS_LOC/.commands.sh" | sed 's/^  function //' \
+  grep -h '[[:alnum:]_]*()' "$DS_LOC/commands.sh" | sed 's/^  function //' \
     | grep -hv grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
     | ds:sbsp '\\\*\\\*' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 \
       -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" | ds:sbsp ":[[:space:]]" "888" \
@@ -28,7 +28,7 @@ ds:help() { # Print help for a given command: ds:help ds_command
   [[ "$1" =~ 'reo' ]] && ds:reo -h && return
   [[ "$1" =~ 'fit' ]] && ds:fit -h && return
   [[ "$1" =~ 'stag' ]] && ds:stag -h && return
-  ds:commands | ds:reo "2~$1" 3 -v FS="[[:space:]]{2,}" | cat
+  ds:commands | ds:reo "2~$1" 3,4 -v FS="[[:space:]]{2,}"
 }
 
 ds:gvi() { # Grep for a line in a file/dir and open vim on the first match: ds:gvi search [file|dir]
@@ -158,8 +158,8 @@ ds:join_by() { # ** Join a shell array by a text argument provided: ds:join_by d
 
 ds:test() { # ** Test input quietly using with extended regex: ds:test regex [str|file] [test_file=f]
   ds:pipe_open && grep -Eq "$1" && return $?
-  [[ ! "$3" =~ t ]] && echo "$2" | grep -Eq "$1" && return $?
-  [ -f "$2" ] && grep -Eq "$1" "$2"
+  [[ "$3" =~ t ]] && [ -f "$2" ] && grep -Eq "$1" "$2" && return $?
+  echo "$2" | grep -Eq "$1"
 }
 
 ds:substr() { # ** Extract a substring from a string with regex: ds:substr str [leftanc] [rightanc]
@@ -171,10 +171,10 @@ ds:substr() { # ** Extract a substring from a string with regex: ds:substr str [
   local leftanc="$1" rightanc="$2"
   if [ "$rightanc" ]; then
     [ -z "$leftanc" ] && local sedstr="s/$rightanc//" || local sedstr="s/$leftanc//;s/$rightanc//"
-    local out="$(grep -Eo "$leftanc.*?[^\\]$rightanc" <<< "$str" | sed -E $sedstr)"
+    local out="$(grep -Ego "$leftanc.*?[^\\]$rightanc" <<< "$str" | sed -E $sedstr)"
   elif [ "$leftanc" ]; then
     local sedstr="s/$leftanc//"
-    local out="$(grep -Eo "$leftanc.*?[^\\]" <<< "$str" | sed -E $sedstr)"
+    local out="$(grep -Eho "$leftanc.*?[^\\]" <<< "$str" | sed -E $sedstr)"
   else
     out="$str"; fi
   [ "$out" ] && printf "$out" || echo 'No string match to extract'
@@ -358,7 +358,7 @@ ds:git_recent_all() { # Display recent commits for all local branches (alias ds:
   local w="\033[37;1m" nc="\033[0m"
   local refs="$1"
   [ -d "$2" ] && cd "$2" || cd ~
-  echo -e "${w}repo${nc}@@@   ${w}branch@@@sortfield@@@${w}commit time@@@${w}commit message@@@${w}author${nc}" > $all_recent
+  echo -e "${w}repo@@@   ${w}branch@@@sortfield@@@${w}commit time@@@${w}commit message@@@${w}author${nc}" > $all_recent
   while IFS=$'\n' read -r dir; do
     [ -d "${dir}/.git" ] && (cd "$dir" && \
       (ds:git_recent "$refs" parse | awk -v repo="$dir" -F"$DS_SEP" '
@@ -707,7 +707,7 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [:h|file] [rows] [cols] [
     local file=$(ds:tmp "ds_reo") piped=0
     cat /dev/stdin > $file
   else
-    ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/reorder.awk" \
+    ds:test "(^| )(-h|--help)" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/reorder.awk" \
       | tr -d "#" | less && return
     local tmp=$(ds:tmp "ds_reo")
     ds:file_check "$1" t > $tmp
@@ -741,14 +741,16 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [:h|file] [rows] [cols] [
 }
 
 ds:decap() { # ** Remove up to [n] lines from the start of a file: ds:decap n_lines [file]
-  ds:is_int "$1" && let n_lines=1+${1:-1} || ds:fail 'n_lines must be an integer: ds:decap n_lines [file]'
+  if [ "$1" ]; then
+    ds:is_int "$1" && let n_lines=1+${1:-1} || ds:fail 'n_lines must be an integer: ds:decap n_lines [file]'
+  fi
   if ds:pipe_open; then
-    local file=/tmp/ds_decap piped=0
+    local file=$(ds:tmp 'ds_decap') piped=0
     cat /dev/stdin > $file
   else
     ds:file_check "$2"
     local file="$2"; fi
-  tail -n +$n_lines "$file"
+  tail -n +${n_lines:-2} "$file"
   ds:pipe_clean $file
 }
 
@@ -809,7 +811,8 @@ ds:pow() { # ** Print the power set frequency distribution of fielded text data:
     unset "args[$fs_idx]"; fi
   ds:prefield "$file" "$fs" 1 > $dequote
   awk -v FS="$DS_SEP" -v OFS="$fs" -v min=$min -v c_counts=$flds -v invert=$inv \
-    ${args[@]} -f "$DS_SCRIPT/power.awk" $dequote 2>/dev/null | sort -n
+    ${args[@]} -f "$DS_SCRIPT/power.awk" $dequote 2>/dev/null \
+    | ds:sortm 1 a -v FS="$fs" | sed 's///' | ds:ttyf "$fs"
   ds:pipe_clean $file; rm $dequote
 }
 

@@ -5,7 +5,6 @@
 #
 # > awk -f power.awk file
 #
-# TODO: Fix overcounting in empty fields cases
 # TODO: Link between fields and combination sets
 # TODO: Refactor as set, not as left->right ordered combination (may not be
 # feasible performance wise
@@ -13,11 +12,12 @@
 # low-variance fields as these do not add more info - this would have to be
 # done BEFORE or WHILE permorming exclusions relating to contained fields
 # TODO: Generally distill combinations (maybe only output pairs at most, or
-# even just single fields based on their interaction characteritic value?)
+# even just single fields based on their interaction characteristic value?)
 
 BEGIN {
   if (!min) min = 10
   min_floor = min - 1
+  OFS = UnescapeOFS()
   len_ofs = length(OFS)
 }
 
@@ -38,7 +38,7 @@ invert && NR == 1 && c_counts {
 }
 
 {  
-  if (debug && FNR < 3) debug_print(0)
+  if (debug && FNR < 3) DebugPrint(0)
 
   for (i = 1; i <= 2^NF-2; i++) {
     str = ""
@@ -48,12 +48,12 @@ invert && NR == 1 && c_counts {
       if (i%(2^j) < 2^(j-1)) {
         if ($j ~ "^[[:space:]]*$") continue
         str = str $j OFS
-        if (debug && FNR < 3) debug_print(1)
+        if (debug && FNR < 3) DebugPrint(1)
         c_str = c_str j OFS }
 
     RC[c_str]++
     if (str ~ "^[[:space:]]*$" || RC[c_str] > 1) continue
-    if (debug && FNR < 3) debug_print(0.5)
+    if (debug && FNR < 3) DebugPrint(0.5)
 
     if (c_counts) {
       c_str = substr(c_str, 1, length(c_str) - len_ofs)
@@ -84,7 +84,7 @@ END {
         if (!(i in CCount)) delete CHeaders[i] }}
 
   else {
-    if (debug) debug_print(1.5)
+    if (debug) DebugPrint(1.5)
     for (i in C) {
       j = C[i]
       if (j < min) { 
@@ -93,7 +93,7 @@ END {
       N[j]++
       metakey = j OFS N[j]
       M[metakey] = i
-      if (debug) debug_print(2) }
+      if (debug) DebugPrint(2) }
 
     for (i in N) {
       n_n = N[i]
@@ -105,7 +105,7 @@ END {
           t1 = M[metakey1]
           t2 = M[metakey2]
           if (!(C[t1] && C[t2])) continue
-          #if (debug) debug_print(3)
+          #if (debug) DebugPrint(3)
           split(t1, Tmp1, OFS)
           split(t2, Tmp2, OFS)
           matchcount = 0
@@ -116,15 +116,15 @@ END {
           l2 = length(Tmp2)
           if (matchcount >= l1 || matchcount >= l2) {
             if (l1 > l2) {
-              if (debug) debug_print(4)
+              if (debug) DebugPrint(4)
               delete C[t2] }
             else if (l2 > l1) {
-              if (debug) debug_print(5)
+              if (debug) DebugPrint(5)
               delete C[t1]
             }}}}}}
 
   print ""
-  
+
   if (c_counts) {
     if (invert)
       for (i in CHeaders) { print CHeaders[i] }
@@ -134,7 +134,15 @@ END {
     for (i in C) { if (C[i]) print C[i], i }
 }
 
-function debug_print(case) {
+function UnescapeOFS() {
+  split(OFS, OFSTokens, "\\")
+  OFS = ""
+  for (i = 1; i <= length(OFSTokens); i++)
+    OFS = OFS OFSTokens[i]
+
+  return OFS
+}
+function DebugPrint(case) {
   if (case == 0) {
     print "----------- NEW RECORD ------------"
     print $0

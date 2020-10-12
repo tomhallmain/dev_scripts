@@ -9,12 +9,12 @@ else
   echo 'unhandled shell detected - only zsh/bash supported at this time'
   exit 1
 fi
-source .commands.sh
+source commands.sh
 tmp=$(ds:tmp 'ds_commands_cov')
 tmp1=$(ds:tmp 'ds_commands_cov1')
 tmpndata=$(ds:tmp 'ds_ndata')
 deps=$(ds:tmp 'ds_commands_cov_deps')
-command_funcs=$(grep -ho '[[:alnum:]_:]*()' "$DS_LOC/.commands.sh" \
+command_funcs=$(grep -ho '[[:alnum:]_:]*()' "$DS_LOC/commands.sh" \
   | sed 's/^  function //' | sed 's/()//' | sort)
 util_funcs=$(grep -ho '[[:alnum:]_:]*()' "$DS_SUPPORT/utils.sh" \
   | sed 's/^  function //' | sed 's/()//' | sort)

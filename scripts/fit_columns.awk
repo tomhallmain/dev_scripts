@@ -105,7 +105,7 @@ NR == FNR { # First pass, gather field info
     len = length(f)
     if (len < 1) continue
 
-    orig_max = f_max[i]
+    orig_max = FMax[i]
     l_diff = len - orig_max
     d_diff = 0
     f_diff = 0
@@ -125,32 +125,32 @@ NR == FNR { # First pass, gather field info
     # Otherwise just handle simple field length increases and store number
     # columns for later justification
     
-    if (n_set[i] && ! d_set[i] && ! n_overset[i] && ($i ~ num_re) == 0 && len > 0) {
-      n_overset[i] = 1
+    if (NSet[i] && ! DSet[i] && ! NOverset[i] && ($i ~ num_re) == 0 && len > 0) {
+      NOverset[i] = 1
       if (debug) DebugPrint(8)
-      if (save_n_max[i] > f_max[i] && save_n_max[i] > save_s_max[i]) {
-        recap_n_diff = Max(save_n_max[i] - f_max[i], 0)
-        f_max[i] += recap_n_diff
+      if (SaveNMax[i] > FMax[i] && SaveNMax[i] > SaveSMax[i]) {
+        recap_n_diff = Max(SaveNMax[i] - FMax[i], 0)
+        FMax[i] += recap_n_diff
         total_f_len += recap_n_diff }}
 
     if (FNR < 30 && f ~ num_re) {
-      n_set[i] = 1
-      if (len > n_max[i]) n_max[i] = len
-      if (debug) DebugPrint(7) }
+      if (debug && !NSet[i]) DebugPrint(7)
+      NSet[i] = 1
+      if (len > NMax[i]) NMax[i] = len }
 
-    if (!dec_off && !d_set[i] && $i ~ decimal_re) {
-      d_set[i] = 1
+    if (!dec_off && !DSet[i] && $i ~ decimal_re) {
+      DSet[i] = 1
       split(f, n_parts, "\.")
-      sub("0*$", "", n_parts[2]) # Remove trailing zeros in decimal part
-      d_len = length(n_parts[2])
-      d_max[i] = d_len
+      sub("0*$", "", NParts[2]) # Remove trailing zeros in decimal part
+      d_len = length(NParts[2])
+      DMax[i] = d_len
 
       if (sn) {
         if (!d) sn_len = 2 + d_len + 4
         sn_diff = sn_len - orig_max
         f_diff = Max(sn_diff, 0) }
       else {
-        int_len = length(int(n_parts[1]))
+        int_len = length(int(NParts[1]))
         int_diff = int_len + 1 + d_len - len
         if (d == "z") {
           d_len++ # Removing dot
@@ -160,20 +160,20 @@ NR == FNR { # First pass, gather field info
 
         f_diff = Max(l_diff + int_diff + d_diff, 0) }
 
-      if (debug && f_diff) debug_print(2) }
+      if (debug && f_diff) DebugPrint(2) }
 
-    else if (!dec_off && d_set[i] && f ~ num_re) {
+    else if (!dec_off && DSet[i] && f ~ num_re) {
         split(f, n_parts, "\.")
-        sub("0*$", "", n_parts[2]) # Remove trailing zeros in decimal part
-        d_len = length(n_parts[2])
-        if (d_len > d_max[i]) d_max[i] = d_len
+        sub("0*$", "", NParts[2]) # Remove trailing zeros in decimal part
+        d_len = length(NParts[2])
+        if (d_len > DMax[i]) DMax[i] = d_len
         
         if (sn) {
-          if (!d) sn_len = 2 + d_max[i] + 4
+          if (!d) sn_len = 2 + DMax[i] + 4
           sn_diff = sn_len - orig_max
           f_diff = Max(sn_diff, 0) }
         else {
-          int_len = length(int(n_parts[1]))
+          int_len = length(int(NParts[1]))
           dot = (d_len == 0 ? 0 : 1)
           int_diff = int_len + dot + d_len - len
   
@@ -183,7 +183,7 @@ NR == FNR { # First pass, gather field info
           f_diff = Max(l_diff + int_diff + d_diff, 0) }
         else {
           dot = (!dot)
-          dec = (d ? d : d_max[i])
+          dec = (d ? d : DMax[i])
           if (l_diff + dec + dot > 0) {
             d_diff = dec - d_len + dot
             f_diff = Max(l_diff + int_diff + d_diff, 0) }}}
@@ -191,18 +191,18 @@ NR == FNR { # First pass, gather field info
       if (debug && f_diff) DebugPrint(3) }
 
     else if (l_diff > 0) {
-      if (sn && n_set[i] && ! n_overset[i] && n_max[i] > sn0_len && f ~ num_re) {
-        if (len > save_n_max[i]) save_n_max[i] = len
+      if (sn && NSet[i] && ! NOverset[i] && NMax[i] > sn0_len && f ~ num_re) {
+        if (len > SaveNMax[i]) SaveNMax[i] = len
         sn_diff = sn0_len - orig_max
         
         l_diff = sn_diff }
-      if (sn && (f ~ num_re) == 0) if (len > save_s_max[i]) save_s_max[i] = len
+      if (sn && (f ~ num_re) == 0) if (len > SaveSMax[i]) save_s_max[i] = len
 
       f_diff = l_diff
 
       if (debug) DebugPrint(1) }
 
-    if (f_diff) { f_max[i] += f_diff; total_f_len += f_diff }}
+    if (f_diff) { FMax[i] += f_diff; total_f_len += f_diff }}
 
   if (NF > max_nf) max_nf = NF
 }
@@ -210,13 +210,13 @@ NR == FNR { # First pass, gather field info
 NR > FNR { # Second pass, scale down fields if length > tty_size and print
   if (FNR == 1) {
     for (i = 1; i <= max_nf; i++) {
-      if (f_max[i]) {
-        max_f_len[i] = f_max[i]
+      if (FMax[i]) {
+        MaxFLen[i] = FMax[i]
         total_f_len += buffer
 
-        if (f_max[i] / total_f_len > 0.4 ) { 
-          g_max[i] = f_max[i] + buffer
-          g_max_len += g_max[i]
+        if (FMax[i] / total_f_len > 0.4 ) { 
+          GMax[i] = FMax[i] + buffer
+          g_max_len += GMax[i]
           g_count++ }}}
 
     shrink = tty_size && total_f_len > tty_size
@@ -224,17 +224,17 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
     if (shrink) {
       if (!(color == "never")) PrintWarning()
 
-      while (g_max_len / total_f_len / length(g_max) > Min(length(g_max) / max_nf * 2, 1) \
-              && total_f_len > tty_size) {
-        for (i in g_max) {
-          cut_len = int(f_max[i]/30)
-          f_max[i] -= cut_len
-          total_f_len -= cut_len
-          g_max_len -= cut_len
-          shrink_f[i] = 1
-          max_f_len[i] = f_max[i]
-          if (debug) DebugPrint(9) }
-      }
+      if (length(GMax)) {
+        while (g_max_len / total_f_len / length(GMax) > Min(length(GMax) / max_nf * 2, 1) \
+                && total_f_len > tty_size) {
+          for (i in GMax) {
+            cut_len = int(FMax[i]/30)
+            FMax[i] -= cut_len
+            total_f_len -= cut_len
+            g_max_len -= cut_len
+            ShrinkF[i] = 1
+            MaxFLen[i] = FMax[i]
+            if (debug) DebugPrint(9) }}}
 
       reduction_scaler = 14
       
@@ -245,31 +245,31 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
         if (debug) DebugPrint(4)
         
         for (i = 1; i <= max_nf; i++) {
-          if (! d_set[i] \
-              && ! (n_set[i] && ! n_overset[i]) \
-              && f_max[i] > scaled_cut \
-              && f_max[i] - cut_len > buffer) {
-            mod_cut_len = int((cut_len*2) ^ (f_max[i] / total_f_len))
-            f_max[i] -= cut_len
+          if (! DSet[i] \
+              && ! (NSet[i] && ! NOverset[i]) \
+              && FMax[i] > scaled_cut \
+              && FMax[i] - cut_len > buffer) {
+            mod_cut_len = int((cut_len*2) ^ (FMax[i] / total_f_len))
+            FMax[i] -= cut_len
             total_f_len -= cut_len
-            shrink_f[i] = 1
-            max_f_len[i] = f_max[i]
+            ShrinkF[i] = 1
+            MaxFLen[i] = FMax[i]
             if (debug) DebugPrint(5) }}
 
         reduction_scaler-- }}}
 
   for (i = 1; i <= max_nf; i++) {
     not_last_f = i < max_nf;
-    if (f_max[i]) {
-      if (d_set[i] || (n_set[i] && ! n_overset[i])) {
+    if (FMax[i]) {
+      if (DSet[i] || (NSet[i] && ! NOverset[i])) {
         
-        if (d_set[i]) {
+        if (DSet[i]) {
           if ($i ~ num_re) {
             if (d == "z") {
               type_str = (sn ? ".0e" : "s")
               value = int($i) }
             else {
-              dec = (d ? d : d_max[i])
+              dec = (d ? d : DMax[i])
               type_str = (sn ? "." dec "e" : "." dec "f")
               value = $i }}
           else { type_str = "s"; value = $i }}
@@ -278,7 +278,7 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
           value = $i }
 
         #if (not_last_f)
-        print_len = f_max[i] + COLOR_DIFF[FNR, I] + WCWIDTH_DIFF[FNR, i]
+        print_len = FMax[i] + COLOR_DIFF[FNR, I] + WCWIDTH_DIFF[FNR, i]
         #else print_len = length(value)
 
         justify_str = "%" # Right-align
@@ -288,15 +288,15 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
         if (not_last_f) PrintBuffer()
       }
       else {
-        if (shrink_f[i]) {
+        if (ShrinkF[i]) {
           color = hl; color_off = no_color
-          value = CutStringByVisibleLen($i, max_f_len[i] + WCWIDTH_DIFF[FNR, i]) }
+          value = CutStringByVisibleLen($i, MaxFLen[i] + WCWIDTH_DIFF[FNR, i]) }
         else {
           color = ""; color_off = ""
           value = $i }
 
         if (not_last_f)
-          print_len = max_f_len[i] + COLOR_DIFF[FNR, i] + WCWIDTH_DIFF[FNR, i]
+          print_len = MaxFLen[i] + COLOR_DIFF[FNR, i] + WCWIDTH_DIFF[FNR, i]
         else
           print_len = length(value) + COLOR_DIFF[FNR, i] + WCWIDTH_DIFF[FNR, i]
 
@@ -369,27 +369,27 @@ function DebugPrint(case) {
   if (case == 1) {
     if (!title_printed) { title_printed=1
       printf "%-20s%5s%5s%5s%5s%5s%5s\n", "", "FNR", "i", "len", "ogmx", "fmxi", "ldf" }
-    printf "%-20s%5s%5s%5s%5s%5s%5s", "max change: ", FNR, i, len, orig_max, f_max[i], l_diff }
+    printf "%-20s%5s%5s%5s%5s%5s%5s", "max change: ", FNR, i, len, orig_max, FMax[i], l_diff }
   else if (case == 2)
     printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s", "decimal setting: ", FNR, i, d, d_len, d_len,  orig_max, len, int_diff, d_diff, l_diff, f_diff
   else if (case == 3)
-    printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s", "decimal adjustment: ", FNR, i, d, d_len, d_max[i],  orig_max, len, int_diff, d_diff, l_diff, f_diff
+    printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s", "decimal adjustment: ", FNR, i, d, d_len, DMax[i],  orig_max, len, int_diff, d_diff, l_diff, f_diff
   else if (case == 4) {
     if (!s_title_printed) { s_title_printed=1
       printf "%-15s%5s%5s%5s%5s%5s%5s%5s\n", "", "i", "fmxi", "avfl", "mxnf", "rdsc", "tfl", "ttys" }
     printf "%-15s%15s%5s%5s%5s%5s", "shrink step: ", avg_f_len, max_nf, reduction_scaler, total_f_len, tty_size }
   else if (case == 5)
-    printf "%-15s%5s%5s", "shrink field: ", i, f_max[i]
+    printf "%-15s%5s%5s", "shrink field: ", i, FMax[i]
   else if (case == 6)
     { print ""; print i, fmt_str, $i, value; print "" }
   else if (case == 7)
-    printf "%s %s %s" "Number pattern set for col:", NR, i
+    printf "%s %s %s", "Number pattern set for col:", NR, i
   else if (case == 8) 
-    printf "%s %s %s" "Number pattern overset for col:" NR, i
+    printf "%s %s %s", "Number pattern overset for col:" NR, i
   else if (case == 9) 
-    printf "%s %s %s" "g_max_cut: "cut_len, "max_f_len: "max_f_len[i], "total_f_len: "total_f_len
+    printf "%s %s %s", "g_max_cut: "cut_len, "MaxFLen[i]: "MaxFLen[i], "total_f_len: "total_f_len
   else if (case == 10)
-    printf "%s %s %s %s %s %s %s %s" "wcwdiff: " NR, i, init_len, len, wcw_diff, cs, f, f_wcw
+    printf "%s %s %s %s %s %s %s %s", "wcwdiff: " NR, i, init_len, len, wcw_diff, cs, f, f_wcw
 
   print ""
 }

@@ -4,12 +4,14 @@ DS_SEP=$'@@@'
 # TODO: Extract FS from args
 
 ds:file_check() { # Test for file validity and fail if invalid
+  [ -z "$1" ] && ds:fail 'File not provided!'
   local tf="$1"
   if [ "$2" ]; then
     if [ -f "$tf" ]; then
       echo -n "$tf"
     else
-      local f=$(ds:nset 'fd' && fd -1 "$1" || find . -type f -name "*$1*" | head -n1)
+      local f=$(ds:nset 'fd' && fd -1 -t f "$tf" || find . -type f -name "*$tf*" | head -n1)
+      [[ -z "$f" || ! -f "$f" ]] && ds:fail 'File not provided or invalid!'
       local conf=$(ds:readp "Arg is not a file - run on closest match ${f}? (y/n)" | ds:downcase)
       [ "$conf" = "y" ] && echo -n "$f" && return || ds:fail 'File not provided or invalid!'
     fi
@@ -24,11 +26,11 @@ ds:noawkfs() { # Test whether awk arg for setting field separator is present
 ds:prefield() { # Transform FS of a file with quoted fields which contain FS into non-clashing FS
   ds:file_check "$1"
   local file="$1" fs="$2" dequote=${3:-0}
-  if [[ ! "${args[@]}" =~ "-v OFS" && ! "${args[@]}" =~ "-v ofs" ]]; then
-    awk -v OFS="$DS_SEP" -v FS="$fs" -v retain_outer_quotes="$dequote" ${args[@]} \
+  if [[ ! "${@:4}" =~ "-v OFS" && ! "${@:4}" =~ "-v ofs" ]]; then
+    awk -v OFS="$DS_SEP" -v FS="$fs" -v retain_outer_quotes="$dequote" ${@:4} \
       -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
   else
-    awk -v FS="$fs" -v retain_outer_quotes="$dequote" ${args[@]} \
+    awk -v FS="$fs" -v retain_outer_quotes="$dequote" ${@:4} \
       -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null; fi
 }
 
