@@ -296,7 +296,7 @@ alias ds:gpl="ds:git_purge_local"
 ds:git_refresh() { # Pull latest for all git repos, run installs (alias ds:grr): ds:gr [repos_dir=~]
   bash "$DS_SCRIPT/local_env_refresh.sh" ${@}
 }
-alias ds:gr="ds:git_refresh"
+alias ds:grf="ds:git_refresh"
 
 ds:git_checkout() { # Checkout a branch in current repo matching pattern (alias ds:gco): ds:gco [pattern]
   bash "$DS_SCRIPT/git_checkout.sh" ${@}
@@ -658,7 +658,7 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
       unset "args[$fsv_idx]"; fi
     unset "args[$fs_idx]"; fi
   ds:prefield "$file" "$fs" 0 > $dequote
-  awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SUPPORT/wcwidth.awk" -f "$DS_SCRIPT/fit_columns.awk" \
+  awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" \
     -v tty_size=$tty_size -v buffer="$col_buffer" ${args[@]} $dequote{,} 2>/dev/null
   ds:pipe_clean $file; rm $dequote
 }

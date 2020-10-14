@@ -23,8 +23,7 @@ arrayContains() {
 }
 
 refreshBranch() {
-  local repo="$1"
-  local branch ="$2"
+  local repo="$1" branch="$2"
   git checkout "$branch"
   git pull
   wait

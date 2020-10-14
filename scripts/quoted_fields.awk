@@ -17,7 +17,7 @@ BEGIN {
   q_cut_len = retain_outer_quotes ? 0 : 2
   mod_f_len1 = retain_outer_quotes ? 1 : 2
   mod_f_len0 = retain_outer_quotes ? 0 : 1
-  if (debug) debugPrint(0)
+  if (debug) DebugPrint(0)
 }
 
 na || !($0 ~ FS) { print; next }
@@ -27,32 +27,35 @@ na || !($0 ~ FS) { print; next }
   if (!dqset) { dqset = ($0 ~ dqre)
     if (dqset) { q = dq; qq = "\"\""
       qq_replace = retain_outer_quotes ? qq : q
-      qfs = q FS; qqfs = q q FS; fsq = FS q }}
+      qfs = q FS; qqfs = q q FS; fsq = FS q 
+      run_pf = 1; qre = dqre }}
   if (!dqset && !sqset) { sqset = ($0 ~ sqre)
     if (sqset) { q = sq; qq = "\'\'"
       qq_replace = retain_outer_quotes ? qq : q
-      qfs = q FS; qqfs = q q FS; fsq = FS q }}
+      qfs = q FS; qqfs = q q FS; fsq = FS q
+      run_pf = 1; qre = sqre }}
 
-  if (dqset) {
-    for (i = 1; i < 1000; i++) {
+  if (run_pf && $0 ~ qre) {
+    for (i = 1; i < 500; i++) {
       gsub(qq, "_qqqq_", $0)
       len0 = length($0)
       if (len0 < 1) break
       nf++
-      iqfs = index($0, qfs)
+      match($0, qfs); iqfs = RSTART
       while (substr($0, iqfs-1, 1) == q && substr($0, iqfs-2, 1) != q) {
-        iqfs += index(substr($0, iqfs + lenfs, len0), qfs) }
-      ifsq = index($0, fsq)
-      ifs = index($0, FS)
+        match(substr($0, iqfse, len0), qfs)
+        iqfs = RSTART }
+      match($0, fsq); ifsq = RSTART
+      match($0, FS); ifs = RSTART; lenfs = Max(RLENGTH, 0)
       iq = index($0, q)
-      iqq = index($0, qq)
+      iqq = index($0, "_qqqq_")
       if (iq == 1 && !(iqq == 1)) qset = 1
       q_cut = 0
 
       if (debug) {
         previ = i - 1
         if (_[previ]) pi = _[previ]
-        debugPrint(1) }
+        DebugPrint(1) }
 
       if (qset) {
         qset = 0; q_cut = q_cut_len
@@ -83,7 +86,7 @@ na || !($0 ~ FS) { print; next }
       _[i] = substr($0, startf, endf)
       gsub("_qqqq_", qq_replace, _[i])
       $0 = substr($0, endf + lenfs + q_cut + 1)
-      if (debug) debugPrint(2) }}
+      if (debug) DebugPrint(2) }}
   else {
     nf = NF
     for (i = 1; i <= NF; i++) _[i] = $i }
@@ -94,7 +97,12 @@ na || !($0 ~ FS) { print; next }
   print _[nf]
 }
 
-function debugPrint(case) {
+function Max(a, b) {
+  if (a > b) return a
+  else if (a < b) return b
+  else return a
+}
+function DebugPrint(case) {
   if (case == 0) {
     print "-------- SETUP --------"
     print "retain_outer_quotes: "retain_outer_quotes" q_cut_len: "q_cut_len" mod_f_len0: "mod_f_len0" mod_f_len1: "mod_f_len1
