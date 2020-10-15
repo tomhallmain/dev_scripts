@@ -9,8 +9,8 @@ shell=$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')
 jnf1="tests/data/infer_join_fields_test1.csv" jnf2="tests/data/infer_join_fields_test2.csv"
 seps_base="tests/data/seps_test_base" seps_sorted="tests/data/seps_test_sorted" 
 simple_csv="tests/data/company_funding_data.csv"
-complex_csv1="tests/data/addresses.csv" complex_csv2="tests/data/Sample100.csv"
-
+complex_csv1="tests/data/addresses.csv" complex_csv2="tests/data/Sample100.csv" complex_csv3="tests/data/addresses_reordered"
+ls_sq="tests/data/ls_sq"
 
 if [[ $shell =~ 'bash' ]]; then
   bsh=0
@@ -52,12 +52,12 @@ fi
 [ $(ds:git_recent_all | awk '{print $3}' | wc -l) -gt 2 ] \
   || echo 'git recent all failed, possibly due to no git dirs in home'
 
-
 # JN, PC, PM, IFS TESTS
 
 [ "$(ds:inferfs $jnf1)" = ',' ] || ds:fail 'inferfs failed extension case'
 [ "$(ds:inferfs $seps_base)" = '\&\%\#' ] || ds:fail 'inferfs failed custom separator case'
-
+[ "$(ds:inferfs $ls_sq)" = '[[:space:]]+' ] || ds:fail 'inferfs failed quoted fields case'
+[ "$(ds:inferfs $complex_csv3)" = ',' ] || ds:fail 'inferfs failed quoted fields case'
 [ $(ds:jn "$jnf1" "$jnf2" o 1 | wc -l) -gt 15 ] || ds:fail 'ds:jn failed one-arg shell case'
 [ $(ds:jn "$jnf1" "$jnf2" r -v ind=1 | wc -l) -gt 15 ] || ds:fail 'ds:jn failed awkarg nonkey case'
 [ $(ds:jn "$jnf1" "$jnf2" l -v k=1 | wc -l) -gt 15 ] || ds:fail 'ds:jn failed awkarg key case'
@@ -221,6 +221,17 @@ nfs_expected='Joan "the bone", Anne::Jet::9th, at Terrace plc::Desert City::CO::
 nfs_actual="$(ds:newfs $complex_csv1 :: | grep -h Joan)"
 [ "$nfs_expected" = "$nfs_actual" ] || ds:fail 'newfs command failed'
 
+# PREFIELD TESTS
+
+prefield_expected='Last Name@@@Street Address@@@First Name
+Doe@@@120 jefferson st.@@@John
+McGinnis@@@220 hobo Av.@@@Jack
+Repici@@@120 Jefferson St.@@@"John ""Da Man"""
+Tyler@@@"7452 Terrace ""At the Plaza"" road"@@@Stephen
+Blankman@@@@@@
+Jet@@@"9th, at Terrace plc"@@@"Joan ""the bone"", Anne"'
+prefield_actual="$(ds:prefield $complex_csv3 , 1)"
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed'
 
 # ASSORTED COMMANDS TESTS
 
@@ -254,7 +265,6 @@ mini_output="1;2;3;4;5;6;7;8;9;10"
 [ "$(cat $tmp | ds:mini)" = "$mini_output" ] || ds:fail 'mini command failed'
 [ "$(ds:unicode "cats😼😻")" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed base case'
 [ "$(echo "cats😼😻" | ds:unicode)" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed pipe case'
-[ "$(ds:webpage_title https://www.google.com)" = Google ] || ds:fail 'webpage title command failed or internet is out'
 sbsp_actual="$(ds:sbsp tests/data/subseps_test "SEP" | ds:reo 1,7 | cat)"
 sbsp_expected='A;A;A;A
 G;G;G;G'
@@ -295,6 +305,7 @@ ds:reo
 ds:nset
 ds:commands'
 [[ "$(ds:deps ds:help)" = "$help_deps" ]] || ds:fail 'deps command failed'
+[ "$(ds:webpage_title https://www.google.com)" = Google ] || ds:fail 'webpage title command failed or internet is out'
 
 # CLEANUP
 

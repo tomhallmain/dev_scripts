@@ -18,6 +18,7 @@
 ## variance (probably external)
 ## TODO: Handle escapes, null Chars, SUBSEP
 ## TODO: Regex FS length handling
+## TODO: Infer absensce of separator
 
 BEGIN {
   CommonFS["s"] = " "; FixedStringFS["s"] = "\\"
@@ -111,17 +112,31 @@ custom && NR == 2 {
 
   for (s in CommonFS) {
     fs = CommonFS[s]
-    qf_line = 0
-    q = GetFieldsQuote($0, FixedStringFS[s] fs)
-    if (q) {
-      nf = 0
-      len_nqf = split($0, NonquotedField, QuotedFieldsRe(fs, q))
-      for (nqf_i = 1; nqf_i <= len_nqf; nqf_i++) {
-        nqf = NonquotedField[nqf_i]
-        nf += split(nqf, Tmp, fs)
-        if (nqf_i < len_nqf) nf++ }}
+    if (!Q[s]) Q[s] = GetFieldsQuote($0, FixedStringFS[s] fs)
+    if (Q[s]) {
+      if (!QFRe[s]) QFRe[s] = QuotedFieldsRe(fs, Q[s])
+      nf = 0; qf_line = $0
+
+      while (length(qf_line)) {
+        match(qf_line, QFRe[s])
+
+        if (debug2) DebugPrint(15)
+
+        if (RSTART) {
+          nf++
+          if (RSTART > 1)
+            nf += split(substr(qf_line, 1, RSTART-1), _, fs) }
+        else {
+          nf += split(qf_line, _, fs)
+          break }
+
+        qf_line = substr(qf_line, RSTART+RLENGTH, length(qf_line)) }}
+
     else
       nf = split($0, _, fs)
+
+    if (debug2) DebugPrint(4)
+
     CommonFSCount[s, NR] = nf
     CommonFSTotal[s] += nf }
 
@@ -238,27 +253,32 @@ END {
     print Winners[winning_s]
 }
 
-function QuotedFieldsRe(sep, quote) {
-  return "(^|" sep ")" quote ".+" quote "(" sep "|$)"
+function QuotedFieldsRe(sep, q) {
+  qs = q sep; spq = sep q
+  exc = "[^"q"]*[^"sep"]*[^"q"]+"
+  return "(^"q qs"|"spq qs"|"spq q"$|"q exc qs"|"spq exc qs"|"spq exc q"$)"
 }
-function GetFieldsQuote(line, sep) { # TODO: Set as state machine in array per sep
+function GetFieldsQuote(line, sep) {
   dq_sep_re = QuotedFieldsRe(sep, dq)
-  if (line ~ dq_sep_re) return dq
+  if (match(line, dq_sep_re)) return dq
   sq_sep_re = QuotedFieldsRe(sep, sq)
-  if (line ~ sq_sep_re) return sq
+  if (match(line, sq_sep_re)) return sq
 }
 function DebugPrint(case) {
   if (case == 1)
-    print "char:" char, char_nf
+    print "char: " char, char_nf
   else if (case == 2)
-    print "twochar:" twochar, twochar_nf
+    print "twochar: " twochar, twochar_nf
   else if (case == 3)
-    print "thrchar:" thrchar, thrchar_nf
+    print "thrchar: " thrchar, thrchar_nf
+  else if (case == 4) {
+    print "NR: "NR", s: \""s"\", fs: \""fs"\", nf: "nf
+    if (Q[s]) print "Q[s]: "Q[s]", QFRe[s]: "QFRe[s] }
   else if (case == 5) {
     printf "%s", s " average nf: " average_nf
     print (average_nf >= 2 ? ", will calc var" : "") }
-  else if (case == 6) 
-    print s " FSVar: " FSVar[s]
+  else if (case == 6)
+    print "sep: "s" FSVar: " FSVar[s]
   else if (case == 7)
     print "NoVar winning_s set to CommonFS[\""s"\"] = \"" CommonFS[s] "\""
   else if (case == 8)
@@ -277,4 +297,7 @@ function DebugPrint(case) {
     print "s: \""s"\", compare_s: \""compare_s"\", winning_s switched to: \""compare_s"\""
   else if (case == 14)
     print "compare_s: \""compare_s"\", s: \""s"\", winning_s switched to: \""s"\""
+  else if (case == 15) {
+    print s, Q[s], RSTART, RLENGTH
+    print qf_line }
 }

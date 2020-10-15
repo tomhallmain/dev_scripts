@@ -171,7 +171,7 @@ ds:substr() { # ** Extract a substring from a string with regex: ds:substr str [
   local leftanc="$1" rightanc="$2"
   if [ "$rightanc" ]; then
     [ -z "$leftanc" ] && local sedstr="s/$rightanc//" || local sedstr="s/$leftanc//;s/$rightanc//"
-    local out="$(grep -Ego "$leftanc.*?[^\\]$rightanc" <<< "$str" | sed -E $sedstr)"
+    local out="$(grep -Eho "$leftanc.*?[^\\]$rightanc" <<< "$str" | sed -E $sedstr)"
   elif [ "$leftanc" ]; then
     local sedstr="s/$leftanc//"
     local out="$(grep -Eho "$leftanc.*?[^\\]" <<< "$str" | sed -E $sedstr)"
@@ -613,9 +613,9 @@ ds:inferk() { # ** Infer join fields in two text data files: ds:inferk [awkargs]
   ds:pipe_clean $file2
 }
 
-ds:inferfs() { # Infer field separator from data: inferfs file [reparse=f] [custom=t] [file_ext=t] [high_cert=t]
+ds:inferfs() { # Infer field separator from data: inferfs file [reparse=f] [custom=t] [file_ext=t] [high_cert=f]
   ds:file_check "$1"
-  local file="$1" reparse="${2:-false}" custom="${3:-true}" file_ext="${4:-true}" hc="${5:-true}"
+  local file="$1" reparse="${2:-false}" custom="${3:-true}" file_ext="${4:-true}" hc="${5:-false}"
 
   if [ "$file_ext" = true ]; then
     read -r dirpath filename extension <<<$(ds:path_elements "$file")
@@ -623,8 +623,8 @@ ds:inferfs() { # Infer field separator from data: inferfs file [reparse=f] [cust
       [ ".csv" = "$extension" ] && echo ',' && return
       [ ".tsv" = "$extension" ] && echo "\t" && return; fi; fi
 
-  [ "$custom" = true ] || custom=""
-  [ "$hc" = true ] || hc=""
+  ds:test 't(rue)?' "$custom" || custom=""
+  ds:test 't(rue)?' "$hc" || hc=""
 
   if [ "$reparse" = true ]; then
     awk -f "$DS_SCRIPT/infer_field_separator.awk" -v high_certainty="$hc" \

@@ -9,6 +9,8 @@
 BEGIN {
   sq = "'"
   dq = "\""
+  if (FS == " ") FS = "[[:space:]]+"
+  if (fixed_space) FS = " "
   lenfs = length(FS)
 
   sqre = "(^|" FS ")" sq ".*" sq "(" FS "|$)"
@@ -61,7 +63,7 @@ na || !($0 ~ FS) { print; next }
         qset = 0; q_cut = q_cut_len
         startf = lenfs + mod_f_len0
         endf = iqfs - q_cut_len
-        if (endf < 1) endf = len0 - 1 - mod_f_len0 }
+        if (endf < 1) endf = len0 - mod_f_len0 }
       else {
         if (iq == 0 && ifs == 0) {
           startf = 1; endf = len0 }

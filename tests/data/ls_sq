@@ -1,0 +1,5 @@
+-rw-r--r--  1 tomhall   4330 Oct 12 11:55  emoji
+-rw-r--r--  1 tomhall      0 Oct  3 17:30 'file with space, and: commas & colons \ slashes'
+-rw-r--r--  1 tomhall  12003 Oct  3 17:30  infer_jf_test_joined.csv
+-rw-r--r--  1 tomhall   5245 Oct  3 17:30  infer_join_fields_test1.csv
+-rw-r--r--  1 tomhall   6043 Oct  3 17:30  infer_join_fields_test2.csv
