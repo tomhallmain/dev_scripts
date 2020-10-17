@@ -55,9 +55,13 @@
 #
 #       Custom character for buffer/separator:
 #    -v bufferchar="|"
-
+## TODO: 'Apply to rows / ignore rows' logic
+## TODO: Resolve lossy multibyte char output
 
 BEGIN {
+  WCW_FS = " "
+  FIT_FS = FS
+
   if (d < 0) {
     sn = -d
     d = "z" }
@@ -110,8 +114,14 @@ NR == FNR { # First pass, gather field info
     d_diff = 0
     f_diff = 0
 
-    f_wcw = StripStandardASCII(f)
-    wcw_diff = length(f_wcw)
+    FS = WCW_FS
+    wcw = wcscolumns(f)
+    FS = FIT_FS
+    wcw_diff = len - wcw
+    if (wcw_diff == 0) {
+      f_wcw_kludge = StripBasicASCII(f)
+      len_wcw_kludge = length(f_wcw_kludge)
+      wcw_diff += len_wcw_kludge }
     if (wcw_diff) {
       WCWIDTH_DIFF[NR, i] = wcw_diff
       if (debug) DebugPrint(10) }
@@ -285,7 +295,7 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
         fmt_str = justify_str print_len type_str
 
         printf fmt_str, value
-        if (not_last_f) PrintBuffer()
+        if (not_last_f) PrintBuffer(buffer)
       }
       else {
         if (ShrinkF[i]) {
@@ -304,7 +314,7 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
         fmt_str = color justify_str print_len "s" color_off
 
         printf fmt_str, value
-        if (not_last_f) PrintBuffer()
+        if (not_last_f) PrintBuffer(buffer)
       }}
     if (debug && FNR < 4) DebugPrint(6) }
 
@@ -320,7 +330,7 @@ function StripColors(str) {
   gsub(color_re, "", str) # Remove ANSI color codes
   return str
 }
-function StripStandardASCII(str) {
+function StripBasicASCII(str) {
   # TODO: Strengthen cases where not multibyte-safe
   gsub(/[ -~ -¬®-˿Ͱ-ͷͺ-Ϳ΄-ΊΌΎ-ΡΣ-҂Ҋ-ԯԱ-Ֆՙ-՟ա-և։֊־׀׃׆א-תװ-״]+/, "", str)
   return str
@@ -335,7 +345,6 @@ function CutStringByVisibleLen(str, red_len) {
       add = substr(p_cur, 1, Max(red_len - red_str_len, 0))
       rem_str = substr(rem_str, index(rem_str, p_cur) + length(p_cur) + 1)
       next_color = p == p_len ? rem_str : substr(rem_str, 1, index(rem_str, PrintStr[p+1]))
-          #print p, PrintStr[p], rem_str
           if (FNR==15 && i == 1) print p, "PCUR:" p_cur, "ADD:" add, "REMSTR" rem_str
       red_str = red_str add next_color
       red_str_len += length(add) }}
@@ -359,7 +368,7 @@ function PrintWarning() {
   if (!color_detected) print "Columns cut printed in " hl "HIGHLIGHT" no_color
   print ""
 }
-function PrintBuffer() {
+function PrintBuffer(buffer) {
   space_str = bufferchar "                                                               "
   printf "%.*s", buffer, space_str
 }
@@ -385,11 +394,11 @@ function DebugPrint(case) {
   else if (case == 7)
     printf "%s %s %s", "Number pattern set for col:", NR, i
   else if (case == 8) 
-    printf "%s %s %s", "Number pattern overset for col:" NR, i
+    printf "%s %s %s", "Number pattern overset for col:", NR, i
   else if (case == 9) 
     printf "%s %s %s", "g_max_cut: "cut_len, "MaxFLen[i]: "MaxFLen[i], "total_f_len: "total_f_len
   else if (case == 10)
-    printf "%s %s %s %s %s %s %s %s", "wcwdiff: " NR, i, init_len, len, wcw_diff, cs, f, f_wcw
+    printf "%s %s %s %s %s %s %s %s", "wcwdiff! NR: " NR, " f: "f, "i: "i, " init_len: "init_len, "len: "len, "wcw_diff: "wcw_diff, " wcw: "wcw, " f_wcw_kludge: "len_wcw_kludge
 
   print ""
 }

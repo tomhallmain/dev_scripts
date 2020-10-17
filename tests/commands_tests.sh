@@ -10,7 +10,7 @@ jnf1="tests/data/infer_join_fields_test1.csv" jnf2="tests/data/infer_join_fields
 seps_base="tests/data/seps_test_base" seps_sorted="tests/data/seps_test_sorted" 
 simple_csv="tests/data/company_funding_data.csv"
 complex_csv1="tests/data/addresses.csv" complex_csv2="tests/data/Sample100.csv" complex_csv3="tests/data/addresses_reordered"
-ls_sq="tests/data/ls_sq"
+ls_sq="tests/data/ls_sq" emoji="tests/data/emoji" emojifit="tests/data/emojifit"
 
 if [[ $shell =~ 'bash' ]]; then
   bsh=0
@@ -28,16 +28,17 @@ fi
 
 # BASICS TESTS
 
-[[ $(ds:sh | wc -l) = 1 && $(ds:sh) =~ sh ]] || ds:fail 'sh command failed'
+[[ $(ds:sh | grep -c "") = 1 && $(ds:sh) =~ sh ]] || ds:fail 'sh command failed'
 cmds="tests/data/commands_output"
 ds:commands > $tmp
-cmp --silent $cmds $tmp || ds:fail 'commands listing failed'
+cmp --silent $cmds $tmp                          || ds:fail 'commands listing failed'
 ds_help_output="Print help for a given command ds:help ds_command"
-[ "$(ds:help 'ds:help')" = "$ds_help_output" ] || ds:fail 'help command failed'
-ds:nset 'ds:nset' 1> $q || ds:fail 'nset command failed'
-ds:searchn 'ds:searchn' 1> $q || ds:fail 'searchn failed on func search'
-ds:searchn 'test_var' 1> $q || ds:fail 'searchn failed on var search'
-[ "$(ds:ntype 'ds:ntype')" = 'FUNC' ] || ds:fail 'ntype commmand failed'
+[ "$(ds:help 'ds:help')" = "$ds_help_output" ]   || ds:fail 'help command failed'
+ds:nset 'ds:nset' 1> $q                          || ds:fail 'nset command failed'
+ds:searchn 'ds:searchn' 1> $q                    || ds:fail 'searchn failed on func search'
+ds:searchn 'test_var' 1> $q                      || ds:fail 'searchn failed on var search'
+[ "$(ds:ntype 'ds:ntype')" = 'FUNC' ]            || ds:fail 'ntype commmand failed'
+
 # zsh trace output in subshell lists a file descriptor
 if [[ $shell =~ 'zsh' ]]; then
   ds:trace 'echo test' &>$tmp
@@ -49,28 +50,26 @@ fi
 
 # GIT COMMANDS TESTS
 
-[ $(ds:git_recent_all | awk '{print $3}' | wc -l) -gt 2 ] \
+[ $(ds:git_recent_all | awk '{print $3}' | grep -c "") -gt 2 ] \
   || echo 'git recent all failed, possibly due to no git dirs in home'
 
 # JN, PC, PM, IFS TESTS
 
-[ "$(ds:inferfs $jnf1)" = ',' ] || ds:fail 'inferfs failed extension case'
-[ "$(ds:inferfs $seps_base)" = '\&\%\#' ] || ds:fail 'inferfs failed custom separator case'
-[ "$(ds:inferfs $ls_sq)" = '[[:space:]]+' ] || ds:fail 'inferfs failed quoted fields case'
-[ "$(ds:inferfs $complex_csv3)" = ',' ] || ds:fail 'inferfs failed quoted fields case'
-[ $(ds:jn "$jnf1" "$jnf2" o 1 | wc -l) -gt 15 ] || ds:fail 'ds:jn failed one-arg shell case'
-[ $(ds:jn "$jnf1" "$jnf2" r -v ind=1 | wc -l) -gt 15 ] || ds:fail 'ds:jn failed awkarg nonkey case'
-[ $(ds:jn "$jnf1" "$jnf2" l -v k=1 | wc -l) -gt 15 ] || ds:fail 'ds:jn failed awkarg key case'
-[ $(ds:jn "$jnf1" "$jnf2" i 1 | wc -l) -gt 15 ] || ds:fail 'ds:jn failed inner join case'
-[ $(ds:print_comps $jnf1{,} | wc -l) -eq 7 ] || 'print_comps failed no complement case'
-[ $(ds:print_comps -v k1=2 -v k2=3,4 $jnf1 $jnf2 | wc -l) -eq 197 ] \
-  || 'print_comps failed complments case'
-no_matches='
-NO MATCHES FOUND'
-[ "$(ds:print_matches -v k1=2 -v k2=2 $jnf1 $jnf2)" = "$no_matches" ] \
-  || 'print_matches failed no matches case'
-[ $(ds:print_matches -v k=1 $jnf1 $jnf2 | wc -l) = 171 ] \
-  || 'print_matches failed no matches case'
+[ "$(ds:inferfs $jnf1)" = ',' ]                             || ds:fail 'inferfs failed extension case'
+[ "$(ds:inferfs $seps_base)" = '\&\%\#' ]                   || ds:fail 'inferfs failed custom separator case'
+[ "$(ds:inferfs $ls_sq)" = '[[:space:]]+' ]                 || ds:fail 'inferfs failed quoted fields case'
+[ "$(ds:inferfs $complex_csv3)" = ',' ]                     || ds:fail 'inferfs failed quoted fields case'
+[ $(ds:jn "$jnf1" "$jnf2" o 1 | grep -c "") -gt 15 ]        || ds:fail 'ds:jn failed one-arg shell case'
+[ $(ds:jn "$jnf1" "$jnf2" r -v ind=1 | grep -c "") -gt 15 ] || ds:fail 'ds:jn failed awkarg nonkey case'
+[ $(ds:jn "$jnf1" "$jnf2" l -v k=1 | grep -c "") -gt 15 ]   || ds:fail 'ds:jn failed awkarg key case'
+[ $(ds:jn "$jnf1" "$jnf2" i 1 | grep -c "") -gt 15 ]        || ds:fail 'ds:jn failed inner join case'
+[ $(ds:print_comps $jnf1{,} | grep -c "") -eq 7 ]           || ds:fail 'print_comps failed no complement case'
+[ $(ds:print_comps -v k1=2 -v k2=3,4 $jnf1 $jnf2 | grep -c "") -eq 197 ] \
+  || ds:fail 'print_comps failed complments case'
+[ "$(ds:print_matches -v k1=2 -v k2=2 $jnf1 $jnf2)" = "NO MATCHES FOUND" ] \
+  || ds:fail 'print_matches failed no matches case'
+[ $(ds:print_matches -v k=1 $jnf1 $jnf2 | grep -c "") = 167 ] \
+  || ds:fail 'print_matches failed matches case'
 
 # SORT TESTS
 
@@ -111,7 +110,7 @@ reo_output='a c d e b
 f a c d b'
 [ "$(echo "$reo_input" | ds:reo 4,1 5,3..1,4)" = "$reo_output" ] || ds:fail 'reo command failed'
 [ "$(echo "$reo_input" | ds:reo 4,1 5,3..1,4 -v FS="[[:space:]]")" = "$reo_output" ] || ds:fail 'reo command failed FS arg case'
-[ "$(echo "$PATH" | ds:reo 1 5,3..1,4 -F: | ds:transpose | wc -l)" -eq 5 ] || ds:fail 'reo command failed F arg case'
+[ "$(echo "$PATH" | ds:reo 1 5,3..1,4 -F: | ds:transpose | grep -c "")" -eq 5 ] || ds:fail 'reo command failed F arg case'
 reo_input=$(for i in $(seq -16 16); do
     printf "%s " $i; printf "%s " $(echo "-1*$i" | bc)
     if [ $(echo "$i%5" | bc) -eq 0 ]; then echo test; else echo nah; fi
@@ -190,16 +189,16 @@ reo_actual="$(ds:reo $seps_base '5[2!~2' | grep -h "^1")"
 # FIT TESTS
 
 fit_var_present="$(head "$complex_csv1" | ds:fit | awk '{cl=length($0);if(pl && pl!=cl) {print 1;exit};pl=cl}')"
-[ "$fit_var_present" = 1 ] && ds:fail 'fit command failed pipe case'
-fit_expected='Desert City'
-fit_actual="$(ds:fit "$complex_csv1" | ds:reo 7 4 '-F {2,}')"
-[ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit command failed base case'
+[ "$fit_var_present" = 1 ]                        && ds:fail 'fit command failed pipe case'
+fit_expected='Desert City' fit_actual="$(ds:fit "$complex_csv1" | ds:reo 7 4 '-F {2,}')"
+[ "$fit_expected" = "$fit_actual" ]               || ds:fail 'fit command failed base case'
 fit_expected='Company Name                            Employee Markme       Description
 INDIAN HERITAGE ,ART & CULTURE          MADHUKAR              ACCESS PUBLISHING INDIA PVT.LTD
 ETHICS, INTEGRITY & APTITUDE ( 3RD/E)   P N ROY ,G SUBBA RAO  ACCESS PUBLISHING INDIA PVT.LTD
 PHYSICAL, HUMAN AND ECONOMIC GEOGRAPHY  D R KHULLAR           ACCESS PUBLISHING INDIA PVT.LTD'
 fit_actual="$(ds:reo "$complex_csv2" 1,35,37,42 2..4 | ds:fit -F,)"
-[ "$(echo -e "$fit_expected")" = "$fit_actual" ] || ds:fail 'fit command failed quoted field case'
+[ "$(echo -e "$fit_expected")" = "$fit_actual" ]  || ds:fail 'fit command failed quoted field case'
+ds:fit $emoji > $tmp; cmp --silent $emojifit $tmp || ds:fail 'fit command failed emoji case'
 
 # FC TESTS
 
@@ -236,8 +235,8 @@ prefield_actual="$(ds:prefield $complex_csv3 , 1)"
 # ASSORTED COMMANDS TESTS
 
 [ "$(echo 1 2 3 | ds:join_by ', ')" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'
-[ "$(ds:join_by ', ' 1 2 3)" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'
-[ "$(ds:embrace 'test')" = '{test}' ] || ds:fail 'embrace command failed'
+[ "$(ds:join_by ', ' 1 2 3)" = "1, 2, 3" ]        || ds:fail 'join_by command failed on pipe case'
+[ "$(ds:embrace 'test')" = '{test}' ]             || ds:fail 'embrace command failed'
 path_el_arr=( tests/data/ infer_join_fields_test1 '.csv' )
 [ -z $bsh ] && let count=1 || let count=0
 for el in $(IFS='\t' ds:path_elements $jnf1); do
@@ -262,8 +261,8 @@ echo > $tmp; for i in $(seq 1 10); do echo test$i >> $tmp; done; ds:sedi $tmp 't
 [[ ! "$(head -n1 $tmp)" =~ "test" ]] || ds:fail 'sedi command failed'
 
 mini_output="1;2;3;4;5;6;7;8;9;10"
-[ "$(cat $tmp | ds:mini)" = "$mini_output" ] || ds:fail 'mini command failed'
-[ "$(ds:unicode "cats😼😻")" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed base case'
+[ "$(cat $tmp | ds:mini)" = "$mini_output" ]                             || ds:fail 'mini command failed'
+[ "$(ds:unicode "cats😼😻")" = '\U63\U61\U74\U73\U1F63C\U1F63B' ]        || ds:fail 'unicode command failed base case'
 [ "$(echo "cats😼😻" | ds:unicode)" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed pipe case'
 sbsp_actual="$(ds:sbsp tests/data/subseps_test "SEP" | ds:reo 1,7 | cat)"
 sbsp_expected='A;A;A;A
@@ -272,10 +271,10 @@ G;G;G;G'
 todo_expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 [ "$(ds:todo tests/commands_tests.sh | head -n1)" = "$todo_expected" ] || ds:fail 'todo command failed'
 
-[ "$(ds:substr "TEST" "T" "ST")" = "E" ] || ds:fail 'substr command failed base case'
+[ "$(ds:substr "TEST" "T" "ST")" = "E" ]        || ds:fail 'substr command failed base case'
 [ "$(echo "TEST" | ds:substr "T" "ST")" = "E" ] || ds:fail 'substr command failed pipee case'
 substr_actual="$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")"
-[ "4" = "$substr_actual" ] || ds:fail 'substr command failed extended regex case'
+[ "4" = "$substr_actual" ]                      || ds:fail 'substr command failed extended regex case'
 
 pow_expected="
 23,ACK,0
@@ -296,16 +295,16 @@ pow_expected="
 pow_actual="$(ds:pow $complex_csv2 20 t | cat)"
 [ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed combin counts case'
 
-fsrc_expected='support/utils.sh'
-[[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$fsrc_expected" ]] || ds:fail 'fsrc command failed'
+#fsrc_expected='support/utils.sh'
+#[[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$fsrc_expected" ]] || ds:fail 'fsrc command failed'
 help_deps='ds:stag
 ds:fail
 ds:fit
 ds:reo
 ds:nset
 ds:commands'
-[[ "$(ds:deps ds:help)" = "$help_deps" ]] || ds:fail 'deps command failed'
-[ "$(ds:webpage_title https://www.google.com)" = Google ] || ds:fail 'webpage title command failed or internet is out'
+[[ "$(ds:deps ds:help)" = "$help_deps" ]]                    || ds:fail 'deps command failed'
+[ "$(ds:webpage_title https://www.google.com)" = Google ]    || ds:fail 'webpage title command failed or internet is out'
 
 # CLEANUP
 

@@ -5,6 +5,8 @@
 #
 # Example execution:
 # > awk -v FS="," -f quoted_fields.awk file.csv
+## TODO: Newlines / returns in quoted fields
+
 
 BEGIN {
   sq = "'"
@@ -48,7 +50,7 @@ na || !($0 ~ FS) { print; next }
         match(substr($0, iqfse, len0), qfs)
         iqfs = RSTART }
       match($0, fsq); ifsq = RSTART
-      match($0, FS); ifs = RSTART; lenfs = Max(RLENGTH, 0)
+      match($0, FS); ifs = RSTART; lenfs = Max(RLENGTH, 1)
       iq = index($0, q)
       iqq = index($0, "_qqqq_")
       if (iq == 1 && !(iqq == 1)) qset = 1
@@ -63,7 +65,9 @@ na || !($0 ~ FS) { print; next }
         qset = 0; q_cut = q_cut_len
         startf = lenfs + mod_f_len0
         endf = iqfs - q_cut_len
-        if (endf < 1) endf = len0 - mod_f_len0 }
+        if (endf < 1) {
+          if (iq != 1) startf++
+          endf = len0 - q_cut_len }}
       else {
         if (iq == 0 && ifs == 0) {
           startf = 1; endf = len0 }

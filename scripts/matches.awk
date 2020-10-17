@@ -11,6 +11,7 @@
 #
 # Field separator args (fs, fs1, fs2) are not required if they can be reasonably
 # inferred from the data.
+## TODO: Verbose
 
 BEGIN {
   f1 = ARGV[1]
@@ -41,10 +42,9 @@ BEGIN {
   }
 
   FS = fs1
-  print ""
 }
 
-NR == FNR {  _[$k1] = 1 }
+NR == FNR {  _[$k1] = 1; __[$k1] = $0 }
 
 NR > FNR {
   if (FNR == 1) {
@@ -54,8 +54,11 @@ NR > FNR {
       split($0, row, fs2)
 
     if (_[row[k2]] == 1) {
-      print "Records found in both " f1 " and " f2_print ":\n"
-      print $0
+      #print "Records found in both " f1 " and " f2_print ":\n"
+      if ($0 == __[row[k2]])
+        print $0
+      else
+        print $0 FS __[row[k2]]
       match_found = 1
     }
     FS = fs2
@@ -64,14 +67,16 @@ NR > FNR {
 
   if (_[$k2] == 1) {
     if (!match_found) {
-      print "Records found in both " f1 " and " f2_print ":\n"
+      #print "Records found in both " f1 " and " f2_print ":\n"
       match_found = 1
     }
-    print $0
+    if ($0 == __[$k2])
+      print $0
+    else
+      print $0 FS __[$k2]
   }
 }
 
 END {
   if (!match_found) print "NO MATCHES FOUND"
-  print ""
 }

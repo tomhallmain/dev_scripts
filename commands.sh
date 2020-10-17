@@ -538,7 +538,7 @@ ds:print_matches() { # ** Print duplicate lines on given fields in two files (al
     local fs1="$(ds:inferfs "$file1" true)" fs2="$(ds:inferfs "$file2" true)"
 
     awk -v fs1="$fs1" -v fs2="$fs2" -f "$DS_SCRIPT/matches.awk" \
-      ${args[@]} "$file1" "$file2" 2> /dev/null | ds:ttyf
+      ${args[@]} "$file1" "$file2" 2> /dev/null | ds:ttyf "$fs1"
   else
     awk -f "$DS_SCRIPT/matches.awk" ${args[@]} "$file1" "$file2" \
       2> /dev/null | ds:ttyf; fi
@@ -658,7 +658,7 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
       unset "args[$fsv_idx]"; fi
     unset "args[$fs_idx]"; fi
   ds:prefield "$file" "$fs" 0 > $dequote
-  awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SCRIPT/fit_columns.awk" \
+  awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SUPPORT/wcwidth.awk" -f "$DS_SCRIPT/fit_columns.awk" \
     -v tty_size=$tty_size -v buffer="$col_buffer" ${args[@]} $dequote{,} 2>/dev/null
   ds:pipe_clean $file; rm $dequote
 }
