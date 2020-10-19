@@ -57,6 +57,8 @@
 #    -v bufferchar="|"
 ## TODO: 'Apply to rows / ignore rows' logic
 ## TODO: Resolve lossy multibyte char output
+## TODO: Fit newlines in fields
+## TODO: Fix issues with fields only containing 0 (ls_sq example)
 
 BEGIN {
   WCW_FS = " "

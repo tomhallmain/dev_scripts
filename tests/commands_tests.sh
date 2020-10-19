@@ -2,14 +2,13 @@
 # This test script should produce no output if test run is successful
 # TODO: Negative tests, Git tests
 
-test_var=1
-tmp=/tmp/commands_tests
-q=/dev/null
+test_var=1; tmp=/tmp/commands_tests; q=/dev/null
 shell=$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')
 jnf1="tests/data/infer_join_fields_test1.csv" jnf2="tests/data/infer_join_fields_test2.csv"
 seps_base="tests/data/seps_test_base" seps_sorted="tests/data/seps_test_sorted" 
 simple_csv="tests/data/company_funding_data.csv"
-complex_csv1="tests/data/addresses.csv" complex_csv2="tests/data/Sample100.csv" complex_csv3="tests/data/addresses_reordered"
+complex_csv1="tests/data/addresses.csv" complex_csv3="tests/data/addresses_reordered"
+complex_csv2="tests/data/Sample100.csv" complex_csv4="tests/data/quoted_fields_with_newline.csv" 
 ls_sq="tests/data/ls_sq" emoji="tests/data/emoji" emojifit="tests/data/emojifit"
 
 if [[ $shell =~ 'bash' ]]; then
@@ -230,7 +229,24 @@ Tyler@@@"7452 Terrace ""At the Plaza"" road"@@@Stephen
 Blankman@@@@@@
 Jet@@@"9th, at Terrace plc"@@@"Joan ""the bone"", Anne"'
 prefield_actual="$(ds:prefield $complex_csv3 , 1)"
-[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed'
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed base dq case'
+prefield_expected='-rw-r--r--@@@1@@@tomhall@@@4330@@@Oct@@@12@@@11:55@@@emoji
+-rw-r--r--@@@1@@@tomhall@@@0@@@Oct@@@3@@@17:30@@@file with space, and: commas & colons \ slashes
+-rw-r--r--@@@1@@@tomhall@@@12003@@@Oct@@@3@@@17:30@@@infer_jf_test_joined.csv
+-rw-r--r--@@@1@@@tomhall@@@5245@@@Oct@@@3@@@17:30@@@infer_join_fields_test1.csv
+-rw-r--r--@@@1@@@tomhall@@@6043@@@Oct@@@3@@@17:30@@@infer_join_fields_test2.csv'
+prefield_actual="$(ds:prefield $ls_sq '[[:space:]]+')"
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed base sq case'
+prefield_expected='Conference room 1@@@ "John,  \n  Please bring the M. Mathers file for review   \n  -J.L. "@@@10/18/2002@@@test, field
+Conference room 1@@@ "John \n  Please bring the M. Mathers file for review \n  -J.L. "@@@10/18/2002@@@"
+Conference room 1@@@ "@@@10/18/2002'
+prefield_actual="$(ds:prefield $complex_csv4 ,)"
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed newline lossy quotes case'
+prefield_expected='Conference room 1@@@ "John,   \n  Please bring the M. Mathers file for review   \n  -J.L. "@@@10/18/2002@@@"test, field"
+"Conference room 1"@@@ "John, \n  Please bring the M. Mathers file for review \n  -J.L. "@@@10/18/2002@@@""
+"Conference room 1"@@@ ""@@@10/18/2002'
+prefield_actual="$(ds:prefield $complex_csv4 , 1)"
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed newline retain outer quotes case'
 
 # ASSORTED COMMANDS TESTS
 
@@ -295,8 +311,10 @@ pow_expected="
 pow_actual="$(ds:pow $complex_csv2 20 t | cat)"
 [ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed combin counts case'
 
-#fsrc_expected='support/utils.sh'
-#[[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$fsrc_expected" ]] || ds:fail 'fsrc command failed'
+if [[ $shell =~ 'bash' ]]; then
+  fsrc_expected='support/utils.sh'
+  [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$fsrc_expected" ]] || ds:fail 'fsrc command failed'
+fi
 help_deps='ds:stag
 ds:fail
 ds:fit

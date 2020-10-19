@@ -5,7 +5,7 @@
 #
 # Example execution:
 # > awk -v FS="," -f quoted_fields.awk file.csv
-## TODO: Carriage return character handling
+## TODO: Newlines / returns in quoted fields
 
 
 BEGIN {
@@ -37,7 +37,7 @@ q_rebal && !($0 ~ qre) {
 }
 
 {
-  diff = 0; iq_imbal_s = 0; iq_imbal_e = 0; close_multiline_field = 0
+  nf = 0; diff = 0; iq_imbal_s = 0; iq_imbal_e = 0; close_multiline_field = 0
   if (!dqset) {
     dqset = ($0 ~ dqre)
     if (dqset) { q = dq; qre = dqre; init_q = 1 }}
@@ -48,7 +48,7 @@ q_rebal && !($0 ~ qre) {
     init_q = 0
     run_prefield = 1
     qq = q q
-    qfs = q FS; qqfs = qq FS; fsq = FS q # TODO: Add spacing in compound patterns
+    qfs = q FS; qqfs = qq FS; fsq = FS q
     BuildRe(QRe, FS, q, sp)
     qq_replace = retain_outer_quotes ? qq : q }
 
@@ -56,19 +56,19 @@ q_rebal && !($0 ~ qre) {
 
   if (q_rebal) {
     if (debug) DebugPrint(4)
-    save_bal = balance_os
+    save_bal = balance_out
     diff = QBalance($0, QRe, q_rebal) 
-    balance_os += diff
-    if (debug && save_bal != balance_os)
+    balance_out += diff
+    if (debug && save_bal != balance_out)
       DebugPrint(5)
-    if (diff && balance_os == 0) {
+    if (diff && balance_out == 0) {
       q_rebal = 0; close_multiline_field = 1 }}
   else if (run_prefield) {
-    balance_os = QBalance($0, QRe)
+    balance_out = QBalance($0, QRe)
     save_i = 1 }
 
   if (debug && q_rebal) print "carried q"
-  if (balance_os) {
+  if (balance_out) {
     if (debug) print "Unbalanced"
     q_rebal = 1 }
 
@@ -87,11 +87,12 @@ q_rebal && !($0 ~ qre) {
         match($0, QRe["e_imbal"])
         startf = 1; endf = RLENGTH }
       else {
+        nf++
         match($0, fsq); ifsq = RSTART
         match($0, FS); ifs = RSTART; lenfs = Max(RLENGTH, 1)
         iq = index($0, q)
         iqq = index($0, "_qqqq_")
-        if (balance_os) {
+        if (balance_out) {
           match($0, QRe["s_imbal"]); iq_imbal_s = RSTART
           match($0, QRe["sep_exc"]); inqfs = RSTART }
         if (iq == 1 && !(iqq == 1)) qset = 1
@@ -104,20 +105,17 @@ q_rebal && !($0 ~ qre) {
 
         if (qset) {
           qset = 0; q_cut = q_cut_len
-          startf = balance_os ? mod_f_len1 : lenfs + mod_f_len0
+          startf = balance_out ? 1 : lenfs + mod_f_len0
           endf = iqfs - q_cut_len
           if (endf < 1) {
-            if (iq != 1 && !balance_os) startf++
+            if (iq != 1 && !balance_out) startf++
             endf = len0 - q_cut_len }}
         else {
           if (iq == 0 && ifs == 0) {
             startf = 1; endf = len0 }
           else if (iq_imbal_s > 0 && iq_imbal_s <= inqfs \
                   && iq_imbal_s < iq && iq_imbal_s < ifs) {
-            if (retain_outer_quotes) {
-              startf = iq_bal; endf = len0 }
-            else {
-              startf = iq_bal + 1; endf = len0 - 1 }}
+            startf = iq_bal; endf = len0 }
           else if (iq == iqq && (iqfs - 1 == iq || ifs == 0)) {
             if (retain_outer_quotes) {
               startf = iq; endf = iq + 2 }
@@ -125,7 +123,7 @@ q_rebal && !($0 ~ qre) {
               startf = iq + 1; endf = iq + 1 }}
           else if ((iqfs > 0 || substr($0,len0) == q) && ifsq == ifs) {
             startf = 1; endf = ifsq - 1
-            qset = 1 }
+            qset = 1 }#; q_cut = q_cut_len }
           else if (ifs == 0) {
             startf = lenfs + 1; endf = len0 - 1 }
           else if (iq - ifs == 1) {
@@ -148,9 +146,10 @@ q_rebal && !($0 ~ qre) {
       if (debug) DebugPrint(2)
       close_multiline_field = 0 }}
   else {
+    nf = NF
     for (i = 1; i <= NF; i++) _[i] = $i }
 
-  if (balance_os) {
+  if (balance_out) {
     q_rebal = 1
     save_i = i - 1
     next }
@@ -200,7 +199,7 @@ function DebugPrint(case) {
     print "previ: " pi
     print "ifs: "ifs" iq: "iq" iqfs: "iqfs" ifsq: "ifsq" iqq: "iqq }
   else if (case == 2) {
-    print "_["i"] = substr($0, "startf", "endf")"
+    print "_["i"] = substr($0, " startf ", " endf ")"
     print "$0 = substr($0, "endf" + "lenfs" + "q_cut" + 1)"
     print "----- OUTPUT FIELD "i" -----"
     print _[i]
@@ -211,10 +210,10 @@ function DebugPrint(case) {
     print "match_start: "match($0, QRe["s"])", RLENGTH: "RLENGTH" QRe[\"s\"]"QRe["s"]
     print "match_field: "match($0, QRe["f"])", RLENGTH: "RLENGTH" QRe[\"f\"]"QRe["f"] }
   else if (case == 4)
-    print "bal: "balance_os
+    print "bal: "balance_out
   else if (case == 5)
-    print "newbal: "balance_os
+    print "newbal: "balance_out
   else if (case == 6)
-    print "NR: "NR", save_i: "save_i", _[save_i]: "_[save_i]
+    print NR, save_i, _[save_i]
 }
 
