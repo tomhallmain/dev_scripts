@@ -12,10 +12,6 @@
 # To infer a custom separator, set var `custom` to any value:
 # > awk -f infer_field_separator.awk -v custom=true "data_file"
 #
-## TODO: Handle stray data that creates empty fields and can lead to custom NoVar 
-## pattern handling breaking (i.e. ,,, winning over , by creating two fields)
-## TODO: Optional smart inference based on a set of lines with common separator
-## variance (probably external)
 ## TODO: Handle escapes, null Chars, SUBSEP
 ## TODO: Regex FS length handling
 ## TODO: Infer absensce of separator
@@ -138,7 +134,16 @@ custom && NR == 2 {
     if (debug2) DebugPrint(4)
 
     CommonFSCount[s, NR] = nf
-    CommonFSTotal[s] += nf }
+    CommonFSTotal[s] += nf
+    if (PrevNF[s] && nf != PrevNF[s] && !(CommonFSNFConsecCounts[s, PrevNF[s]] > 2))
+      delete CommonFSNFConsecCounts[s, PrevNF[s]]
+    PrevNF[s] = nf
+    if (nf < 2) continue
+    if (debug) print NR, s, nf, CommonFSNFConsecCounts[s, nf]
+    cnf = ","nf
+    if (!(CommonFSNFSpec[s] ~ cnf"(,|$)"))
+      CommonFSNFSpec[s] = CommonFSNFSpec[s] cnf
+    CommonFSNFConsecCounts[s, nf]++ }
 
   if (custom && NR > 2) {
     if (NR == 3) {
@@ -163,14 +168,30 @@ END {
   if (debug) print "\n ---- common sep variance calcs ----"
   for (s in CommonFS) {
     average_nf = CommonFSTotal[s] / max_rows
-    
+    nf_chunks = CommonFSNFSpec[s]
+
+    if (nf_chunks) {
+      split(nf_chunks, NFChunks, ",")
+      for (nf_i in NFChunks) {
+        nf = NFChunks[nf_i]
+        chunk_weight = CommonFSNFConsecCounts[s, nf] / max_rows
+        if (chunk_weight < 0.6) {
+          delete CommonFSNFConsecCounts[s, nf]
+          continue }
+        SectionalOverride[s] = 1
+        chunk_weight_composite = chunk_weight * nf
+        if (!max_chunk_weight) max_chunk_weight = chunk_weight_composite
+        if (debug) DebugPrint(16)
+        if (chunk_weight_composite >= max_chunk_weight)
+          max_chunk_sep = s }}
+
     if (debug) DebugPrint(5)
-    if (average_nf < 2) { continue }
+    if (average_nf < 2 && !SectionalOverride[s]) continue
 
     for (j = 1; j <= max_rows; j++) {
       point_var = (CommonFSCount[s, j] - average_nf) ** 2
       SumVar[s] += point_var }
-    
+
     FSVar[s] = SumVar[s] / max_rows
 
     if (debug) DebugPrint(6)
@@ -210,8 +231,14 @@ END {
         winning_s = s
         Winners[s] = s 
         if (debug) DebugPrint(11) }}}
-  
-  # Handle cases of multiple separators with no variance
+
+  if (max_chunk_sep) {
+    if (debug) print "No zero var seps and sectional novar sep exists, override with sep "max_chunk_sep
+    print CommonFS[max_chunk_sep]
+    exit }
+
+  # Handle cases of multiple separators with no variance -- TODO Refactor into
+  # new chunky logic above and add customFS chunks calcs
   if (length(NoVar) > 1) {
     if (debug) print ""
     for (s in NoVar) {
@@ -242,7 +269,7 @@ END {
             winning_s = s
             if (debug) DebugPrint(14) }}}}}
 
-  if (high_certainty) { # TODO: add this check in NoVar comparison
+  if (high_certainty) { # TODO: add this check in chunks comparison
     scaled_var = FSVar[winning_s] * 10
     scaled_var_frac = scaled_var - int(scaled_var)
     winner_unsure = scaled_var_frac != 0 }
@@ -253,7 +280,7 @@ END {
     print Winners[winning_s]
 }
 
-function QuotedFieldsRe(sep, q) {
+function QuotedFieldsRe(sep, q) { # TODO: CRLF in fields!!
   qs = q sep; spq = sep q
   exc = "[^"q"]*[^"sep"]*[^"q"]+"
   return "(^"q qs"|"spq qs"|"spq q"$|"q exc qs"|"spq exc qs"|"spq exc q"$)"
@@ -280,9 +307,9 @@ function DebugPrint(case) {
   else if (case == 6)
     print "sep: "s" FSVar: " FSVar[s]
   else if (case == 7)
-    print "NoVar winning_s set to CommonFS[\""s"\"] = \"" CommonFS[s] "\""
+    print "NoVar winning_s set to CommonFS[\""s"\"] = \""CommonFS[s]"\""
   else if (case == 8)
-    print "winning_s set to CommonFS[\""s"\"] = \"" CommonFS[s] "\""
+    print "winning_s set to CommonFS[\""s"\"] = \""CommonFS[s]"\""
   else if (case == 10)
     print "NoVar winning_s set to CustomFS \""s"\""
   else if (case == 11)
@@ -293,11 +320,13 @@ function DebugPrint(case) {
     print "compare_s: \""compare_s"\", fs2: \""fs2"\""
     print "matches:", fs1 ~ fs2
     print "len winner: "length(Winners[s])", len fs1: "length(fs1)", len fs2: "length(fs2) }
-  else if (case -- 13)
+  else if (case == 13)
     print "s: \""s"\", compare_s: \""compare_s"\", winning_s switched to: \""compare_s"\""
   else if (case == 14)
     print "compare_s: \""compare_s"\", s: \""s"\", winning_s switched to: \""s"\""
   else if (case == 15) {
     print s, Q[s], RSTART, RLENGTH
     print qf_line }
+  else if (case == 16) {
+    print "Sectional override set for sep \""s"\" at nf "nf" with weight "chunk_weight" composite "chunk_weight_composite }
 }

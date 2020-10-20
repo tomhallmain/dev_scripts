@@ -164,6 +164,7 @@
 ## TODO: Remove frame print if already indexed, and don't print if no match (?)
 ## TODO: Expressions and comparisons against cross-index total
 ## TODO: Expressions and comparisons between fields (standard awk)
+## TODO: length function
 
 ## SETUP
 
