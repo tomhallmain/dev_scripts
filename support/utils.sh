@@ -26,6 +26,7 @@ ds:noawkfs() { # Test whether awk arg for setting field separator is present
 ds:prefield() { # Transform FS of a file with quoted fields which contain FS into non-clashing FS
   ds:file_check "$1"
   local file="$1" fs="$2" dequote=${3:-0}
+  [[ "$file" =~ "^/tmp" ]] && ds:dostounix "$file"
   if [[ ! "${@:4}" =~ "-v OFS" && ! "${@:4}" =~ "-v ofs" ]]; then
     awk -v OFS="$DS_SEP" -v FS="$fs" -v retain_outer_quotes="$dequote" ${@:4} \
       -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
@@ -183,20 +184,12 @@ ds:git_push_cur() { # git push origin for current branch
 
 ds:git_add_all() { # Add all untracked git files
   ds:not_git && return 1
-  local all_untracked=( $(git ls-files -o --exclude-standard) )
-  if [ -z "${all_untracked[$(ds:arr_base)]}" ]; then
-    echo 'No untracked files found to add'
-  else
-    startdir="$PWD"
-    rootdir="$(git rev-parse --show-toplevel)"
-    cd "$rootdir"
-    git add .
-    cd "$startdir"; fi
+  git add .
 }
 
 ds:gcam() { # Git commit add message
   ds:not_git && return 1
-  if [ $1 ]; then
+  if [ "$1" ]; then
     git commit -am "$1"
   else
     git commit; fi

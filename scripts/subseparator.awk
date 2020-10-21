@@ -5,7 +5,7 @@
 #
 # Running:
 # > awk -f subseparator.awk -v subsep_pattern=" " file file
-
+## TODO: Fix output of subseparated files with quoted fields
 
 BEGIN {
   if (!subsep_pattern) {
@@ -38,7 +38,7 @@ NR == FNR {
         max_subseps[f] = num_subseps
         for (j = 1; j <= num_subseps; j++) {
           if (!trim(SubseparatedLine[j])) {
-            SubfieldShifts[f]--  }}}}}
+            SubfieldShifts[f]-- }}}}}
   else {
     for (f = 1; f <= NF; f++) {
       num_subseps = split($f, SubseparatedLine, subsep_pattern)
@@ -47,7 +47,7 @@ NR == FNR {
         max_subseps[f] = num_subseps
         for (j = 1; j <= num_subseps; j++) {
           if (!trim(SubseparatedLine[j])) {
-            SubfieldShifts[f]--  }}}}}
+            SubfieldShifts[f]-- }}}}}
 }
 
 NR > FNR {

@@ -8,7 +8,7 @@
 #       ds:fit [-h|--help|file] [awkargs]
 #
 # DESCRIPTION
-#       fit_columns.awk is a sript to print a table of values with dynamic column 
+#       fit_columns.awk is a sript to fit a table of values with dynamic column 
 #       lengths. If running with AWK, data must be passed twice.
 #
 #       Running on a single file:
@@ -26,7 +26,7 @@
 #       a single space = " ". To override the FS, add as a trailing awkarg. Be sure 
 #       to escape and quote if needed. AWK's extended regex can be used as FS:
 #
-#    $ ds:fit datafile a 1,4 -v FS=" {2,}"
+#    $ ds:fit datafile -v FS=" {2,}"
 #
 #       When running ds:reo, an attempt is made to extract relevant instances of field
 #       separators in the case that a field separator appears in field values. This is 
@@ -58,7 +58,7 @@
 ## TODO: 'Apply to rows / ignore rows' logic
 ## TODO: Resolve lossy multibyte char output
 ## TODO: Fit newlines in fields
-## TODO: Fix issues with fields only containing 0 (ls_sq example)
+## TODO: Fix rounding in some cases (see test reo output fit)
 
 BEGIN {
   WCW_FS = " "
@@ -116,17 +116,18 @@ NR == FNR { # First pass, gather field info
     d_diff = 0
     f_diff = 0
 
-    FS = WCW_FS
-    wcw = wcscolumns(f)
-    FS = FIT_FS
-    wcw_diff = len - wcw
-    if (wcw_diff == 0) {
-      f_wcw_kludge = StripBasicASCII(f)
-      len_wcw_kludge = length(f_wcw_kludge)
-      wcw_diff += len_wcw_kludge }
-    if (wcw_diff) {
-      WCWIDTH_DIFF[NR, i] = wcw_diff
-      if (debug) DebugPrint(10) }
+    if (f != 0) {
+      FS = WCW_FS
+      wcw = wcscolumns(f)
+      FS = FIT_FS
+      wcw_diff = len - wcw
+      if (wcw_diff == 0) {
+        f_wcw_kludge = StripBasicASCII(f)
+        len_wcw_kludge = length(f_wcw_kludge)
+        wcw_diff += len_wcw_kludge }
+      if (wcw_diff) {
+        WCWIDTH_DIFF[NR, i] = wcw_diff
+        if (debug) DebugPrint(10) }}
 
     # If column unconfirmed as decimal and the current field is decimal
     # set decimal for column and handle field length changes

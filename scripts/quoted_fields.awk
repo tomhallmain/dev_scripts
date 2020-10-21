@@ -30,7 +30,7 @@ BEGIN {
 
 na || (!q_rebal && !($0 ~ FS)) { print; next }
 
-q_rebal && !($0 ~ qre) {
+q_rebal && !($0 ~ QRe["e"]) {
   if (debug) DebugPrint(6)
   _[save_i] = _[save_i] " \\n " $0
   next
@@ -72,7 +72,7 @@ q_rebal && !($0 ~ qre) {
     if (debug) print "Unbalanced"
     q_rebal = 1 }
 
-  if (run_prefield && (q_rebal || $0 ~ qre)) {
+  if (run_prefield && (q_rebal || $0 ~ q)) {
     i_seed = diff && save_i ? save_i : 1
     for (i = i_seed; i < 500; i++) {
       gsub(qq, "_qqqq_", $0)
@@ -85,7 +85,8 @@ q_rebal && !($0 ~ qre) {
 
       if (close_multiline_field) {
         match($0, QRe["e_imbal"])
-        startf = 1; endf = RLENGTH }
+        startf = 1; endf = RLENGTH - mod_f_len0
+        q_cut = mod_f_len0 }
       else {
         match($0, fsq); ifsq = RSTART
         match($0, FS); ifs = RSTART; lenfs = Max(RLENGTH, 1)
@@ -133,7 +134,7 @@ q_rebal && !($0 ~ qre) {
               qset = 1
               startf = 1; endf = ifs - mod_f_len1 }
             else {
-              startf = lenfs; endf = len0 - mod_f_len1 }}
+              startf = lenfs; endf = ifs - mod_f_len0 }}
           else if (iq == 0) {
             startf = 1; endf = ifs - 1 }
           else if (iq - ifs > 1 || ifs - iq > 1) {
@@ -198,7 +199,8 @@ function DebugPrint(case) {
     print "----- CALCS FIELD "i" ------"
     print "NR: "NR" qset: " qset " len0: " len0 " $0: " $0
     print "previ: " pi
-    print "ifs: "ifs" iq: "iq" iqfs: "iqfs" ifsq: "ifsq" iqq: "iqq }
+    print "ifs: "ifs" iq: "iq" iqfs: "iqfs" ifsq: "ifsq" iqq: "iqq 
+    if (balance_os) print "balance os: "balance_os", iq_imbal_s: "iq_imbal_s }
   else if (case == 2) {
     print "_["i"] = substr($0, "startf", "endf")"
     print "$0 = substr($0, "endf" + "lenfs" + "q_cut" + 1)"

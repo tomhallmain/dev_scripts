@@ -959,7 +959,7 @@ ds:dostounix() { # Remove ^M / CR characters in place: ds:dostounix file
   ds:file_check "$1"
   local inputfile="$1" tmpfile=$(ds:tmp 'ds_mactounix')
   cat "$inputfile" > $tmpfile
-  tr "\015" "\n" < $tmpfile > "$inputfile"
+  tr -d "\015" < $tmpfile > "$inputfile"
   rm $tmpfile
 }
 
@@ -1041,7 +1041,7 @@ ds:recent() { # ls files modified last 7 days: ds:recent [custom_dir] [recurse=r
   ds:nset 'fd' && local FD=1
   [ "$recurse" ] && ([ "$recurse" = 'r' ] || [ "$recurse" = 'true' ]) || unset recurse
 
-  [ "$(ls --time-style=%D &>/dev/null)" ] && local bsd=1
+  [ "$(ls --time-style=%D 2>/dev/null)" ] || local bsd=1
   local prg='{for(f=1;f<NF;f++){printf "%s ", $f;if($f~"^[0-3][0-9]/[0-3][0-9]/[0-9][0-9]$")printf "\""};print $NF "\""}'
   if [ "$hidden" ]; then
     [ $FD ] && [ "$recurse" ] && local hidden=-HI #fd hides by default
@@ -1067,7 +1067,7 @@ ds:recent() { # ls files modified last 7 days: ds:recent [custom_dir] [recurse=r
     ) | sed "s:\\$(echo -n "$dirname")\/::" | awk "$prg" | sort -k$sortfld \
       | ds:fit -v FS=" " | ds:pipe_check
   else
-    if [ "$(date -v -0d &>/dev/null)" ]; then
+    if [ "$(date -v -0d 2>/dev/null)" ]; then
       for i in {0..6}; do
         local dates=( "${dates[@]}" "-e $(date -v "-${i}d" "+%D")" ); done
     else

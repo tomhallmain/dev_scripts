@@ -198,6 +198,12 @@ PHYSICAL, HUMAN AND ECONOMIC GEOGRAPHY  D R KHULLAR           ACCESS PUBLISHING 
 fit_actual="$(ds:reo "$complex_csv2" 1,35,37,42 2..4 | ds:fit -F,)"
 [ "$(echo -e "$fit_expected")" = "$fit_actual" ]  || ds:fail 'fit command failed quoted field case'
 ds:fit $emoji > $tmp; cmp --silent $emojifit $tmp || ds:fail 'fit command failed emoji case'
+fit_expected='-rw-r--r--  1  tomhall   4330  Oct  12  11:55  emoji
+-rw-r--r--  1  tomhall      0  Oct   3  17:30  file with space, and: commas & colons \ slashes
+-rw-r--r--  1  tomhall  12003  Oct   3  17:30  infer_jf_test_joined.csv
+-rw-r--r--  1  tomhall   5245  Oct   3  17:30  infer_join_fields_test1.csv
+-rw-r--r--  1  tomhall   6043  Oct   3  17:30  infer_join_fields_test2.csv'
+[ "$(ds:fit $ls_sq)" = "$fit_expected" ] || ds:fail 'fit command failed ls sq case'
 
 # FC TESTS
 
@@ -237,8 +243,8 @@ prefield_expected='-rw-r--r--@@@1@@@tomhall@@@4330@@@Oct@@@12@@@11:55@@@emoji
 -rw-r--r--@@@1@@@tomhall@@@6043@@@Oct@@@3@@@17:30@@@infer_join_fields_test2.csv'
 prefield_actual="$(ds:prefield $ls_sq '[[:space:]]+')"
 [ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed base sq case'
-prefield_expected='Conference room 1@@@ "John,  \n  Please bring the M. Mathers file for review   \n  -J.L. "@@@10/18/2002@@@test, field
-Conference room 1@@@ "John \n  Please bring the M. Mathers file for review \n  -J.L. "@@@10/18/2002@@@"
+prefield_expected='Conference room 1@@@ "John,  \n  Please bring the M. Mathers file for review   \n  -J.L. @@@10/18/2002@@@test, field
+Conference room 1@@@ "John \n  Please bring the M. Mathers file for review \n  -J.L. @@@10/18/2002@@@"
 Conference room 1@@@ "@@@10/18/2002'
 prefield_actual="$(ds:prefield $complex_csv4 ,)"
 [ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed newline lossy quotes case'
