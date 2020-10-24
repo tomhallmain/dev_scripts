@@ -5,6 +5,8 @@
 test_var=1; tmp=/tmp/commands_tests; q=/dev/null
 shell=$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')
 jnf1="tests/data/infer_join_fields_test1.csv" jnf2="tests/data/infer_join_fields_test2.csv"
+jnd1="tests/data/infer_jf_test_joined.csv" jnd2="tests/data/infer_jf_joined_fit"
+jnd3="tests/data/infer_jf_joined_fit_dz" jnd4="tests/data/infer_jf_joined_fit_sn"
 seps_base="tests/data/seps_test_base" seps_sorted="tests/data/seps_test_sorted" 
 simple_csv="tests/data/company_funding_data.csv"
 complex_csv1="tests/data/addresses.csv" complex_csv3="tests/data/addresses_reordered"
@@ -62,6 +64,8 @@ fi
 [ $(ds:jn "$jnf1" "$jnf2" r -v ind=1 | grep -c "") -gt 15 ] || ds:fail 'ds:jn failed awkarg nonkey case'
 [ $(ds:jn "$jnf1" "$jnf2" l -v k=1 | grep -c "") -gt 15 ]   || ds:fail 'ds:jn failed awkarg key case'
 [ $(ds:jn "$jnf1" "$jnf2" i 1 | grep -c "") -gt 15 ]        || ds:fail 'ds:jn failed inner join case'
+ds:jn "$jnf1" "$jnf2" -v ind=1 > $tmp
+cmp --silent "$tmp" "$jnd1"                                 || ds:fail 'ds;jn failed base outer join case'
 [ $(ds:print_comps $jnf1{,} | grep -c "") -eq 7 ]           || ds:fail 'print_comps failed no complement case'
 [ $(ds:print_comps -v k1=2 -v k2=3,4 $jnf1 $jnf2 | grep -c "") -eq 197 ] \
   || ds:fail 'print_comps failed complments case'
@@ -204,6 +208,12 @@ fit_expected='-rw-r--r--  1  tomhall   4330  Oct  12  11:55  emoji
 -rw-r--r--  1  tomhall   5245  Oct   3  17:30  infer_join_fields_test1.csv
 -rw-r--r--  1  tomhall   6043  Oct   3  17:30  infer_join_fields_test2.csv'
 [ "$(ds:fit $ls_sq)" = "$fit_expected" ] || ds:fail 'fit command failed ls sq case'
+ds:fit $jnd1 -v bufferchar="|" > $tmp
+cmp --silent $jnd2 $tmp || ds:fail 'fit command failed bufferchar/decimal complex csv case'
+ds:fit $jnd1 -v bufferchar="|" -v d=z > $tmp
+cmp --silent $jnd3 $tmp || ds:fail 'fit command failed const decimal complex csv case'
+ds:fit $jnd1 -v bufferchar="|" -v d=-2 > $tmp
+cmp --silent $jnd4 $tmp || ds:fail 'fit command failed scientific notation complex csv case'
 
 # FC TESTS
 

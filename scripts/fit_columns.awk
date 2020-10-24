@@ -28,9 +28,14 @@
 #
 #    $ ds:fit datafile -v FS=" {2,}"
 #
-#       When running ds:reo, an attempt is made to extract relevant instances of field
+#       When running ds:fit, an attempt is made to extract relevant instances of field
 #       separators in the case that a field separator appears in field values. This is 
 #       currently a persistent setting.
+#
+#       ds:fit will also attempt to detect whether AWK is multibyte safe to handle 
+#       cases of multibyte characters with a width that does not match its awk length.
+#       If a limited version of AWK is installed, the fit for multibyte characters 
+#       such as emoji may be incorrect.
 #
 # FUNCTIONS
 #    -h Print help
@@ -89,6 +94,7 @@ BEGIN {
   trailing_color_re = "[^^]\x1b\[((0|1);)?(3|4)?[0-7](;(0|1))?m"
   decimal_re = "^[[:space:]]*$?-?$?[0-9]+[\.][0-9]+[[:space:]]*$"
   num_re = "^[[:space:]]*$?-?$?[0-9]+([\.][0-9]*)?[[:space:]]*$"
+  null_re = "^\<?NULL\>?$"
 
   if (!tty_size)
     "tput cols" | getline tty_size; tty_size += 0
@@ -114,9 +120,10 @@ NR == FNR { # First pass, gather field info
     orig_max = FMax[i]
     l_diff = len - orig_max
     d_diff = 0
+    dmax_diff = 0
     f_diff = 0
 
-    if (f != 0) {
+    if (awksafe && f != 0) {
       FS = WCW_FS
       wcw = wcscolumns(f)
       FS = FIT_FS
@@ -138,7 +145,7 @@ NR == FNR { # First pass, gather field info
     # Otherwise just handle simple field length increases and store number
     # columns for later justification
     
-    if (NSet[i] && ! DSet[i] && ! NOverset[i] && ($i ~ num_re) == 0 && len > 0) {
+    if (NSet[i] && !DSet[i] && !NOverset[i] && !(f ~ num_re) && !(f ~ null_re) && len > 0) {
       NOverset[i] = 1
       if (debug) DebugPrint(8)
       if (SaveNMax[i] > FMax[i] && SaveNMax[i] > SaveSMax[i]) {
@@ -151,9 +158,9 @@ NR == FNR { # First pass, gather field info
       NSet[i] = 1
       if (len > NMax[i]) NMax[i] = len }
 
-    if (!dec_off && !DSet[i] && $i ~ decimal_re) {
+    if (!dec_off && !DSet[i] && f ~ decimal_re) {
       DSet[i] = 1
-      split(f, n_parts, "\.")
+      split(f, NParts, "\.")
       sub("0*$", "", NParts[2]) # Remove trailing zeros in decimal part
       d_len = length(NParts[2])
       DMax[i] = d_len
@@ -163,6 +170,7 @@ NR == FNR { # First pass, gather field info
         sn_diff = sn_len - orig_max
         f_diff = Max(sn_diff, 0) }
       else {
+        gsub("[^0-9]", "", NParts[i])
         int_len = length(int(NParts[1]))
         int_diff = int_len + 1 + d_len - len
         if (d == "z") {
@@ -176,30 +184,33 @@ NR == FNR { # First pass, gather field info
       if (debug && f_diff) DebugPrint(2) }
 
     else if (!dec_off && DSet[i] && f ~ num_re) {
-        split(f, n_parts, "\.")
+        split(f, NParts, "\.")
         sub("0*$", "", NParts[2]) # Remove trailing zeros in decimal part
         d_len = length(NParts[2])
-        if (d_len > DMax[i]) DMax[i] = d_len
-        
+        if (d_len > DMax[i]) {
+          dmax_diff = d_len - DMax[i]
+          DMax[i] = d_len }
+
         if (sn) {
           if (!d) sn_len = 2 + DMax[i] + 4
           sn_diff = sn_len - orig_max
           f_diff = Max(sn_diff, 0) }
         else {
+          gsub("[^0-9]", "", NParts[1])
           int_len = length(int(NParts[1]))
           dot = (d_len == 0 ? 0 : 1)
           int_diff = int_len + dot + d_len - len
-  
-        if (d == "z") {
-          d_len + dot 
-          d_diff = -1 * d_len
-          f_diff = Max(l_diff + int_diff + d_diff, 0) }
-        else {
-          dot = (!dot)
-          dec = (d ? d : DMax[i])
-          if (l_diff + dec + dot > 0) {
-            d_diff = dec - d_len + dot
-            f_diff = Max(l_diff + int_diff + d_diff, 0) }}}
+
+          if (d == "z") {
+            d_len + dot 
+            d_diff = -1 * d_len
+            f_diff = Max(l_diff + int_diff + d_diff, 0) }
+          else {
+            dot = (!dot)
+            dec = (d ? d : DMax[i])
+            if (l_diff + dec + dot > 0) {
+              d_diff = dec - d_len + dot
+              f_diff = Max(l_diff + int_diff + d_diff + dmax_diff, 0) }}}
 
       if (debug && f_diff) DebugPrint(3) }
 
@@ -276,8 +287,8 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
     if (FMax[i]) {
       if (DSet[i] || (NSet[i] && ! NOverset[i])) {
         
-        if (DSet[i]) {
-          if ($i ~ num_re) {
+        if ($i ~ num_re) {
+          if (DSet[i]) {
             if (d == "z") {
               type_str = (sn ? ".0e" : "s")
               value = int($i) }
@@ -285,10 +296,10 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
               dec = (d ? d : DMax[i])
               type_str = (sn ? "." dec "e" : "." dec "f")
               value = $i }}
-          else { type_str = "s"; value = $i }}
-        else {
-          type_str = (sn ? ".0e" : "s")
-          value = $i }
+          else {
+            type_str = (sn ? ".0e" : "s")
+            value = $i }}
+        else { type_str = "s"; value = $i }
 
         #if (not_last_f)
         print_len = FMax[i] + COLOR_DIFF[FNR, I] + WCWIDTH_DIFF[FNR, i]

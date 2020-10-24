@@ -23,6 +23,10 @@ ds:noawkfs() { # Test whether awk arg for setting field separator is present
   [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" && ! "${args[@]}" =~ "-v fs" ]]
 }
 
+ds:awksafe() { # Test whether awk is configured for multibyte regex
+  echo test | awk -f "$DS_SUPPORT/wcwidth.awk" -f "$DS_SUPPORT/awktest.awk" &> /dev/null
+}
+
 ds:prefield() { # Transform FS of a file with quoted fields which contain FS into non-clashing FS
   ds:file_check "$1"
   local file="$1" fs="$2" dequote=${3:-0}

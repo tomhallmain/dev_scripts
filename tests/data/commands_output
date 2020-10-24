@@ -1,31 +1,29 @@
 
-** - function supports receiving piped data
-
     COMMAND              DESCRIPTION                                               USAGE
                                                                                    
     ds:asgn              Print lines from a file matching assignment pattern       ds:asgn file
     ds:bash              Refresh bash interactive session                          ds:bash
     ds:commands          List commands in the dev_scripts/commands.sh file         ds:commands
 **  ds:cp                Copy standard input in UTF-8                              data | ds:cp
-**  ds:decap             Remove up to [n] lines from the start of a file           ds:decap n_lines [file]
+**  ds:decap             Remove up to n_lines from the start of a file             ds:decap [n_lines=1] [file]
     ds:deps              Identify the dependencies of a shell function             ds:deps name [filter] [ntype=(FUNC|ALIAS)] [call_func] [data]
     ds:dff               Diff shortcut for more relevant changes                   ds:dff file1 file2 [suppress_common]
     ds:dostounix         Remove ^M / CR characters in place                        ds:dostounix file
-**  ds:dup_input         Duplicate input sent to STDIN in aggregate                data | ds:dup_input
+**  ds:dup_input         Duplicate standard input in aggregate                     data | ds:dup_input
     ds:dups              Report duplicate files with option for deletion           ds:dups [dir]
     ds:embrace           Enclose a string on each side by args                     embrace str [left={] [right=}]
     ds:enti              Print text entities from a file separated by pattern      ds:enti [file] [sep= ] [min=1] [order=a]
     ds:fail              Safe failure, kills parent but returns to prompt          ds:fail [error_message]
 **  ds:fieldcounts       Print value counts (alias ds:fc)                          ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
     ds:filename_str      Add string to beginning or end of a filename              ds:filename_str file str [prepend|append]
-**  ds:fit               Print field-separated data in columns with dynamic width  ds:fit [:h|file] [awkargs]
+**  ds:fit               Print field-separated data in columns with dynamic width  ds:fit [-h|file] [awkargs]
     ds:fsrc              Show the source of a shell function                       ds:fsrc func
     ds:gexec             Generate a script from pieces of another and run it       ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
     ds:git_add_com_push  Add, commit with message, push (alias ds:gacmp)           ds:gacmp commit_message
     ds:git_branch        Run git branch for all repos (alias ds:gb)                ds:gb
     ds:git_checkout      Checkout branch matching pattern (alias ds:gco)           ds:gco [pattern]
     ds:git_cross_view    Display table of git repos vs branches (alias ds:gcv)     ds:gcv [:ab:Dfhmo:sv]
-    ds:git_graph         Print colorful git history graph (alias ds:gg)            (git log a dog.)
+    ds:git_graph         Print colorful git history graph (alias ds:gg)            ds:gg
     ds:git_purge_local   Purge branches from local git repos (alias ds:gpl)        ds:gpl [repos_dir=~]
     ds:git_recent        Display commits sorted by recency (alias ds:gr)           ds:gr [refs=heads] [run_context=display]
     ds:git_recent_all    Display recent commits for local repos (alias ds:gra)     ds:gra [refs=heads] [repos_dir=~]
@@ -37,7 +35,7 @@
     ds:gwdf              Git word diff shortcut                                    ds:gwdf [git_diff_args]
     ds:help              Print help for a given command                            ds:help ds_command
 **  ds:hist              Print histograms for numerical fields in a data file      ds:hist [file] [n_bins] [bar_len] [awkargs]
-**  ds:idx               Attach an index to lines from a file or stdin             ds:idx [file] [header=f]
+**  ds:idx               Attach an index to lines from a file or stdin             ds:idx [file] [startline=1]
     ds:inferfs           Infer field separator from data                           inferfs file [reparse=f] [custom=t] [file_ext=t] [high_cert=f]
     ds:inferh            Infer if headers are present in a file                    ds:inferh [awkargs] file
 **  ds:inferk            Infer join fields in two text data files                  ds:inferk [awkargs] file [file]
@@ -49,15 +47,15 @@
 **  ds:mini              Crude minify, remove whitespace and newlines              ds:mini [file] [newline_sep=;]
 **  ds:newfs             Outputs a file with an updated field separator            ds:newfs [file] [newfs=,] [awkargs]
     ds:nset              Test if name (function, alias, variable) is defined       ds:nset name [search_vars=f]
-    ds:ntype             Test name type (function, alias, variable)                ds:ntype name
+    ds:ntype             Get name type (function, alias, variable)                 ds:ntype name
     ds:path_elements     Returns dirname, filename, extension from a filepath      ds:path_elements file
 **  ds:pipe_check        Detect if pipe has data or over [n_lines]                 data | ds:pipe_check [n_lines]
 **  ds:pow               Print the frequency distribution of fielded data          ds:pow [file] [min] [return_fields=f] [invert=f]
 **  ds:print_comps       Print non-matching lines on keys given (alias ds:pc)      ds:pc [awkargs] file [file]
 **  ds:print_matches     Get match lines in two datasets (alias ds:pm)             ds:pm [awkargs] file [file]
-    ds:recent            ls files modified last 7 days                             ds:recent [custom_dir] [recurse=r] [hidden=h]
-**  ds:reo               Reorder/repeat/slice rows/cols                            ds:reo [:h|file] [rows] [cols] [prefield=t] [awkargs]
-**  ds:rev               Bash-only solution to reverse lines for processing        data | ds:rev
+    ds:recent            List files modified in last 7 days                        ds:recent [custom_dir] [recurse=r] [hidden=h]
+**  ds:reo               Reorder/repeat/slice data by rows and cols                ds:reo [-h|file] [rows] [cols] [prefield=t] [awkargs]
+**  ds:rev               Reverse lines from standard input                         data | ds:rev
 **  ds:sbsp              Extend fields by a common subseparator                    ds:sbsp file subsep_pattern [nomatch_handler= ] [awkargs]
     ds:searchn           Searches current names for string, returns matches        ds:searchn name
     ds:searchx           Search file for a C-lang (curly-brace) top-level object   ds:searchx file [search] [q]
@@ -71,11 +69,11 @@
 **  ds:stag              Print field-separated data in staggered rows              ds:stag [awkargs] file
 **  ds:substr            Extract a substring from a string with regex              ds:substr str [leftanc] [rightanc]
 **  ds:test              Test input quietly using with extended regex              ds:test regex [str|file] [test_file=f]
-    ds:tmp               mktemp -q "/tmp/${filename}"                              ds:tmp filename
-    ds:todo              List todo items found in paths                            ds:todo [search_paths=.]
+    ds:tmp               Shortcut for quiet mktemp                                 ds:tmp filename
+    ds:todo              List todo items found in paths                            ds:todo [searchpaths=.]
     ds:trace             Search shell trace for a pattern                          ds:trace [command] [search]
 **  ds:transpose         Transpose field values (alias ds:t)                       ds:transpose [awkargs] [file]
-**  ds:unicode           Get the UTF-8 unicode for a character sequence            ds:unicode [str]
+**  ds:unicode           Get UTF-8 unicode for a character sequence                ds:unicode [str]
     ds:webpage_title     Downloads html from a webpage and extracts title text     ds:webpage_title url
     ds:zsh               Refresh zsh interactive session                           ds:zsh
                                                                                    

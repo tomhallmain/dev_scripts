@@ -1,14 +1,12 @@
 #!/bin/bash
 
 DS_LOC="$HOME/dev_scripts"
-DS_SCRIPT="${DS_LOC}/scripts"
-DS_SUPPORT="${DS_LOC}/support"
-source "${DS_SUPPORT}/utils.sh"
+DS_SCRIPT="$DS_LOC/scripts"
+DS_SUPPORT="$DS_LOC/support"
+source "$DS_SUPPORT/utils.sh"
 
 ds:commands() { # List commands in the dev_scripts/commands.sh file: ds:commands
   # TODO: Split out aliases
-  echo
-  echo "** - function supports receiving piped data"
   echo
   grep -h '[[:alnum:]_]*()' "$DS_LOC/commands.sh" | sed 's/^  function //' \
     | grep -hv grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
@@ -77,7 +75,7 @@ ds:nset() { # Test if name (function, alias, variable) is defined: ds:nset name 
   [ "$2" ] && ds:ntype "$1" &> /dev/null || type "$1" &> /dev/null
 }
 
-ds:ntype() { # Test name type (function, alias, variable): ds:ntype name
+ds:ntype() { # Get name type (function, alias, variable): ds:ntype name
   awk -v name="$1" -v q=\' '
     BEGIN { e=1; quoted_name = ( q name q ) }
     $2==name || $2==quoted_name { print $1; e=0 }
@@ -102,7 +100,7 @@ ds:cp() { # ** Copy standard input in UTF-8: data | ds:cp
   LC_CTYPE=UTF-8 pbcopy
 }
 
-ds:tmp() { # mktemp -q "/tmp/${filename}": ds:tmp filename
+ds:tmp() { # Shortcut for quiet mktemp: ds:tmp filename
   mktemp -q "/tmp/${1}.XXXXX"
 }
 
@@ -126,14 +124,14 @@ ds:pipe_check() { # ** Detect if pipe has data or over [n_lines]: data | ds:pipe
   local has_data=$?; cat $chkfile; rm $chkfile; return $has_data
 }
 
-ds:rev() { # ** Bash-only solution to reverse lines for processing: data | ds:rev
+ds:rev() { # ** Reverse lines from standard input: data | ds:rev
   local line
   if IFS= read -r line; then
     ds:rev
     printf '%s\n' "$line"; fi
 }
 
-ds:dup_input() { # ** Duplicate input sent to STDIN in aggregate: data | ds:dup_input
+ds:dup_input() { # ** Duplicate standard input in aggregate: data | ds:dup_input
   local file=$(ds:tmp 'ds_dup_input')
   tee $file && cat $file && rm $file
 }
@@ -376,13 +374,13 @@ ds:git_recent_all() { # Display recent commits for local repos (alias ds:gra): d
 }
 alias ds:gra="ds:git_recent_all"
 
-ds:git_graph() { # Print colorful git history graph (alias ds:gg): (git log a dog.)
+ds:git_graph() { # Print colorful git history graph (alias ds:gg): ds:gg
   ds:not_git && return 1
   git log --all --decorate --oneline --graph
 }
 alias ds:gg="ds:git_graph"
 
-ds:todo() { # List todo items found in paths: ds:todo [search_paths=.]
+ds:todo() { # List todo items found in paths: ds:todo [searchpaths=.]
   ds:nset 'rg' && local RG=true
   if [ -z "$1" ]; then
     [ "$RG" ] && rg -His 'TODO' || grep -irs 'TODO' --color=always .
@@ -508,7 +506,7 @@ ds:jn() { # ** Join two files, or a file and stdin, with any keyset: ds:jn file1
   if ds:noawkfs; then
     local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
     awk -v fs1="$fs1" -v fs2="$fs2" -f "$DS_SCRIPT/join.awk" \
-      ${args[@]} "$f1" "$f2" 2> /dev/null | ds:ttyf "%fs1"
+      ${args[@]} "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"
   else
     awk -f "$DS_SCRIPT/join.awk" ${args[@]} "$f1" "$f2" 2> /dev/mull | ds:ttyf
   fi
@@ -635,7 +633,7 @@ ds:inferfs() { # Infer field separator from data: inferfs file [reparse=f] [cust
       -v custom="$custom" "$file" 2> /dev/null; fi
 }
 
-ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit [:h|file] [awkargs]
+ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit [-h|file] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_fit') piped=0 hc=f
     cat /dev/stdin > $file
@@ -659,8 +657,9 @@ ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit
       unset "args[$fsv_idx]"; fi
     unset "args[$fs_idx]"; fi
   ds:prefield "$file" "$fs" 0 > $dequote
-  awk -v FS="$DS_SEP" -v OFS="$fs" -f "$DS_SUPPORT/wcwidth.awk" -f "$DS_SCRIPT/fit_columns.awk" \
-    -v tty_size=$tty_size -v buffer="$col_buffer" ${args[@]} $dequote{,} 2>/dev/null
+  ds:awksafe && local args=( ${args[@]} -v awksafe=1 -f "$DS_SUPPORT/wcwidth.awk" )
+  awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$col_buffer" \
+    ${args[@]} -f "$DS_SCRIPT/fit_columns.awk" $dequote{,} 2>/dev/null
   ds:pipe_clean $file; rm $dequote
 }
 
@@ -686,23 +685,26 @@ ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [awkargs]
   ds:pipe_clean $file
 }
 
-ds:idx() { # ** Attach an index to lines from a file or stdin: ds:idx [file] [header=f]
-  # TODO: Change header binary to custom number of lines
+ds:idx() { # ** Attach an index to lines from a file or stdin: ds:idx [file] [startline=1]
   if ds:pipe_open; then
-    local header="$1" args=( "${@:2}" ) file=$(ds:tmp 'ds_idx') piped=0
+    local file=$(ds:tmp 'ds_idx') piped=0
     cat /dev/stdin > $file
   else
-    local file="$1" header="$2" args=( "${@:3}" ); fi
-  local program="$([ "$header" ] && echo '{ print NR-1 FS $0 }' || echo '{ print NR FS $0 }')"
+    local file="$1"; shift; fi
+  local args=( "${@:2}" )
+  [ -t 1 ] || local pipe_out=1
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    awk -v FS="$fs" ${args[@]} "$program" "$file" 2> /dev/null
+    awk -v FS="$fs" ${args[@]} -v header="${1:-1}" -v pipeout="$pipe_out" \
+      -f "$DS_SCRIPT/index.awk" "$file" 2> /dev/null
   else # TODO: Replace with consistent fs logic
-    awk ${args[@]} "$program" "$file" 2> /dev/null; fi
+    awk ${args[@]} -v header="${1:-1}" -v pipeout="$pipe_out" \
+      -f "$DS_SCRIPT/index.awk" "$file" 2> /dev/null
+  fi
   ds:pipe_clean $file
 }
 
-ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [:h|file] [rows] [cols] [prefield=t] [awkargs]
+ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file] [rows] [cols] [prefield=t] [awkargs]
   if ds:pipe_open; then
     local rows="${1:-a}" cols="${2:-a}" base=3
     local file=$(ds:tmp "ds_reo") piped=0
@@ -741,7 +743,7 @@ ds:reo() { # ** Reorder/repeat/slice rows/cols: ds:reo [:h|file] [rows] [cols] [
   ds:pipe_clean $file; [ ! "$dq_off" ] && rm $dequote; :
 }
 
-ds:decap() { # ** Remove up to [n] lines from the start of a file: ds:decap n_lines [file]
+ds:decap() { # ** Remove up to n_lines from the start of a file: ds:decap [n_lines=1] [file]
   if [ "$1" ]; then
     ds:is_int "$1" && let n_lines=1+${1:-1} || ds:fail 'n_lines must be an integer: ds:decap n_lines [file]'
   fi
@@ -1032,7 +1034,7 @@ ds:srg() { # Scope rg/grep to a set of files that contain a match: ds:srg scope_
   :
 }
 
-ds:recent() { # ls files modified last 7 days: ds:recent [custom_dir] [recurse=r] [hidden=h]
+ds:recent() { # List files modified in last 7 days: ds:recent [custom_dir] [recurse=r] [hidden=h]
   if [ "$1" ]; then
     local dirname="$(echo "$1")"
     [ ! -d "$dirname" ] && echo Unable to verify directory provided! && return 1; fi
@@ -1087,7 +1089,7 @@ ds:sedi() { # Linux-portable sed in place substitution: ds:sedi file search_patt
   local file="$1" search="$(printf "%q" "$2")"
   [ "$3" ] && local replace="$(printf "%q" "$3")"
   perl -pi -e "s/${search}/${replace}/g" "$file"
-  # TODO: Fix for forward slash replacement case
+  # TODO: Fix for forward slash replacement case and printf %q
 }
 
 ds:dff() { # Diff shortcut for more relevant changes: ds:dff file1 file2 [suppress_common]
@@ -1131,7 +1133,7 @@ ds:jira() { # Opens Jira at specified workspace and issue: ds:jira workspace_sub
   open "$j_url"
 }
 
-ds:unicode() { # ** Get the UTF-8 unicode for a character sequence: ds:unicode [str]
+ds:unicode() { # ** Get UTF-8 unicode for a character sequence: ds:unicode [str]
   ! ds:nset 'xxd' && ds:fail 'utility xxd required for this command'
   local sq=($(ds:pipe_open && grep -ho . || echo "$1" | grep -ho .))
   prg='{ if($3){ b[1]=substr($2,5,4);b[2]=substr($3,3,6)
