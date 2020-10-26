@@ -92,8 +92,8 @@ BEGIN {
   # TODO: Support more complex color defs like orange above
   color_re = "\x1b\[((0|1);)?(3|4)?[0-7](;(0|1))?m"
   trailing_color_re = "[^^]\x1b\[((0|1);)?(3|4)?[0-7](;(0|1))?m"
-  decimal_re = "^[[:space:]]*$?-?$?[0-9]+[\.][0-9]+[[:space:]]*$"
-  num_re = "^[[:space:]]*$?-?$?[0-9]+([\.][0-9]*)?[[:space:]]*$"
+  decimal_re = "^[[:space:]]*\\$?-?\\$?[0-9]+[\.][0-9]+[[:space:]]*$"
+  num_re = "^[[:space:]]*\\$?-?\\$?[0-9]+([\.][0-9]*)?[[:space:]]*$"
   null_re = "^\<?NULL\>?$"
 
   if (!tty_size)

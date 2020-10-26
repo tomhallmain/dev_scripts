@@ -191,7 +191,7 @@ reo_actual="$(ds:reo $seps_base '5[2!~2' | grep -h "^1")"
 
 # FIT TESTS
 
-fit_var_present="$(head "$complex_csv1" | ds:fit | awk '{cl=length($0);if(pl && pl!=cl) {print 1;exit};pl=cl}')"
+fit_var_present="$(echo -e "t 1\nte 2\ntes 3\ntest 4" | ds:fit | awk '{cl=length($0);if(pl && pl!=cl) {print 1;exit};pl=cl}')"
 [ "$fit_var_present" = 1 ]                        && ds:fail 'fit command failed pipe case'
 fit_expected='Desert City' fit_actual="$(ds:fit "$complex_csv1" | ds:reo 7 4 '-F {2,}')"
 [ "$fit_expected" = "$fit_actual" ]               || ds:fail 'fit command failed base case'

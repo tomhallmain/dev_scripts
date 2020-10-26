@@ -17,14 +17,15 @@
 ## TODO: Infer absensce of separator
 
 BEGIN {
-  CommonFS["s"] = " "; FixedStringFS["s"] = "\\"
-  CommonFS["t"] = "\t"; FixedStringFS["t"] = "\\"
-  CommonFS["p"] = "\|"; FixedStringFS["p"] = "\\"
-  CommonFS["m"] = ";"; FixedStringFS["m"] = "\\"
-  CommonFS["c"] = ":"; FixedStringFS["c"] = "\\"
-  CommonFS["o"] = ","; FixedStringFS["o"] = "\\"
-  CommonFS["w"] = "[[:space:]]+"
-  CommonFS["2w"] = "[[:space:]]{2,}"
+  CommonFSOrder[1] = "w"; CommonFS["s"] = " "; FixedStringFS["s"] = "\\"
+  CommonFSOrder[2] = "t"; CommonFS["t"] = "\t"; FixedStringFS["t"] = "\\"
+  CommonFSOrder[3] = "p"; CommonFS["p"] = "\|"; FixedStringFS["p"] = "\\"
+  CommonFSOrder[4] = "m"; CommonFS["m"] = ";"; FixedStringFS["m"] = "\\"
+  CommonFSOrder[5] = "c"; CommonFS["c"] = ":"; FixedStringFS["c"] = "\\"
+  CommonFSOrder[6] = "o"; CommonFS["o"] = ","; FixedStringFS["o"] = "\\"
+  CommonFSOrder[7] = "m"; CommonFS["w"] = "[[:space:]]+"
+  CommonFSOrder[8] = "2m"; CommonFS["2w"] = "[[:space:]]{2,}"
+  NCommon = length(CommonFS)
   DS_SEP = "@@@"
   sq = "\'"
   dq = "\""
@@ -166,7 +167,8 @@ END {
 
   # Calculate variance for each separator
   if (debug) print "\n ---- common sep variance calcs ----"
-  for (s in CommonFS) {
+  for (i = 1; i <= NCommon; i++) {
+    s = CommonFSOrder[i]
     average_nf = CommonFSTotal[s] / max_rows
     nf_chunks = CommonFSNFSpec[s]
 
