@@ -5,17 +5,17 @@ DS_SCRIPT="$DS_LOC/scripts"
 DS_SUPPORT="$DS_LOC/support"
 source "$DS_SUPPORT/utils.sh"
 
-ds:commands() { # List commands in the dev_scripts/commands.sh file: ds:commands
-  # TODO: Split out aliases
+ds:commands() { # List commands from dev_scripts/commands.sh: ds:commands [width]
   echo
   grep -h '[[:alnum:]_]*()' "$DS_LOC/commands.sh" | sed 's/^  function //' \
     | grep -hv grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
     | ds:sbsp '\\\*\\\*' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 \
       -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" | ds:sbsp ":[[:space:]]" "888" \
       -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" \
-    | awk -v FS="$DS_SEP" 'BEGIN{print "COMMAND" FS FS "DESCRIPTION" FS "USAGE\n"}{print}
-      END{print "\nCOMMAND" FS FS "DESCRIPTION" FS "USAGE"}' \
-    | ds:reo a 2,1,3,4 | ds:fit -v FS="$DS_SEP"
+    | ds:sbsp '\\\(alias ' '$' -v apply_to_fields=3 | sed 's/)@/@/' \
+    | awk -v FS="$DS_SEP" 'BEGIN{print "COMMAND" FS FS "DESCRIPTION" FS "ALIAS" FS "USAGE\n"}{print}
+      END{print "\nCOMMAND" FS FS "DESCRIPTION" FS "ALIAS" FS "USAGE"}' \
+    | ds:reo a 2,1,4,3,5 | ds:fit -v FS="$DS_SEP" -v tty_size="${1:-$(tput cols)}"
   echo
   echo "** - function supports receiving piped data"
   echo
@@ -75,7 +75,7 @@ ds:nset() { # Test if name (function, alias, variable) is defined: ds:nset name 
   [ "$2" ] && ds:ntype "$1" &> /dev/null || type "$1" &> /dev/null
 }
 
-ds:ntype() { # Get name type (function, alias, variable): ds:ntype name
+ds:ntype() { # Get name type - function, alias, variable: ds:ntype name
   awk -v name="$1" -v q=\' '
     BEGIN { e=1; quoted_name = ( q name q ) }
     $2==name || $2==quoted_name { print $1; e=0 }
@@ -136,7 +136,7 @@ ds:dup_input() { # ** Duplicate standard input in aggregate: data | ds:dup_input
   tee $file && cat $file && rm $file
 }
 
-ds:join_by() { # ** Join a shell array by a text argument provided: ds:join_by delimiter [join_array]
+ds:join_by() { # ** Join a shell array by given delimiter: ds:join_by delimiter [join_array]
   local d=$1; shift
 
   if ds:pipe_open; then
@@ -398,7 +398,7 @@ ds:todo() { # List todo items found in paths: ds:todo [searchpaths=.]
   [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
 }
 
-ds:searchx() { # Search file for a C-lang (curly-brace) top-level object: ds:searchx file [search] [q]
+ds:searchx() { # Search file for C-lang (curly-brace) top-level object: ds:searchx file [search] [q]
   ds:file_check "$1"
   if [ "$3" ]; then
     if [ "$2" ]; then
@@ -455,7 +455,7 @@ ds:insert() { # ** Redirect input into a file at lineno or pattern: ds:insert fi
   rm $source $tmp
 }
 
-ds:shape() { # ** Print text data shape by length or given field separator: ds:shape [file] [FS] [chart_size=15ln] [chart_off=f]
+ds:shape() { # ** Print data shape by length or FS: ds:shape [file] [FS] [chart_size=15ln] [chart_off=f]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_shape') piped=0
     cat /dev/stdin > $file
@@ -578,7 +578,7 @@ ds:print_comps() { # ** Print non-matching lines on keys given (alias ds:pc): ds
 }
 alias ds:pc="ds:print_comps"
 
-ds:inferh() { # Infer if headers are present in a file: ds:inferh [awkargs] file
+ds:inferh() { # Infer if headers present in a file: ds:inferh [awkargs] file
   local args=( "$@" )
   awk -f "$DS_SCRIPT/infer_headers.awk" ${args[@]} 2> /dev/null
 }
@@ -633,7 +633,7 @@ ds:inferfs() { # Infer field separator from data: inferfs file [reparse=f] [cust
       -v custom="$custom" "$file" 2> /dev/null; fi
 }
 
-ds:fit() { # ** Print field-separated data in columns with dynamic width: ds:fit [-h|file] [awkargs]
+ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_fit') piped=0 hc=f
     cat /dev/stdin > $file
@@ -885,7 +885,7 @@ ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file
   ds:pipe_clean $file; rm $dequote
 }
 
-ds:hist() { # ** Print histograms for numerical fields in a data file: ds:hist [file] [n_bins] [bar_len] [awkargs]
+ds:hist() { # ** Print histograms for all number fields in data: ds:hist [file] [n_bins] [bar_len] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_hist') piped=0
     cat /dev/stdin > $file
@@ -1034,7 +1034,7 @@ ds:srg() { # Scope rg/grep to a set of files that contain a match: ds:srg scope_
   :
 }
 
-ds:recent() { # List files modified in last 7 days: ds:recent [custom_dir] [recurse=r] [hidden=h]
+ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [recurse=r] [hidden=h]
   if [ "$1" ]; then
     local dirname="$(echo "$1")"
     [ ! -d "$dirname" ] && echo Unable to verify directory provided! && return 1; fi
@@ -1105,7 +1105,7 @@ ds:gwdf() { # Git word diff shortcut: ds:gwdf [git_diff_args]
   git diff --word-diff-regex="[A-Za-z0-9. ]|[^[:space:]]" --word-diff=color ${args[@]}
 }
 
-ds:goog() { # Search Google with provided args: ds:goog [search query]
+ds:goog() { # Search Google: ds:goog [search query]
   local search_args="$@"
   [ -z "$search_args" ] && ds:fail 'Arg required for search'
   local base_url="https://www.google.com/search?query="
@@ -1115,7 +1115,7 @@ ds:goog() { # Search Google with provided args: ds:goog [search query]
   open "$search_url"
 }
 
-ds:so() { # Searches Stack Overflow with provided args: ds:so [search query]
+ds:so() { # Search Stack Overflow: ds:so [search query]
   local search_args="$@"
   [ -z "$search_args" ] && ds:fail 'Arg required for search'
   local base_url="https://www.stackoverflow.com/search?q="
@@ -1147,7 +1147,7 @@ ds:unicode() { # ** Get UTF-8 unicode for a character sequence: ds:unicode [str]
   done; echo
 }
 
-ds:webpage_title() { # Downloads html from a webpage and extracts title text: ds:webpage_title url
+ds:webpage_title() { # Download html from webpage and extract title text: ds:webpage_title url
   local location="$1" tr_file="$DS_SUPPORT/named_entities_escaped.sed"
   local unescaped_title="$( wget -qO- "$location" |
     perl -l -0777 -ne 'print $1 if /<title.*?>\s*(.*?)\s*<\/title/si' )"
