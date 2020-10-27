@@ -18,7 +18,9 @@ BEGIN {
     if (fixed_space) FS = " "
     lenfs = length(FS)
 
-    sp = "          " ~ "^"FS"$" ? "" : "[[:space:]]*"
+    if (!("          " ~ "^"FS"$")) {
+      sp = "[[:space:]]*"
+      init_sp = "^" sp }
     dqre = "(^|[^"dq"]*[^"FS"]*[^"dq"]+"FS")"sp dq
     sqre = "(^|[^"sq"]*[^"FS"]*[^"sq"]+"FS")"sp sq
 
@@ -48,7 +50,7 @@ q_rebal && !($0 ~ QRe["e"]) {
     init_q = 0
     run_prefield = 1
     qq = q q
-    qfs = q FS; qqfs = qq FS; fsq = FS q # TODO: Add spacing in compound patterns
+    qfs = q sp FS; qqfs = qq sp FS; fsq = FS sp q
     BuildRe(QRe, FS, q, sp)
     qq_replace = retain_outer_quotes ? qq : q }
 
@@ -76,19 +78,20 @@ q_rebal && !($0 ~ QRe["e"]) {
     i_seed = diff && save_i ? save_i : 1
     for (i = i_seed; i < 500; i++) {
       gsub(qq, "_qqqq_", $0)
+      gsub(init_sp, "", $0)
       len0 = length($0)
       if (len0 < 1) break
-      match($0, qfs); iqfs = RSTART
+      match($0, qfs); iqfs = RSTART; len_iqfs = RLENGTH
       while (substr($0, iqfs-1, 1) == q && substr($0, iqfs-2, 1) != q) {
         match(substr($0, iqfse, len0), qfs)
-        iqfs = RSTART }
+        iqfs = RSTART; len_iqfs = RLENGTH }
 
       if (close_multiline_field) {
         match($0, QRe["e_imbal"])
         startf = 1; endf = RLENGTH - mod_f_len0
         q_cut = mod_f_len0 }
       else {
-        match($0, fsq); ifsq = RSTART
+        match($0, fsq); ifsq = RSTART; len_ifsq = RLENGTH
         match($0, FS); ifs = RSTART; lenfs = Max(RLENGTH, 1)
         iq = index($0, q)
         iqq = index($0, "_qqqq_")

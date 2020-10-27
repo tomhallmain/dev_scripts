@@ -424,9 +424,9 @@ function StoreFieldRefs() {
         if (field ~ base_search) SearchFO[search] = SearchFO[search] f"," }}
 
     for (search in RCSearches) {
-      exclude = 0
       ignore_case = (ignore_case_global || IgnoreCase[search])
       split(search, Tmp, "~")
+      gsub(/!$/, "", Tmp[1])
       base_search = Tmp[2]
       if (ignore_case) base_search = tolower(base_search)
       if (search in RCFrames) {
@@ -444,11 +444,12 @@ function StoreFieldRefs() {
         if (Indexed(SearchFO[search], f)) continue
         field = ignore_case ? tolower($f) : $f
         if (debug) DebugPrint(9) 
-        if (ExcludeRe[search] && !exclude) {
-          if (field ~ base_search) exclude = 1
-          if (f == NF && !exclude)
+        if (ExcludeRe[search]) {
+          if (ExcludeField[search, f]) continue
+          if (field ~ base_search) ExcludeField[search, f] = 1
+          if (NR == max_nr)
             SearchFO[search] = SearchFO[search] f"," }
-        else if (!exclude) {
+        else {
           if (field ~ base_search)
             SearchFO[search] = SearchFO[search] f"," }}}}
 
@@ -521,6 +522,7 @@ function StoreRowRefs() {
       fr_search = 0; exclude = 0
       ignore_case = (ignore_case_global || IgnoreCase[search])
       split(search, Tmp, "~")
+      gsub(/!$/, "", Tmp[1])
       base_search = Tmp[2]
       if (search in RRFrames) {
         if (ExcludeFrame[search]) continue

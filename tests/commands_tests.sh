@@ -11,6 +11,7 @@ seps_base="tests/data/seps_test_base" seps_sorted="tests/data/seps_test_sorted"
 simple_csv="tests/data/company_funding_data.csv"
 complex_csv1="tests/data/addresses.csv" complex_csv3="tests/data/addresses_reordered"
 complex_csv2="tests/data/Sample100.csv" complex_csv4="tests/data/quoted_fields_with_newline.csv" 
+complex_csv5="tests/data/taxables.csv"
 ls_sq="tests/data/ls_sq" emoji="tests/data/emoji" emojifit="tests/data/emojifit"
 
 if [[ $shell =~ 'bash' ]]; then
@@ -111,13 +112,14 @@ d'
 [ "$(echo "$reo_input" | ds:reo a 2)" = "$reo_output" ] || ds:fail 'reo command failed base column case'
 reo_output='a c d e b
 f a c d b'
-[ "$(echo "$reo_input" | ds:reo 4,1 5,3..1,4)" = "$reo_output" ] || ds:fail 'reo command failed'
+[ "$(echo "$reo_input" | ds:reo 4,1 5,3..1,4)" = "$reo_output" ] || ds:fail 'reo command failed base compound range reo case'
 [ "$(echo "$reo_input" | ds:reo 4,1 5,3..1,4 -v FS="[[:space:]]")" = "$reo_output" ] || ds:fail 'reo command failed FS arg case'
 [ "$(echo "$PATH" | ds:reo 1 5,3..1,4 -F: | ds:transpose | grep -c "")" -eq 5 ] || ds:fail 'reo command failed F arg case'
+reo_output='f b'
+[ "$(echo "$reo_input" | ds:reo '4!~b' '!~c')" = "$reo_output" ] || ds:fail 'reo command failed exclusive search case'
 reo_input=$(for i in $(seq -16 16); do
     printf "%s " $i; printf "%s " $(echo "-1*$i" | bc)
-    if [ $(echo "$i%5" | bc) -eq 0 ]; then echo test; else echo nah; fi
-  done)
+    if [ $(echo "$i%5" | bc) -eq 0 ]; then echo test; else echo nah; fi; done)
 reo_output='-1 nah
 -2 nah
 -3 nah
@@ -145,10 +147,8 @@ reo_output='-1 nah
 reo_input="$(for i in $(seq -10 20); do 
     [ $i -eq -10 ] && ds:iter test 23 && echo && ds:iter _TeST_ 20 && echo
     for j in $(seq -2 20); do 
-      [ $i -ne 0 ] && printf "%s " "$(echo "scale=2; $j/$i" | bc -l)"
-    done
-    [ $i -ne 0 ] && echo
-  done)"
+      [ $i -ne 0 ] && printf "%s " "$(echo "scale=2; $j/$i" | bc -l)"; done
+    [ $i -ne 0 ] && echo; done)"
 reo_actual="$(echo "$reo_input" | ds:reo "1,1,>4,[test,[test/i~ST" ">4,[test~T" -v cased=1)"
 reo_expected='test test test test test test test test test test test test test test test test test
 test test test test test test test test test test test test test test test test test
@@ -214,6 +214,17 @@ ds:fit $jnd1 -v bufferchar="|" -v d=z > $tmp
 cmp --silent $jnd3 $tmp || ds:fail 'fit command failed const decimal complex csv case'
 ds:fit $jnd1 -v bufferchar="|" -v d=-2 > $tmp
 cmp --silent $jnd4 $tmp || ds:fail 'fit command failed scientific notation complex csv case'
+fit_expected="Index  Item                              Cost    Tax  Total
+    1  Fruit of the Loom Girl's Socks    7.97   0.60   8.57
+    2  Rawlings Little League Baseball   2.97   0.22   3.19
+    3  Secret Antiperspirant             1.29   0.10   1.39
+    4  Deadpool DVD                     14.96   1.12  16.08
+    5  Maxwell House Coffee 28 oz        7.28   0.55   7.83
+    6  Banana Boat Sunscreen, 8 oz       6.68   0.50   7.18
+    7  Wrench Set, 18 pieces            10.00   0.75  10.75
+    8  M and M, 42 oz                    8.98   0.67   9.65
+    9  Bertoli Alfredo Sauce             2.12   0.16   2.28"
+[ "$(ds:fit $complex_csv5 | head)" = "$fit_expected" ] || ds:fail 'fit command failed spaced quoted field case'
 
 # FC TESTS
 
@@ -253,14 +264,14 @@ prefield_expected='-rw-r--r--@@@1@@@tomhall@@@4330@@@Oct@@@12@@@11:55@@@emoji
 -rw-r--r--@@@1@@@tomhall@@@6043@@@Oct@@@3@@@17:30@@@infer_join_fields_test2.csv'
 prefield_actual="$(ds:prefield $ls_sq '[[:space:]]+')"
 [ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed base sq case'
-prefield_expected='Conference room 1@@@ "John,  \n  Please bring the M. Mathers file for review   \n  -J.L. @@@10/18/2002@@@test, field
-Conference room 1@@@ "John \n  Please bring the M. Mathers file for review \n  -J.L. @@@10/18/2002@@@"
-Conference room 1@@@ "@@@10/18/2002'
+prefield_expected='Conference room 1@@@John,  \n  Please bring the M. Mathers file for review   \n  -J.L.@@@10/18/2002@@@test, field
+Conference room 1@@@John \n  Please bring the M. Mathers file for review \n  -J.L.@@@10/18/2002@@@"
+Conference room 1@@@"@@@10/18/2002'
 prefield_actual="$(ds:prefield $complex_csv4 ,)"
 [ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed newline lossy quotes case'
-prefield_expected='Conference room 1@@@ "John,   \n  Please bring the M. Mathers file for review   \n  -J.L. "@@@10/18/2002@@@"test, field"
-"Conference room 1"@@@ "John, \n  Please bring the M. Mathers file for review \n  -J.L. "@@@10/18/2002@@@""
-"Conference room 1"@@@ ""@@@10/18/2002'
+prefield_expected='Conference room 1@@@"John,   \n  Please bring the M. Mathers file for review   \n  -J.L."@@@10/18/2002@@@"test, field"
+"Conference room 1"@@@"John, \n  Please bring the M. Mathers file for review \n  -J.L."@@@10/18/2002@@@""
+"Conference room 1"@@@""@@@10/18/2002'
 prefield_actual="$(ds:prefield $complex_csv4 , 1)"
 [ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed newline retain outer quotes case'
 

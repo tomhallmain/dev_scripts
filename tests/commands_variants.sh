@@ -25,13 +25,14 @@ tests="$1"
 case "$tests" in
   inferfs)  ds:gexec true tests/commands_tests.sh tests "1..29,~inferfs" ;;
   jn)       ds:gexec true tests/commands_tests.sh tests "1..29,57..76"   ;;
-  sort)     ds:gexec true tests/commands_tests.sh tests "1..29,76..98"   ;;
+  sort)     ds:gexec true tests/commands_tests.sh tests "1..29,77..98"   ;;
   reo)      ds:gexec true tests/commands_tests.sh tests "1..29,99..191"  ;;
-  fit)      ds:gexec true tests/commands_tests.sh tests "1..29,191..217" ;;
+  fit)      ds:gexec true tests/commands_tests.sh tests "1..29,192..227" ;;
+  fc)       ds:gexec true tests/commands_tests.sh tests "1..29,229..242" ;;
   newfs)    ds:gexec true tests/commands_tests.sh tests "1..29,~nfs"     ;;
-  prefield) ds:gexec true tests/commands_tests.sh tests "1..29,237..266" ;;
+  prefield) ds:gexec true tests/commands_tests.sh tests "1..29,249..277" ;;
   todo)     ds:gexec true tests/commands_tests.sh tests "1..29,~todo"    ;;
   substr)   ds:gexec true tests/commands_tests.sh tests "1..29,~substr"  ;;
-  pow)      ds:gexec true tests/commands_tests.sh tests "1..29,311..329" ;;
-  deps)     ds:gexec true tests/commands_tests.sh tests "1..29,334..340" ;;
+  pow)      ds:gexec true tests/commands_tests.sh tests "1..29,321..340" ;;
+  deps)     ds:gexec true tests/commands_tests.sh tests "1..29,345..353" ;;
 esac
