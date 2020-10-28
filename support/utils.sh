@@ -1,9 +1,11 @@
 #!/bin/bash
-
-DS_SEP=$'@@@'
 # TODO: Extract FS from args
 
-ds:file_check() { # Test for file validity and fail if invalid
+DS_SEP=$'@@@'
+
+#grep -h '[[:alnum:]_]*()' "$DS_SUPPORT/utils.sh" | grep -hv grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' | ds:sbsp '\\\*\\\*' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" | ds:sbsp ":[[:space:]]" "888" -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" | awk -v FS="$DS_SEP" 'BEGIN{print "COMMAND" FS FS "DESCRIPTION" FS "USAGE\n"}{print}' | ds:reo a 2,1,3,4 | ds:fit -v FS="$DS_SEP" -v tty_size="${1:-$(tput cols)}"
+
+ds:file_check() { # Test for file validity and fail if invalid: ds:file_check file_arg [enable_search]
   [ -z "$1" ] && ds:fail 'File not provided!'
   local tf="$1"
   if [ "$2" ]; then
@@ -19,15 +21,15 @@ ds:file_check() { # Test for file validity and fail if invalid
     [ ! -f "$tf" ] && ds:fail 'File not provided or invalid!'; fi
 }
 
-ds:noawkfs() { # Test whether awk arg for setting field separator is present
+ds:noawkfs() { # Test whether AWK arg for setting field separator is present: ds:noawkfs
   [[ ! "${args[@]}" =~ "-F" && ! "${args[@]}" =~ "-v FS" && ! "${args[@]}" =~ "-v fs" ]]
 }
 
-ds:awksafe() { # Test whether awk is configured for multibyte regex
+ds:awksafe() { # Test whether AWK is configured for multibyte regex: ds:awksafe
   echo test | awk -f "$DS_SUPPORT/wcwidth.awk" -f "$DS_SUPPORT/awktest.awk" &> /dev/null
 }
 
-ds:prefield() { # Transform FS of a file with quoted fields which contain FS into non-clashing FS
+ds:prefield() { # Infer and transform FS for complex field patterns: ds:prefield file fs [dequote] [awkOFSargs]
   ds:file_check "$1"
   local file="$1" fs="$2" dequote=${3:-0}
   [[ "$file" =~ "^/tmp" ]] && ds:dostounix "$file"
@@ -39,7 +41,7 @@ ds:prefield() { # Transform FS of a file with quoted fields which contain FS int
       -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null; fi
 }
 
-ds:arr_idx() { # Extract first shell array element position matchings pattern
+ds:arr_idx() { # Extract first shell array element position matching pattern: ds:arr_idx pattern ${arr[@]}
   local pattern="$1"; shift
   local idx=$(printf "%s\n" "$@" | awk "/$pattern/{print NR-1; exit}")
   [ "$idx" = "" ] && return 1
@@ -47,7 +49,7 @@ ds:arr_idx() { # Extract first shell array element position matchings pattern
   echo -n $idx
 }
 
-ds:die() { # Output to STDERR and exit with error
+ds:die() { # Output to STDERR and exit with error: ds:die
   echo "$*" >&2
   if ds:sub_sh || ds:nested; then kill $$; fi
 }
@@ -56,31 +58,31 @@ ds:pipe_open() { # ** Detect if pipe is open
   [ -p /dev/stdin ]
 }
 
-ds:ttyf() { # ** Detect if output is to a terminal and run ds:fit on output if it is
+ds:ttyf() { # ** Run ds:fit on output only if to a terminal: data | ds:ttyf [FS] [fit_awkargs]
   if [ -t 1 ]; then
     ds:arr_idx 'debug' "${args[@]}" && cat && return
-    [ "$1" ] && ds:fit -v FS="$1" && return
-    ds:fit
+    [ "$1" ] && ds:fit -v FS="$1" ${@:2} && return
+    ds:fit $@
   else cat; fi
 }
 
-ds:pipe_clean() { # Remove a temp file created via stdin if piping has been detected
+ds:pipe_clean() { # Remove tmpfile created via STDIN if piping detected: piped=0; tmp=$(mktemp tmp); ds:pipe_clean $tmp
   if [ $piped ]; then rm "$1" &> /dev/null; fi
 }
 
-ds:sh() { # Print the shell being used (works for sh, bash, zsh)
+ds:sh() { # Print the shell being used - works for sh, bash, zsh: ds:sh
   ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{print $NF}'
 }
 
-ds:subsh() { # Detect if in a subshell 
+ds:subsh() { # Detect if in a subshell: ds:subsh
   [[ $BASH_SUBSHELL -gt 0 || $ZSH_SUBSHELL -gt 0 || "$(exec sh -c 'echo "$PPID"')" != "$$" || "$(exec ksh -c 'echo "$PPID"')" != "$$" ]]
 }
 
-ds:nested() { # Detect if shell is nested for control handling
+ds:nested() { # Detect if shell is nested for control handling: ds:nested
   [ $SHLVL -gt 1 ]
 }
 
-ds:arr_base() { # Return first array index for shell
+ds:arr_base() { # Return first array index for shell: ds:arr_base
   shell="$(ds:sh)"
   if [[ $shell =~ bash ]]; then
     printf 0
@@ -90,12 +92,12 @@ ds:arr_base() { # Return first array index for shell
     ds:fail 'This shell unsupported at this time'; fi
 }
 
-ds:needs_arg() { # Test if argument is missing and handle UX if it's not
-  local opt="$1" optarg="$2"; echo $optarg
+ds:needs_arg() { # Test if argument is missing from opt and handle UX: ds:needs_arg opt [optarg]
+  local opt="$1" optarg="$2"; #echo $optarg
   [ -z "$optarg" ] && echo "No arg for --$opt option" && ds:fail
 }
 
-ds:longopts() { # Support long options: https://stackoverflow.com/a/28466267/519360
+ds:longopts() { # Extract long opts - https://stackoverflow.com/a/28466267/519360: ds:longopts opt [optarg]
   local opt="$1" optarg="$2"
   opt="${optarg%%=*}"       # extract long option name
   optarg="${optarg#$opt}"   # extract long option argument (may be empty)
@@ -104,7 +106,7 @@ ds:longopts() { # Support long options: https://stackoverflow.com/a/28466267/519
   printf '%s\t' "${out[@]}"
 }
 
-ds:opts() { # General flag opts handling
+ds:opts() { # General flag opts handling: ds:opts $@
   local OPTIND o s
   while getopts ":1:2:-:" OPT; do
     if [ "$OPT" = '-' ]; then
@@ -122,7 +124,7 @@ ds:opts() { # General flag opts handling
   echo reached end
 }
 
-ds:os() { # Return computer operating system if supported
+ds:os() { # Return computer operating system if supported: ds:os
   local mstest=/proc/version
   [ -f $mstest ] && grep -q Microsoft $mstest && echo "MS Windows" && return
 
@@ -142,22 +144,12 @@ ds:os() { # Return computer operating system if supported
     echo "Failed to detect OS" && return 1; fi
 }
 
-ds:not_git() { # Check if directory is not part of a git repo
+ds:not_git() { # Check if directory is not part of a git repo: ds:not_git
   [ -z $1 ] || cd "$1"
   [[ ! ( -d .git || $(git rev-parse --is-inside-work-tree 2> /dev/null) ) ]]
 }
 
-ds:unixtodos() { # Removes \r characters in place
-  # TODO: Name may need to be updated, put this and above in different file
-  # TODO: Add check for WSL
-  ds:file_check "$1"
-  local inputfile="$1" tmpfile=/tmp/unixtodos
-  cat "$inputfile" > $tmpfile
-  sed -e 's/\r//g' $tmpfile > "$inputfile"
-  rm $tmpfile
-}
-
-ds:is_cli() { # Detect if shell is interactive
+ds:is_cli() { # Detect if shell is interactive: ds:is_cli
   shell="$(ds:sh)"
   if [[ $shell =~ bash ]]; then
     [ "$PS1" ]
@@ -168,11 +160,11 @@ ds:is_cli() { # Detect if shell is interactive
     ds:fail 'This shell unsupported at this time'; fi
 }
 
-ds:readp() { # Portable read prompt
-  shell="$(ds:sh)"
-  if [[ $shell =~ bash ]]; then
+ds:readp() { # Portable read prompt: ds:readp [message]
+  local s="$(ds:sh)"
+  if [[ "$s" =~ bash ]]; then
     read -p $'[37m'"$1 "'[0m' readvar
-  elif [[ $shell =~ zsh ]]; then
+  elif [[ $s =~ zsh ]]; then
     read "readvar?$1 "
   else
     ds:fail 'This shell unsupported at this time'; fi
@@ -199,7 +191,7 @@ ds:gcam() { # Git commit add message
     git commit; fi
 }
 
-ds:downcase() { # Downcase strings
+ds:downcase() { # ** Downcase strings: ds:downcase str
   if ds:pipe_open; then
     cat /dev/stdin | tr "[:upper:]" "[:lower:]"
   else
@@ -207,12 +199,12 @@ ds:downcase() { # Downcase strings
   fi
 }
 
-ds:is_int() { # Tests if arg is an integer
+ds:is_int() { # Tests if arg is an integer: ds:is_int arg
   local int_re="^[0-9]+$"
   [[ $1 =~ $int_re ]]
 }
 
-ds:genvar() { # For meta programming - shell doesn't allow some chars in var names
+ds:genvar() { # Gen varname, shell disallows certain chars in var names: ds:genvar name
   local unparsed="$1"
 
   var="${unparsed//\./_DOT_}"
@@ -233,7 +225,7 @@ ds:genvar() { # For meta programming - shell doesn't allow some chars in var nam
   printf '%s\n' "${var}"
 }
 
-ds:ndata() { # Gathers data about names in current context
+ds:ndata() { # Gathers data about names in current context: ds:ndata
   local _var=$(declare | awk -F"=" '{print $1}' | awk '{print $NF}')
   local _func=$(declare -f | grep -h '^[A-Za-z_:]*\s()' | cut -f 1 -d ' ' \
     | grep -hv '()' | sed 's/^_//')
@@ -263,14 +255,14 @@ ds:ndata() { # Gathers data about names in current context
     <(printf '%s\n' ${_usrlocalbin})  | sort
 }
 
-ds:root() { # Returns the root volume / of the system
+ds:root() { # Returns the root volume / of the system: ds:root
   for vol in /Volumes/*; do
     if [ "$(readlink "$vol")" = / ]; then
       local root=$vol
       printf $root; fi; done
 }
 
-ds:termcolors() { # Check terminal colors
+ds:termcolors() { # Check terminal colors: ds:termcolors
   echo ANSI ESCAPE FG COLOR CODES
   print "\u001b[30m 30   \u001b[31m 31   \u001b[32m 32   \u001b[33m 33   \u001b[0m"
   print "\u001b[34m 34   \u001b[35m 35   \u001b[36m 36   \u001b[37m 37   \u001b[0m"
@@ -291,7 +283,7 @@ ds:termcolors() { # Check terminal colors
   done
 }
 
-ds:ascii() { # List characters in ASCII code point range
+ds:ascii() { # List characters in ASCII code point range: ds:ascii start_index end_index
   ds:is_int "$1" && ds:is_int "$2" || ds:fail 'Code point endpoint args must be integers'
   for i in $(seq $1 $2); do printf "%s " $i; printf -v n "%x" $i; echo "\U$n"; done
 }

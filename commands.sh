@@ -5,17 +5,18 @@ DS_SCRIPT="$DS_LOC/scripts"
 DS_SUPPORT="$DS_LOC/support"
 source "$DS_SUPPORT/utils.sh"
 
-ds:commands() { # List commands from dev_scripts/commands.sh: ds:commands [width]
+ds:commands() { # List commands from dev_scripts/commands.sh: ds:commands [bufferchar] [utils]
+  [ "$2" ] && local utils="$DS_SUPPORT/utils.sh"
   echo
-  grep -h '[[:alnum:]_]*()' "$DS_LOC/commands.sh" | sed 's/^  function //' \
-    | grep -hv grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
-    | ds:sbsp '\\\*\\\*' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 \
-      -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" | ds:sbsp ":[[:space:]]" "888" \
-      -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" \
+  grep -h '[[:alnum:]_]*()' "$DS_LOC/commands.sh" "$utils" 2>/dev/null | grep -hv grep | sort \
+    | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
+    | ds:sbsp '\\\*\\\*' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" \
+    | ds:sbsp ":[[:space:]]" "888" -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" \
     | ds:sbsp '\\\(alias ' '$' -v apply_to_fields=3 | sed 's/)@/@/' \
-    | awk -v FS="$DS_SEP" 'BEGIN{print "COMMAND" FS FS "DESCRIPTION" FS "ALIAS" FS "USAGE\n"}{print}
-      END{print "\nCOMMAND" FS FS "DESCRIPTION" FS "ALIAS" FS "USAGE"}' \
-    | ds:reo a 2,1,4,3,5 | ds:fit -v FS="$DS_SEP" -v tty_size="${1:-$(tput cols)}"
+    | awk -v FS="$DS_SEP" 'BEGIN{print "COMMAND" FS FS "DESCRIPTION" FS "ALIAS" FS "USAGE\n"}
+      {print} END{print "\nCOMMAND" FS FS "DESCRIPTION" FS "ALIAS" FS "USAGE"}' \
+    | ds:reo a 2,1,4,3,5 \
+    | ds:ttyf "$DS_SEP" -v bufferchar="${1:- }"
   echo
   echo "** - function supports receiving piped data"
   echo
@@ -26,7 +27,7 @@ ds:help() { # Print help for a given command: ds:help ds_command
   [[ "$1" =~ 'reo' ]] && ds:reo -h && return
   [[ "$1" =~ 'fit' ]] && ds:fit -h && return
   [[ "$1" =~ 'stag' ]] && ds:stag -h && return
-  ds:commands | ds:reo "2~$1" 3,4 -v FS="[[:space:]]{2,}"
+  ds:commands "" t | ds:reo "2,~$1" a
 }
 
 ds:gvi() { # Grep and open vim on the first match: ds:gvi search [file|dir]
@@ -83,16 +84,14 @@ ds:ntype() { # Get name type - function, alias, variable: ds:ntype name
     ' <(ds:ndata) 2> /dev/null
 }
 
-ds:zsh() { # Refresh zsh interactive session: ds:zsh
+ds:new() { # Refresh zsh or bash interactive session: ds:new
   # TODO: Clear persistent envars
-  # TODOL Make into single refsh command with bash
+  local s = "$(ds:sh)"
   clear
-  exec zsh
-}
-
-ds:bash() { # Refresh bash interactive session: ds:bash
-  clear
-  exec bash
+  if [[ "$s" =~ zsh ]]; then
+    exec zsh
+  elif [[ "$s" =~ bash ]]; then
+    exec bash; fi
 }
 
 ds:cp() { # ** Copy standard input in UTF-8: data | ds:cp
@@ -155,7 +154,7 @@ ds:join_by() { # ** Join a shell array by given delimiter: ds:join_by delimiter 
   echo -n "$first"; printf "%s" "${args[@]/#/$d}"
 }
 
-ds:test() { # ** Test input quietly using with extended regex: ds:test regex [str|file] [test_file=f]
+ds:test() { # ** Test input quietly with extended regex: ds:test regex [str|file] [test_file=f]
   ds:pipe_open && grep -Eq "$1" && return $?
   [[ "$3" =~ t ]] && [ -f "$2" ] && grep -Eq "$1" "$2" && return $?
   echo "$2" | grep -Eq "$1"
@@ -472,7 +471,7 @@ ds:shape() { # ** Print data shape by length or FS: ds:shape [file] [FS] [chart_
   ds:pipe_clean $file
 }
 
-ds:jn() { # ** Join two files, or a file and stdin, with any keyset: ds:jn file1 [file2] [jointype] [k] [k2] [awkargs]
+ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1 [file2] [jointype] [k] [k2] [awkargs]
   ds:file_check "$1"
   local f1="$1"; shift
   if ds:pipe_open; then
@@ -612,7 +611,7 @@ ds:inferk() { # ** Infer join fields in two text data files: ds:inferk [awkargs]
   ds:pipe_clean $file2
 }
 
-ds:inferfs() { # Infer field separator from data: inferfs file [reparse=f] [custom=t] [file_ext=t] [high_cert=f]
+ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [custom=t] [file_ext=t] [high_cert=f]
   ds:file_check "$1"
   local file="$1" reparse="${2:-false}" custom="${3:-true}" file_ext="${4:-true}" hc="${5:-false}"
 
@@ -685,7 +684,7 @@ ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [awkargs]
   ds:pipe_clean $file
 }
 
-ds:idx() { # ** Attach an index to lines from a file or stdin: ds:idx [file] [startline=1]
+ds:idx() { # ** Attach an index to lines from a file or STDIN: ds:idx [file] [startline=1]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_idx') piped=0
     cat /dev/stdin > $file
@@ -959,7 +958,7 @@ ds:sbsp() { # ** Extend fields by a common subseparator: ds:sbsp file subsep_pat
 
 ds:dostounix() { # Remove ^M / CR characters in place: ds:dostounix file
   ds:file_check "$1"
-  local inputfile="$1" tmpfile=$(ds:tmp 'ds_mactounix')
+  local inputfile="$1" tmpfile=$(ds:tmp 'ds_dostounix')
   cat "$inputfile" > $tmpfile
   tr -d "\015" < $tmpfile > "$inputfile"
   rm $tmpfile
@@ -1147,15 +1146,16 @@ ds:unicode() { # ** Get UTF-8 unicode for a character sequence: ds:unicode [str]
   done; echo
 }
 
-ds:webpage_title() { # Download html from webpage and extract title text: ds:webpage_title url
+ds:websel() { # Download and extract inner html by regex: ds:websel url [tag_re] [attrs_re]
   local location="$1" tr_file="$DS_SUPPORT/named_entities_escaped.sed"
-  local unescaped_title="$( wget -qO- "$location" |
-    perl -l -0777 -ne 'print $1 if /<title.*?>\s*(.*?)\s*<\/title/si' )"
+  local tag="${2:-[a-z]+}" attrs="${3:-[^>]*}"
+  local unescaped="$( wget -qO- "$location" |
+    perl -l -0777 -ne 'printf join("\n",/<'"$tag.*?$attrs"'.*?>\s*(.*?)\s*<\/'"$tag"'/g)' )"
 
-  if [ -f $tr_file ]; then
-    printf "$unescaped_title" | sed -f $tr_file
+  if [ -f "$tr_file" ]; then
+    printf "$unescaped" | sed -f "$tr_file"
   else
-    printf "$unescaped_title"; fi
+    printf "$unescaped"; fi
 }
 
 ds:dups() { # Report duplicate files with option for deletion: ds:dups [dir]

@@ -66,7 +66,7 @@ if [[ "$zzsh" && ! "$zsh_install_issue" ]] || [[ "$bazh" && ! "$bash_install_iss
     sed -i -e "s#DS_LOC=\"\$HOME/dev_scripts\"#DS_LOC=\"$DS_LOC\"#" commands.sh
   fi
 
-  cmds_heads="COMMAND              ALIAS     DESCRIPTION                                            USAGE"
+  cmds_heads="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
   tmp="tests/data/ds_setup_tmp"
   echo > $tmp
   echo 'Verifying installation...'

@@ -2,7 +2,7 @@
 # This test script should produce no output if test run is successful
 # TODO: Negative tests, Git tests
 
-test_var=1; tmp=/tmp/commands_tests; q=/dev/null
+test_var=1; tmp=/tmp/ds_commands_tests; q=/dev/null
 shell=$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')
 jnf1="tests/data/infer_join_fields_test1.csv" jnf2="tests/data/infer_join_fields_test2.csv"
 jnd1="tests/data/infer_jf_test_joined.csv" jnd2="tests/data/infer_jf_joined_fit"
@@ -31,15 +31,16 @@ fi
 # BASICS TESTS
 
 [[ $(ds:sh | grep -c "") = 1 && $(ds:sh) =~ sh ]] || ds:fail 'sh command failed'
-cmds="tests/data/commands_output"
+cmds="tests/data/commands_output" ch="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
 ds:commands > $tmp
-cmp --silent $cmds $tmp                          || ds:fail 'commands listing failed'
-ds_help_output="Print help for a given command ds:help ds_command"
-[ "$(ds:help 'ds:help')" = "$ds_help_output" ]   || ds:fail 'help command failed'
-ds:nset 'ds:nset' 1> $q                          || ds:fail 'nset command failed'
-ds:searchn 'ds:searchn' 1> $q                    || ds:fail 'searchn failed on func search'
-ds:searchn 'test_var' 1> $q                      || ds:fail 'searchn failed on var search'
-[ "$(ds:ntype 'ds:ntype')" = 'FUNC' ]            || ds:fail 'ntype commmand failed'
+cmp --silent $cmds $tmp && grep -q "$ch" $tmp     || ds:fail 'commands listing failed'
+ds_help_output="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
+@@@ds:help@@@@@@Print help for a given command@@@ds:help ds_command"
+[ "$(ds:help 'ds:help')" = "$ds_help_output" ]    || ds:fail 'help command failed'
+ds:nset 'ds:nset' 1> $q                           || ds:fail 'nset command failed'
+ds:searchn 'ds:searchn' 1> $q                     || ds:fail 'searchn failed on func search'
+ds:searchn 'test_var' 1> $q                       || ds:fail 'searchn failed on var search'
+[ "$(ds:ntype 'ds:ntype')" = 'FUNC' ]             || ds:fail 'ntype commmand failed'
 
 # zsh trace output in subshell lists a file descriptor
 if [[ $shell =~ 'zsh' ]]; then
@@ -51,7 +52,6 @@ elif [[ $shell =~ 'bash' ]]; then
 fi
 
 # GIT COMMANDS TESTS
-
 [ $(ds:git_recent_all | awk '{print $3}' | grep -c "") -gt 2 ] \
   || echo 'git recent all failed, possibly due to no git dirs in home'
 
@@ -349,7 +349,7 @@ ds:reo
 ds:nset
 ds:commands'
 [[ "$(ds:deps ds:help)" = "$help_deps" ]]                    || ds:fail 'deps command failed'
-[ "$(ds:webpage_title https://www.google.com)" = Google ]    || ds:fail 'webpage title command failed or internet is out'
+[ "$(ds:websel https://www.google.com title)" = Google ]    || ds:fail 'webpage title command failed or internet is out'
 
 # CLEANUP
 
