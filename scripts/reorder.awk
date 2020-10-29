@@ -5,7 +5,7 @@
 #       ds:reo, reorder.awk
 #
 # SYNOPSIS
-#       ds:reo [-h|--help|file] [r_args_str] [c_args_str] [dequote=true] [all_other_awkargs]
+#       ds:reo [-h|--help|file] [r_args_str] [c_args_str] [prefield=true] [awkargs]
 #
 # DESCRIPTION
 #       reorder.awk is a script that reorders, repeats, or slices the rows and columns of 
@@ -15,12 +15,15 @@
 #
 #    > awk -f reorder.awk -v r=1 -v c=1 file
 #
-#       Where r and c refer to row and column order args respectively.
+#       r and c refer to row and column order args respectively.
+#
 #
 #       Comma is the order arg separator. To escape a comma, it must have two backslashes 
-#       when passed to AWK, so it must have three slashes if in double quotes.
+#       when passed to AWK, so it must have three backslashes if in double quotes, or two 
+#       in single quotes:
 #
 #    > awk -f reorder.awk -v r="~\\\," c='~\\,'
+#
 #
 #       ds:reo is the caller function for the reorder.awk script. To run any of the 
 #       examples below, map AWK args as given in SYNOPSIS. For example, to print columns 
@@ -28,9 +31,10 @@
 #
 #    $ ds:reo addresses.csv "1,~Main St" "[ZIP" -v cased=1
 #
-#       When running with piped data, the args are shifted:
+#       When running with piped data, args are shifted:
 #
 #    $ data_in | ds:reo [r_args_str] [c_args_str] [dequote=true] [awkargs]
+#
 #
 #       When running ds:reo, an attempt is made to infer a field separator of up to
 #       three characters. If none is found, FS will be set to default value, a single 
@@ -47,9 +51,10 @@
 #
 #    $ ds:reo addresses_with_bad_sep.csv '[ZIP%3' a -v FS=""
 #
+#
 #       When running ds:reo, an attempt is made to extract relevant instances of field 
 #       separators in the case that a field separator appears in field values. To turn this 
-#       off set dequote to false in the positional arg.
+#       off set prefield to false in the positional arg.
 #
 #    $ ds:reo simple_data.csv 1,500..2 a [f|false]
 #
@@ -75,6 +80,10 @@
 #
 #    $ ds:reo 1,1000 1,4,5
 #
+#       Print rows/column index numbers relative to maximum index value:
+#
+#    $ ds:reo -1,-2 -3
+#
 #       Pass all rows / columns for given index - don't set arg or set arg=[a|all] (Print
 #       all rows, only column 4)
 #
@@ -83,6 +92,10 @@
 #       Print index range (ranges are inclusive of ending indices):
 #
 #    $ ds:reo 1,100..200 1..3,5
+#
+#       Print index range with endpoints relative to maximum index val:
+#
+#    $ ds:reo -3..-1 -5..1
 #
 #       Reorder/repeat rows and fields, duplicate as many times as desired:
 #
@@ -133,8 +146,8 @@
 #
 #       Note the above args are equivalent to "1~europe" "1~plant".
 #
-#       Combine filters using && and || for more selective or expansive queries ||
-#       is currently calculated first (Print rows where field vals in fields
+#       Combine filters using && and || for more selective or expansive queries
+#       - || is currently calculated first (Print rows where field vals in fields
 #       with headers matching "plant" match "flower" OR where the same match
 #       tree and field vals in fields in the same row with headers matching
 #       "country" match "italy", and print all fields in reverse order):
@@ -152,14 +165,13 @@
 #       o[thers] anywhere in either dimension (Print rows 3, 4, then any not in the set 
 #       1,3,4, then row 1; fields where header matches "tests", then any remaining fields):
 #
-#    $ ds:reo file "3,4,others,1" "[Tests,others"
+#    $ ds:reo file "3,4,others,1" "[Tests,oth"
 #
 ## TODO: option (or default?) for preserving original order
 ## TODO: basic sorts
 ## TODO: string equality / sorting
-## TODO: negative indices meaning indices from end?
 ## TODO: reverse from a particular point (for example, keep header)
-## TODO: Index number output
+## TODO: Optional index number output
 ## TODO: Pattern anchors /pattern/../pattern/
 ## TODO: Remove frame print if already indexed, and don't print if no match (?)
 ## TODO: Expressions and comparisons against cross-index total
@@ -173,6 +185,8 @@ BEGIN {
   assume_constant_fields = 0; base_r = 1; base_c = 1
   min_guar_print_nf = 1000; min_guar_print_nr = 100000000
   if (!cased) ignore_case_global = 1
+  if (ARGV[1]) { # TODO: Handle unsupported cases
+    "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0 }
 
   if (debug) DebugPrint(-1)
   if (r) {
@@ -200,6 +214,7 @@ BEGIN {
     delete ReoC[0] }
   else { pass_c = 1 }
   if (!reo_c_count) pass_c = 1
+
   if (pass_r && pass_c) pass = 1
   if (r_len == 1 && c_len == 1 && !pass_r && !pass_c && !range && !reo)
     indx = 1
@@ -207,10 +222,9 @@ BEGIN {
     base = 1
   else if (range && !reo)
     base_range = 1
-  else if (reo && !mat && !re && !rev && !oth)
+  else if (reo && !mat && !re && !rev && !oth && !c_nidx && !c_nidx_rng)
     base_reo = 1
 
-  if (ARGV[1]) { "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0 }
   if (OFS ~ "\\\\") OFS = UnescapeOFS()
   if (OFS ~ "\[:space:\]") OFS = " "
   reo_r_len = length(ReoR)
@@ -256,8 +270,12 @@ pass { FieldsPrint($0, 0, 1) }
 ## FINAL PROCESSING FOR REORDER CASES
 
 END {
-  if (debug) DebugPrint(4) 
+  if (debug) DebugPrint(4)
   if (err || !reo || (base_reo && pass_r)) exit err
+  if (c_nidx) {
+    SetNegativeIndexFieldOrder(0, CNidx, max_nf) }
+  if (c_nidx_rng) {
+    SetNegativeIndexFieldOrder(1, CNidxRanges, max_nf) }
   if (oth) {
     if (debug) DebugPrint(10)
     if (oth_r) remaining_ro = GenRemainder(1, ReoR, NR)
@@ -270,7 +288,7 @@ END {
     if (!pass_c) DebugPrint(6); DebugPrint(8) }
 
   if (!pass_c && !q && !rev_c && !oth_c && max_nf < min_guar_print_nf)
-    MatchCheck(ExprFO, SearchFO)
+    MatchCheck(ExprFO, SearchFO, CNidx, CNidxRanges)
   if (!pass_r && !q && !rev_r && !oth_r && NR < min_guar_print_nr)
     MatchCheck(ExprRO, SearchRO)
 
@@ -372,6 +390,9 @@ function FieldsPrint(Order, ord_len, run_call) {
 function FillRange(row_call, range_arg, RangeArr, reo_count, ReoArr) {
   split(range_arg, RngAnc, TkMap["rng"])
   start = RngAnc[1]; end = RngAnc[2]
+  if (range_arg ~ Re["nidx_rng"]) {
+    if (start ~ /^-/) start = max_nr + start + 1
+    if (end ~ /^-/) end = max_nr + end + 1 }
   if (debug) DebugPrint(2)
 
   if (start > end) { reo = 1
@@ -396,7 +417,7 @@ function FillReoArr(row_call, val, KeyArr, count, ReoArr, type) {
       min_guar_print_nr = val }
   else if (!row_call) {
     C[val] = 1
-    if (val < min_guar_print_nf)
+    if (val > 0 && val < min_guar_print_nf)
       min_guar_print_nf = val }
  
   return count
@@ -416,9 +437,8 @@ function StoreFieldRefs() {
       test_row = (fr_ext && Fr[1]) ? Fr[1] : 1
       if (NR != test_row) continue
       base_search = Fr[2]
-      if (!ignore_case_global) ignore_case = IgnoreCase[search]
-      ic = (ignore_case_global || ignore_case)
-      if (ic) base_search = tolower(base_search)
+      ignore_case = (ignore_case_global || IgnoreCase[search])
+      if (ignore_case) base_search = tolower(base_search)
       for (f = 1; f <= NF; f++) {
         field = ic ? tolower($f) : $f
         if (field ~ base_search) SearchFO[search] = SearchFO[search] f"," }}
@@ -501,8 +521,8 @@ function StoreFieldRefs() {
         if (EvalCompExpr(eval, compval, comp))
             ExprFO[expr] = ExprFO[expr] f"," }}}
 
-  if (rev_c) {
-    for (f = max_nf + 1; f <= NF; f++) rev_fo = f"," rev_fo }
+  if (rev_c)
+    for (f = max_nf + 1; f <= NF; f++) rev_fo = f"," rev_fo
 }
 
 function StoreRowRefs() {
@@ -693,12 +713,42 @@ function ResolveMultisetLogic(row_call, key, max_val) {
   return combin_idx
 }
 
+function SetNegativeIndexFieldOrder(range_call, ArgArr, max_val) {
+  if (!max_val) {
+    for (arg in ArgArr) delete ArgArr[arg]
+    return }
+  if (range_call) {
+    for (range_arg in ArgArr) {
+      ord = ""
+      split(range_arg, RngAnc, TkMap["rng"])
+      start = RngAnc[1]; end = RngAnc[2]
+      if (start ~ /^-/) start = max_val + start + 1
+      if (end ~ /^-/) end = max_val + end + 1
+      if (start < 1 && end < 1) continue
+      else if (start < 1) start = 1
+      else if (end < 1) end = 1
+
+      if (start > end)
+        for (k = start; k >= end; k--)
+          ord = ord k","
+      else
+        for (k = start; k <= end; k++)
+          ord = ord k","
+      ArgArr[range_arg] = ord }}
+  else {
+    for (arg in ArgArr) {
+      val = max_val + arg + 1
+      if (val < 1) delete ArgArr[arg]
+      else ArgArr[arg] = val"," }}
+}
+
 function GenRemainder(row_call, ReoArr, max_val) {
   all_reo = ""; rem_idx = ""
   for (i in ReoArr)
     all_reo = all_reo GetOrder(row_call, ReoArr[i])
   for (i = 1; i <= max_val; i++)
-    if (!Indexed(all_reo, i)) rem_idx = rem_idx i","
+    if (!Indexed(all_reo, i))
+      rem_idx = rem_idx i","
 
   if (debug) DebugPrint(11)
   return rem_idx
@@ -711,14 +761,16 @@ function GetOrder(row_call, key) {
     if (type == "rev") return rev_ro
     else if (type == "oth") return remaining_ro
     else if (type == "re") return SearchRO[key]
-    else if (type == "mat") return ExprRO[key] 
+    else if (type == "mat") return ExprRO[key]
     else if (type == "ext") return ExtRO[key] }
   else {
     if (type == "rev") return rev_fo
     else if (type == "oth") return remaining_fo
+    else if (type == "nidx") return CNidx[key]
     else if (type == "re") return SearchFO[key]
-    else if (type == "mat") return ExprFO[key] 
-    else if (type == "ext") return ExtFO[key] }
+    else if (type == "mat") return ExprFO[key]
+    else if (type == "ext") return ExtFO[key]
+    else if (type == "nidx_rng") return CNidxRanges[key] }
 }
 
 function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, rev_o, oth_o, ExprArr, SearchArr, IdxSearchArr, FramesArr, ExtArr) {
@@ -740,21 +792,28 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
       token = o_i ~ Re["alltokens"] ? TokenPrecedence(o_i) : ""
       if (debug) { row_call ? DebugPrint(1) : DebugPrint(1.5) }
 
-      if (!token) {
-        if ("reverse" ~ "^"tolower(o_i)) {
-          o_i = "rev"; base_o = 0; reo = 1; rev = 1; rev_o = 1
-          reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, "rev")
-          continue }
-        if ("others" ~ "^"tolower(o_i)) {
-          o_i = "oth"; base_o = 0; reo = 1; oth = 1; oth_o = 1
-          reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, "oth")
-          continue }
-        if (!(o_i ~ Re["int"])) continue
+      if (o_i ~ Re["int"] || token == "nidx") {
+        if (token == "nidx") {
+          if (row_call)
+            o_i = max_nr + o_i + 1
+          else {
+            reo = 1; c_nidx = 1
+            reo_count = FillReoArr(0, o_i, CNidx, reo_count, ReoArr, token)
+            continue }}
         reo_count = FillReoArr(row_call, o_i, RangeArr, reo_count, ReoArr)
         if (!reo && o_i > max_o_i)
           max_o_i = o_i
         else {
           reo = 1; base_o = 0 }}
+      else if (!token) {
+        if ("reverse" ~ "^"tolower(o_i)) {
+          o_i = "rev"; base_o = 0; reo = 1; rev = 1; rev_o = 1
+          reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, "rev")
+          continue }
+        else if ("others" ~ "^"tolower(o_i)) {
+          o_i = "oth"; base_o = 0; reo = 1; oth = 1; oth_o = 1
+          reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, "oth")
+          continue }}
       else {
         if (!row_call) delete Order[i]
         max_o_i = TestArg(o_i, max_o_i, token)
@@ -762,22 +821,22 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
         if (IgnoreCase[o_i]) {
           o_i = tolower(o_i); gsub("/i", "", o_i); IgnoreCase[o_i] = 1; ExtOrder[j] = o_i }
 
-        if (token == "rng")
+        if (token == "rng" || (token == "nidx_rng" && row_call))
           reo_count = FillRange(row_call, o_i, OArr, reo_count, ReoArr)
-        else {
-          if (token == "mat")
-            reo_count = FillReoArr(row_call, o_i, ExprArr, reo_count, ReoArr, token)
-          else if (token == "re")
-            reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, token)
-          else if (token == "fr") {
-            FramesArr[o_i] = 1
-            if (fr == "mat")
-              reo_count = FillReoArr(row_call, o_i, ExprArr, reo_count, ReoArr, fr)
-            else if (fr == "re" && fr_idx)
-              reo_count = FillReoArr(row_call, o_i, IdxSearchArr, reo_count, ReoArr, fr)
-            else if (fr == "re")
-              reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, fr) }
-        }}}
+        else if (token == "nidx_rng")
+          reo_count = FillReoArr(row_call, o_i, CNidxRanges, reo_count, ReoArr, token)
+        else if (token == "mat")
+          reo_count = FillReoArr(row_call, o_i, ExprArr, reo_count, ReoArr, token)
+        else if (token == "re")
+          reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, token)
+        else if (token == "fr") {
+          FramesArr[o_i] = 1
+          if (fr == "mat")
+            reo_count = FillReoArr(row_call, o_i, ExprArr, reo_count, ReoArr, fr)
+          else if (fr == "re" && fr_idx)
+            reo_count = FillReoArr(row_call, o_i, IdxSearchArr, reo_count, ReoArr, fr)
+          else if (fr == "re")
+            reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, fr) }}}
 
       if (ExtArr[base_i]) {
         delete ExtArr[base_i]; base_i = ""
@@ -802,43 +861,55 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
 }
 
 function TokenPrecedence(arg) {
+  if (arg ~ Re["nidx_rng"])
+    return "nidx_rng"
+  else if (arg ~ Re["n_int"])
+    return "nidx"
+
   found_token = ""; loc_min = 100000
   for (tk in Tk) {
     tk_loc = index(arg, tk)
     if (debug) DebugPrint(3, arg)
     if (tk_loc && tk_loc < loc_min) {
       loc_min = tk_loc
-      found_token = Tk[tk] }
-    if (tk_loc == 1) break }
+      found_token = Tk[tk]
+      if (tk_loc == 1) break }}
   return found_token
 }
 
-function TestArg(arg, max_i, type) {
-  if (!type) {
-    if (arg ~ Re["int"])
-      return arg
-    else {
-      print "Order arg "arg" not parsable - simple order arg format is integer"
-      exit 1 }} 
-
+function TestArg(arg, max_i, type, row_call) {
   split(arg, Subargv, TkMap[type])
   sa1 = Subargv[1]; sa2 = Subargv[2]
   len_sargv = length(Subargv)
 
   if (type == "rng") { range = 1
     if (len_sargv != 2 || !(sa1 ~ Re["int"]) || !(sa2 ~ Re["int"])) {
-      print "Invalid order range arg "arg" - range format is for example: 1..9"
+      print "Invalid range order arg "arg" - range formats include:"
+      print "1..9 600..1"
       exit 1
     if (reo || sa1 >= sa2 || sa1 <= max_i)
       reo = 1
     else
-      max_i = ra2 }}
+      max_i = sa2 }}
+
+  else if (type == "nidx_rng") { range = 1; nidx_rng = 1
+    if (!row_call) c_nidx_rng = 1
+    if (len_sargv != 2 || !(sa1 ~ Re["n_int"]) || !(sa2 ~ Re["n_int"])) {
+      print "Invalid negative index range order arg "arg" - negative index range formats include:"
+      print "1..-1  -5..-3  -10..1"
+      exit 1 }
+    if (sa1 ~ /^-/) sa1 = max_nr + sa1 + 1
+    if (sa2 ~ /^-/) sa1 = max_nr + sa2 + 1
+    if (reo || !row_call || sa1 >= sa2 || sa1 <= max_i)
+      reo = 1
+    else
+      max_i = sa2 }
 
   else if (type == "mat") { reo = 1; mat = 1
     for (sa_i = 2; sa_i <= length(Subargv); sa_i++)
       if (!(Subargv[sa_i] ~ Re["int"])) nonint_sarg = 1
     if (nonint_sarg || !(arg ~ Re["matarg1"] || arg ~ Re["matarg2"])) {
-      print "Invalid order expression arg "arg" - expression format examples include: "
+      print "Invalid expression order arg "arg" - expression format examples include:"
       print "NR%2  2%3=5  NF!=4  *6/8%2=1"
       exit 1 }}
 
@@ -847,8 +918,8 @@ function TestArg(arg, max_i, type) {
     if (ignore_case_global || arg ~ "\/[iI]") IgnoreCase[arg] = 1
     re_test = substr(arg, length(sa1)+2, length(arg))
     if ("" ~ re_test) {
-      print "Invalid order search range arg "arg" - search arg format examples include: "
-      print "~search  2~search"
+      print "Invalid search order arg "arg" - search arg format examples include:"
+      print "~search  2~pattern/i  4!~[0-9]+"
       exit 1 }}
 
   else if (type == "fr") { reo = 1; fr_idx = 0
@@ -861,7 +932,7 @@ function TestArg(arg, max_i, type) {
     else if (sa2) {
       fr = "re"; re = 1; fr_idx = 1; FrIdx[arg] = 1 }
     else {
-      print "Invalid order frame arg "arg" - frame arg format examples include: "
+      print "Invalid frame order arg "arg" - frame arg format examples include: "
       print "[RowHeaderPattern  5[Index5Pattern~search  [HeaderPattern!=30"
       exit 1 }}
 
@@ -872,8 +943,12 @@ function TestArg(arg, max_i, type) {
   return max_i
 }
 
-function MatchCheck(ExprOrder, SearchOrder) {
+function MatchCheck(ExprOrder, SearchOrder, CNidx, CNidxRanges) {
   will_print = 0
+  for (cnidx in CNidx) {
+    if (CNidx[cnidx]) { will_print = 1; break }}
+  for (cnidxrng in CNidxRanges) {
+    if (CNidxRanges[cnidxrng]) { will_print = 1; break }}
   for (expr in ExprOrder) {
     if (ExprOrder[expr]) { will_print = 1; break }}
   for (search in SearchOrder) {
@@ -888,26 +963,29 @@ function Indexed(idx_ord, test_idx) {
 }
 
 function BuildRe(Re) {
+  Re["ordsep"] = ",+"
+  Re["ws"] = "^[:space:]+$"
   Re["num"] = "[0-9]+"
   Re["int"] = "^[0-9]+$"
+  Re["n_int"] = "^-?[0-9]+$"
+  Re["nan"] = "[^0-9]"
   Re["decnum"] = "^[[:space:]]*(\\-)?(\\()?(\\$)?[0-9,]+([\.][0-9]*)?(\\))?[[:space:]]*$"
   Re["intmat"] = "[0-9!\\+\\-\\*\/%\\^<>=]"
-  Re["nan"] = "[^0-9]"
+  Re["comp"] = "(<|>|!?=)"
+  Re["ext"] = "(&&|\\|\\|)"
+  Re["extcomp"] = "[^(&&|\\|\\|)]+"
   Re["matarg1"] = "^(NR|NF)?[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])[0-9]+)?$"
   Re["matarg2"] = "^(NR|NF)?(!=|[=<>%])[0-9]+$"
   Re["frmat"] = "\\[[^~]+[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])[0-9]+)?$" #]
   Re["frre"] = "\\[.+!?~.+" #]
-  Re["ordsep"] = ",+"
-  Re["comp"] = "(<|>|!?=)"
   Re["alltokens"] = "[(\\.\\.)\\~\\+\\-\\*\\/%\\^<>(!=)=\\[(##)]"
-  Re["ws"] = "^[:space:]+$"
-  Re["ext"] = "(&&|\\|\\|)"
-  Re["extcomp"] = "[^(&&|\\|\\|)]+"
-  Re["anc"] = "(.+##.?|.?##.+)"
+  Re["anc"] = "^(.+##.?|.?##.+)$"
+  Re["nidx_rng"] = "^(-?[0-9]+\\.\\.-[0-9]+|-[0-9]+\\.\\.-?[0-9]+)$"
 }
 
 function BuildTokenMap(TkMap) {
   TkMap["rng"] = "\\.\\."
+  TkMap["nidx_rng"] = "\\.\\."
   TkMap["fr"] = "\\[" #]
   TkMap["re"] = "!?\~"
   TkMap["mat"] = "(!=|[\\+\\-\\*\/%\\^<>=])"
@@ -933,6 +1011,7 @@ function BuildTokens(Tk) {
 
 function EvalExpr(expr) {
   res = 0
+  # TODO: Add gsub for fields comparison here
   split(expr, a, "+")
   for(a_i in a){
     split(a[a_i], s, "-")
@@ -962,9 +1041,9 @@ function EvalExpr(expr) {
 }
 
 function EvalCompExpr(left, right, comp) {
-  return (comp == "="  && left == right) ||
-         (comp == ">"  && left > right) ||
-         (comp == "<"  && left < right)
+  return (comp == "=" && left == right) ||
+         (comp == ">" && left > right) ||
+         (comp == "<" && left < right)
 }
 
 function GetComp(string) {
@@ -1072,7 +1151,11 @@ function DebugPrint(case, arg) {
     if (ext) print "extended logic case"
     if (fr) print "header/frame base case"
     if (fr_ext) print "frame extended case" 
-    if (anc) print "anchor search case" }
+    if (anc) print "anchor search case"
+    if (nidx) print "negative index case"
+    if (c_nidx) print "column negative index case"
+    if (nidx_rng) print "negative index range case"
+    if (c_nidx_rng) print "column negative index range case" }
 
   else if (case == 5) {
     print "NR: "NR ", f: "f ", anchor: "anchor ", apply to: "base_expr ", evals to: "eval ", compare: "comp, compval }
