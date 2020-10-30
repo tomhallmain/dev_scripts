@@ -37,7 +37,7 @@ NR == FNR {
         if (debug) debug_print(3)
         max_subseps[f] = num_subseps
         for (j = 1; j <= num_subseps; j++) {
-          if (!trim(SubseparatedLine[j])) {
+          if (!Trim(SubseparatedLine[j])) {
             SubfieldShifts[f]-- }}}}}
   else {
     for (f = 1; f <= NF; f++) {
@@ -46,7 +46,7 @@ NR == FNR {
         if (debug) debug_print(3)
         max_subseps[f] = num_subseps
         for (j = 1; j <= num_subseps; j++) {
-          if (!trim(SubseparatedLine[j])) {
+          if (!Trim(SubseparatedLine[j])) {
             SubfieldShifts[f]-- }}}}}
 }
 
@@ -61,24 +61,24 @@ NR > FNR {
       num_subseps = split($f, SubseparatedLine, subsep_pattern)
       k = 0
       for (j = 1; j <= subfield_partitions; j++) {
-        if (last_field && j == subfield_partitions) conditional_ofs = ""
+        conditional_ofs = (last_field && j == subfield_partitions) ? "" : OFS
         outer_subfield = j % 2 + shift
         if (outer_subfield) k++
         if (debug && (retain_pattern || outer_subfield)) debug_print(2)
         if (num_subseps < n_outer_subfields - shift) {
           split($f, HandlingLine, nomatch_handler)
           if (outer_subfield)
-            printf trim(HandlingLine[k]) conditional_ofs
+            printf Trim(HandlingLine[k]) conditional_ofs
           else if (retain_pattern)
             printf conditional_ofs }
         else {
           if (outer_subfield)
-            printf trim(SubseparatedLine[k-shift]) conditional_ofs
+            printf Trim(SubseparatedLine[k-shift]) conditional_ofs
           else if (retain_pattern)
             printf unescaped_pattern OFS }}}
     else {
-      conditional_ofs = (last_field ? "" : OFS)
-      printf trim($f) conditional_ofs }}
+      conditional_ofs = last_field ? "" : OFS
+      printf Trim($f) conditional_ofs }}
 
   print ""
 }
@@ -92,7 +92,7 @@ function Unescape(string) {
   }
   return string
 }
-function trim(string) {
+function Trim(string) {
   gsub(/^[[:space:]]+|[[:space:]]+$/, "", string)
   return string
 }

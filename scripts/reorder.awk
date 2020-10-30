@@ -101,6 +101,11 @@
 #
 #    $ ds:reo file 3,3,5,1 4..1,1,3,5
 #
+#       Print a range by defining inclusive pattern anchors. If one of the anchors is not 
+#       given, it will default to the first or last row for start or end anchor respectively:
+#
+#    $ ds:reo file '1,5, start_pattern##end_pattern' '##end_pattern'
+#
 #       Reverse indices by adding the string r[everse] anywhere in the order:
 #
 #    $ ds:reo 1,r all,rev
@@ -109,7 +114,7 @@
 #       if expression equal to zero. NR and NF refer to the index number and must be
 #       used on the left side of the expression:
 #
-#    $ ds:reo "NR%2,NR%2=1" "NF<10"
+#    $ ds:reo 'NR%2,NR%2=1' 'NF<10'
 #
 #       Filter records by field values and/or fields by record values:
 #
@@ -117,34 +122,34 @@
 #       field value =1, followed by rows with value <1, and fields with values less than 
 #       11 when divided by 5):
 #
-#    $ ds:reo "=1,<1" "/5<11"
+#    $ ds:reo '=1, <1' '/5<11'
 #
 #       -- Using basic math expressions, across given span (Print the header row followed
 #       by rows where field 8 is negative, only fields with values in row 6 not equal to 10
 #
-#    $ ds:reo "1,8<0" "6!=10"
+#    $ ds:reo '1, 8<0' '6!=10'
 #
 #       -- Using regular expressions across the opposite span, full or specified 
 #       (Print Rows matching "plant" followed by rows without alpha chars, only fields
 #       with values in row 3 that match simple decimal pattern):
 #
-#    $ ds:reo "~plant,!~[A-z]" "3~[0-9]+\.[0-9]" -v cased=1
+#    $ ds:reo '~plant , !~[A-z]' '3~[0-9]+\.[0-9]' -v cased=1
 #
 #       Alternatively filter the cross-span by a current-span frame pattern. Headers --
 #       first row and first column -- are the default if not specified (Print rows where 
 #       column header matches "plant" and column value matches "flower", fields where 
 #       values in col 3 match "alps" and which have number values greater than 10000
 #
-#    $ ds:reo "[plant~flower" "3[alps>10000"
+#    $ ds:reo '[plant~flower' '3[alps>10000'
 #
 #       If no expression or search given with frame, simple search is done on the cross
 #       span, not the current span -- frame rows by column, columns by row (Print rows 
 #       where first col matches 'europe' (any case), fields where first row matches 
 #       'plant' (any case)):
 #
-#    $ ds:reo file "[europe" "[plant"
+#    $ ds:reo file '[europe' '[plant'
 #
-#       Note the above args are equivalent to "1~europe" "1~plant".
+#       Note the above args are equivalent to '1~europe' '1~plant'.
 #
 #       Combine filters using && and || for more selective or expansive queries
 #       - || is currently calculated first (Print rows where field vals in fields
@@ -152,20 +157,20 @@
 #       tree and field vals in fields in the same row with headers matching
 #       "country" match "italy", and print all fields in reverse order):
 #
-#    $ ds:reo file "[plant~flower||[plant~tree&&[country~italy" rev
+#    $ ds:reo file '[plant~flower || [plant~tree && [country~italy' rev
 #
 #       Case is ignored globally by default in regex searches. To enable cased matching 
 #       set variable cased to any value. To search a case insensitive value while cased 
 #       is set, append "/i" to the end of the pattern (Print rows where first col matches
 #       "europe" in any case, fields where first row matches "Plant" exactly):
 #
-#    $ ds:reo file "[europe/i" "[Plant" -v cased=1
+#    $ ds:reo file '[europe/i' '[Plant' -v cased=1
 #
 #       To print any columns or rows that did not match the filter args, add the string 
 #       o[thers] anywhere in either dimension (Print rows 3, 4, then any not in the set 
 #       1,3,4, then row 1; fields where header matches "tests", then any remaining fields):
 #
-#    $ ds:reo file "3,4,others,1" "[Tests,oth"
+#    $ ds:reo file '3, 4, others, 1' '[Tests,oth'
 #
 ## TODO: option (or default?) for preserving original order
 ## TODO: basic sorts
@@ -185,14 +190,14 @@ BEGIN {
   assume_constant_fields = 0; base_r = 1; base_c = 1
   min_guar_print_nf = 1000; min_guar_print_nr = 100000000
   if (!cased) ignore_case_global = 1
-  if (ARGV[1]) { # TODO: Handle unsupported cases
+  if (ARGV[1]) { # TODO: Handle unsupported cases if file arg not present
     "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0 }
 
   if (debug) DebugPrint(-1)
   if (r) {
     gsub("\\\\,", "?ECSOCMAMPA?", r) # Unescape comma searches
     ReoR[0] = 1
-    Setup(1, r, reo_r_count, R, RangeR, ReoR, base_r, rev_r, oth_r, RRExprs, RRSearches, RRIdxSearches, RRFrames, RExtensions)
+    Setup(1, r, reo_r_count, R, RangeR, ReoR, base_r, rev_r, oth_r, RRExprs, RRSearches, RRIdxSearches, RRFrames, RAnchors, RExtensions)
     r_len = SetupVars["len"]
     reo_r_count = SetupVars["count"]
     base_r = SetupVars["base_status"]
@@ -202,17 +207,17 @@ BEGIN {
   else { pass_r = 1 }
   if (!reo_r_count) pass_r = 1
 
-  if (c) {
+  if (c && !(c == "off")) {
     gsub("\\\\,", "?ECSOCMAMPA?", c) # Unescape comma searches
     ReoC[0] = 1
-    Setup(0, c, reo_c_count, C, RangeC, ReoC, base_c, rev_c, oth_c, RCExprs, RCSearches, RCIdxSearches, RCFrames, CExtensions)
+    Setup(0, c, reo_c_count, C, RangeC, ReoC, base_c, rev_c, oth_c, RCExprs, RCSearches, RCIdxSearches, RCFrames, CAnchors, CExtensions)
     c_len = SetupVars["len"]
     reo_c_count = SetupVars["count"]
     base_c = SetupVars["base_status"]
     rev_c = SetupVars["rev"]
     oth_c = SetupVars["oth"] 
     delete ReoC[0] }
-  else { pass_c = 1 }
+  else { pass_c = 1; if (c == "off") c_off = 1 }
   if (!reo_c_count) pass_c = 1
 
   if (pass_r && pass_c) pass = 1
@@ -222,11 +227,11 @@ BEGIN {
     base = 1
   else if (range && !reo)
     base_range = 1
-  else if (reo && !mat && !re && !rev && !oth && !c_nidx && !c_nidx_rng)
+  else if (reo && !mat && !re && !anc && !rev && !oth && !c_nidx && !c_nidx_rng)
     base_reo = 1
 
   if (OFS ~ "\\\\") OFS = UnescapeOFS()
-  if (OFS ~ "\[:space:\]") OFS = " "
+  if (OFS ~ "\\[:space:\\]") OFS = " "
   reo_r_len = length(ReoR)
   reo_c_len = length(ReoC)
   if (debug) { DebugPrint(0); DebugPrint(7) }
@@ -276,6 +281,9 @@ END {
     SetNegativeIndexFieldOrder(0, CNidx, max_nf) }
   if (c_nidx_rng) {
     SetNegativeIndexFieldOrder(1, CNidxRanges, max_nf) }
+  if (anc) {
+    FillAnchorRange(1, RAnchors, AnchorRO)
+    FillAnchorRange(0, CAnchors, AnchorFO) }
   if (oth) {
     if (debug) DebugPrint(10)
     if (oth_r) remaining_ro = GenRemainder(1, ReoR, NR)
@@ -287,10 +295,10 @@ END {
   if (debug) {
     if (!pass_c) DebugPrint(6); DebugPrint(8) }
 
-  if (!pass_c && !q && !rev_c && !oth_c && max_nf < min_guar_print_nf)
-    MatchCheck(ExprFO, SearchFO, CNidx, CNidxRanges)
-  if (!pass_r && !q && !rev_r && !oth_r && NR < min_guar_print_nr)
-    MatchCheck(ExprRO, SearchRO)
+  if (!pass_c && !q && !rev_c && !oth_c && !c_anc_found && max_nf < min_guar_print_nf)
+    MatchCheck(ExprFO, SearchFO, AnchorFO, CNidx, CNidxRanges)
+  if (!pass_r && !q && !rev_r && !oth_r && !r_anc_found && NR < min_guar_print_nr)
+    MatchCheck(ExprRO, SearchRO, AnchorRO)
 
   if (pass_r) {
     for (rr = 1; rr <= NR; rr++) {
@@ -367,7 +375,12 @@ function Reo(key, CrossSpan, row_call) {
 
 function FieldsPrint(Order, ord_len, run_call) {
   if (pass_c) {
-    if (run_call) {
+    if (c_off) {
+      if (run_call)
+        print $0
+      else
+        print Order }
+    else if (run_call) {
       for (pf = 1; pf < NF; pf++)
         printf "%s", $pf OFS
 
@@ -521,6 +534,23 @@ function StoreFieldRefs() {
         if (EvalCompExpr(eval, compval, comp))
             ExprFO[expr] = ExprFO[expr] f"," }}}
 
+  if (anc && !c_anc_found && NF > 3) {
+    for (anchor in CAnchors) {
+      if (CAnchorSet[anchor]) continue
+      split(anchor, Anchors, TkMap["anc"])
+      for (f = 1; f <= NF; f++) {
+        field = ignore_case ? tolower($f) : $f
+        if (Anchors[1] && !CAnchorStart[anchor] && field ~ Anchors[1]) {
+          CAnchorStart[anchor] = f
+          if (!CAnchorEnd[anchor]) continue }
+        if (Anchors[2] && !CAnchorEnd[anchor] && field ~ Anchors[2])
+          CAnchorEnd[anchor] = f 
+        if (CAnchorStart[anchor] && CAnchorEnd[anchor])
+          CAnchorSet[anchor] = 1 }
+      if (CAnchorSet[anchor]) c_ancs++ }
+    if (c_ancs == length(CAnchors))
+      c_anc_found = 1 }
+
   if (rev_c)
     for (f = max_nf + 1; f <= NF; f++) rev_fo = f"," rev_fo
 }
@@ -585,8 +615,7 @@ function StoreRowRefs() {
             SearchRO[search] = SearchRO[search] NR"," }
         else if (!exclude) {
           if (field ~ base_search)
-            SearchRO[search] = SearchRO[search] NR"," }
-        }}
+            SearchRO[search] = SearchRO[search] NR"," }}}
 
   if (mat) {
     for (expr in RRExprs) {
@@ -651,8 +680,23 @@ function StoreRowRefs() {
           if (fr_expr && !frame_set)
             FrameRowFields[expr] = FrameRowFields[expr] NR":"f","
           else
-            ExprRO[expr] = ExprRO[expr] NR","
-        }}}}
+            ExprRO[expr] = ExprRO[expr] NR"," }}}}
+
+  if (anc && !r_anc_found) {
+    for (anchor in RAnchors) {
+      if (RAnchorSet[anchor]) continue
+      split(anchor, Anchors, TkMap["anc"])
+      row_test = ignore_case ? tolower($0) : $0
+      if (Anchors[1] && !RAnchorStart[anchor] && row_test ~ Anchors[1]) {
+        RAnchorStart[anchor] = NR
+        if (!RAnchorEnd[anchor]) continue }
+      if (Anchors[2] && !RAnchorEnd[anchor] && row_test ~ Anchors[2])
+        RAnchorEnd[anchor] = NR
+      if (RAnchorStart[anchor] && RAnchorEnd[anchor])
+        RAnchorSet[anchor] = 1
+      if (RAnchorSet[anchor]) r_ancs++ }
+    if (r_ancs == length(RAnchors))
+      r_anc_found = 1 }
 
   if (rev_r) rev_ro = NR"," rev_ro
 }
@@ -742,6 +786,26 @@ function SetNegativeIndexFieldOrder(range_call, ArgArr, max_val) {
       else ArgArr[arg] = val"," }}
 }
 
+function FillAnchorRange(row_call, AncArr, AncOrder) {
+  for (anchor in AncArr) {
+    anc_order = ""
+    if (row_call) {
+      if (!RAnchorStart[anchor] && !RAnchorEnd[anchor]) continue
+      start = RAnchorStart[anchor] ? RAnchorStart[anchor] : 1
+      end = RAnchorEnd[anchor] ? RAnchorEnd[anchor] : NR }
+    else {
+      if (!CAnchorStart[anchor] && !CAnchorEnd[anchor]) continue
+      start = CAnchorStart[anchor] ? CAnchorStart[anchor] : 1
+      end = CAnchorEnd[anchor] ? CAnchorEnd[anchor] : max_nf }
+    if (end < start)
+      for (a_f = start; a_f >= end; a_f--)
+        anc_order = anc_order a_f","
+    else
+      for (a_f = start; a_f <= end; a_f++)
+        anc_order = anc_order a_f","
+    AncOrder[anchor] = anc_order }   
+}
+
 function GenRemainder(row_call, ReoArr, max_val) {
   all_reo = ""; rem_idx = ""
   for (i in ReoArr)
@@ -762,6 +826,7 @@ function GetOrder(row_call, key) {
     else if (type == "oth") return remaining_ro
     else if (type == "re") return SearchRO[key]
     else if (type == "mat") return ExprRO[key]
+    else if (type == "anc") return AnchorRO[key]
     else if (type == "ext") return ExtRO[key] }
   else {
     if (type == "rev") return rev_fo
@@ -769,11 +834,12 @@ function GetOrder(row_call, key) {
     else if (type == "nidx") return CNidx[key]
     else if (type == "re") return SearchFO[key]
     else if (type == "mat") return ExprFO[key]
+    else if (type == "anc") return AnchorFO[key]
     else if (type == "ext") return ExtFO[key]
     else if (type == "nidx_rng") return CNidxRanges[key] }
 }
 
-function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, rev_o, oth_o, ExprArr, SearchArr, IdxSearchArr, FramesArr, ExtArr) {
+function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, rev_o, oth_o, ExprArr, SearchArr, IdxSearchArr, FramesArr, AncArr, ExtArr) {
   max_o_i = 0; prior_count = 0
   split(order_arg, Order, Re["ordsep"])
   len = length(Order)
@@ -819,7 +885,7 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
         max_o_i = TestArg(o_i, max_o_i, token)
         base_o = 0
         if (IgnoreCase[o_i]) {
-          o_i = tolower(o_i); gsub("/i", "", o_i); IgnoreCase[o_i] = 1; ExtOrder[j] = o_i }
+          o_i = tolower(o_i); gsub("/[Ii]$", "", o_i); gsub("/[Ii]~", "~", o_i); IgnoreCase[o_i] = 1; ExtOrder[j] = o_i }
 
         if (token == "rng" || (token == "nidx_rng" && row_call))
           reo_count = FillRange(row_call, o_i, OArr, reo_count, ReoArr)
@@ -829,6 +895,8 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
           reo_count = FillReoArr(row_call, o_i, ExprArr, reo_count, ReoArr, token)
         else if (token == "re")
           reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, token)
+        else if (token == "anc")
+          reo_count = FillReoArr(row_call, o_i, AncArr, reo_count, ReoArr, token)
         else if (token == "fr") {
           FramesArr[o_i] = 1
           if (fr == "mat")
@@ -865,6 +933,8 @@ function TokenPrecedence(arg) {
     return "nidx_rng"
   else if (arg ~ Re["n_int"])
     return "nidx"
+  else if (arg ~ Re["anc"])
+    return "anc"
 
   found_token = ""; loc_min = 100000
   for (tk in Tk) {
@@ -915,12 +985,19 @@ function TestArg(arg, max_i, type, row_call) {
 
   else if (type == "re") { reo = 1; re = 1
     if (arg ~ "!~") ExcludeRe[arg] = 1
-    if (ignore_case_global || arg ~ "\/[iI]") IgnoreCase[arg] = 1
+    if (ignore_case_global || arg ~ "\/[Ii](~|$)") IgnoreCase[arg] = 1
     re_test = substr(arg, length(sa1)+2, length(arg))
     if ("" ~ re_test) {
       print "Invalid search order arg "arg" - search arg format examples include:"
       print "~search  2~pattern/i  4!~[0-9]+"
       exit 1 }}
+
+  else if (type == "anc") { anc = 1; reo = 1
+    if (!(sa1 || sa2)) {
+      print "Invalid anchor order arg "arg" - anchor arg formats include:"
+      print "start_anchor## start_pattern##end_pattern ##end_pattern" }
+    "" ~ sa1
+    "" ~ sa2 }
 
   else if (type == "fr") { reo = 1; fr_idx = 0
     if (sa1) fr_ext = 1
@@ -936,23 +1013,21 @@ function TestArg(arg, max_i, type, row_call) {
       print "[RowHeaderPattern  5[Index5Pattern~search  [HeaderPattern!=30"
       exit 1 }}
 
-  #else if (type == "anc") {
-  #  test=1
-  #}
-
   return max_i
 }
 
-function MatchCheck(ExprOrder, SearchOrder, CNidx, CNidxRanges) {
+function MatchCheck(ExprOrder, SearchOrder, AncOrder, CNidx, CNidxRanges) {
   will_print = 0
-  for (cnidx in CNidx) {
-    if (CNidx[cnidx]) { will_print = 1; break }}
-  for (cnidxrng in CNidxRanges) {
-    if (CNidxRanges[cnidxrng]) { will_print = 1; break }}
-  for (expr in ExprOrder) {
-    if (ExprOrder[expr]) { will_print = 1; break }}
-  for (search in SearchOrder) {
-    if (SearchOrder[search]) { will_print = 1; break }}
+  for (cnidx in CNidx)
+    if (CNidx[cnidx]) { will_print = 1; break }
+  for (cnidxrng in CNidxRanges)
+    if (CNidxRanges[cnidxrng]) { will_print = 1; break }
+  for (expr in ExprOrder)
+    if (ExprOrder[expr]) { will_print = 1; break }
+  for (search in SearchOrder)
+    if (SearchOrder[search]) { will_print = 1; break }
+  for (anchor in AncOrder) 
+    if (AncOrder[anchor]) { will_print = 1; break }
   if (!will_print) {
     print "No matches found"; exit 1 }
 }
@@ -963,7 +1038,7 @@ function Indexed(idx_ord, test_idx) {
 }
 
 function BuildRe(Re) {
-  Re["ordsep"] = ",+"
+  Re["ordsep"] = "[[:space:]]*,+[[:space:]]*"
   Re["ws"] = "^[:space:]+$"
   Re["num"] = "[0-9]+"
   Re["int"] = "^[0-9]+$"
@@ -972,14 +1047,14 @@ function BuildRe(Re) {
   Re["decnum"] = "^[[:space:]]*(\\-)?(\\()?(\\$)?[0-9,]+([\.][0-9]*)?(\\))?[[:space:]]*$"
   Re["intmat"] = "[0-9!\\+\\-\\*\/%\\^<>=]"
   Re["comp"] = "(<|>|!?=)"
-  Re["ext"] = "(&&|\\|\\|)"
+  Re["ext"] = "[[:space:]]*(&&|\\|\\|)[[:space:]]*"
   Re["extcomp"] = "[^(&&|\\|\\|)]+"
   Re["matarg1"] = "^(NR|NF)?[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])[0-9]+)?$"
   Re["matarg2"] = "^(NR|NF)?(!=|[=<>%])[0-9]+$"
   Re["frmat"] = "\\[[^~]+[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])[0-9]+)?$" #]
   Re["frre"] = "\\[.+!?~.+" #]
   Re["alltokens"] = "[(\\.\\.)\\~\\+\\-\\*\\/%\\^<>(!=)=\\[(##)]"
-  Re["anc"] = "^(.+##.?|.?##.+)$"
+  Re["anc"] = "^(.+##.*|.*##.+)$"
   Re["nidx_rng"] = "^(-?[0-9]+\\.\\.-[0-9]+|-[0-9]+\\.\\.-?[0-9]+)$"
 }
 

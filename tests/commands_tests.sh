@@ -117,6 +117,22 @@ f a c d b'
 [ "$(echo "$PATH" | ds:reo 1 5,3..1,4 -F: | ds:transpose | grep -c "")" -eq 5 ] || ds:fail 'reo command failed F arg case'
 reo_output='f b'
 [ "$(echo "$reo_input" | ds:reo '4!~b' '!~c')" = "$reo_output" ] || ds:fail 'reo command failed exclusive search case'
+reo_input='1:2:3:4:5
+5:4:3:2:1
+::6::
+:3::2:1'
+reo_actual="$(echo "$reo_input" | ds:reo '>5' off)"
+[ "$reo_actual" = "::6::" ] || ds:fail 'reo command failed c off case'
+reo_actual="$(echo "$reo_input" | ds:reo '6##2' '3##' | cat)"
+reo_expected='6::
+3:2:1
+3:4:5'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed anchor case'
+reo_actual="$(echo "$reo_input" | ds:reo '6##2' '##3' | cat)"
+reo_expected='::6
+5:4:3
+1:2:3'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed anchor case'
 reo_input=$(for i in $(seq -16 16); do
     printf "%s " $i; printf "%s " $(echo "-1*$i" | bc)
     if [ $(echo "$i%5" | bc) -eq 0 ]; then echo test; else echo nah; fi; done)
@@ -143,13 +159,13 @@ reo_output='-1 nah
 -5 test
 -10 test
 -15 test'
-[ "$(echo "$reo_input" | ds:reo "2<0,3~test" "31!=14")" = "$reo_output" ] || ds:fail 'reo command failed extended cases'
+[ "$(echo "$reo_input" | ds:reo "2<0, 3~test" "31!=14")" = "$reo_output" ] || ds:fail 'reo command failed extended cases'
 reo_input="$(for i in $(seq -10 20); do 
     [ $i -eq -10 ] && ds:iter test 23 && echo && ds:iter _TeST_ 20 && echo
     for j in $(seq -2 20); do 
       [ $i -ne 0 ] && printf "%s " "$(echo "scale=2; $j/$i" | bc -l)"; done
     [ $i -ne 0 ] && echo; done)"
-reo_actual="$(echo "$reo_input" | ds:reo "1,1,>4,[test,[test/i~ST" ">4,[test~T" -v cased=1)"
+reo_actual="$(echo "$reo_input" | ds:reo "1,1,>4, [test, [test/i~ST" ">4, [test~T" -v cased=1)"
 reo_expected='test test test test test test test test test test test test test test test test test
 test test test test test test test test test test test test test test test test test
 5.00 6.00 7.00 8.00 9.00 10.00 11.00 12.00 13.00 14.00 15.00 16.00 17.00 18.00 19.00 20.00 -2.00
@@ -164,7 +180,7 @@ reo_input='d c a b f
 f e c b a
 f e d c b
 e d c b a'
-reo_actual="$(echo "$reo_input" | ds:reo "1,1,others,[a" ">4,rev,[f~d")"
+reo_actual="$(echo "$reo_input" | ds:reo "1,1, others, [a" ">4, rev, [f~d")"
 reo_expected=' f b a c d d a
  f b a c d d a
  a b c e f f c
@@ -178,7 +194,7 @@ reo_expected=' f b a c d d a
  b c d e f f d
  a b c d e e c'
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended others or reverse cases'
-reo_actual="$(echo "$reo_input" | ds:reo "[a~c&&5~a" "[f~d||[e~a&&NF>3")"
+reo_actual="$(echo "$reo_input" | ds:reo "[a~c && 5~a" "[f~d || [e~a && NF>3")"
 reo_expected='a 
 a '
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended logic cases'
@@ -187,7 +203,7 @@ reo_expected='2    7
 1  420'
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended logic cases'
 reo_actual="$(ds:reo $seps_base '5[2!~2' | grep -h "^1")"
-[ "$(ds:reo $seps_base '5[2!=2&&5[2!=23' | grep -h "^1")" = "$reo_actual" ] || ds:fail 'reo command failed comparison case'
+[ "$(ds:reo $seps_base '5[2!=2 && 5[2!=23' | grep -h "^1")" = "$reo_actual" ] || ds:fail 'reo command failed comparison case'
 
 # FIT TESTS
 

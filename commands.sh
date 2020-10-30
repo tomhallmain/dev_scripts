@@ -8,7 +8,7 @@ source "$DS_SUPPORT/utils.sh"
 ds:commands() { # List commands from dev_scripts/commands.sh: ds:commands [bufferchar] [utils]
   [ "$2" ] && local utils="$DS_SUPPORT/utils.sh"
   echo
-  grep -h '[[:alnum:]_]*()' "$DS_LOC/commands.sh" "$utils" 2>/dev/null | grep -hv grep | sort \
+  grep -h '[[:alnum:]_]*()' "$DS_LOC/commands.sh" "$utils" 2>/dev/null | grep -hv 'grep -h' | sort \
     | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
     | ds:sbsp '\\\*\\\*' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" \
     | ds:sbsp ":[[:space:]]" "888" -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" \
@@ -16,7 +16,7 @@ ds:commands() { # List commands from dev_scripts/commands.sh: ds:commands [buffe
     | awk -v FS="$DS_SEP" 'BEGIN{print "COMMAND" FS FS "DESCRIPTION" FS "ALIAS" FS "USAGE\n"}
       {print} END{print "\nCOMMAND" FS FS "DESCRIPTION" FS "ALIAS" FS "USAGE"}' \
     | ds:reo a 2,1,4,3,5 \
-    | ds:ttyf "$DS_SEP" -v bufferchar="${1:- }"
+    | ds:ttyf "$DS_SEP" t -v bufferchar="${1:- }"
   echo
   echo "** - function supports receiving piped data"
   echo
@@ -717,8 +717,8 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file] [ro
   fi
   local arr_base=$(ds:arr_base)
   local args=( "${@:$base}" )
-  if ds:test "(f|false)" "${args[$arr_base]}"; then
-    local dq_off="${args[$arr_base]}" args=( "${args[@]:1}" ); fi
+  if [ "$cols" = 'off' ] || ds:test "(f|false)" "${args[$arr_base]}"; then
+    local dq_off=0 args=( "${args[@]:1}" ) run_fit='f'; fi
   [ ! "$dq_off" ] && local dequote=$(ds:tmp "ds_reo_dequote")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
@@ -735,10 +735,10 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file] [ro
   if [ ! "$dq_off" ]; then
     ds:prefield "$file" "$fs" 1 > $dequote
     awk -v FS="$DS_SEP" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} \
-      -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null | ds:ttyf "$fs"
+      -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null | ds:ttyf "$fs" "$run_fit"
   else
     awk -v FS="$fs" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} \
-      -f "$DS_SCRIPT/reorder.awk" "$file" 2>/dev/null | ds:ttyf "$fs"; fi
+      -f "$DS_SCRIPT/reorder.awk" "$file" 2>/dev/null | ds:ttyf "$fs" "$run_fit"; fi
   ds:pipe_clean $file; [ ! "$dq_off" ] && rm $dequote; :
 }
 
@@ -937,7 +937,7 @@ ds:enti() { # Print text entities from a file separated by pattern: ds:enti [fil
   LC_All='C' awk -v sep="$sep" -v min=$min -f $program "$file" 2> /dev/null | LC_ALL='C' sort -n$order
 }
 
-ds:sbsp() { # ** Extend fields by a common subseparator: ds:sbsp file subsep_pattern [nomatch_handler= ] [awkargs]
+ds:sbsp() { # ** Extend fields by a common subseparator: ds:sbsp [file] subsep_pattern [nomatch_handler= ] [awkargs]
   # TODO: wrap pipe handling in single function (return tmp filename if piped)
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_sbsp') piped=0
@@ -945,8 +945,7 @@ ds:sbsp() { # ** Extend fields by a common subseparator: ds:sbsp file subsep_pat
   else
     ds:file_check "$1"
     local file="$1"; shift; fi
-  [ "$1" ] && local ssp=(-v subsep_pattern="$1")
-  [ "$2" ] && local nmh=(-v nomatch_handler="$2")
+  local ssp=(-v subsep_pattern="${1:- }") nmh=(-v nomatch_handler="${2:- }")
   local args=("${@:3}")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file")"
@@ -1196,7 +1195,7 @@ ds:gexec() { # Generate a script from pieces of another and run it: ds:gexec run
   read -r dirpath filename extension <<<$(ds:path_elements "$src")
   local gscript="$scriptdir/ds_gexec_from_$filename$extension"
 
-  ds:reo $src "$r_args" a false -v FS="$DS_SEP" > "$gscript"
+  ds:reo $src "$r_args" 'off' false > "$gscript"
   echo -e "\n\033[0;33mNew file: $gscript\033[0m\n"
   chmod 777 "$gscript"; cat "$gscript"
 

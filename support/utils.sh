@@ -58,11 +58,12 @@ ds:pipe_open() { # ** Detect if pipe is open
   [ -p /dev/stdin ]
 }
 
-ds:ttyf() { # ** Run ds:fit on output only if to a terminal: data | ds:ttyf [FS] [fit_awkargs]
-  if [ -t 1 ]; then
+ds:ttyf() { # ** Run ds:fit on output only if to a terminal: data | ds:ttyf [FS] [run_fit=t] [fit_awkargs]
+  local fit="${2:-t}"
+  if [[ "$fit" = "t" && -t 1 ]]; then
     ds:arr_idx 'debug' "${args[@]}" && cat && return
-    [ "$1" ] && ds:fit -v FS="$1" ${@:2} && return
-    ds:fit $@
+    [ "$1" ] && ds:fit -v FS="$1" ${@:3} && return
+    ds:fit ${@:3}
   else cat; fi
 }
 
