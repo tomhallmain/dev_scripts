@@ -37,7 +37,7 @@ Select, reorder, slice data using inferred field separators. Supports expression
 
 Fits tabular data (including multibyte characters) dynamically into your terminal, and attempts to format it intelligently. If the max field length combined is too long, the longest fields will be right-truncated until the terminal width is reached.
 
-!]](https://github.com/tomhallmain/dev_scripts/blob/master/assets/fit_ex.png?raw=true)
+![](https://github.com/tomhallmain/dev_scripts/blob/master/assets/fit_ex.png?raw=true)
 
 ds:reo will apply ds:fit if the output is to a terminal.
 
@@ -62,7 +62,7 @@ View or search shell trace output.
 
 View the current state of your git branches across all repos.
 
-![](https://github.com/tomhallmain/dev_scripts/blob/master/gcv_ex.png?raw=true)
+![](https://github.com/tomhallmain/dev_scripts/blob/master/assets/gcv_ex.png?raw=true)
 
 
 `ds:git_refresh`
