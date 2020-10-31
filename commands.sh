@@ -397,7 +397,7 @@ ds:todo() { # List todo items found in paths: ds:todo [searchpaths=.]
   [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
 }
 
-ds:searchx() { # Search file for C-lang (curly-brace) top-level object: ds:searchx file [search] [q]
+ds:searchx() { # Search file for C-lang/curly-brace top-level object: ds:searchx file [search] [q]
   ds:file_check "$1"
   if [ "$3" ]; then
     if [ "$2" ]; then

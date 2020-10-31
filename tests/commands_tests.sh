@@ -128,11 +128,35 @@ reo_expected='6::
 3:2:1
 3:4:5'
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed anchor case'
+reo_actual="$(echo "$reo_input" | ds:reo '/6/../2/' '/3/..' | cat)"
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed anchor_re case'
 reo_actual="$(echo "$reo_input" | ds:reo '6##2' '##3' | cat)"
 reo_expected='::6
 5:4:3
 1:2:3'
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed anchor case'
+reo_actual="$(echo "$reo_input" | ds:reo '/6/../2/' '../3/' | cat)"
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed anchor_re case'
+reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>130' off)"
+reo_expected='@@@ds:gexec@@@@@@Generate a script from pieces of another and run it@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed full row len case'
+reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>50' 2)"
+reo_expected='ds:asgn
+ds:enti
+ds:gexec
+ds:jn
+ds:nset
+ds:path_elements
+ds:searchx
+ds:srg'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed basic len case'
+reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len(2)%11 || len(2)=13' 'length()<5 && len()>2')"
+reo_expected='@@@
+ds:gb@@@
+ds:gr@@@
+ds:gs@@@
+@@@' # probably a false field here.
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended len case'
 reo_input=$(for i in $(seq -16 16); do
     printf "%s " $i; printf "%s " $(echo "-1*$i" | bc)
     if [ $(echo "$i%5" | bc) -eq 0 ]; then echo test; else echo nah; fi; done)

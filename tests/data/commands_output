@@ -58,7 +58,7 @@
 **@@@ds:rev@@@@@@Reverse lines from standard input@@@data | ds:rev
 **@@@ds:sbsp@@@@@@Extend fields by a common subseparator@@@ds:sbsp [file] subsep_pattern [nomatch_handler= ] [awkargs]
 @@@ds:searchn@@@@@@Searches current names for string, returns matches@@@ds:searchn name
-@@@ds:searchx@@@@@@Search file for C-lang (curly-brace) top-level object@@@ds:searchx file [search] [q]
+@@@ds:searchx@@@@@@Search file for C-lang/curly-brace top-level object@@@ds:searchx file [search] [q]
 @@@ds:sedi@@@@@@Linux-portable sed in place substitution@@@ds:sedi file search_pattern [replacement]
 **@@@ds:select@@@@@@Select code from a file by regex anchors@@@ds:select file [startpattern endpattern]
 **@@@ds:shape@@@@@@Print data shape by length or FS@@@ds:shape [file] [FS] [chart_size=15ln] [chart_off=f]
