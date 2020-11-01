@@ -10,10 +10,12 @@
 # DESCRIPTION
 #       reorder.awk is a script that reorders, repeats, or slices the rows and columns of 
 #       fielded data. It can also be used on non-fielded data but its usefulness may be 
-#       limited to rows in this case. To run the script, ensure AWK is installed and in 
-#       your path (on most Unix-based systems it should be), and call it on on a file:
+#       limited to rows in that case.
 #
-#    > awk -f reorder.awk -v r=1 -v c=1 file
+#       To run the script, ensure AWK is installed and in your path (on most Unix-based 
+#       systems it should be), and call it on a file:
+#
+#          > awk -f reorder.awk -v r=1 -v c=1 file
 #
 #       r and c refer to row and column order args respectively.
 #
@@ -22,18 +24,18 @@
 #       when passed to AWK, so it must have three backslashes if in double quotes, or two 
 #       in single quotes:
 #
-#    > awk -f reorder.awk -v r="~\\\," c='~\\,'
+#          > awk -f reorder.awk -v r="~\\\," c='~\\,'
 #
 #
 #       ds:reo is the caller function for the reorder.awk script. To run any of the 
 #       examples below, map AWK args as given in SYNOPSIS. For example, to print columns 
 #       where the header matches "ZIP" on the first row where rows match "Main St":
 #
-#    $ ds:reo addresses.csv "1,~Main St" "[ZIP" -v cased=1
+#          $ ds:reo addresses.csv "1,~Main St" "[ZIP" -v cased=1
 #
 #       When running with piped data, args are shifted:
 #
-#    $ data_in | ds:reo [r_args_str] [c_args_str] [dequote=true] [awkargs]
+#          $ data_in | ds:reo [r_args_str] [c_args_str] [dequote=true] [awkargs]
 #
 #
 #       When running ds:reo, an attempt is made to infer a field separator of up to
@@ -41,29 +43,29 @@
 #       space = " ". To override the FS, add as a trailing awkarg. Be sure to escape 
 #       and quote if needed. AWK's extended regex can be used as FS:
 #
-#    $ ds:reo a 1,4 -v FS=" {2,}"
+#          $ ds:reo a 1,4 -v FS=" {2,}"
 #
-#    $ ds:reo 7..1 1..4 -v FS='[A-z]+'
+#          $ ds:reo 7..1 1..4 -v FS='[A-z]+'
 #
-#    $ ds:reo a rev -F'\\\|\\\|'
+#          $ ds:reo a rev -F'\\\|\\\|'
 #
 #       If FS is set to an empty string, all characters will be separated.
 #
-#    $ ds:reo addresses.csv '[ZIP%3' a -v FS=""
+#          $ ds:reo addresses.csv '[ZIP%3' a -v FS=""
 #
 #
 #       When running ds:reo, an attempt is made to extract relevant instances of field 
 #       separators in the case that a field separator appears in field values. To turn this 
 #       off set prefield to false in the positional arg.
 #
-#    $ ds:reo simple_data.csv 1,500..2 a [f|false]
+#          $ ds:reo simple_data.csv 1,500..2 a [f|false]
 #
 #       If ds:reo detects it is connected to a terminal, it will attempt to fit the data 
 #       into the terminal width using the same field separator. If the data is being sent to 
 #       a file or a pipe, no attempt to fit will be made. One easy way to turn off fit is to 
 #       cat the output.
 #
-#    $ echo "data" | ds:reo 1,2,3 | cat
+#          $ echo "data" | ds:reo 1,2,3 | cat
 #
 #
 # FUNCTIONS
@@ -71,35 +73,45 @@
 #
 #          $ ds:reo -h
 #
+#
 #       Index a field value (Print the field value at row 1 col 1):
 #
 #          $ ds:reo 1 1
 #
-#       Print multiple specific rows and/or columns (Print row 1 then 1000, only cols 1, 
-#       4 and 5):
+#
+#       Print multiple specific rows and/or columns:
 #
 #          $ ds:reo 1,1000 1,4,5
+#
+#         (Print row 1 then 1000, only cols 1, 4 and 5)
+#
 #
 #       Print rows/column index numbers relative to maximum index value:
 #
 #          $ ds:reo -1,-2 -3
 #
-#       Pass all rows / columns for given index - don't set arg or set arg=[a|all] (Print
-#       all rows, only column 4)
+#
+#       Pass all rows / columns for given index - don't set arg or set arg=[a|all]:
 #
 #          $ ds:reo a 4
+#
+#         (Example: Print all rows, only column 4)
+#
 #
 #       Print index range (ranges are inclusive of ending indices):
 #
 #          $ ds:reo 1,100..200 1..3,5
 #
+#
 #       Print index range with endpoints relative to maximum index val:
 #
 #          $ ds:reo -3..-1 -5..1
 #
+#
 #       Reorder/repeat rows and fields, duplicate as many times as desired:
 #
 #          $ ds:reo 3,3,5,1 4..1,1,3,5
+#
 #
 #       Print a range by defining inclusive pattern anchors. If one of the anchors is not 
 #       given, it will default to the first or last row for start or end anchor respectively:
@@ -108,13 +120,16 @@
 #
 #          $ ds:reo /start/.. /start/../end/
 #
-#       Turn off field separation for calculation and output, set c to "off":
+#
+#       Turn off field separation for calculation and output - set c to "off":
 #
 #          $ ds:reo start## off
+#
 #
 #       Reverse indices by adding the string r[everse] anywhere in the order:
 #
 #          $ ds:reo 1,r all,rev
+#
 #
 #       Index numbers evaluating to expression. If no comparison specified, compares 
 #       if expression equal to zero. NR and NF refer to the index number and must be
@@ -122,75 +137,113 @@
 #
 #          $ ds:reo 'NR%2,NR%2=1' 'NF<10'
 #
+#
 #       Filter records by field values and/or fields by record values:
 #
-#       -- Using basic math expressions, across the entire opposite span (Print rows with 
-#       field value =1, followed by rows with value <1, and fields with values less than 
-#       11 when divided by 5):
+#       -- Using basic math expressions, across the entire opposite span:
 #
 #          $ ds:reo '=1, <1' '/5<11'
 #
-#       -- Using basic math expressions, across given span (Print the header row followed
-#       by rows where field 8 is negative, only fields with values in row 6 not equal to 10
+#         (Example: Print rows with field value =1, followed by rows with value <1, and 
+#          fields with values less than 11 when divided by 5)
+#
+#
+#       -- Using basic math expressions, across given span:
 #
 #          $ ds:reo '1, 8<0' '6!=10'
+#
+#         (Example: Print the header row followed by rows where field 8 is negative, only
+#          fields with values in row 6 not equal to 10)
+#
 #
 #       -- Using len() / length() function. The parameter is the index number of row or 
 #       column respectively. If no parameter given, all fields are searched for condition.
 #
-#          $ ds:rep 'len(3)<100' 'length()>50'
+#          $ ds:reo 'len(3)<100' 'length()>50'
 #
-#       -- Using regular expressions across the opposite span, full or specified 
-#       (Print Rows matching "plant" followed by rows without alpha chars, only fields
-#       with values in row 3 that match simple decimal pattern):
+#
+#       -- Using regular expressions across the opposite span, full or specified:
 #
 #          $ ds:reo '~plant , !~[A-z]' '3~[0-9]+\.[0-9]' -v cased=1
 #
+#         (Example: Print Rows matching "plant" followed by rows without alpha chars, only 
+#          fields with values in row 3 that match simple decimal pattern)
+#
+#
 #       Alternatively filter the cross-span by a current-span frame pattern. Headers --
-#       first row and first column -- are the default if not specified (Print rows where 
-#       column header matches "plant" and column value matches "flower", fields where 
-#       values in col 3 match "alps" and which have number values greater than 10000
+#       first row and first column -- are the default if not specified
 #
 #          $ ds:reo '[plant~flower' '3[alps>10000'
 #
+#         (Example: Print rows where column header matches "plant" and column value matches 
+#          "flower", fields where values in col 3 match "alps" and which have number values 
+#          greater than 10000
+#
+#
 #       If no expression or search given with frame, simple search is done on the cross
-#       span, not the current span -- frame rows by column, columns by row (Print rows 
-#       where first col matches 'europe' (any case), fields where first row matches 
-#       'plant' (any case)):
+#       span, not the current span -- frame rows by column, columns by row:
 #
 #          $ ds:reo file '[europe' '[plant'
 #
-#       Note the above args are equivalent to '1~europe' '1~plant'.
+#         (Example: Print rows where first col matches 'europe' (any case), fields where first
+#          row matches 'plant' (any case))
 #
-#       Combine filters using && and || for more selective or expansive queries
-#       - || is currently calculated first (Print rows where field vals in fields
-#       with headers matching "plant" match "flower" OR where the same match
-#       tree and field vals in fields in the same row with headers matching
-#       "country" match "italy", and print all fields in reverse order):
+#          Note the above args are equivalent to '1~europe' '1~plant'.
+#
+#
+#       Combine filters using && and || for more selective or expansive queries (|| is 
+#       currently calculated first):
 #
 #          $ ds:reo '[plant~flower || [plant~tree && [country~italy' rev
 #
+#         (Print rows where field vals in fields with headers matching "plant" match "flower"
+#          OR where the same match tree and field vals in fields in the same row with headers
+#          matching "country" match "italy"; print all fields in reverse order)
+#
+#
 #       Case is ignored globally by default in regex searches. To enable cased matching 
 #       set variable cased to any value. To search a case insensitive value while cased 
-#       is set, append "/i" to the end of the pattern (Print rows where first col matches
-#       "europe" in any case, fields where first row matches "Plant" exactly):
+#       is set, append "/i" to the end of the pattern:
 #
 #          $ ds:reo '[europe/i' '[Plant' -v cased=1
 #
-#       To print any columns or rows that did not match the filter args, add the string 
-#       o[thers] anywhere in either dimension (Print rows 3, 4, then any not in the set 
-#       1,3,4, then row 1; fields where header matches "tests", then any remaining fields):
+#         (Example: Print rows where first col matches "europe" in any case, fields where 
+#          first row matches "Plant" exactly)
+#
+#
+#       Print any columns or rows that did not match filter args, add o[thers] anywhere in 
+#       either order:
 #
 #          $ ds:reo '3, 4, others, 1' '[Tests,oth'
 #
-## TODO: option (or default?) for preserving original order
-## TODO: basic sorts
-## TODO: string equality / sorting
-## TODO: reverse from a particular point (for example, keep header)
-## TODO: Optional index number output
-## TODO: Remove frame print if already indexed, and don't print if no match (?)
+#         (Example: Print rows 3, 4, then any not in the set 1,3,4, then row 1; fields 
+#          where header matches "tests", then any remaining fields):
+#
+#
+#       Constrain output to unique indices on searches, expressions, reverses:
+#
+#          $ ds:reo a 'len()>0,len()<100000' -v uniq=1
+#
+#
+#       Output with row and column indices from source:
+#
+#          $ ds:reo rev rev -v idx=1
+#
+#
+#
+# VERSION
+#       0.2
+#
+# AUTHORS
+#       Tom Hall (tomhallmain@gmail.com)
+#
+## TODO: Option (or default?) for preserving original order if possible
+## TODO: Basic sorts and multisort
+## TODO: String equality / sorting
+## TODO: Remove frame print if already indexed, and don't print if no match?
 ## TODO: Expressions and comparisons against cross-index total
 ## TODO: Expressions and comparisons between fields (standard awk)
+## TODO: Range support for index number and pattern endpoints combined
 
 ## SETUP
 
@@ -232,7 +285,7 @@ BEGIN {
   if (pass_r && pass_c) pass = 1
   if (r_len == 1 && c_len == 1 && !pass_r && !pass_c && !range && !reo)
     indx = 1
-  else if (!range && !reo)
+  else if (!pass && !range && !reo)
     base = 1
   else if (range && !reo)
     base_range = 1
@@ -244,21 +297,37 @@ BEGIN {
   reo_r_len = length(ReoR)
   reo_c_len = length(ReoC)
   if (debug) { DebugPrint(0); DebugPrint(7) }
+  if (idx && !pass && (!reo || base_reo && pass_r)) {
+    if (base_range || base_reo)
+      FieldsIndexPrint(ReoC, reo_c_len)
+    else
+      FieldsIndexPrint(COrder, c_len) }
 }
 
 
 
 ## SIMPLE PROCESSING/DATA GATHERING
 
-indx { if (NR == r) { print $c; exit } next }
+indx { if (NR == r) {
+    if (idx) printf "%s", NR OFS
+    print $c; exit }
+  next }
 
-base { if (pass_r || NR in R) FieldsPrint(COrder, c_len, 1); next }
+base { if (pass_r || NR in R) {
+    if (idx) printf "%s", NR OFS
+    FieldsPrint(COrder, c_len, 1) }
+  next }
 
-base_range { if (pass_r || NR in R) FieldsPrint(ReoC, reo_c_len, 1); next }
+base_range { if (pass_r || NR in R) {
+    if (idx) printf "%s", NR OFS
+    FieldsPrint(ReoC, reo_c_len, 1) }
+  next }
 
 reo {
   if (pass_r) {
-    if (base_reo) FieldsPrint(ReoC, reo_c_len, 1)
+    if (base_reo) {
+      if (idx) printf "%s", NR OFS
+      FieldsPrint(ReoC, reo_c_len, 1) }
     else {
       StoreRow(_)
       StoreFieldRefs() }}
@@ -277,7 +346,11 @@ reo {
   next
 }
 
-pass { FieldsPrint($0, 0, 1) }
+pass { 
+  if (idx) { 
+    if (NR == 1) FieldsIndexPrint(Empty, NF)
+    printf "%s", NR OFS }
+  FieldsPrint($0, 0, 1) }
 
 
 
@@ -301,6 +374,9 @@ END {
     ResolveFilterExtensions(1, RExtensions, ReoR, ExtRO, NR)
     ResolveFilterExtensions(0, CExtensions, ReoC, ExtFO, max_nf)
     if (debug) DebugPrint(12) }
+  if (uniq) {
+    if(!base_r) EnforceUnique(1, ReoR, reo_r_len)
+    if(!base_c) EnforceUnique(0, ReoC, reo_c_len) }
   if (debug) {
     if (!pass_c) DebugPrint(6); DebugPrint(8) }
 
@@ -309,15 +385,22 @@ END {
   if (!pass_r && !q && !rev_r && !oth_r && !r_anc_found && NR < min_guar_print_nr)
     MatchCheck(ExprRO, SearchRO, AnchorRO)
 
+  if (idx) {
+    if (reo_c_len)
+      FieldsIndexPrint(ReoC, reo_c_len)
+    else {
+      FieldsIndexPrint(Empty, max_nf) }}
+
   if (pass_r) {
     for (rr = 1; rr <= NR; rr++) {
+      if (idx) printf "%s", rr OFS
       for (rc = 1; rc <= reo_c_len; rc++) {
         c_key = ReoC[rc]
         if (!c_key) continue
         row = _[rr]
         split(row, Row, FS)
         if (c_key ~ Re["int"])
-          print_field(Row[c_key], rc, reo_c_len)
+          PrintField(Row[c_key], rc, reo_c_len)
         else {
           Reo(c_key, Row, 0)
           if (rc!=reo_c_len) printf "%s", OFS }}
@@ -330,6 +413,7 @@ END {
     if (pass_c && base_reo) FieldsPrint(_[r_key])
     else {
       if (r_key ~ Re["int"]) {
+        if (idx) printf "%s", r_key OFS
         if (pass_c) FieldsPrint(_[r_key])
         else {
           for (rc = 1; rc <= reo_c_len; rc++) {
@@ -338,7 +422,7 @@ END {
             row = _[r_key]
             split(row, Row, FS)
             if (c_key ~ Re["int"])
-              print_field(Row[c_key], rc, reo_c_len)
+              PrintField(Row[c_key], rc, reo_c_len)
             else {
               Reo(c_key, Row, 0)
               if (rc!=reo_c_len) printf "%s", OFS }}
@@ -352,13 +436,13 @@ END {
 ## FUNCTIONS
 
 function Reo(key, CrossSpan, row_call) {
-  if (row_call) {
-    rows = GetOrder(1, key)
+  if (row_call) { rows = GetOrder(1, key)
 
     split(rows, PrintRows, ",")
     len_printr = length(PrintRows) - 1
     for (pr = 1; pr <= len_printr; pr++) {
       pr_key = PrintRows[pr]
+      if (idx) printf "%s", pr_key OFS
       if (pass_c) FieldsPrint(CrossSpan[pr_key])
       else {
         for (rc = 1; rc <= reo_c_len; rc++) {
@@ -367,19 +451,18 @@ function Reo(key, CrossSpan, row_call) {
           row = CrossSpan[pr_key]
           split(row, Row, FS)
           if (c_key ~ Re["int"])
-            print_field(Row[c_key], rc, reo_c_len)
+            PrintField(Row[c_key], rc, reo_c_len)
           else {
             Reo(c_key, Row, 0)
             if (rc!=reo_c_len) printf "%s", OFS }}
         print "" }}}
 
-  else {
-    fields = GetOrder(0, key)
+  else { fields = GetOrder(0, key)
 
     split(fields, PrintFields, ",")
     len_printf = length(PrintFields) - 1
     for (f = 1; f <= len_printf; f++)
-      print_field(CrossSpan[PrintFields[f]], f, len_printf) }
+      PrintField(CrossSpan[PrintFields[f]], f, len_printf) }
 }
 
 function FieldsPrint(Order, ord_len, run_call) {
@@ -407,6 +490,31 @@ function FieldsPrint(Order, ord_len, run_call) {
       printf "%s", $Order[pf] OFS
 
     print $Order[ord_len] }
+}
+
+function FieldsIndexPrint(Order, ord_len) {
+  PrintField("", 0, 1)
+  if (reo && !pass_c && !base_reo) {
+    for (rc = 1; rc <= ord_len; rc++) {
+      c_key = Order[rc]
+      if (!c_key) continue
+      if (c_key ~ Re["int"])
+        PrintField(c_key, rc, ord_len)
+      else {
+        fields = GetOrder(0, c_key)
+        split(fields, PrintFields, ",")
+        len_printf = length(PrintFields) - 1
+        for (f = 1; f <= len_printf; f++)
+          PrintField(PrintFields[f], f, len_printf) }}
+    print "" }
+  else if (length(Order)) {
+    for (idx_pf = 1; idx_pf < ord_len; idx_pf++)
+      printf "%s", Order[idx_pf] OFS
+    print Order[ord_len] }
+  else {
+    for (f = 1; f < ord_len; f++)
+      printf "%s", f OFS
+    print ord_len }
 }
 
 function FillRange(row_call, range_arg, RangeArr, reo_count, ReoArr) {
@@ -845,6 +953,31 @@ function GenRemainder(row_call, ReoArr, max_val) {
   return rem_idx
 }
 
+function EnforceUnique(row_call, Order, ord_len) {
+  uniq_o = ""; uniq_override = 0
+  for (o_i = 1; o_i <= ord_len; o_i++) {
+    o_key = Order[o_i]
+    if (o_key ~ Re["int"]) {
+      #if (Indexed(uniq_o, o_key)) { uniq_override = 1; continue }
+      uniq_o = uniq_o o_i","; continue }
+    order = GetOrder(row_call, o_key)
+    if (!order) continue
+    key_o_len = split(order, KeyOrder, ",")
+    for (ko_i = 1; ko_i < key_o_len; ko_i++) {
+      _o = KeyOrder[ko_i]
+      if (Indexed(uniq_o, _o)) { uniq_override = 1; continue }
+      uniq_o = uniq_o _o"," }}
+
+  if (uniq_override) {
+    TypeMap["oth"] = "oth"
+    if (row_call) {
+      for (rr in ReoR) delete ReoR[rr]
+      remaining_ro = uniq_o; ReoR[1] = "oth" }
+    else {
+      for (rc in ReoC) delete ReoC[rc]
+      remaining_fo = uniq_o; ReoC[1] = "oth" }}
+}
+
 function GetOrder(row_call, key) {
   if (key ~ Re["int"]) return key","
   type = TypeMap[key]
@@ -869,9 +1002,9 @@ function GetOrder(row_call, key) {
 function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, rev_o, oth_o, ExprArr, SearchArr, IdxSearchArr, FramesArr, AncArr, ExtArr) {
   max_o_i = 0; prior_count = 0
   split(order_arg, Order, Re["ordsep"])
-  len = length(Order)
+  o_len = length(Order)
 
-  for (i = 1; i <= len; i++) {
+  for (i = 1; i <= o_len; i++) {
     base_i = Order[i]
     gsub("\\?ECSOCMAMPA\\?", ",", base_i)
     if (!base_i) { delete Order[i]; continue }
@@ -953,7 +1086,7 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
   else {
     for (ord in Order) COrder[ord] = Order[ord]
     for (ord in ExtOrder) RExtOrder[ord] = ExtOrder[ord] }
-  SetupVars["len"] = len
+  SetupVars["len"] = o_len
   SetupVars["count"] = reo_count
   SetupVars["base_status"] = base_o
   SetupVars["rev"] = rev_o
@@ -1182,7 +1315,7 @@ function UnescapeOFS() {
   return OFS
 }
 
-function print_field(field_val, field_no, end_field_no) {
+function PrintField(field_val, field_no, end_field_no) {
   if (!(field_no == end_field_no)) field_val = field_val OFS
   printf "%s", field_val
 }
@@ -1273,7 +1406,8 @@ function DebugPrint(case, arg) {
     if (c_nidx) print "column negative index case"
     if (nidx_rng) print "negative index range case"
     if (c_nidx_rng) print "column negative index range case"
-    if (len) print "length test case" }
+    if (len) print "length test case"
+    if (idx) print "index number case" }
 
   else if (case == 5) {
     print "NR: "NR ", f: "f ", anchor: "anchor ", apply to: "base_expr ", evals to: "eval ", compare: "comp, compval }

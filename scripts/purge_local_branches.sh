@@ -14,10 +14,11 @@ BASE_DIRS=( $(ls -d */ | sed 's#/##') )
 ALL_REPOS=()
 ALL_BRANCHES=()
 UNIQ_BRANCHES=()
+master='^(master|main|develop|dev|integrations?)$'
 
 # Methods
 
-generateAllowedVarName() {
+genAllowedVarName() {
   # shell doesn't allow some chars in var names
   local unparsed="$1"
   var="${unparsed//\./_DOT_}"
@@ -37,14 +38,14 @@ generateAllowedVarName() {
   printf '%s\n' "${var}"
 }
 
-extendAssociativeArray() {
+assoc() {
   # Bash 3 doesn't support hashes
   local key="${1}"
   local addvals="${@:2}"
   printf -v "${key}" %s " ${!key} ${addvals[@]} "
 }
 
-generateFilterString() {
+genFilterString() {
   local matches=(" ${@} ")
   let length=${#matches[@]}
   last_match=${matches[length-1]}
@@ -68,31 +69,24 @@ REPOS=( ${ALL_REPOS[@]} )
 for repo in ${ALL_REPOS[@]}; do
   cd "$BASE_DIR"
   cd "$repo"
-  BRANCHES=()
 
-  eval "$(git for-each-ref --shell --format='BRANCHES+=(%(refname:lstrip=2))' refs/heads/)"
+  # Note common master branches removed to disallow their deletion
+  BRANCHES=($(git for-each-ref --format='%(refname:lstrip=2)' refs/heads/ | grep -Ev "$master"))
 
   repo_key=$(genAllowedVarName "$repo")
-  extendAssociativeArray "$repo_key" "${BRANCHES[@]}"
-  # Remove common master branches to disallow their deletion
-  BRANCHES=( ${BRANCHES[@]//"master"} )
-  BRANCHES=( ${BRANCHES[@]//"main"} )
-  BRANCHES=( ${BRANCHES[@]//"dev"} )
-  BRANCHES=( ${BRANCHES[@]//"develop"} )
-  BRANCHES=( ${BRANCHES[@]//"integration"} )
-  BRANCHES=( ${BRANCHES[@]//"integrations"} )
-  ALL_BRANCHES=( " ${ALL_BRANCHES[@]} " " ${BRANCHES[@]} ")
+  assoc "$repo_key" "${BRANCHES[@]}"
+  ALL_BRANCHES=( ${ALL_BRANCHES[@]} ${BRANCHES[@]} )
 
   for branch in "${BRANCHES[@]}" ; do
     # shell doesn't allow hyphens in variable names, and Bash 3 doesn't support associative arrays
-    branch_key_base=$(generateAllowedVarName "$branch")
+    branch_key_base=$(genAllowedVarName "$branch")
     branch_key="${branch_key_base}_key"
 
-    extendAssociativeArray "$branch_key" "$repo"
+    assoc "$branch_key" "$repo"
   done
 done
 
-UNIQ_BRANCHES=( $(printf '%s\n' "${ALL_BRANCHES[@]}" | sort | uniq ) )
+UNIQ_BRANCHES=( $(printf '%s\n' ${ALL_BRANCHES[@]} | sort | uniq ) )
 let BRANCH_COUNT=${#UNIQ_BRANCHES[@]}
 
 
@@ -103,7 +97,7 @@ if [ $BRANCH_COUNT = 0 ]; then
   exit 1
 fi
 
-echo -e "\n To quit this script, press Ctrl+C"
+echo -e "\n To quit, press Ctrl+C"
 
 while [ ! $confirmed ]; do
   unset selections_confirmed
@@ -134,7 +128,7 @@ while [ ! $confirmed ]; do
     done
   done
 
-  conditional=$(generateFilterString ${to_purge[@]})
+  conditional=$(genFilterString ${to_purge[@]})
   filter="{ if(${conditional}) { print } }"
   PURGE_BRANCHES=($(printf '%s\n' "${UNIQ_BRANCHES[@]}" | awk "$filter"))
 
@@ -162,7 +156,7 @@ echo
 # Delete the branches
 
 for branch in ${PURGE_BRANCHES[@]}; do
-  branch_key_base=$(generateAllowedVarName "$branch")
+  branch_key_base=$(genAllowedVarName "$branch")
   branch_key="${branch_key_base}_key"
   for repo in ${!branch_key}; do
     echo -e "Deleting ${branch} from ${repo}"
