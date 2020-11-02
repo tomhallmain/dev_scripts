@@ -25,13 +25,13 @@ NR != 1 {
     char = Chars[i]
     if (comment) continue
 
-    if (openCurly(char)) {
+    if (OpenCurly(char)) {
       if (curly == 2) innerCurly++; else curly++
       activeBrace = char
-    } else if (innerOpenBrace(char) && ! braceMatch(char, activeInnerBrace[innerBrace])) {
+    } else if (InnerOpenBrace(char) && ! BraceMatch(char, activeInnerBrace[innerBrace])) {
       innerBrace++
       activeInnerBrace[innerBrace] = char
-    } else if (innerBrace > 1 && innerCloseBrace(char) && braceMatch(char, activeInnerBrace[innerBrace])) {
+    } else if (innerBrace > 1 && InnerCloseBrace(char) && BraceMatch(char, activeInnerBrace[innerBrace])) {
       delete activeInnerBrace[innerBrace]
       innerBrace--
     } else if (innerBrace == 1 && !innerCurly && !quote && char == "#") {
@@ -40,7 +40,7 @@ NR != 1 {
 
     if (!comment) {
       Entities[entityCounter, curly] = Entities[entityCounter, curly] char
-      if (curly == 2 && closeCurly(char) && braceMatch(char, activeBrace)) {
+      if (curly == 2 && CloseCurly(char) && BraceMatch(char, activeBrace)) {
         if (innerCurly) {
           innerCurly--
         } else {
@@ -50,7 +50,7 @@ NR != 1 {
         }
       }
     }
-    if (debug && char != " " && max_nr < NR) { max_nr=NR; debugPrint(1) }
+    if (debug && char != " " && max_nr < NR) { max_nr=NR; DebugPrint(1) }
     prevChar = char
     escaped = (char == "\\")
     quote = (squote || dquote ? 1 : 0) 
@@ -74,7 +74,7 @@ END {
   }
 }
 
-function braceMatch(char, brace) {
+function BraceMatch(char, brace) {
   if (brace == "{" && char == "}")
     return 1
   else if (brace == "[" && char == "]")
@@ -90,21 +90,21 @@ function braceMatch(char, brace) {
   else
     return 0
 }
-function openCurly(char) {
+function OpenCurly(char) {
   if (!quote && !escaped && char == "{") {
     if (debug) print "open curly"
     return 1
   } else
     return 0
 }
-function closeCurly(char) {
+function CloseCurly(char) {
   if (!quote && !escaped && char == "}") {
     if (debug) print "close curly"
     return 1
   } else
     return 0
 }
-function innerOpenBrace(char) {
+function InnerOpenBrace(char) {
   if ((char == "[" || char == "(") && !quote) {
     if (debug) print "open brace " char
     return 1
@@ -117,7 +117,7 @@ function innerOpenBrace(char) {
   } else
     return 0
 }
-function innerCloseBrace(char) {
+function InnerCloseBrace(char) {
   if ((char == "]" || char == ")") && !quote) {
     if (debug) print "close brace " char
     return 1
@@ -130,9 +130,9 @@ function innerCloseBrace(char) {
   } else
     return 0
 }
-function debugPrint(case) {
+function DebugPrint(case) {
   if (case == 1) {
-    print NR, i, char, curly, entityCounter, activeBrace, braceMatch(activeBrace)#, Entities[entityCounter, curly]
+    print NR, i, char, curly, entityCounter, activeBrace, BraceMatch(activeBrace)#, Entities[entityCounter, curly]
     print innerCurly, innerBrace, activeInnerBrace[innerBrace], comment
   }
 }

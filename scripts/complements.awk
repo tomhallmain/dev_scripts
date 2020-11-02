@@ -15,7 +15,7 @@
 BEGIN {
   f1 = ARGV[1]
   f2 = ARGV[2]
-  piped = (substr(f2, 1, 4) == "/tmp" || substr(f2, 1, 4) == "/dev")
+  #piped = (substr(f2, 1, 4) == "/tmp" || substr(f2, 1, 4) == "/dev")
   f2_print = (piped ? "piped data" : f2)
 
   if (fs) { fs1 = fs; fs2 = fs }

@@ -52,8 +52,8 @@ BEGIN {
 NR == 1 {
   # Evaluate first row field values
   for (i = 1; i <= NF; i++) {
-    field = trimField($i)
-    buildFirstRowScore(field, i)
+    field = TrimField($i)
+    BuildFirstRowScore(field, i)
   }
 
   next
@@ -61,8 +61,8 @@ NR == 1 {
 
 NR <= max_rows {
   for (i = 1; i <= NF; i++) {
-    field = trimField($i)
-    buildControlRowScore(field, i)
+    field = TrimField($i)
+    BuildControlRowScore(field, i)
   }
 }
 
@@ -72,7 +72,7 @@ END {
     control_rows = max_rows - potential_header_rows
   }
 
-  calcSims(FirstRow, ControlRows)
+  CalcSims(FirstRow, ControlRows)
   
   if (debug) print headerScore
   if (headerScore > 0)
@@ -81,11 +81,11 @@ END {
     exit 1
 }
 
-function trimField(field) {
+function TrimField(field) {
   gsub(/^[[:space:]]+|[[:space:]]+$/, "", field)
   return field
 }
-function buildFirstRowScore(field, position) {
+function BuildFirstRowScore(field, position) {
   FirstRow[position, "len"] = length(field)
   for (m in Re) {
     re = Re[m]
@@ -97,7 +97,7 @@ function buildFirstRowScore(field, position) {
     }
   }
 }
-function buildControlRowScore(field, position) {
+function BuildControlRowScore(field, position) {
   headerScore += sqrt((FirstRow[position, "len"] - length(field))**2) / control_rows
   for (m in Re) {
     if (field ~ Re[m]) {
@@ -106,7 +106,7 @@ function buildControlRowScore(field, position) {
     }
   }
 }
-function calcSims(first, control) {
+function CalcSims(first, control) {
   if (debug) print "--- start calc sim ---"
   for (i = 1; i <= NF; i++) {
     for (m in Re) {

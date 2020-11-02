@@ -41,12 +41,12 @@ BEGIN {
 }
 
 
-debug && FNR < max_rows { debug_print(1) }
+debug && FNR < max_rows { DebugPrint(1) }
 
 
 # Save first stream
 NR == FNR && FNR <= max_rows {
-  if (trim) $0 = trimField($0)
+  if (trim) $0 = TrimField($0)
   if ( header && FNR == 1 ) {
     headers = $0
     next
@@ -59,7 +59,7 @@ NR == FNR && FNR <= max_rows {
 
 
 NR > FNR && FNR <= max_rows { 
-  if (trim) $0 = trimField($0)
+  if (trim) $0 = TrimField($0)
   if ( header && FNR == 1 ) {
     split(headers, headers1, fs1)
     split($0, headers2, fs2)
@@ -68,8 +68,8 @@ NR > FNR && FNR <= max_rows {
         h1 = headers1[i]
         h2 = headers2[j]
         if (trim) {
-          h1 = trimField(h1) 
-          h2 = trimField(h2) }
+          h1 = TrimField(h1) 
+          h2 = TrimField(h2) }
         if (h1 == h2) {
           if (i == j) print i
           else print i, j
@@ -90,19 +90,19 @@ NR > FNR && FNR <= max_rows {
     
     for (i in fr1) {
       f1 = fr1[i]
-      if (trim) f1 = trimField(f1)
+      if (trim) f1 = TrimField(f1)
       if ((header && FNR == 2) || (!header && FNR == 1)) {
         k1[i, "dlt"] = f1 }
-      buildFieldScore(f1, i, k1)
-      if (debug) debug_print("endbfsf1")
+      BuildFieldScore(f1, i, k1)
+      if (debug) DebugPrint("endbfsf1")
       
       for (j in fr2) {
         f2 = fr2[j]
-        if (trim) f2 = trimField(f2)
+        if (trim) f2 = TrimField(f2)
         if ((header && FNR == 2) || (!header && FNR == 1)) {
           k2[i, "dlt"] = f2 }
-        buildFieldScore(f2, j, k2)
-        if (debug) debug_print("endbfsf2")
+        BuildFieldScore(f2, j, k2)
+        if (debug) DebugPrint("endbfsf2")
         
         if (f1 != f2) {
           k1[i, j] += 100
@@ -127,7 +127,7 @@ NR > FNR && FNR <= max_rows {
 END {
   if (keys_found) exit
 
-  calcSims(k1, k2)
+  CalcSims(k1, k2)
 
   jf1 = 999 # Seeding with high values unlikely to be reached
   jf2 = 999
@@ -137,7 +137,7 @@ END {
     for (j = 1; j <= max_nf2; j++) {
       if (scores[i, j] < scores[jf1, jf2]) {
         jf1 = i; jf2 = j }
-      if (debug) debug_print(7) }}
+      if (debug) DebugPrint(7) }}
 
   # Return possible join fields with lowest score
   if (jf1 == jf2) print jf1
@@ -145,11 +145,11 @@ END {
 }
 
 
-function trimField(field) {
+function TrimField(field) {
   gsub(/^[[:space:]]+|[[:space:]]+$/, "", field)
   return field
 }
-function buildFieldScore(field, position, Keys) {
+function BuildFieldScore(field, position, Keys) {
   if (Keys[position, "dlt"] && field != Keys[position, "dlt"]) {
     delete Keys[position, "dlt"] }
   Keys[position, "len"] += length(field)
@@ -158,9 +158,9 @@ function buildFieldScore(field, position, Keys) {
     matches = field ~ re
     if (matches > 0) {
       Keys[position, m] += 1; matchcount++ }}
-  if (debug) debug_print(2)
+  if (debug) DebugPrint(2)
 }
-function calcSims(Keys1, Keys2) {
+function CalcSims(Keys1, Keys2) {
   for (k = 1; k <= max_nf1; k++) {
     for (l = 1; l <= max_nf2; l++) {
       kscore1 = Keys1[k, l]
@@ -177,12 +177,12 @@ function calcSims(Keys1, Keys2) {
         kscore1 = Keys1[k, m]
         kscore2 = Keys2[l, m]
         scores[k, l] += (kscore1 / rcount1 - kscore2 / rcount2) ** 2
-        if (debug) debug_print(3) }
+        if (debug) DebugPrint(3) }
 
-      if (debug) debug_print(4) }}
+      if (debug) DebugPrint(4) }}
   if (debug) print "--- end calc sim ---"
 }
-function debug_print(case) {
+function DebugPrint(case) {
   if (case == 1) {
     print "New row: " NR, FNR, k1[1], k2[1], rcount1, rcount2
   } else if (case == 2) {

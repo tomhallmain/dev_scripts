@@ -3,8 +3,6 @@
 
 DS_SEP=$'@@@'
 
-#grep -h '[[:alnum:]_]*()' "$DS_SUPPORT/utils.sh" | grep -hv grep | sort | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' | ds:sbsp '\\\*\\\*' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" | ds:sbsp ":[[:space:]]" "888" -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" | awk -v FS="$DS_SEP" 'BEGIN{print "COMMAND" FS FS "DESCRIPTION" FS "USAGE\n"}{print}' | ds:reo a 2,1,3,4 | ds:fit -v FS="$DS_SEP" -v tty_size="${1:-$(tput cols)}"
-
 ds:file_check() { # Test for file validity and fail if invalid: ds:file_check file_arg [enable_search]
   [ -z "$1" ] && ds:fail 'File not provided!'
   local tf="$1"

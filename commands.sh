@@ -363,7 +363,7 @@ ds:git_recent_all() { # Display recent commits for local repos (alias ds:gra): d
         {print "\033[1;31m" repo "@@@", $0}') >> $all_recent )
   done < <(find * -maxdepth 0 -type d)
   echo
-  ds:sortm -v order=d -F"$DS_SEP" -v k=3 $all_recent \
+  ds:sortm $all_recent -v order=d -F"$DS_SEP" -v k=3 \
     | ds:reo "a" "NF!=3" -F"$DS_SEP" -v OFS="$DS_SEP" | ds:ttyf
   local stts=$?
   echo
@@ -494,7 +494,7 @@ ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1
       ds:is_int "$1" && local k1="$k" k2="$1" && shift
     elif [[ -z "$1" || "$1" =~ "-" ]]; then
       local k="$(ds:inferk "$f1" "$f2")"
-      [[ "$k" =~ " " ]] && local k2=$(ds:re_substr "$k" " " "") k1=$(ds:re_substr "$k" "" " ")
+      [[ "$k" =~ " " ]] && local k2=$(ds:substr "$k" " " "") k1=$(ds:substr "$k" "" " ")
     fi
     local args=( "$@" )
     [ "$k2" ] && local args=("${args[@]}" -v "k1=$k1" -v "k2=$k2") || local args=("${args[@]}" -v "k=$k")
@@ -504,111 +504,89 @@ ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1
 
   if ds:noawkfs; then
     local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
-    awk -v fs1="$fs1" -v fs2="$fs2" -f "$DS_SCRIPT/join.awk" \
-      ${args[@]} "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"
+    awk -v fs1="$fs1" -v fs2="$fs2" ${args[@]} -f "$DS_SCRIPT/join.awk" \
+      "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"
   else
-    awk -f "$DS_SCRIPT/join.awk" ${args[@]} "$f1" "$f2" 2> /dev/mull | ds:ttyf
+    awk ${args[@]} -f "$DS_SCRIPT/join.awk" "$f1" "$f2" 2> /dev/mull | ds:ttyf
   fi
 
   ds:pipe_clean $f2
 }
 
-ds:print_matches() { # ** Get match lines in two datasets (alias ds:pm): ds:pm [awkargs] file [file]
-  local args=( "$@" )
-  let last_arg=${#args[@]}-1
+ds:print_matches() { # ** Get match lines in two datasets (alias ds:pm): ds:pm file [file] [awkargs]
+  ds:file_check "$1"
+  local f1="$1"; shift
   if ds:pipe_open; then
-    local file2=$(ds:tmp 'ds_matches') piped=0
-    cat /dev/stdin > $file2
+    local f2=$(ds:tmp 'ds_matches') piped=1
+    cat /dev/stdin > "$f2"
   else
-    local file2="${args[@]:$last_arg:1}"
-    ds:file_check "$file2"
-    let last_arg-=1
-    [ "${args[@]:$last_arg:1}" = "$file2" ] && local file1="$file2"
-    local args=( ${args[@]/"$file2"} ); fi
-  
-  [ -z "$file1" ] && local file1="${args[@]:$last_arg:1}"
-  if [ ! -f "$file1" ]; then
-    echo File not provided or invalid!
-    ds:pipe_clean $file2
-    return 1; fi
-  local args=( ${args[@]/"$file1"} )
+    ds:file_check "$1"
+    local f2="$1"; shift; fi
+  [ "$f1" = "$f2" ] && echo 'Files are the same!' && return
+  local args=( "$@" )
   if ds:noawkfs; then
-    local fs1="$(ds:inferfs "$file1" true)" fs2="$(ds:inferfs "$file2" true)"
+    local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
 
-    awk -v fs1="$fs1" -v fs2="$fs2" -f "$DS_SCRIPT/matches.awk" \
-      ${args[@]} "$file1" "$file2" 2> /dev/null | ds:ttyf "$fs1"
+    awk -v fs1="$fs1" -v fs2="$fs2" -v piped=$piped ${args[@]} \
+      -f "$DS_SCRIPT/matches.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"
   else
-    awk -f "$DS_SCRIPT/matches.awk" ${args[@]} "$file1" "$file2" \
+    awk -v piped=$piped ${args[@]} -f "$DS_SCRIPT/matches.awk" "$f1" "$f2" \
       2> /dev/null | ds:ttyf; fi
   
-  ds:pipe_clean $file2
+  ds:pipe_clean $f2
 }
 alias ds:pm="ds:print_matches"
 
-ds:print_comps() { # ** Print non-matching lines on keys given (alias ds:pc): ds:pc [awkargs] file [file]
-  local args=( "$@" )
-  let last_arg=${#args[@]}-1
+ds:print_comps() { # ** Print non-matching lines on keys given (alias ds:pc): ds:pc file [file] [awkargs]
+  ds:file_check "$1"
+  local f1="$1"; shift
   if ds:pipe_open; then
-    local file2=$(ds:tmp 'ds_comps') piped=0
-    cat /dev/stdin > $file2
+    local f2=$(ds:tmp 'ds_comps') piped=1
+    cat /dev/stdin > "$f2"
   else
-    local file2="${args[@]:$last_arg:1}"
-    ds:file_check "$file2"
-    let last_arg-=1
-    [ "${args[@]:$last_arg:1}" = "$file2" ] && local file1="$file2"
-    local args=( ${args[@]/"$file2"} ); fi
-
-  [ -z "$file1" ] && local file1="${args[@]:$last_arg:1}"
-  if [ ! -f "$file1" ]; then
-    echo File missing or invalid!
-    ds:pipe_clean $file2
-    return 1; fi
-  local args=( ${args[@]/"$file1"} )
+    ds:file_check "$1"
+    local f2="$1"; shift; fi
+  [ "$f1" = "$f2" ] && echo 'Files are the same!' && return 1
+  local args=( "$@" )
   if ds:noawkfs; then
-    local fs1="$(ds:inferfs "$file1" true)" fs2="$(ds:inferfs "$file2" true)"
+    local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
 
-    awk -v fs1="$fs1" -v fs2="$fs2" -f "$DS_SCRIPT/complements.awk" \
-      ${args[@]} "$file1" "$file2" 2> /dev/null | ds:ttyf "$fs1"
+    awk -v fs1="$fs1" -v fs2="$fs2" -v piped=$piped ${args[@]} \
+      -f "$DS_SCRIPT/complements.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"
   else
-    awk -f "$DS_SCRIPT/complements.awk" ${args[@]} "$file1" "$file2" \
+    awk -v piped=$piped ${args[@]} -f "$DS_SCRIPT/complements.awk" "$f1" "$f2" \
       2> /dev/null | ds:ttyf; fi
   
-  ds:pipe_clean $file2
+  ds:pipe_clean $f2
 }
 alias ds:pc="ds:print_comps"
 
-ds:inferh() { # Infer if headers present in a file: ds:inferh [awkargs] file
+ds:inferh() { # Infer if headers present in a file: ds:inferh file [awkargs]
+  ds:file_check "$1"
+  local file="$1"; shift
   local args=( "$@" )
-  awk -f "$DS_SCRIPT/infer_headers.awk" ${args[@]} 2> /dev/null
+  awk ${args[@]} -f "$DS_SCRIPT/infer_headers.awk" "$file" 2> /dev/null
 }
 
-ds:inferk() { # ** Infer join fields in two text data files: ds:inferk [awkargs] file [file]
-  local args=( "$@" )
-  let last_arg=${#args[@]}-1
+ds:inferk() { # ** Infer join fields in two text data files: ds:inferk file [file] [awkargs]
+  ds:file_check "$1"
+  local f1="$1"; shift
   if ds:pipe_open; then
-    local file2=$(ds:tmp 'ds_inferk') piped=0
+    local f2=$(ds:tmp 'ds_inferk') piped=0
     cat /dev/stdin > $file2
   else
-    local file2="${args[@]:$last_arg:1}"
-    ds:file_check "$file2"
-    let last_arg-=1
-    local args=( ${args[@]/"$file2"} ); fi
-  
-  local file1="${args[@]:$last_arg:1}"
-  if [ ! -f "$file1" ]; then
-    echo File not provided or invalid!
-    ds:pipe_clean $file2
-    return 1; fi
-  local args=( ${args[@]/"$file1"} )
+    ds:file_check "$1"
+    local f2="$1"; shift; fi
+  local args=( "$@" )
   if ds:noawkfs; then
-    local fs1="$(ds:inferfs "$file1" true)" fs2="$(ds:inferfs "$file2" true)"
+    local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
 
-    awk -v fs1="$fs1" -v fs2="$fs2" -f "$DS_SCRIPT/infer_join_fields.awk" \
-      ${args[@]} "$file1" "$file2" 2> /dev/null
+    awk -v fs1="$fs1" -v fs2="$fs2" ${args[@]} -f "$DS_SCRIPT/infer_join_fields.awk" \
+      "$f1" "$f2" 2> /dev/null
   else
-    awk -f "$DS_SCRIPT/infer_join_fields.awk" ${args[@]} "$file1" "$file2" 2> /dev/null; fi
+    awk ${args[@]} -f "$DS_SCRIPT/infer_join_fields.awk" "$f1" "$f2" 2> /dev/null; fi
 
-  ds:pipe_clean $file2
+  ds:pipe_clean $f2
 }
 
 ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [custom=t] [file_ext=t] [high_cert=f]
@@ -662,25 +640,24 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file]
   ds:pipe_clean $file; rm $dequote
 }
 
-ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [awkargs] file
-  local args=( "$@" ) tty_size=$(tput cols)
+ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [file] [stag_size]
+  ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/stagger.awk" \
+    | tr -d "#" | less && return
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_stagger') piped=0
     cat /dev/stdin > $file
   else
-    ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/stagger.awk" \
-      | tr -d "#" | less && return
-    let last_arg=${#args[@]}-1
-    local file="${args[@]:$last_arg:1}"
-    ds:file_check "$file"
-    args=( ${args[@]/"$file"} ); fi
+    ds:file_check "$1"
+    local file="$1"; shift; fi
+  ds:is_int "$1" && local stag_size=$1 && shift
+  local args=( "$@" ) tty_size=$(tput cols)
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
-    awk -v FS="$fs" ${args[@]} -f "$DS_SCRIPT/stagger.awk" -v tty_size=$tty_size \
-      "$file" 2> /dev/null
+    awk -v FS="$fs" ${args[@]} -v tty_size=$tty_size -v stag_size=$stag_size \
+      -f "$DS_SCRIPT/stagger.awk" "$file" 2> /dev/null
   else
-    awk ${args[@]} -v tty_size=$tty_size -f "$DS_SCRIPT/stagger.awk" "$file" 2> /dev/null
-  fi
+    awk ${args[@]} -v tty_size=$tty_size -v stag_size=$stag_size \
+      -f "$DS_SCRIPT/stagger.awk" "$file" 2> /dev/null; fi
   ds:pipe_clean $file
 }
 
@@ -717,9 +694,9 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file] [ro
   fi
   local arr_base=$(ds:arr_base)
   local args=( "${@:$base}" )
-  if [ "$cols" = 'off' ] || ds:test "(f|false)" "${args[$arr_base]}"; then
-    local dq_off=0 args=( "${args[@]:1}" ) run_fit='f'; fi
-  [ ! "$dq_off" ] && local dequote=$(ds:tmp "ds_reo_dequote")
+  if [[ "$cols" = 'off' || $(ds:test "(f|false)" "${args[$arr_base]}") ]]; then
+    local pf_off=0 args=( "${args[@]:1}" ) run_fit='f'; fi
+  [ "$pf_off" ] || local prefield=$(ds:tmp "ds_reo_prefield")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
   else
@@ -732,14 +709,16 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file] [ro
       let local fsv_idx=$fs_idx-1
       unset "args[$fsv_idx]"; fi
     unset "args[$fs_idx]"; fi
-  if [ ! "$dq_off" ]; then
-    ds:prefield "$file" "$fs" 1 > $dequote
-    awk -v FS="$DS_SEP" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} \
-      -f "$DS_SCRIPT/reorder.awk" $dequote 2>/dev/null | ds:ttyf "$fs" "$run_fit"
-  else
+  if [ "$pf_off" ]; then
     awk -v FS="$fs" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} \
-      -f "$DS_SCRIPT/reorder.awk" "$file" 2>/dev/null | ds:ttyf "$fs" "$run_fit"; fi
-  ds:pipe_clean $file; [ ! "$dq_off" ] && rm $dequote; :
+      -f "$DS_SCRIPT/reorder.awk" "$file" 2>/dev/null | ds:ttyf "$fs" "$run_fit"
+  else
+    ds:prefield "$file" "$fs" 1 > $prefield
+    awk -v FS="$DS_SEP" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} \
+      -f "$DS_SCRIPT/reorder.awk" $prefield 2>/dev/null | ds:ttyf "$fs" "$run_fit"; fi
+  local stts_bash=${PIPESTATUS[0]} # TODO: Zsh pipestatus not working
+  ds:pipe_clean $file; [ "$pf_off" ] || rm $prefield
+  if [ "$stts_bash" ]; then return $stts_bash; fi
 }
 
 ds:decap() { # ** Remove up to n_lines from the start of a file: ds:decap [n_lines=1] [file]
@@ -756,18 +735,15 @@ ds:decap() { # ** Remove up to n_lines from the start of a file: ds:decap [n_lin
   ds:pipe_clean $file
 }
 
-ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [awkargs] [file]
+ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file] [awkargs]
   # TODO: Man page
-  local args=( "$@" )
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_transpose') piped=0
     cat /dev/stdin > $file
-  else 
-    let last_arg=${#args[@]}-1
-    local file="${args[@]:$last_arg:1}"
-    ds:file_check "$file"
-    local args=( ${args[@]/"$file"} ); fi
-  local dequote=$(ds:tmp "ds_transpose_dequote")
+  else
+    ds:file_check "$1"
+    local file="$1"; shift; fi
+  local args=( "$@" ) dequote=$(ds:tmp "ds_transpose_dequote")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
   else
@@ -781,8 +757,8 @@ ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [awkargs
       unset "args[$fsv_idx]"; fi
     unset "args[$fs_idx]"; fi
   ds:prefield "$file" "$fs" 1 > $dequote
-  awk -v FS="$DS_SEP" -v OFS="$fs" -v VAR_OFS=1 -f "$DS_SCRIPT/transpose.awk" \
-    ${args[@]} $dequote 2> /dev/null | ds:ttyf "$fs"
+  awk -v FS="$DS_SEP" -v OFS="$fs" -v VAR_OFS=1 ${args[@]} \
+    -f "$DS_SCRIPT/transpose.awk" $dequote 2> /dev/null | ds:ttyf "$fs"
   ds:pipe_clean $file; rm $dequote
 }
 alias ds:t="ds:transpose"
@@ -991,21 +967,19 @@ ds:sort() { # ** Sort with inferred field sep of exactly 1 char: ds:sort [unix_s
   ds:pipe_clean $file
 }
 
-ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sortm [keys] [order=a|d] [awkargs] [file]
+ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sortm [file] [keys] [order=a|d] [awkargs]
   # TODO: Default to infer header
+  if ds:pipe_open; then
+    local file=$(ds:tmp 'ds_sortm') piped=0
+    cat /dev/stdin > $file
+  else
+    ds:file_check "$1"
+    local file="$1"; shift; fi
   grep -Eq "^[0-9\\.:;\\!\\?,]+$" <(echo "$1") && local keys="$1" && shift
   [ "$keys" ] && grep -Eq "^[A-z]$" <(echo "$1") && local ord="$1" && shift
   local args=( "$@" )
   [ "$keys" ] && local args=("${args[@]}" -v k="$keys")
   [ "$ord" ] && local args=("${args[@]}" -v order="$ord")
-  if ds:pipe_open; then
-    local file=$(ds:tmp 'ds_sortm') piped=0
-    cat /dev/stdin > $file
-  else 
-    let last_arg=${#args[@]}-1
-    local file="${args[@]:$last_arg:1}"
-    ds:file_check "$file"
-    args=( ${args[@]/"$file"} ); fi
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" f true f f)"
     awk -v FS="$fs" -f "$DS_SCRIPT/fields_qsort.awk" ${args[@]} "$file" 2> /dev/null
@@ -1081,12 +1055,23 @@ ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [recurse=r
   [ $? = 0 ] || (echo "$notfound" && return 1)
 }
 
-ds:sedi() { # Linux-portable sed in place substitution: ds:sedi file search_pattern [replacement]
-  [ "$1" ] && [ "$2" ] || ds:fail 'Missing required args: ds:sedi file search [replace]'
-  [ ! -f "$1" ] && echo File was not provided or is invalid! && return 1
-  local file="$1" search="$(printf "%q" "$2")"
+ds:sedi() { # Linux-portable sed in place substitution: ds:sedi file|dir search [replace]
+  [ "$1" ] && [ "$2" ] || ds:fail 'Missing required args: ds:sedi file|dir search [replace]'
+  if [ -f "$1" ]; then
+    local file="$1"
+  else
+    [ -d "$1" ] && local dir="$1" || local dir=.
+    local conf="$(ds:readp "Confirm replacement of \"$2\" -> \"$3\" on all files in $dir (y/n):" | ds:downcase)"
+    [ ! "$conf" = y ] && echo 'No change made!' && return 1; fi
+
+  local search="$(printf "%q" "$2")"
   [ "$3" ] && local replace="$(printf "%q" "$3")"
-  perl -pi -e "s/${search}/${replace}/g" "$file"
+  if [ "$file" ]; then
+    perl -pi -e "s/${search}/${replace}/g" "$file"
+  else
+    while IFS=$'\n' read -r file; do
+      echo > /dev/null; perl -pi -e "s/${search}/${replace}/g" "$file"
+    done < <(grep -r --files-with-match "$search" "$dir"); fi
   # TODO: Fix for forward slash replacement case and printf %q
 }
 

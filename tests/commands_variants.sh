@@ -24,7 +24,7 @@ tests="$1"
 
 case "$tests" in
   inferfs)  ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~inferfs"                 ;;
-  jn)       ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~ds;jn"                   ;;
+  jn)       ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~ds:jn && !~ds:jn$"       ;;
   sort)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , SORT TESTS##REO TESTS"    ;;
   reo)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , REO TESTS##FIT TESTS"     ;;
   fit)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , FIT TESTS##FC TESTS"      ;;

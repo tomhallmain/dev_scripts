@@ -73,11 +73,9 @@
 #
 #          $ ds:reo -h
 #
-#
 #       Index a field value (Print the field value at row 1 col 1):
 #
 #          $ ds:reo 1 1
-#
 #
 #       Print multiple specific rows and/or columns:
 #
@@ -85,11 +83,9 @@
 #
 #         (Print row 1 then 1000, only cols 1, 4 and 5)
 #
-#
 #       Print rows/column index numbers relative to maximum index value:
 #
 #          $ ds:reo -1,-2 -3
-#
 #
 #       Pass all rows / columns for given index - don't set arg or set arg=[a|all]:
 #
@@ -102,16 +98,13 @@
 #
 #          $ ds:reo 1,100..200 1..3,5
 #
-#
 #       Print index range with endpoints relative to maximum index val:
 #
 #          $ ds:reo -3..-1 -5..1
 #
-#
 #       Reorder/repeat rows and fields, duplicate as many times as desired:
 #
 #          $ ds:reo 3,3,5,1 4..1,1,3,5
-#
 #
 #       Print a range by defining inclusive pattern anchors. If one of the anchors is not 
 #       given, it will default to the first or last row for start or end anchor respectively:
@@ -125,19 +118,17 @@
 #
 #          $ ds:reo start## off
 #
-#
 #       Reverse indices by adding the string r[everse] anywhere in the order:
 #
 #          $ ds:reo 1,r all,rev
 #
-#
-#       Index numbers evaluating to expression. If no comparison specified, compares 
-#       if expression equal to zero. NR and NF refer to the index number and must be
-#       used on the left side of the expression:
+#       Index numbers evaluating to expression. If no comparison specified, compares if 
+#       expression equal to zero. NR and NF refer to the index number and must be used on 
+#       the left side of the expression:
 #
 #          $ ds:reo 'NR%2,NR%2=1' 'NF<10'
 #
-#
+##
 #       Filter records by field values and/or fields by record values:
 #
 #       -- Using basic math expressions, across the entire opposite span:
@@ -157,7 +148,7 @@
 #
 #
 #       -- Using len() / length() function. The parameter is the index number of row or 
-#       column respectively. If no parameter given, all fields are searched for condition.
+#          column respectively. If no parameter given, all fields are searched for condition:
 #
 #          $ ds:reo 'len(3)<100' 'length()>50'
 #
@@ -171,12 +162,12 @@
 #
 #
 #       Alternatively filter the cross-span by a current-span frame pattern. Headers --
-#       first row and first column -- are the default if not specified
+#       first row and first column -- are the default if not specified:
 #
 #          $ ds:reo '[plant~flower' '3[alps>10000'
 #
 #         (Example: Print rows where column header matches "plant" and column value matches 
-#          "flower", fields where values in col 3 match "alps" and which have number values 
+#          "flower", cols where values in row 3 match "alps" and which have number values 
 #          greater than 10000
 #
 #
@@ -185,8 +176,8 @@
 #
 #          $ ds:reo file '[europe' '[plant'
 #
-#         (Example: Print rows where first col matches 'europe' (any case), fields where first
-#          row matches 'plant' (any case))
+#         (Example: Print rows where first col matches 'europe' (any case), fields where
+#          first row matches 'plant' (any case))
 #
 #          Note the above args are equivalent to '1~europe' '1~plant'.
 #
@@ -196,14 +187,14 @@
 #
 #          $ ds:reo '[plant~flower || [plant~tree && [country~italy' rev
 #
-#         (Print rows where field vals in fields with headers matching "plant" match "flower"
-#          OR where the same match tree and field vals in fields in the same row with headers
-#          matching "country" match "italy"; print all fields in reverse order)
+#         (Example: Print rows where field vals in fields with headers matching "plant" match
+#          "flower" OR where the same match tree and field vals in fields in the same row with
+#          headers matching "country" match "italy"; print all fields in reverse order)
 #
 #
-#       Case is ignored globally by default in regex searches. To enable cased matching 
-#       set variable cased to any value. To search a case insensitive value while cased 
-#       is set, append "/i" to the end of the pattern:
+#       Case is ignored globally by default in regex searches. To enable cased matching set 
+#       variable cased to any value. To search a case insensitive value while cased is set,
+#       append "/i" to the end of the pattern:
 #
 #          $ ds:reo '[europe/i' '[Plant' -v cased=1
 #
@@ -216,8 +207,8 @@
 #
 #          $ ds:reo '3, 4, others, 1' '[Tests,oth'
 #
-#         (Example: Print rows 3, 4, then any not in the set 1,3,4, then row 1; fields 
-#          where header matches "tests", then any remaining fields):
+#         (Example: Print rows 3, 4, then any not in the set 1,3,4, then row 1; fields where 
+#          header matches "tests", then any remaining fields):
 #
 #
 #       Constrain output to unique indices on searches, expressions, reverses:
@@ -225,7 +216,7 @@
 #          $ ds:reo a 'len()>0,len()<100000' -v uniq=1
 #
 #
-#       Output with row and column indices from source:
+#       Output with row and column index numbers from source:
 #
 #          $ ds:reo rev rev -v idx=1
 #
@@ -388,8 +379,8 @@ END {
   if (idx) {
     if (reo_c_len)
       FieldsIndexPrint(ReoC, reo_c_len)
-    else {
-      FieldsIndexPrint(Empty, max_nf) }}
+    else
+      FieldsIndexPrint(Empty, max_nf) }
 
   if (pass_r) {
     for (rr = 1; rr <= NR; rr++) {
@@ -437,7 +428,6 @@ END {
 
 function Reo(key, CrossSpan, row_call) {
   if (row_call) { rows = GetOrder(1, key)
-
     split(rows, PrintRows, ",")
     len_printr = length(PrintRows) - 1
     for (pr = 1; pr <= len_printr; pr++) {
@@ -458,7 +448,6 @@ function Reo(key, CrossSpan, row_call) {
         print "" }}}
 
   else { fields = GetOrder(0, key)
-
     split(fields, PrintFields, ",")
     len_printf = length(PrintFields) - 1
     for (f = 1; f <= len_printf; f++)
@@ -475,20 +464,17 @@ function FieldsPrint(Order, ord_len, run_call) {
     else if (run_call) {
       for (pf = 1; pf < NF; pf++)
         printf "%s", $pf OFS
-
       print $NF }
     else {
       split(Order, PrintFields, FS)
       len_printf = length(PrintFields)
       for (pf = 1; pf < len_printf; pf++)
         printf "%s", PrintFields[pf] OFS
-
       print PrintFields[len_printf]
     }}
   else {
     for (pf = 1; pf < ord_len; pf++)
       printf "%s", $Order[pf] OFS
-
     print $Order[ord_len] }
 }
 
@@ -545,7 +531,7 @@ function FillReoArr(row_call, val, KeyArr, count, ReoArr, type) {
     R[val] = 1
     if (val < min_guar_print_nr)
       min_guar_print_nr = val }
-  else if (!row_call) {
+  else {
     C[val] = 1
     if (val > 0 && val < min_guar_print_nf)
       min_guar_print_nf = val }
@@ -706,6 +692,7 @@ function StoreRowRefs() {
         split(Tmp[1], Fr, "(\\[|!$)")
         test_row = (fr_ext && Fr[1]) ? Fr[1] : 1
         frame_re = Fr[2] }
+      else if (c_off) { start = 0; end = 0 }
       else if (Tmp[1] ~ Re["int"]) { start = Tmp[1]; end = start }
       else { start = 1; end = NF }
 
@@ -1173,6 +1160,8 @@ function TestArg(arg, max_i, type, row_call) {
     "" ~ sa1; "" ~ sa2 }
 
   else if (type == "fr") { reo = 1; fr_idx = 0
+    if (c == "off") {
+      print "Frame args cannot be used without column traversal"; exit 1 }
     if (sa1) fr_ext = 1
     if (ignore_case_global || arg ~ "\/[iI]") IgnoreCase[arg] = 1
     if (arg ~ Re["frmat"]) {
@@ -1320,35 +1309,35 @@ function PrintField(field_val, field_no, end_field_no) {
   printf "%s", field_val
 }
 
-function qsorta(A,lft,rght,    x,last) {
+function QsortAsc(A,lft,rght,    x,last) {
   if (lft >= rght) return
 
-  swap(A, lft, lft + int((rght-lft+1)*rand()))
+  Swap(A, lft, lft + int((rght-lft+1)*rand()))
   last = lft
 
   for (x = lft+1; x <= rght; x++)
     if (A[x] < A[lft])
-      swap(A, ++last, x)
+      Swap(A, ++last, x)
 
-  swap(A, left, last)
-  qsorta(A, left, last-1)
-  qsorta(A, last+1, right)
+  Swap(A, left, last)
+  QsortAsc(A, left, last-1)
+  QsortAsc(A, last+1, right)
 }
-function qsortd(A,lft,rght,    x,last) {
+function QsortDesc(A,lft,rght,    x,last) {
   if (lft >= rght) return
 
-  swap(A, lft, lft + int((rght-lft+1)*rand()))
+  Swap(A, lft, lft + int((rght-lft+1)*rand()))
   last = lft
 
   for (x = lft+1; x <= rght; x++)
     if (A[x] > A[lft])
-      swap(A, ++last, x)
+      Swap(A, ++last, x)
 
-  swap(A, lft, last)
-  qsortd(A, lft, last-1)
-  qsortd(A, last+1, rght)
+  Swap(A, lft, last)
+  QsortDesc(A, lft, last-1)
+  QsortDesc(A, last+1, rght)
 }
-function swap(A,B,x,y,z) {
+function Swap(A,B,x,y,z) {
   z = A[x]; A[x] = A[y]; A[y] = z
   z = B[x]; B[x] = B[y]; B[y] = z
 }
@@ -1407,7 +1396,8 @@ function DebugPrint(case, arg) {
     if (nidx_rng) print "negative index range case"
     if (c_nidx_rng) print "column negative index range case"
     if (len) print "length test case"
-    if (idx) print "index number case" }
+    if (idx) print "index number case"
+    if (uniq) print "unique output case" }
 
   else if (case == 5) {
     print "NR: "NR ", f: "f ", anchor: "anchor ", apply to: "base_expr ", evals to: "eval ", compare: "comp, compval }

@@ -61,7 +61,7 @@ NR == FNR {
 
   if (FNR == 1 && header) { header1 = $0; next }
 
-  keybase = genKeyString(keys1)
+  keybase = GenKeyString(keys1)
   key = keybase _ keycount
 
   while (key in s1) {
@@ -82,18 +82,18 @@ NR > FNR {
   
   if (FNR == 1 && header) { 
     if (ind) printf "%s", OFS
-    print genOutputString(header1, fs1), genOutputString($0, fs2)
+    print GenOutputString(header1, fs1), GenOutputString($0, fs2)
     next
   }
 
-  keybase = genKeyString(keys2)
+  keybase = GenKeyString(keys2)
   key = keybase _ keycount
 
   if (key in s1) {
     while (key in s1) {
       recordcount++
       if (ind) printf "%s", recordcount OFS
-      print genOutputString(s1[key], fs1), genOutputString($0, fs2)
+      print GenOutputString(s1[key], fs1), GenOutputString($0, fs2)
       delete s1[key]
       keycount++
       key = keybase _ keycount
@@ -105,8 +105,8 @@ NR > FNR {
       recordcount++
       if (!inner && !left) {
         if (ind) printf "%s", recordcount OFS
-        printNullFields(max_nf1)
-        print OFS genOutputString(s2[key], fs2)
+        PrintNullFields(max_nf1)
+        print OFS GenOutputString(s2[key], fs2)
       }
       keycount++
       key = keybase _ keycount
@@ -122,13 +122,13 @@ END {
   for (key in s1) {
     recordcount++
     if (ind) printf "%s", recordcount OFS
-    printf "%s", genOutputString(s1[key], fs1) OFS
-    printNullFields(max_nf2)
+    printf "%s", GenOutputString(s1[key], fs1) OFS
+    PrintNullFields(max_nf2)
     print ""
   }
 }
 
-function genKeyString(keys) {
+function GenKeyString(keys) {
   str = ""
   for (i in keys) {
     k = keys[i]
@@ -138,11 +138,11 @@ function genKeyString(keys) {
   }
   return str
 }
-function genOutputString(line, fs) {
+function GenOutputString(line, fs) {
   gsub(fs, OFS, line)
   return line
 }
-function printNullFields(nf) {
+function PrintNullFields(nf) {
   for (i=1; i<=nf; i++)
     if (i == nf) { printf "%s", "<NULL>" } else { printf "%s", "<NULL>" OFS }
 }

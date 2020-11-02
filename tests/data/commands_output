@@ -36,8 +36,8 @@
 **@@@ds:hist@@@@@@Print histograms for all number fields in data@@@ds:hist [file] [n_bins] [bar_len] [awkargs]
 **@@@ds:idx@@@@@@Attach an index to lines from a file or STDIN@@@ds:idx [file] [startline=1]
 @@@ds:inferfs@@@@@@Infer field separator from data@@@ds:inferfs file [reparse=f] [custom=t] [file_ext=t] [high_cert=f]
-@@@ds:inferh@@@@@@Infer if headers present in a file@@@ds:inferh [awkargs] file
-**@@@ds:inferk@@@@@@Infer join fields in two text data files@@@ds:inferk [awkargs] file [file]
+@@@ds:inferh@@@@@@Infer if headers present in a file@@@ds:inferh file [awkargs]
+**@@@ds:inferk@@@@@@Infer join fields in two text data files@@@ds:inferk file [file] [awkargs]
 **@@@ds:insert@@@@@@Redirect input into a file at lineno or pattern@@@ds:insert file [lineno|pattern] [srcfile]
 @@@ds:iter@@@@@@Repeat a string some number of times@@@ds:iter str [n=1] [fs]
 @@@ds:jira@@@@@@Opens Jira at specified workspace and issue@@@ds:jira workspace_subdomain [issue]
@@ -51,29 +51,29 @@
 @@@ds:path_elements@@@@@@Returns dirname, filename, extension from a filepath@@@ds:path_elements file
 **@@@ds:pipe_check@@@@@@Detect if pipe has data or over [n_lines]@@@data | ds:pipe_check [n_lines]
 **@@@ds:pow@@@@@@Print the frequency distribution of fielded data@@@ds:pow [file] [min] [return_fields=f] [invert=f]
-**@@@ds:print_comps@@@ds:pc@@@Print non-matching lines on keys given@@@ds:pc [awkargs] file [file]
-**@@@ds:print_matches@@@ds:pm@@@Get match lines in two datasets@@@ds:pm [awkargs] file [file]
+**@@@ds:print_comps@@@ds:pc@@@Print non-matching lines on keys given@@@ds:pc file [file] [awkargs]
+**@@@ds:print_matches@@@ds:pm@@@Get match lines in two datasets@@@ds:pm file [file] [awkargs]
 @@@ds:recent@@@@@@List files modified in last 7 days@@@ds:recent [dir=.] [recurse=r] [hidden=h]
 **@@@ds:reo@@@@@@Reorder/repeat/slice data by rows and cols@@@ds:reo [-h|file] [rows] [cols] [prefield=t] [awkargs]
 **@@@ds:rev@@@@@@Reverse lines from standard input@@@data | ds:rev
 **@@@ds:sbsp@@@@@@Extend fields by a common subseparator@@@ds:sbsp [file] subsep_pattern [nomatch_handler= ] [awkargs]
 @@@ds:searchn@@@@@@Searches current names for string, returns matches@@@ds:searchn name
 @@@ds:searchx@@@@@@Search file for C-lang/curly-brace top-level object@@@ds:searchx file [search] [q]
-@@@ds:sedi@@@@@@Linux-portable sed in place substitution@@@ds:sedi file search_pattern [replacement]
+@@@ds:sedi@@@@@@Linux-portable sed in place substitution@@@ds:sedi file|dir search [replace]
 **@@@ds:select@@@@@@Select code from a file by regex anchors@@@ds:select file [startpattern endpattern]
 **@@@ds:shape@@@@@@Print data shape by length or FS@@@ds:shape [file] [FS] [chart_size=15ln] [chart_off=f]
 @@@ds:so@@@@@@Search Stack Overflow@@@ds:so [search query]
 **@@@ds:sort@@@@@@Sort with inferred field sep of exactly 1 char@@@ds:sort [unix_sort_args] [file]
-**@@@ds:sortm@@@ds:s@@@Sort with inferred field sep of >=1 char@@@ds:sortm [keys] [order=a|d] [awkargs] [file]
+**@@@ds:sortm@@@ds:s@@@Sort with inferred field sep of >=1 char@@@ds:sortm [file] [keys] [order=a|d] [awkargs]
 @@@ds:src@@@@@@Source a piece of file@@@ds:src file ["searchx" pattern] || [line endline] || [pattern linesafter]
 @@@ds:srg@@@@@@Scope rg/grep to a set of files that contain a match@@@ds:srg scope_pattern search_pattern [dir] [invert=]
-**@@@ds:stag@@@@@@Print field-separated data in staggered rows@@@ds:stag [awkargs] file
+**@@@ds:stag@@@@@@Print field-separated data in staggered rows@@@ds:stag [file] [stag_size]
 **@@@ds:substr@@@@@@Extract a substring from a string with regex@@@ds:substr str [leftanc] [rightanc]
 **@@@ds:test@@@@@@Test input quietly with extended regex@@@ds:test regex [str|file] [test_file=f]
 @@@ds:tmp@@@@@@Shortcut for quiet mktemp@@@ds:tmp filename
 @@@ds:todo@@@@@@List todo items found in paths@@@ds:todo [searchpaths=.]
 @@@ds:trace@@@@@@Search shell trace for a pattern@@@ds:trace [command] [search]
-**@@@ds:transpose@@@ds:t@@@Transpose field values@@@ds:transpose [awkargs] [file]
+**@@@ds:transpose@@@ds:t@@@Transpose field values@@@ds:transpose [file] [awkargs]
 **@@@ds:unicode@@@@@@Get UTF-8 unicode for a character sequence@@@ds:unicode [str]
 @@@ds:websel@@@@@@Download and extract inner html by regex@@@ds:websel url [tag_re] [attrs_re]
 @@@@@@@@@@@@

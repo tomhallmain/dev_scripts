@@ -70,15 +70,17 @@ fi
 [ $(ds:jn "$jnf1" "$jnf2" l -v k=1 | grep -c "") -gt 15 ]   || ds:fail 'ds:jn failed awkarg key case'
 [ $(ds:jn "$jnf1" "$jnf2" i 1 | grep -c "") -gt 15 ]        || ds:fail 'ds:jn failed inner join case'
 ds:jn "$jnf1" "$jnf2" -v ind=1 > $tmp
-cmp --silent "$tmp" "$jnd1"                                 || ds:fail 'ds;jn failed base outer join case'
+cmp --silent "$tmp" "$jnd1"                                 || ds:fail 'ds:jn failed base outer join case'
 
-[ $(ds:print_comps $jnf1{,} | grep -c "") -eq 7 ]           || ds:fail 'print_comps failed no complement case'
-[ $(ds:print_comps -v k1=2 -v k2=3,4 $jnf1 $jnf2 | grep -c "") -eq 197 ] \
+cat "${jnf1}" > $tmp
+[ $(ds:print_comps $jnf1 $tmp | grep -c "") -eq 7 ]         || ds:fail 'print_comps failed no complement case'
+[ "$(ds:print_comps $jnf1{,})" = 'Files are the same!' ]    || ds:fail 'print_comps failed no complement case'
+[ $(ds:print_comps $jnf1 $jnf2 -v k1=2 -v k2=3,4 | grep -c "") -eq 197 ] \
   || ds:fail 'print_comps failed complments case'
 
-[ "$(ds:print_matches -v k1=2 -v k2=2 $jnf1 $jnf2)" = "NO MATCHES FOUND" ] \
+[ "$(ds:print_matches $jnf1 $jnf2 -v k1=2 -v k2=2)" = "NO MATCHES FOUND" ] \
   || ds:fail 'print_matches failed no matches case'
-[ $(ds:print_matches -v k=1 $jnf1 $jnf2 | grep -c "") = 167 ] \
+[ $(ds:print_matches $jnf1 $jnf2 -v k=1 | grep -c "") = 167 ] \
   || ds:fail 'print_matches failed matches case'
 
 
@@ -135,6 +137,8 @@ reo_input='1:2:3:4:5
 :3::2:1'
 
 reo_actual="$(echo "$reo_input" | ds:reo '>5' off)"
+[ "$reo_actual" = "::6::" ] || ds:fail 'reo command failed c off case'
+reo_actual="$(echo "$reo_input" | ds:reo '~6' off)"
 [ "$reo_actual" = "::6::" ] || ds:fail 'reo command failed c off case'
 
 reo_actual="$(echo "$reo_input" | ds:reo '6##2' '3##' | cat)"

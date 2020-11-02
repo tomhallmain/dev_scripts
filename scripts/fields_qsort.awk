@@ -32,45 +32,45 @@ BEGIN {
 
 END {
   if (order == "d" || order == "desc")
-    qsortd(A, 1, NR)
+    QsortDesc(A, 1, NR)
   else
-    qsorta(A, 1, NR)
+    QsortAsc(A, 1, NR)
 
   for (i = 1; i <= NR; i++)
     print _[i]
 }
 
-function qsorta(A,left,right,    i,last) {
+function QsortAsc(A,left,right,    i,last) {
   if (left >= right) return
 
-  swap(A, left, left + int((right-left+1)*rand()))
+  Swap(A, left, left + int((right-left+1)*rand()))
   last = left
 
   for (i = left+1; i <= right; i++)
     if (A[i] < A[left])
-      swap(A, ++last, i)
+      Swap(A, ++last, i)
 
-  swap(A, left, last)
-  qsorta(A, left, last-1)
-  qsorta(A, last+1, right)
+  Swap(A, left, last)
+  QsortAsc(A, left, last-1)
+  QsortAsc(A, last+1, right)
 }
 
-function qsortd(A,left,right,    i,last) {
+function QsortDesc(A,left,right,    i,last) {
   if (left >= right) return
 
-  swap(A, left, left + int((right-left+1)*rand()))
+  Swap(A, left, left + int((right-left+1)*rand()))
   last = left
 
   for (i = left+1; i <= right; i++)
     if (A[i] > A[left])
-      swap(A, ++last, i)
+      Swap(A, ++last, i)
 
-  swap(A, left, last)
-  qsortd(A, left, last-1)
-  qsortd(A, last+1, right)
+  Swap(A, left, last)
+  QsortDesc(A, left, last-1)
+  QsortDesc(A, last+1, right)
 }
 
-function swap(A,i,j,t) {
+function Swap(A,i,j,t) {
   t = A[i]; A[i] = A[j]; A[j] = t
   t = _[i]; _[i] = _[j]; _[j] = t
 }
