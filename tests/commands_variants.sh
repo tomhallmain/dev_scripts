@@ -23,16 +23,16 @@ fi
 tests="$1"
 
 case "$tests" in
-  inferfs)  ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~inferfs"                 ;;
-  jn)       ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~ds:jn && !~ds:jn$"       ;;
-  sort)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , SORT TESTS##REO TESTS"    ;;
-  reo)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , REO TESTS##FIT TESTS"     ;;
-  fit)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , FIT TESTS##FC TESTS"      ;;
-  fc)       ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , FC TESTS##NEWFS TESTS"    ;;
-  newfs)    ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~nfs"                     ;;
-  prefield) ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , PREFIELD TESTS##ASSORTED" ;;
-  todo)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~todo"                    ;;
-  substr)   ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~substr"                  ;;
-  pow)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , pow_expected##combin co"  ;;
-  deps)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , help_deps##ds:deps" ;;
+  inferfs)  ds:gexec true tests/commands_tests.sh tests "##basics tests , ~inferfs"                 ;;
+  jn)       ds:gexec true tests/commands_tests.sh tests "##basics tests , ~ds:jn && !~ds:jn$"       ;;
+  sort)     ds:gexec true tests/commands_tests.sh tests "##basics tests , SORT TESTS##REO TESTS"    ;;
+  reo)      ds:gexec true tests/commands_tests.sh tests "##basics tests , REO TESTS##FIT TESTS"     ;;
+  fit)      ds:gexec true tests/commands_tests.sh tests "##basics tests , FIT TESTS##FC TESTS"      ;;
+  fc)       ds:gexec true tests/commands_tests.sh tests "##basics tests , FC TESTS##NEWFS TESTS"    ;;
+  newfs)    ds:gexec true tests/commands_tests.sh tests "##basics tests , ~nfs"                     ;;
+  prefield) ds:gexec true tests/commands_tests.sh tests "##basics tests , PREFIELD TESTS##ASSORTED" ;;
+  todo)     ds:gexec true tests/commands_tests.sh tests "##basics tests , ~todo"                    ;;
+  substr)   ds:gexec true tests/commands_tests.sh tests "##basics tests , ~substr"                  ;;
+  pow)      ds:gexec true tests/commands_tests.sh tests "##basics tests , pow_expected##combin co"  ;;
+  deps)     ds:gexec true tests/commands_tests.sh tests "##basics tests , help_deps##ds:deps" ;;
 esac

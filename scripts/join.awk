@@ -1,23 +1,23 @@
 #!/usr/bin/awk
 #
-# Script to run a full outer join of two files or data streams similar to 
-# `join` Unix program but with slightly different features.
+# Script to run a join of two files or data streams similar to `join` Unix 
+# program but with slightly different features.
 # 
 # If there is one field number to join on, assign it to var k at runtime:
-# > awk -f join.awk -v k=1 file1 file2
+#     > awk -f join.awk -v k=1 file1 file2
 #
 # If there are different keys in each file, run as:
-# > awk -f join.awk -v k1=1 -v k2=2 file1 file2
+#     > awk -f join.awk -v k1=1 -v k2=2 file1 file2
 #
 # If there are multiple fields to join on in a single file, separate the column
 # numbers with commas:
-# > awk -f join.awk -v k1=1,2 -v k2=3,4 file1 file2
+#     > awk -f join.awk -v k1=1,2 -v k2=3,4 file1 file2
 #
 # If headers are present, set the header variable to any value:
-# -v headers=1
+#     -v headers=1
 #
 # Add an index:
-# -v ind=true
+#     -v ind=true
 #
 # Any other Awk variables such as FS, OFS can be assigned as normal
 
@@ -27,23 +27,34 @@ BEGIN {
   if (!fs1) fs1 = FS
   if (!fs2) fs2 = FS
 
-  if (k) {
-    k1 = k
-    k2 = k
-  } else if (!k1 || !k2) {
-    if (!k1) { print "Missing key"; err=1; exit err }
-    if (!k2) { print "Missing key"; err=1; exit err }
-  }
-  split(k1, keys1, /[[:punct:]]+/)
-  split(k2, keys2, /[[:punct:]]+/)
-  for (i in keys1)
-    if (! keys1[i] ~ /^\d+$/) { print "Keys must be integers"; err=1; exit err }
-  for (i in keys2)
-    if (! keys2[i] ~ /^\d+$/) { print "Keys must be integers"; err=1; exit err }
+  if (!merge) {
+    if (k) { k1 = k; k2 = k; equal_keys = 1 }
+    else if (!k1 || !k2) {
+      if (!k1) { print "Missing key"; err=1; exit err }
+      if (!k2) { print "Missing key"; err=1; exit err }}
+
+    len_k1 = split(k1, Keys1, /[[:punct:]]+/)
+    len_k2 = split(k2, Keys2, /[[:punct:]]+/)
+    if (len_k1 != len_k2) {
+      print "Keysets must be equal in length"; exit 1 }
+    for (i = 1; i <= len_k1; i++) {
+      key = Keys1[i]
+      if (!(key ~ /^[0-9]+$/)) { print "Keys must be integers"; exit 1 }}
+    for (i = 1; i <= len_k2; i++) {
+      key = Keys2[i]
+      joint_key = Keys1[i]
+      if (!(key ~ /^[0-9]+$/)) { print "Keys must be integers"; exit 1 }
+      K2[key] = joint_key
+      K1[joint_key] = key }}
 
   if (join == "left") left = 1
   else if (join == "right") right = 1
   else if (join == "inner") inner = 1
+  else if (join == "diff") diff = 1
+
+  run_inner = !diff
+  run_right = !left && !inner
+  skip_left = inner || right
 
   "wc -l < \""ARGV[1]"\"" | getline f1nr; f1nr+=0 # Get number of rows in file1
   FS = fs1
@@ -53,97 +64,124 @@ BEGIN {
 debug { print NR, FNR, keycount, key, FS }
 keycount = 0
 
-# Save first stream
+merge && FNR == 1 { GenMergeKeys(NF, K1, K2) }
+
+## Save first stream
 NR == FNR {
-  if (k1 > NF) { print "Key out of range in file 1"; err = 1; exit }
+  #if (k1 > NF) { print "Key out of range in file 1"; err = 1; exit }
 
   if (NF > max_nf1) max_nf1 = NF
 
-  if (FNR == 1 && header) { header1 = $0; next }
+  if (header && FNR == 1) { header1 = $0; next }
 
-  keybase = GenKeyString(keys1)
+  keybase = GenKeyString(Keys1)
   key = keybase _ keycount
 
-  while (key in s1) {
+  while (key in S1) {
     keycount++
-    key = keybase _ keycount
-  }
+    key = keybase _ keycount }
   
-  s1[key] = $0
+  S1[key] = $0
   if (NR == f1nr) FS = fs2
   next
 }
 
-# Print matches and second file unmatched rows
+## Print matches and second file unmatched rows
 NR > FNR { 
-  if (k2 > NF) { print "Key out of range in file 2";  err = 1; exit }
+  #if (k2 > NF) { print "Key out of range in file 2";  err = 1; exit }
   
   if (NF > max_nf2) max_nf2 = NF
-  
-  if (FNR == 1 && header) { 
-    if (ind) printf "%s", OFS
-    print GenOutputString(header1, fs1), GenOutputString($0, fs2)
-    next
-  }
 
-  keybase = GenKeyString(keys2)
+  if (header && FNR == 1) { 
+    if (ind) printf "%s", OFS
+    print GenInnerOutputString(header1, $0, K2, max_nf1, max_nf2, fs1)
+    next }
+
+  keybase = GenKeyString(Keys2)
   key = keybase _ keycount
 
-  if (key in s1) {
-    while (key in s1) {
-      recordcount++
-      if (ind) printf "%s", recordcount OFS
-      print GenOutputString(s1[key], fs1), GenOutputString($0, fs2)
-      delete s1[key]
+  if (key in S1) {
+    while (key in S1) {
+      record_count++
+      if (run_inner) {
+        if (ind) printf "%s", record_count OFS
+        print GenInnerOutputString(S1[key], $0, K2, max_nf1, max_nf2, fs1) }
+      delete S1[key]
       keycount++
-      key = keybase _ keycount
-    }
-  } else {
-    s2[key] = $0
+      key = keybase _ keycount }}
+  else {
+    S2[key] = $0
 
-    while (key in s2) {
-      recordcount++
-      if (!inner && !left) {
-        if (ind) printf "%s", recordcount OFS
-        PrintNullFields(max_nf1)
-        print OFS GenOutputString(s2[key], fs2)
-      }
+    while (key in S2) {
+      record_count++
+      if (run_right) {
+        if (ind) printf "%s", record_count OFS
+        print GenRightOutputString(S2[key], K1, K2, max_nf1, max_nf2, fs2) }
       keycount++
-      key = keybase _ keycount
-    }
-  }
+      key = keybase _ keycount }}
 }
 
 END {
   if (err) exit err
-  if (inner || right) exit
+  if (skip_left) exit
 
   # Print first file unmatched rows
-  for (key in s1) {
-    recordcount++
-    if (ind) printf "%s", recordcount OFS
-    printf "%s", GenOutputString(s1[key], fs1) OFS
-    PrintNullFields(max_nf2)
-    print ""
-  }
+  for (key in S1) {
+    record_count++
+    if (ind) printf "%s", record_count OFS
+    print GenLeftOutputString(S1[key], K1, max_nf1, max_nf2, fs1) }
 }
 
-function GenKeyString(keys) {
+
+function GenMergeKeys(nf, K1, K2) {
+  for (f = 1; f <= nf; f++) {
+    K1[f] = f; K2[f] = f
+    Keys1[f] = f; Keys2[f] = f}
+}
+function Max(a, b) {
+  if (a > b) return a
+  else if (a < b) return b
+  else return a
+}
+function GenKeyString(Keys) {
   str = ""
-  for (i in keys) {
-    k = keys[i]
+  for (i in Keys) {
+    k = Keys[i]
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", $k)
     if (length($k) == 0) $k = "<NULL>"
-    str = str $k _
-  }
+    str = str $k _ }
   return str
 }
-function GenOutputString(line, fs) {
-  gsub(fs, OFS, line)
-  return line
+function GenInnerOutputString(line1, line2, K2, nf1, nf2, fs1) {
+  nf_pad = Max(nf1 - gsub(fs1, OFS, line1), 0)
+  jn = line1
+  for (f = nf_pad; f > 1; f--)
+    jn = jn OFS
+  for (f = 1; f <= nf2; f++) {
+    if (f in K2) continue
+    jn = jn OFS $f }
+  return jn
 }
-function PrintNullFields(nf) {
-  for (i=1; i<=nf; i++)
-    if (i == nf) { printf "%s", "<NULL>" } else { printf "%s", "<NULL>" OFS }
+function GenRightOutputString(line2, K1, K2, nf1, nf2, fs2) {
+  jn = ""
+  for (f = 1; f <= nf1; f++) {
+    if (f in K1)
+      jn = jn $K1[f]
+    else
+      jn = jn "<NULL>"
+    if (f < nf1) jn = jn OFS }
+  for (f = 1; f <= nf2; f++) {
+    if (f in K2) continue
+    jn = jn OFS $f }
+  return jn
 }
-
+function GenLeftOutputString(line1, K1, nf1, nf2, fs1) {
+  nf_pad = Max(nf1 - gsub(fs1, OFS, line1), 0)
+  jn = line1
+  for (f = nf_pad; f > 1; f--)
+    jn = jn OFS
+  for (f = 1; f <= nf2; f++) {
+    if (f in K2) continue
+    jn = jn OFS "<NULL>" }
+  return jn
+}

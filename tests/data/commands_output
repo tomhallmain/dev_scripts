@@ -41,7 +41,7 @@
 **@@@ds:insert@@@@@@Redirect input into a file at lineno or pattern@@@ds:insert file [lineno|pattern] [srcfile]
 @@@ds:iter@@@@@@Repeat a string some number of times@@@ds:iter str [n=1] [fs]
 @@@ds:jira@@@@@@Opens Jira at specified workspace and issue@@@ds:jira workspace_subdomain [issue]
-**@@@ds:jn@@@@@@Join two files, or a file and STDIN, with any keyset@@@ds:jn file1 [file2] [jointype] [k] [k2] [awkargs]
+**@@@ds:jn@@@@@@Join two files, or a file and STDIN, with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [awkargs]
 **@@@ds:join_by@@@@@@Join a shell array by given delimiter@@@ds:join_by delimiter [join_array]
 **@@@ds:mini@@@@@@Crude minify, remove whitespace and newlines@@@ds:mini [file] [newline_sep=;]
 @@@ds:new@@@@@@Refresh zsh or bash interactive session@@@ds:new

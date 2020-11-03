@@ -471,7 +471,7 @@ ds:shape() { # ** Print data shape by length or FS: ds:shape [file] [FS] [chart_
   ds:pipe_clean $file
 }
 
-ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1 [file2] [jointype] [k] [k2] [awkargs]
+ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1 [file2] [jointype] [k|merge] [k2] [awkargs]
   ds:file_check "$1"
   local f1="$1"; shift
   if ds:pipe_open; then
@@ -481,25 +481,30 @@ ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1
     ds:file_check "$1"
     local f2="$1"; shift; fi
 
-  if [ $1 ]; then
-    [[ $1 =~ '^l' ]] && local type='left'
-    [[ $1 =~ '^i' ]] && local type='inner'
-    [[ $1 =~ '^r' ]] && local type='right'
+  if [ "$1" ]; then
+    [[ "$1" =~ '^d' ]] && local type='diff'
+    [[ "$1" =~ '^i' ]] && local type='inner'
+    [[ "$1" =~ '^l' ]] && local type='left'
+    [[ "$1" =~ '^r' ]] && local type='right'
     [[ ! "$1" =~ '-' && ! "$1" =~ '^[0-9]+$' ]] && shift; fi
 
+  local merge=$(ds:arr_idx 'm(erge)' ${@})
   local has_keyarg=$(ds:arr_idx 'k[12]?=' ${@})
-  if [ "$has_keyarg" = "" ]; then
+  if [[ "$merge" = "" && "$has_keyarg" = "" ]]; then
     if ds:is_int "$1"; then
       local k="$1"; shift
       ds:is_int "$1" && local k1="$k" k2="$1" && shift
     elif [[ -z "$1" || "$1" =~ "-" ]]; then
       local k="$(ds:inferk "$f1" "$f2")"
-      [[ "$k" =~ " " ]] && local k2=$(ds:substr "$k" " " "") k1=$(ds:substr "$k" "" " ")
+      [[ "$k" =~ " " ]] && local k2="$(ds:substr "$k" " " "")" k1="$(ds:substr "$k" "" " ")"
+    elif ds:test '^([0-9]+,)+[0-9]+$' "$1"; then
+      local k="$1"; shift
+      ds:test '^([0-9]+,)+[0-9]+$' "$1" && local k1="$k" k2="$1"
     fi
     local args=( "$@" )
     [ "$k2" ] && local args=("${args[@]}" -v "k1=$k1" -v "k2=$k2") || local args=("${args[@]}" -v "k=$k")
-  else local args=( "$@" )
-  fi
+  else local args=( "$@" ); fi
+  [ "$merge" ] && unset "args[$merge]" && local args=("${args[@]}" -v 'merge=1')
   [ "$type" ] && local args=("${args[@]}" -v "join=$type")
 
   if ds:noawkfs; then
@@ -1070,7 +1075,8 @@ ds:sedi() { # Linux-portable sed in place substitution: ds:sedi file|dir search 
     perl -pi -e "s/${search}/${replace}/g" "$file"
   else
     while IFS=$'\n' read -r file; do
-      echo > /dev/null; perl -pi -e "s/${search}/${replace}/g" "$file"
+      echo "replaced \"$search\" with \"$replace\" in $file"
+      perl -pi -e "s/${search}/${replace}/g" "$file"
     done < <(grep -r --files-with-match "$search" "$dir"); fi
   # TODO: Fix for forward slash replacement case and printf %q
 }
