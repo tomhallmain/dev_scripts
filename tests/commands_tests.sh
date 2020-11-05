@@ -91,11 +91,11 @@ sort_actual="$(echo "$sort_input" | ds:sort -k3)"
 sort_expected='5r:test:2%f.:dew::
 1:3:a#$:z
 :test:test:one two:2'
-[ "$sort_actual" = "$sort_expected" ] || ds:fail 'sort command failed'
+[ "$sort_actual" = "$sort_expected" ] || ds:fail 'sort failed'
 
 sortm_actual="$(cat $seps_base | ds:sortm 2,3,7 d)"
 sortm_expected="$(cat $seps_sorted)"
-[ "$sortm_actual" = "$sortm_expected" ] || ds:fail 'sortm command failed'
+[ "$sortm_actual" = "$sortm_expected" ] || ds:fail 'sortm failed multikey case'
 
 sort_input='d c a b f
 f e c b a
@@ -105,8 +105,20 @@ sort_output='d c a b f
 f e d c b
 f e c b a
 e d c b a'
-[ "$(echo "$sort_input" | ds:sortm -v k=5,1 -v order=d)" = "$sort_output" ] || ds:fail 'sortm command failed'
+[ "$(echo "$sort_input" | ds:sortm -v k=5,1 -v order=d)" = "$sort_output" ] || ds:fail 'sortm failed awkargs case'
 
+sort_input="1\nj\n98\n47\n9\n05\nj2\n9ju\n9\n9d" 
+sort_output='1
+47
+05
+9
+9
+9d
+9ju
+98
+j
+j2'
+[ "$(echo -e "$sort_input" | ds:sortm 1 a n)" = "$sort_output" ] || ds:fail 'sortm failed numeric sort case'
 
 # REO TESTS
 
@@ -439,8 +451,7 @@ todo_expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 substr_actual="$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")"
 [ "4" = "$substr_actual" ]                      || ds:fail 'substr command failed extended regex case'
 
-pow_expected="
-23,ACK,0
+pow_expected="23,ACK,0
 24,Mark,0
 25,ACK
 27,ACER PRESS,0
@@ -450,14 +461,27 @@ pow_expected="
 pow_actual="$(ds:pow $complex_csv2 20 | cat)"
 [ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed base case'
 
-pow_expected="
-0.22,3,5
+pow_expected="0.22,3,5
 0.26,3
 0.5,4,5
 0.53,4
 0.74,5"
 pow_actual="$(ds:pow $complex_csv2 20 t | cat)"
 [ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed combin counts case'
+
+pvt_input='1 2 3 4
+5 6 7 5
+4 6 5 8'
+pvt_expected='PIVOT@@@1@@@5@@@4@@@
+2@@@3::4@@@@@@@@@
+6@@@@@@7::5@@@5::8@@@'
+pvt_actual="$(echo "$pvt_input" | ds:pvt 2 1)"
+[ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt command failed gen z case'
+pvt_expected='PIVOT@@@1@@@5@@@4@@@
+2@@@3@@@@@@@@@
+6@@@@@@7@@@5@@@'
+pvt_actual="$(echo "$pvt_input" | ds:pvt 2 1 3)"
+[ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt command failed spec z case'
 
 if [[ $shell =~ 'bash' ]]; then
   fsrc_expected='support/utils.sh'

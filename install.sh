@@ -2,19 +2,52 @@
 
 echo 'Setting up...'
 
+readlink_f() {
+  local target_f="$1"
+  cd "$(dirname $target_f)"
+  echo "$(pwd -P)"
+  echo "$dir"
+}
+
+ds:verify() {
+  cmds_heads="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
+  tmp="tests/data/ds_setup_tmp"
+  echo > $tmp
+  if [ "$1" = zsh ]; then
+    zsh -ic 'ds:commands' 2>/dev/null > $tmp
+  else
+    bash -ic 'ds:commands' 2>/dev/null > $tmp
+  fi
+  wait
+  grep -q "$cmds_heads" $tmp
+  local stts=$?
+  rm $tmp
+  return $stts
+}
+
+error_exit() {
+  echo
+  echo 'Issues detected with current install.'
+  echo
+  echo 'You may need to override the DS_LOC variable in case ~ alias is invalid for your shell.'
+  echo 'To do this, add DS_LOC=/path/to/dev_scripts to your .bashrc and/or .zshrc and ensure this var'
+  echo 'is defined before the source call to commands.sh.'
+  echo
+  exit 1
+}
+
 if [ -n "$($SHELL -c 'echo $ZSH_VERSION')" ]; then
   zzsh=0
-  dir="$(dirname "$0")"
-  DS_LOC="$(readlink -e "$dir")"
-  [ -f ~/.zshrc ] && grep -q "dev_scripts/commands.sh" ~/.zshrc && zshrc_set=0
+  DS_LOC="$(readlink_f "$0")"
+  [ -f ~/.zshrc ] && grep -q "dev_scripts" ~/.zshrc && zshrc_set=0
   if [ "$zshrc_set" ]; then
     zshrc_preset=0
   else
-    echo "source $DS_LOC/commands.sh" >> ~/.zshrc
+    echo "export DS_LOC=\"$DS_LOC\"" >> ~/.zshrc
+    echo 'source "$DS_LOC/commands.sh"' >> ~/.zshrc
   fi
 elif [ -n "$($SHELL -c 'echo $BASH_VERSION')" ]; then
-  dir="$(dirname "$BASH_SOURCE")"
-  DS_LOC="$(readlink -e "$dir")"
+  DS_LOC="$(readlink_f "$BASH_SOURCE")"
 else
   echo 'Unhandled shell detected! Only bash and zsh are supported at this time.'
   echo 'Please run this script using zsh or bash, or refer to README for install instructions.'
@@ -28,7 +61,8 @@ if [ -f /bin/bash ]; then
   if [ "$bashrc_set" ]; then
     bashrc_preset=0
   else
-    echo "source $DS_LOC/commands.sh" >> ~/.bashrc
+    echo "export DS_LOC=\"$DS_LOC\"" >> ~/.bashrc
+    echo 'source "$DS_LOC/commands.sh"' >> ~/.bashrc
   fi
   if [ ! -f ~/.bash_profile ]; then
     echo "if [ -f ~/.bashrc ]; then . ~/.bashrc; fi" >> ~/.bash_profile
@@ -46,49 +80,42 @@ elif [[ "$bazh" && ! "$zzsh" && "$bashrc_preset" ]]; then
 fi
 
 if [ "$preset" ]; then
-  echo 'Dev Scripts already installed!'
-  # TODO add handling for preset error cases here
-  exit
+  echo 'Dev Scripts may have already been installed! Verifying installation...'
+  echo
+  [ "$bazh" ] && (ds:verify 'bash' || bash_install_issue=0)
+  [ "$zzsh" ] && (ds:verify 'zsh' || zsh_install_issue=0)
+
+  if [[ "$zsh_install_issue" || "$bash_install_issue" ]]; then
+    error_exit
+  else
+    echo 'The current install is operational.'
+    exit
+  fi
 fi
 
 echo 'Installing...'
 
-[ -f ~/.bashrc ] && grep -q "dev_scripts/commands.sh" ~/.bashrc && bashrc_set=0
+[ -f ~/.bashrc ] && grep -q "DS_LOC/commands.sh" ~/.bashrc && bashrc_set=0
 [ "$bazh" ] && [ ! "$bashrc_set" ] && bash_install_issue=0
 
 if [[ "$zzsh" && ! "$zsh_set" ]]; then
-  [ -f ~/.zshrc ] && grep -q "dev_scripts/commands.sh" ~/.zshrc && zshrc_set=0
+  [ -f ~/.zshrc ] && grep -q "DS_LOC/commands.sh" ~/.zshrc && zshrc_set=0
   [ "$zzsh" ] && [ ! "$zshrc_set" ] && zsh_install_issue=0
 fi
 
 if [[ "$zzsh" && ! "$zsh_install_issue" ]] || [[ "$bazh" && ! "$bash_install_issue" ]]; then
-  if [ ! ~/dev_scripts = "$DS_LOC" ]; then
-    sed -i -e "s#DS_LOC=\"\$HOME/dev_scripts\"#DS_LOC=\"$DS_LOC\"#" commands.sh
-  fi
-
-  cmds_heads="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
-  tmp="tests/data/ds_setup_tmp"
-  echo > $tmp
   echo 'Verifying installation...'
   if [ "$bazh" ]; then
-    bash -ic 'ds:commands " " 200' 2>/dev/null > $tmp
-    wait
-    grep -q "$cmds_heads" $tmp || bash_install_issue=0
+    ds:verify 'bash' || bash_install_issue=0
     if [ "$bash_install_issue" ] && grep -qr '\r$' .; then
-      bash_install_issue=0
+      unset bash_install_issue
       bash init.sh
-      bash -ic 'ds:commands " " 200' 2>/dev/null > $tmp
-      wait
-      grep -q "$cmds_heads" $tmp || bash_install_issue=0
+      ds:verify 'bash' || bash_install_issue=0
     fi
   fi
   if [ "$zzsh" ]; then
-    zsh -ic 'ds:commands " " 200' 2>/dev/null > $tmp
-    wait
-    grep -q "$cmds_heads" $tmp || zsh_install_issue==0
+    ds:verify 'zsh' || zsh_install_issue=0
   fi
-  rm $tmp
-
 
   if [[ ! "$zzsh" && -f /bin/zsh ]]; then
     echo 'Dev Scripts not set up for zsh - to set up for zsh, run install.sh using zsh or see README'
@@ -127,9 +154,15 @@ if [ "$bash_install_issue" ]; then
   echo 'Issue encountered installing dev_scripts for bash - please refer to README for install instructions'
   echo
 fi
-[[ "$zsh_install_issue" || "$bash_install_issue" ]] && exit 1
+if [[ "$zsh_install_issue" || "$bash_install_issue" ]]; then
+  error_exit
+fi
 
 echo 'Installation complete!'
+echo
+echo 'You may want to override the DS_LOC variable in case ~ alias is invalid for your shell.'
+echo 'To do this, add DS_LOC=/path/to/dev_scripts to your ~/.bashrc and/or ~/.zshrc and ensure this var'
+echo 'is defined before the source call to commands.sh.'
 echo
 echo 'Shell session refresh is required before commands will be usable.'
 echo
@@ -142,6 +175,6 @@ if [ "$(ds:downcase "$conf")" = y ]; then
   echo
   sleep 5
   clear
-  [ "$zzsh" ] && zsh || bash
+  if [ "$zzsh" ]; then zsh; else bash; fi
 fi
 

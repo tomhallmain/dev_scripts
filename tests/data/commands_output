@@ -50,9 +50,10 @@
 @@@ds:ntype@@@@@@Get name type - function, alias, variable@@@ds:ntype name
 @@@ds:path_elements@@@@@@Returns dirname, filename, extension from a filepath@@@ds:path_elements file
 **@@@ds:pipe_check@@@@@@Detect if pipe has data or over [n_lines]@@@data | ds:pipe_check [n_lines]
-**@@@ds:pow@@@@@@Print the frequency distribution of fielded data@@@ds:pow [file] [min] [return_fields=f] [invert=f]
+**@@@ds:pow@@@@@@Print the frequency distribution of fielded data@@@ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
 **@@@ds:print_comps@@@ds:pc@@@Print non-matching lines on keys given@@@ds:pc file [file] [awkargs]
 **@@@ds:print_matches@@@ds:pm@@@Get match lines in two datasets@@@ds:pm file [file] [awkargs]
+**@@@ds:pvt@@@@@@Pivot data@@@ds:pv [file] [y_keys] [x_keys] [z_keys] [agg_type] [awkargs]
 @@@ds:recent@@@@@@List files modified in last 7 days@@@ds:recent [dir=.] [recurse=r] [hidden=h]
 **@@@ds:reo@@@@@@Reorder/repeat/slice data by rows and cols@@@ds:reo [-h|file] [rows] [cols] [prefield=t] [awkargs]
 **@@@ds:rev@@@@@@Reverse lines from standard input@@@data | ds:rev
@@ -64,7 +65,7 @@
 **@@@ds:shape@@@@@@Print data shape by length or FS@@@ds:shape [file] [FS] [chart_size=15ln] [chart_off=f]
 @@@ds:so@@@@@@Search Stack Overflow@@@ds:so [search query]
 **@@@ds:sort@@@@@@Sort with inferred field sep of exactly 1 char@@@ds:sort [unix_sort_args] [file]
-**@@@ds:sortm@@@ds:s@@@Sort with inferred field sep of >=1 char@@@ds:sortm [file] [keys] [order=a|d] [awkargs]
+**@@@ds:sortm@@@ds:s@@@Sort with inferred field sep of >=1 char@@@ds:sortm [file] [keys] [order=a|d] [sort_type] [awkargs]
 @@@ds:src@@@@@@Source a piece of file@@@ds:src file ["searchx" pattern] || [line endline] || [pattern linesafter]
 @@@ds:srg@@@@@@Scope rg/grep to a set of files that contain a match@@@ds:srg scope_pattern search_pattern [dir] [invert=]
 **@@@ds:stag@@@@@@Print field-separated data in staggered rows@@@ds:stag [file] [stag_size]

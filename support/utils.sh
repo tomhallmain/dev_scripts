@@ -1,5 +1,6 @@
 #!/bin/bash
 # TODO: Extract FS from args
+# TODO: portable readlink
 
 DS_SEP=$'@@@'
 
@@ -70,7 +71,7 @@ ds:pipe_clean() { # Remove tmpfile created via STDIN if piping detected: piped=0
 }
 
 ds:sh() { # Print the shell being used - works for sh, bash, zsh: ds:sh
-  ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{print $NF}'
+  ps -ef | awk 'NR==1 {for (f=4;f<=NF;f++) {if ($f=="CMD") pf=f}} $2==pid {print $pf}' pid=$$
 }
 
 ds:subsh() { # Detect if in a subshell: ds:subsh
@@ -82,7 +83,7 @@ ds:nested() { # Detect if shell is nested for control handling: ds:nested
 }
 
 ds:arr_base() { # Return first array index for shell: ds:arr_base
-  shell="$(ds:sh)"
+  local shell="$(ds:sh)"
   if [[ $shell =~ bash ]]; then
     printf 0
   elif [[ $shell =~ zsh ]]; then
@@ -149,7 +150,7 @@ ds:not_git() { # Check if directory is not part of a git repo: ds:not_git
 }
 
 ds:is_cli() { # Detect if shell is interactive: ds:is_cli
-  shell="$(ds:sh)"
+  local shell="$(ds:sh)"
   if [[ $shell =~ bash ]]; then
     [ "$PS1" ]
   elif [[ $shell =~ zsh ]]; then

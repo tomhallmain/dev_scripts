@@ -35,7 +35,7 @@
 #
 #       When running with piped data, args are shifted:
 #
-#          $ data_in | ds:reo [r_args_str] [c_args_str] [dequote=true] [awkargs]
+#          $ data_in | ds:reo [r_args_str] [c_args_str] [prefield=true] [awkargs]
 #
 #
 #       When running ds:reo, an attempt is made to infer a field separator of up to

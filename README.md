@@ -15,9 +15,14 @@ Run the `install.sh` script in the project base directory. If any trouble is enc
 
 # Manual Install
 
-To access the utilities in the `commands.sh` file, add `source ~/dev_scripts/commands.sh` to your `~/.bashrc` file. This file may need to be created.
+To access the utilities in the `commands.sh` file, ensure the below files are added to your `~/.bashrc` and/or `~/.zshrc` files. This file may need to be created.
 
-Once the commands file is sourced to the bash config file, Mac users should add `source ~/.bashrc` to their `~/.zshrc` file and open a new terminal to enable the commands to be run in zsh.
+```bash
+DS_LOC=/path/to/dev_scripts
+source "$DS_LOC/commands.sh"
+```
+
+To verify the installation, open a new terminal and run `ds:commands`.
 
 
 # Selected Functions

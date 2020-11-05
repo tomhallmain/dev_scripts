@@ -19,6 +19,14 @@
 # Add an index:
 #     -v ind=true
 #
+# Merge with output indicating files involved:
+#     -v merge_verbose=1
+#
+# Merge with custom labels:
+#     -v left_label="Stuff"
+#     -v right_label="Other stuff"
+#     -v inner_label="All the stuff"
+#
 # Any other Awk variables such as FS, OFS can be assigned as normal
 
 BEGIN {
@@ -26,12 +34,23 @@ BEGIN {
 
   if (!fs1) fs1 = FS
   if (!fs2) fs2 = FS
+  FS = fs1
+  if (!(FS ~ "\\[\:.+\:\\]")) OFS = FS
 
-  if (!merge) {
+  if (merge) {
+    if (merge_verbose || right_label || left_label) {
+      merge_verbose = 1
+      file_labels = (ARGV[1] && ARGV[2] && ARGV[1] != ARGV[2])
+      if (!left_label)
+        left_label = (file_labels ? ARGV[1] : "FILE1") OFS
+      if (!right_label)
+        right_label = (file_labels ? ARGV[2] : "FILE2/PIPED") OFS
+      if (!inner_label)
+        inner_label = "BOTH" OFS }}
+  else {
     if (k) { k1 = k; k2 = k; equal_keys = 1 }
     else if (!k1 || !k2) {
-      if (!k1) { print "Missing key"; err=1; exit err }
-      if (!k2) { print "Missing key"; err=1; exit err }}
+      print "Missing key"; exit 1 }
 
     len_k1 = split(k1, Keys1, /[[:punct:]]+/)
     len_k2 = split(k2, Keys2, /[[:punct:]]+/)
@@ -57,8 +76,6 @@ BEGIN {
   skip_left = inner || right
 
   "wc -l < \""ARGV[1]"\"" | getline f1nr; f1nr+=0 # Get number of rows in file1
-  FS = fs1
-  if (!(FS ~ "\\[\:.+\:\\]")) OFS = FS
 }
 
 debug { print NR, FNR, keycount, key, FS }
@@ -82,6 +99,7 @@ NR == FNR {
     key = keybase _ keycount }
   
   S1[key] = $0
+
   if (NR == f1nr) FS = fs2
   next
 }
@@ -102,8 +120,8 @@ NR > FNR {
 
   if (key in S1) {
     while (key in S1) {
-      record_count++
       if (run_inner) {
+        record_count++
         if (ind) printf "%s", record_count OFS
         print GenInnerOutputString(S1[key], $0, K2, max_nf1, max_nf2, fs1) }
       delete S1[key]
@@ -154,7 +172,7 @@ function GenKeyString(Keys) {
 }
 function GenInnerOutputString(line1, line2, K2, nf1, nf2, fs1) {
   nf_pad = Max(nf1 - gsub(fs1, OFS, line1), 0)
-  jn = line1
+  jn = inner_label line1
   for (f = nf_pad; f > 1; f--)
     jn = jn OFS
   for (f = 1; f <= nf2; f++) {
@@ -163,7 +181,7 @@ function GenInnerOutputString(line1, line2, K2, nf1, nf2, fs1) {
   return jn
 }
 function GenRightOutputString(line2, K1, K2, nf1, nf2, fs2) {
-  jn = ""
+  jn = right_label
   for (f = 1; f <= nf1; f++) {
     if (f in K1)
       jn = jn $K1[f]
@@ -177,7 +195,7 @@ function GenRightOutputString(line2, K1, K2, nf1, nf2, fs2) {
 }
 function GenLeftOutputString(line1, K1, nf1, nf2, fs1) {
   nf_pad = Max(nf1 - gsub(fs1, OFS, line1), 0)
-  jn = line1
+  jn = left_label line1
   for (f = nf_pad; f > 1; f--)
     jn = jn OFS
   for (f = 1; f <= nf2; f++) {

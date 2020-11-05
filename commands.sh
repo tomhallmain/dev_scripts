@@ -1,6 +1,6 @@
 #!/bin/bash
 
-DS_LOC="$HOME/dev_scripts"
+[ ! "$DS_LOC" ] && DS_LOC="$HOME/dev_scripts"
 DS_SCRIPT="$DS_LOC/scripts"
 DS_SUPPORT="$DS_LOC/support"
 source "$DS_SUPPORT/utils.sh"
@@ -462,11 +462,12 @@ ds:shape() { # ** Print data shape by length or FS: ds:shape [file] [FS] [chart_
     ds:file_check "$1"
     local file="$1"; shift; fi
 
-  lines=$(cat "$file" | wc -l)
+  local lines=$(cat "$file" | wc -l | awk '{print $0+0}')
+  [ $lines = 0 ] && return 1
   ds:is_int "$2" && local printlns=$2 || local printlns=15
   let local span=$lines/$printlns
-  awk -v FS="${1:- }" -v span=$span -v tty_size="$(tput cols)" -v lines="$lines" \
-    -v simple="$3" -f "$DS_SCRIPT/shape.awk" "$file" 2>/dev/null
+  awk -v FS="${1:- }" -v span=${span:-15} -v tty_size="$(tput cols)" -v lines="$lines" \
+    -v simple="${3:-0}" -f "$DS_SCRIPT/shape.awk" "$file" 2>/dev/null
 
   ds:pipe_clean $file
 }
@@ -480,6 +481,8 @@ ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1
   else
     ds:file_check "$1"
     local f2="$1"; shift; fi
+
+  # TODO: PREFIELD
 
   if [ "$1" ]; then
     [[ "$1" =~ '^d' ]] && local type='diff'
@@ -625,7 +628,7 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file]
     ds:file_check "$1"
     local file="$1" hc=true; shift; fi
   local args=( "$@" ) col_buffer=${col_buffer:-2} tty_size=$(tput cols)
-  local dequote=$(ds:tmp "ds_fit_dequote")
+  local prefield=$(ds:tmp "ds_fit_prefield")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true true true $hc)"
   else
@@ -638,11 +641,11 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file]
       let local fsv_idx=$fs_idx-1
       unset "args[$fsv_idx]"; fi
     unset "args[$fs_idx]"; fi
-  ds:prefield "$file" "$fs" 0 > $dequote
+  ds:prefield "$file" "$fs" 0 > $prefield
   ds:awksafe && local args=( ${args[@]} -v awksafe=1 -f "$DS_SUPPORT/wcwidth.awk" )
   awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$col_buffer" \
-    ${args[@]} -f "$DS_SCRIPT/fit_columns.awk" $dequote{,} 2>/dev/null
-  ds:pipe_clean $file; rm $dequote
+    ${args[@]} -f "$DS_SCRIPT/fit_columns.awk" $prefield{,} 2>/dev/null
+  ds:pipe_clean $file; rm $prefield
 }
 
 ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [file] [stag_size]
@@ -699,9 +702,10 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file] [ro
   fi
   local arr_base=$(ds:arr_base)
   local args=( "${@:$base}" )
-  if [[ "$cols" = 'off' || $(ds:test "(f|false)" "${args[$arr_base]}") ]]; then
-    local pf_off=0 args=( "${args[@]:1}" ) run_fit='f'; fi
-  [ "$pf_off" ] || local prefield=$(ds:tmp "ds_reo_prefield")
+  if [ "$cols" = 'off' ] || $(ds:test "(f|false)" "${args[$arr_base]}"); then
+    local pf_off=0 args=( "${args[@]:1}" )
+    [ "$cols" = 'off' ] && run_fit='f'
+  else local prefield=$(ds:tmp "ds_reo_prefield"); fi
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
   else
@@ -726,6 +730,44 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file] [ro
   if [ "$stts_bash" ]; then return $stts_bash; fi
 }
 
+ds:pvt() { # ** Pivot data: ds:pv [file] [y_keys] [x_keys] [z_keys] [agg_type] [awkargs]
+  if ds:pipe_open; then
+    local file=$(ds:tmp 'ds_pivot') piped=0
+    cat /dev/stdin > $file
+  else
+    ds:file_check "$1"
+    local file="$1"; shift; fi
+
+  if ds:is_int "$1" || ds:test '^([0-9]+,)+[0-9]+$' "$1"; then
+    local y_keys="$1"; shift; fi
+  if ds:is_int "$1" || ds:test '^([0-9]+,)+[0-9]+$' "$1"; then
+    local x_keys="$1"; shift; fi
+  if ds:is_int "$1" || ds:test '^([0-9]+,)+[0-9]+$' "$1"; then
+    local z_keys="$1"; shift; fi
+
+  ds:test '^[A-z]+$' "$1" && local agg_type="$1" && shift
+
+  local args=( "$@" ) prefield=$(ds:tmp "ds_pivot_prefield")
+  if ds:noawkfs; then
+    local fs="$(ds:inferfs "$file" true)"
+  else
+    local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
+    if [ "$fs_idx" = "" ]; then
+      local fs_idx="$(ds:arr_idx '^-F' ${args[@]})"
+      local fs="$(echo "${args[$fs_idx]}" | tr -d '\-F')"
+    else
+      local fs="$(echo "${args[$fs_idx]}" | tr -d 'FS=')"
+      let local fsv_idx=$fs_idx-1
+      unset "args[$fsv_idx]"; fi
+    unset "args[$fs_idx]"; fi
+  ds:prefield "$file" "$fs" 1 > $prefield
+  awk -v FS="$DS_SEP" -v OFS="$fs" -v x="${x_keys:-0}" -v y="${y_keys:-0}" \
+    -v z="${z_keys:-0}" -v agg="${agg_type:-0}" ${args[@]} \
+    -f scripts/pivot.awk "$prefield" \
+    | ds:ttyf "$DS_SEP"
+  ds:pipe_clean $file; rm $prefield
+}
+
 ds:decap() { # ** Remove up to n_lines from the start of a file: ds:decap [n_lines=1] [file]
   if [ "$1" ]; then
     ds:is_int "$1" && let n_lines=1+${1:-1} || ds:fail 'n_lines must be an integer: ds:decap n_lines [file]'
@@ -748,7 +790,7 @@ ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file] [
   else
     ds:file_check "$1"
     local file="$1"; shift; fi
-  local args=( "$@" ) dequote=$(ds:tmp "ds_transpose_dequote")
+  local args=( "$@" ) prefield=$(ds:tmp "ds_transpose_prefield")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
   else
@@ -761,14 +803,14 @@ ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file] [
       let local fsv_idx=$fs_idx-1
       unset "args[$fsv_idx]"; fi
     unset "args[$fs_idx]"; fi
-  ds:prefield "$file" "$fs" 1 > $dequote
+  ds:prefield "$file" "$fs" 1 > $prefield
   awk -v FS="$DS_SEP" -v OFS="$fs" -v VAR_OFS=1 ${args[@]} \
-    -f "$DS_SCRIPT/transpose.awk" $dequote 2> /dev/null | ds:ttyf "$fs"
-  ds:pipe_clean $file; rm $dequote
+    -f "$DS_SCRIPT/transpose.awk" $prefield 2> /dev/null | ds:ttyf "$fs"
+  ds:pipe_clean $file; rm $prefield
 }
 alias ds:t="ds:transpose"
 
-ds:pow() { # ** Print the frequency distribution of fielded data: ds:pow [file] [min] [return_fields=f] [invert=f]
+ds:pow() { # ** Print the frequency distribution of fielded data: ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_pow') piped=0
     cat /dev/stdin > $file
@@ -776,10 +818,10 @@ ds:pow() { # ** Print the frequency distribution of fielded data: ds:pow [file] 
     ds:file_check "$1"
     local file="$1"; shift; fi
   ds:is_int "$1" && local min=$1 && shift
-  ds:test "^(t|true)$" "$1" && local flds=1 && shift
-  ds:test "^(t|true)$" "$1" && local inv=1 && shift
+  ds:test "^(t|true)$" "$1" && local flds=1; [ "$1" ] && shift
+  ds:test "^(t|true)$" "$1" && local inv=1; [ "$1" ] && shift
   local args=( "$@" )
-  local dequote=$(ds:tmp "ds_pow_dequote") # TODO: Wrap this logic in prefield and return filename
+  local prefield=$(ds:tmp "ds_pow_prefield") # TODO: Wrap this logic in prefield and return filename
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
   else
@@ -792,11 +834,11 @@ ds:pow() { # ** Print the frequency distribution of fielded data: ds:pow [file] 
       let local fsv_idx=$fs_idx-1
       unset "args[$fsv_idx]"; fi
     unset "args[$fs_idx]"; fi
-  ds:prefield "$file" "$fs" 1 > $dequote
-  awk -v FS="$DS_SEP" -v OFS="$fs" -v min=$min -v c_counts=$flds -v invert=$inv \
-    ${args[@]} -f "$DS_SCRIPT/power.awk" $dequote 2>/dev/null \
-    | ds:sortm 1 a -v FS="$fs" | sed 's///' | ds:ttyf "$fs"
-  ds:pipe_clean $file; rm $dequote
+  ds:prefield "$file" "$fs" 1 > $prefield
+  awk -v FS="$DS_SEP" -v OFS="$fs" -v min=${min:-1} -v c_counts=${flds:-0} -v invert=${inv:-0} \
+    ${args[@]} -f "$DS_SCRIPT/power.awk" $prefield 2>/dev/null \
+    | ds:sortm 1 a n -v FS="$fs" | sed 's///' | ds:ttyf "$fs"
+  ds:pipe_clean $file; rm $prefield
 }
 
 ds:fieldcounts() { # ** Print value counts (alias ds:fc): ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
@@ -825,16 +867,16 @@ ds:fieldcounts() { # ** Print value counts (alias ds:fc): ds:fc [file] [fields=1
         let local fsv_idx=$fs_idx-1
         unset "args[$fsv_idx]"; fi
       unset "args[$fs_idx]"; fi
-    local dequote=$(ds:tmp "ds_fc_dequote")
-    ds:prefield "$file" "$fs" > $dequote
+    local prefield=$(ds:tmp "ds_fc_prefield")
+    ds:prefield "$file" "$fs" > $prefield
     ds:test "\[.+\]" "$fs" && fs=" " 
     awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v min="$min" -v fields="$fields" \
-      -f "$DS_SCRIPT/field_counts.awk" $dequote 2>/dev/null | sort -n$order | ds:ttyf "$fs"
+      -f "$DS_SCRIPT/field_counts.awk" $prefield 2>/dev/null | sort -n$order | ds:ttyf "$fs"
   else
     awk ${args[@]}-v min="$min" -v fields="$fields" \
       -f "$DS_SCRIPT/field_counts.awk" "$file" 2>/dev/null | sort -n$order | ds:ttyf "$fs"
   fi
-  ds:pipe_clean $file; [ "$dequote" ] && rm $dequote; :
+  ds:pipe_clean $file; [ "$prefield" ] && rm $prefield; :
 }
 alias ds:fc="ds:fieldcounts"
 
@@ -846,7 +888,7 @@ ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file
     ds:file_check "$1"
     local file="$1"; shift; fi
   [ "$1" ] && local newfs="$1" && shift
-  local args=( "$@" ) newfs="${newfs:-,}" dequote=$(ds:tmp "ds_newfs_dequote")
+  local args=( "$@" ) newfs="${newfs:-,}" prefield=$(ds:tmp "ds_newfs_prefield")
   local program='{for(i=1;i<NF;i++){printf "%s", $i OFS} print $NF}'
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
@@ -860,9 +902,9 @@ ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file
       let local fsv_idx=$fs_idx-1
       unset "args[$fsv_idx]"; fi
     unset "args[$fs_idx]"; fi
-  ds:prefield "$file" "$fs" > $dequote
-  awk -v FS="$DS_SEP" -v OFS="$newfs" ${args[@]} "$program" $dequote 2> /dev/null
-  ds:pipe_clean $file; rm $dequote
+  ds:prefield "$file" "$fs" > $prefield
+  awk -v FS="$DS_SEP" -v OFS="$newfs" ${args[@]} "$program" $prefield 2> /dev/null
+  ds:pipe_clean $file; rm $prefield
 }
 
 ds:hist() { # ** Print histograms for all number fields in data: ds:hist [file] [n_bins] [bar_len] [awkargs]
@@ -874,7 +916,7 @@ ds:hist() { # ** Print histograms for all number fields in data: ds:hist [file] 
     local file="$1"; shift; fi
   ds:is_int "$1" && local n_bins="$1" && shift
   ds:is_int "$1" && local bar_len="$1" && shift
-  local args=( "$@" ) dequote=$(ds:tmp "ds_tmp_dequote")
+  local args=( "$@" ) prefield=$(ds:tmp "ds_tmp_prefield")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
   else
@@ -887,10 +929,10 @@ ds:hist() { # ** Print histograms for all number fields in data: ds:hist [file] 
       let local fsv_idx=$fs_idx-1
       unset "args[$fsv_idx]"; fi
     unset "args[$fs_idx]"; fi
-  ds:prefield "$file" "$fs" > $dequote
+  ds:prefield "$file" "$fs" > $prefield
   awk -v FS="$DS_SEP" -v OFS="$fs" -v n_bins=$n_bins -v max_bar_leb=$bar_len \
-    ${args[@]} -f "$DS_SCRIPT/hist.awk" $dequote 2> /dev/null
-  ds:pipe_clean $file; rm $dequote
+    ${args[@]} -f "$DS_SCRIPT/hist.awk" $prefield 2> /dev/null
+  ds:pipe_clean $file; rm $prefield
 
 }
 
@@ -972,7 +1014,7 @@ ds:sort() { # ** Sort with inferred field sep of exactly 1 char: ds:sort [unix_s
   ds:pipe_clean $file
 }
 
-ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sortm [file] [keys] [order=a|d] [awkargs]
+ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sortm [file] [keys] [order=a|d] [sort_type] [awkargs]
   # TODO: Default to infer header
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_sortm') piped=0
@@ -980,11 +1022,13 @@ ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sort
   else
     ds:file_check "$1"
     local file="$1"; shift; fi
-  grep -Eq "^[0-9\\.:;\\!\\?,]+$" <(echo "$1") && local keys="$1" && shift
-  [ "$keys" ] && grep -Eq "^[A-z]$" <(echo "$1") && local ord="$1" && shift
+  grep -Eq '^[0-9\.:;\!\?,]+$' <(echo "$1") && local keys="$1" && shift
+  [ "$keys" ] && grep -Eq '^[A-z]$' <(echo "$1") && local ord="$1" && shift
+  [ "$ord" ] && grep -Eq '^[A-z]$' <(echo "$1") && local type="$1" && shift
   local args=( "$@" )
   [ "$keys" ] && local args=("${args[@]}" -v k="$keys")
   [ "$ord" ] && local args=("${args[@]}" -v order="$ord")
+  [ "$type" ] && local args=("${args[@]}" -v type="$type")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" f true f f)"
     awk -v FS="$fs" -f "$DS_SCRIPT/fields_qsort.awk" ${args[@]} "$file" 2> /dev/null
@@ -1032,9 +1076,9 @@ ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [recurse=r
 
   if [ "$recurse" ]; then
     if [ "$bsd" ]; then
-      local cmd_exec=(-exec stat -l -t "%D" \{\}) sortfld=6
+      local cmd_exec=(-exec stat -l -t "%D" \{\}) sortf=5
     else
-      local cmd_exec=(-exec ls -ghtG --time-style=+%D \{\}) sortfld=4; fi
+      local cmd_exec=(-exec ls -ghtG --time-style=+%D \{\}) sortf=4; fi
     (
       if [ $FD ]; then
         fd -t f --changed-within=1week $hidden -E 'Library/' \
@@ -1043,7 +1087,7 @@ ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [recurse=r
         find "$dirname" -type f -maxdepth 6 $hidden -not -path ~"/Library" \
           -mtime -7d ${cmd_exec[@]} 2> /dev/null
       fi
-    ) | sed "s:\\$(echo -n "$dirname")\/::" | awk "$prg" | sort -k$sortfld \
+    ) | sed "s:\\$(echo -n "$dirname")\/::" | awk "$prg" | sort -k$sortf \
       | ds:fit -v FS=" " | ds:pipe_check
   else
     if [ "$(date -v -0d 2>/dev/null)" ]; then

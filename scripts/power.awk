@@ -123,15 +123,22 @@ END {
               delete C[t1]
             }}}}}}
 
-  print ""
-
   if (c_counts) {
-    if (invert)
-      for (i in CHeaders) { print CHeaders[i] }
+    if (invert) {
+      if (length(CHeaders))
+        for (i in CHeaders) { print CCount[i]/NR, CHeaders[i] }
+      else
+        print "No combinations identified with current parameters" }
+    else {
+      if (length(CCount))
+        for (i in CCount) { print CCount[i]/NR, i }
+      else
+        print "No combinations identified with current parameters" }}
+  else {
+    if (length(C))
+      for (i in C) { if (C[i]) print C[i], i }
     else
-      for (i in CCount) { print CCount[i]/NR, i }}
-  else
-    for (i in C) { if (C[i]) print C[i], i }
+      print "No combinations identified with current parameters" }
 }
 
 function UnescapeOFS() {

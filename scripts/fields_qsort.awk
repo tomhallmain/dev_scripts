@@ -10,19 +10,25 @@
 
 BEGIN {
   if (k)
-    split(k, keys, /[[:punct:]]+/)
+    split(k, Keys, /[[:punct:]]+/)
   else
-    keys[1] = 0
+    Keys[1] = 0
 
-  n_keys = length(keys)
-  if (!order) order = "a"
+  if (type && "numeric" ~ "^"type)
+    n = 1
+  if (n) n_re = "^ *\$? ?([0-9]{,3},)*[0-9]+\.?[0-9]*"
+  n_keys = length(Keys)
+  if (order && "desc" ~ "^"order)
+    desc = 1
+  else
+    asc = 1
 }
 
 {
   _[NR] = $0
 
   for (i = 1; i <= n_keys; i++) {
-    kf = keys[i]
+    kf = Keys[i]
     if (i == 1) { sort_key = $kf }
     else { sort_key = sort_key FS $kf }
   }
@@ -31,46 +37,104 @@ BEGIN {
 }
 
 END {
-  if (order == "d" || order == "desc")
-    QsortDesc(A, 1, NR)
-  else
-    QsortAsc(A, 1, NR)
+  if (n) {
+    if (desc)
+      QSDN(A, 1, NR)
+    else
+      QSAN(A, 1, NR) }
+  else {
+    if (desc)
+      QSD(A, 1, NR)
+    else
+      QSA(A, 1, NR) }
 
   for (i = 1; i <= NR; i++)
     print _[i]
 }
 
-function QsortAsc(A,left,right,    i,last) {
+function QSA(A,left,right,    i,last) {
   if (left >= right) return
 
-  Swap(A, left, left + int((right-left+1)*rand()))
+  S(A, left, left + int((right-left+1)*rand()))
   last = left
 
   for (i = left+1; i <= right; i++)
     if (A[i] < A[left])
-      Swap(A, ++last, i)
+      S(A, ++last, i)
 
-  Swap(A, left, last)
-  QsortAsc(A, left, last-1)
-  QsortAsc(A, last+1, right)
+  S(A, left, last)
+  QSA(A, left, last-1)
+  QSA(A, last+1, right)
 }
 
-function QsortDesc(A,left,right,    i,last) {
+function QSD(A,left,right,    i,last) {
   if (left >= right) return
 
-  Swap(A, left, left + int((right-left+1)*rand()))
+  S(A, left, left + int((right-left+1)*rand()))
   last = left
 
   for (i = left+1; i <= right; i++)
     if (A[i] > A[left])
-      Swap(A, ++last, i)
+      S(A, ++last, i)
 
-  Swap(A, left, last)
-  QsortDesc(A, left, last-1)
-  QsortDesc(A, last+1, right)
+  S(A, left, last)
+  QSD(A, left, last-1)
+  QSD(A, last+1, right)
 }
 
-function Swap(A,i,j,t) {
+function QSAN(A,left,right,    i,last) {
+  if (left >= right) return
+
+  S(A, left, left + int((right-left+1)*rand()))
+  last = left
+
+  for (i = left+1; i <= right; i++) {
+    if (GetN(A[i]) < GetN(A[left]))
+      S(A, ++last, i)
+    else if (GetN(A[i]) == GetN(A[left]) && Ext[A[i]] && NExt[A[i]] < NExt[A[left]])
+      S(A, ++last, i) }
+
+  S(A, left, last)
+  QSAN(A, left, last-1)
+  QSAN(A, last+1, right)
+}
+
+function QSDN(A,left,right,    i,last) {
+  if (left >= right) return
+
+  S(A, left, left + int((right-left+1)*rand()))
+  last = left
+
+  for (i = left+1; i <= right; i++) {
+    if (GetN(A[i]) > GetN(A[left]))
+      S(A, ++last, i)
+    else if (GetN(A[i]) == GetN(A[left]) && Ext[A[i]] && NExt[A[i]] < NExt[A[left]])
+      S(A, ++last, i) }
+
+  S(A, left, last)
+  QSDN(A, left, last-1)
+  QSDN(A, last+1, right)
+}
+
+function S(A,i,j,t) {
   t = A[i]; A[i] = A[j]; A[j] = t
   t = _[i]; _[i] = _[j]; _[j] = t
+}
+
+function GetN(str) {
+  if (NS[str])
+    return NS[str]
+  else if (match(str, n_re)) {
+    ext = 0; n_end = RSTART + RLENGTH
+    n_str = substr(str, RSTART, n_end)
+    if (n_str != str) ext = 1
+    gsub(/[^0-9\.]+/, "", n_str)
+    gsub(/^0*/, "", n_str)
+    if (ext) {
+      NExt[str] = substr(str, n_end+1, length(str))
+      n_str = n_str + 0.000000000001 }
+    NS[str] = n_str
+    return n_str }
+  else
+    return str
 }
