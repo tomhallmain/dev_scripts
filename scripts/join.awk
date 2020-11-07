@@ -1,33 +1,110 @@
 #!/usr/bin/awk
+# DS:JN
 #
-# Script to run a join of two files or data streams similar to `join` Unix 
-# program but with slightly different features.
-# 
-# If there is one field number to join on, assign it to var k at runtime:
-#     > awk -f join.awk -v k=1 file1 file2
+# NAME
+#       ds:jn, join.awk
 #
-# If there are different keys in each file, run as:
-#     > awk -f join.awk -v k1=1 -v k2=2 file1 file2
+# SYNOPSIS
+#       ds:jn [-h|--help|file1] [file2] [jointype=outer] [k|merge] [k2] [prefield=t] [awkargs]
 #
-# If there are multiple fields to join on in a single file, separate the column
-# numbers with commas:
-#     > awk -f join.awk -v k1=1,2 -v k2=3,4 file1 file2
+# DESCRIPTION
+#       join.awk is a script to run a join of two files or data streams with variant 
+#       options for output.
 #
-# If headers are present, set the header variable to any value:
-#     -v headers=1
+#       To run the script, ensure AWK is installed and in your path (on most Unix-based
+#       systems it should be), and call it on a file:
 #
-# Add an index:
-#     -v ind=true
+#          > awk -f join.awk file1 file2
 #
-# Merge with output indicating files involved:
-#     -v merge_verbose=1
+#       ds:jn is the caller function for the join.awk script. To run any of the examples 
+#       below, map AWK args as given in SYNOPSIS.
 #
-# Merge with custom labels:
-#     -v left_label="Stuff"
-#     -v right_label="Other stuff"
-#     -v inner_label="All the stuff"
+#       When running with piped data, args are shifted:
 #
-# Any other Awk variables such as FS, OFS can be assigned as normal
+#          $ file2_data | ds:reo file1 [prefield=true] [awkargs]
+#
+# FIELD CONSIDERATIONS
+#       When running ds:jn, an attempt is made to infer field separators of up to
+#       three characters. If none found, FS will be set to default value, a single
+#       space = " ". To override FS, add as a trailing awkarg. If the two files have
+#       different FS, assign to vars fs1 and fs2. Be sure to escape and quote if needed. 
+#       AWK's extended regex can be used as FS:
+#
+#          $ ds:jn file1 file2 -v FS=" {2,}"
+#
+#          $ ds:jn file1 file2 -v fs1=',' -v fs2=':'
+#
+#          $ ds:jn a rev -F'\\\|'
+#
+#       If FS is set to an empty string, all characters will be separated.
+#
+#          $ ds:jn file1 file2 -v FS=""
+#
+#       When running ds:jn, an attempt is made to extract relevant instances of field
+#       separators in the case that a field separator appears in field values. To turn this
+#       off set prefield to false in the positional arg.
+#
+#          $ ds:jn simple1.csv simple2.csv inner 1 1 [f|false]
+#
+#       If ds:jn detects it is connected to a terminal, it will attempt to fit the data
+#       into the terminal width using the same field separator. If the data is being sent to
+#       a file or a pipe, no attempt to fit will be made. One easy way to turn off fit is to
+#       cat the output or redirect to a file.
+#
+#          $ file2_data | ds:jn file1 | cat
+#
+# USAGE
+#       Jointype takes one of five options:
+#
+#          o[uter] - default
+#          i[nner]
+#          l[eft]
+#          r[ight]
+#          d[iff]
+#
+#       If there is one field number to join on, assign it to var k at runtime:
+#
+#          $ ds:jn file1 file2 o 1
+#
+#       If there are different keys in each file, assign file2's key second:
+#
+#          $ ds:jn file1 file2 o 1 2
+#
+#       If there are multiple fields to join on in a single file, separate the column
+#       numbers with commas. Note the key sets must be equal in length:
+#
+#          $ ds:jn file1 file2 o 1,2 2,3
+#
+#       To join on all fields from both files, set k to "merge":
+#
+#          $ ds:jn file1 file2 left merge
+#
+# AWKARG OPTS
+#       Note that any fields beyond the maximum of the first row in the first file will 
+#       not be merged unless mf_max is set:
+#
+#          $ ds:jn file1 file2 right merge -v mf_max=9
+#
+#       If headers are present, set the header variable to any value to ensure
+#       consistent header positioning:
+#
+#          -v headers=1
+#
+#       Add an index to output:
+#
+#          -v ind=1
+#
+#       Merge with an extra column of output indicating files involved:
+#
+#          -v merge_verbose=1
+#
+#       Merge with custom labels:
+#
+#          -v left_label="Stuff"
+#          -v right_label="Other stuff"
+#          -v inner_label="BOTH stuff"
+#
+#
 
 BEGIN {
   _ = SUBSEP
@@ -81,7 +158,7 @@ BEGIN {
 debug { print NR, FNR, keycount, key, FS }
 keycount = 0
 
-merge && FNR == 1 { GenMergeKeys(NF, K1, K2) }
+merge && FNR == 1 { GenMergeKeys(mf_max ? mf_max : NF, K1, K2) }
 
 ## Save first stream
 NR == FNR {

@@ -26,6 +26,7 @@ ds:help() { # Print help for a given command: ds:help ds_command
   (ds:nset "$1" && [[ "$1" =~ "ds:" ]]) || ds:fail 'Command not found - to see all commands, run ds:commands'
   [[ "$1" =~ 'reo' ]] && ds:reo -h && return
   [[ "$1" =~ 'fit' ]] && ds:fit -h && return
+  [[ "$1" =~ 'jn' ]] && ds:jn -h && return
   [[ "$1" =~ 'stag' ]] && ds:stag -h && return
   ds:commands "" t | ds:reo "2,~$1" a
 }
@@ -397,7 +398,20 @@ ds:todo() { # List todo items found in paths: ds:todo [searchpaths=.]
   [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
 }
 
-ds:searchx() { # Search file for C-lang/curly-brace top-level object: ds:searchx file [search] [q]
+ds:searchx() { # Search file for C-lang/curly-brace top-level object: ds:searchx file|dir [search] [q]
+  if [[ -d "$1" && "$2" ]]; then
+    local tmp="$(ds:tmp 'ds_searchx')" w="\033[37;1m" nc="\033[0m"
+    if ds:nset 'rg'; then
+      rg --files-with-matches "$2" "$1" 2>/dev/null > $tmp
+    else
+      grep -Er --files-with-matches "$2" "$1" 2>/dev/null > $tmp; fi
+    for fl in $(cat $tmp); do
+      if [ -f "$fl" ] && grep -q '{' "$fl" 2>/dev/null; then
+        echo -e "\n${w}${fl}${nc}"
+        ds:searchx "$fl" "$2" "$3"; fi; done
+    local stts=$?
+    rm $tmp; return $stts
+  fi
   ds:file_check "$1"
   if [ "$3" ]; then
     if [ "$2" ]; then
@@ -472,7 +486,9 @@ ds:shape() { # ** Print data shape by length or FS: ds:shape [file] [FS] [chart_
   ds:pipe_clean $file
 }
 
-ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1 [file2] [jointype] [k|merge] [k2] [awkargs]
+ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=t] [awkargs]
+  ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/join.awk" \
+    | tr -d "#" | less && return
   ds:file_check "$1"
   local f1="$1"; shift
   if ds:pipe_open; then
@@ -618,16 +634,25 @@ ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [c
       -v custom="$custom" "$file" 2> /dev/null; fi
 }
 
-ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file] [awkargs]
+ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_fit') piped=0 hc=f
     cat /dev/stdin > $file
   else
     ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/fit_columns.awk" \
       | tr -d "#" | less && return
-    ds:file_check "$1"
-    local file="$1" hc=true; shift; fi
-  local args=( "$@" ) col_buffer=${col_buffer:-2} tty_size=$(tput cols)
+    if [[ -f "$2" && -f "$1" ]]; then
+      local w="\033[37;1m" nc="\033[0m"
+      while [ -f "$1" ]; do
+        local fls=("${fls[@]}" "$1"); shift; done
+      for fl in ${fls[@]}; do
+        echo -e "\n${w}${fl}${nc}"
+        [ -f "$fl" ] && ds:fit "$fl" $@; done
+      return $?
+    else
+      ds:file_check "$1"
+      local file="$1" hc=true; shift; fi; fi
+  local args=( "$@" ) buffer=${DS_FIT_BUFFER:-2} tty_size=$(tput cols)
   local prefield=$(ds:tmp "ds_fit_prefield")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true true true $hc)"
@@ -643,7 +668,7 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file]
     unset "args[$fs_idx]"; fi
   ds:prefield "$file" "$fs" 0 > $prefield
   ds:awksafe && local args=( ${args[@]} -v awksafe=1 -f "$DS_SUPPORT/wcwidth.awk" )
-  awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$col_buffer" \
+  awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" \
     ${args[@]} -f "$DS_SCRIPT/fit_columns.awk" $prefield{,} 2>/dev/null
   ds:pipe_clean $file; rm $prefield
 }
@@ -696,9 +721,19 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file] [ro
   else
     ds:test "(^| )(-h|--help)" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/reorder.awk" \
       | tr -d "#" | less && return
-    local tmp=$(ds:tmp "ds_reo")
-    ds:file_check "$1" t > $tmp
-    local file="$(cat $tmp; rm $tmp)" rows="${2:-a}" cols="${3:-a}" base=4
+    if [[ -f "$2" && -f "$1" ]]; then
+      local w="\033[37;1m" nc="\033[0m"
+      while [ -f "$1" ]; do
+        local fls=("${fls[@]}" "$1"); shift; done
+      for fl in ${fls[@]}; do
+        echo -e "\n${w}${fl}${nc}"
+        [ -f "$fl" ] && ds:reo "$fl" $@; done
+      return $?
+    else
+      local tmp=$(ds:tmp "ds_reo")
+      ds:file_check "$1" t > $tmp
+      local file="$(cat $tmp; rm $tmp)" rows="${2:-a}" cols="${3:-a}" base=4
+    fi
   fi
   local arr_base=$(ds:arr_base)
   local args=( "${@:$base}" )
@@ -763,7 +798,39 @@ ds:pvt() { # ** Pivot data: ds:pv [file] [y_keys] [x_keys] [z_keys] [agg_type] [
   ds:prefield "$file" "$fs" 1 > $prefield
   awk -v FS="$DS_SEP" -v OFS="$fs" -v x="${x_keys:-0}" -v y="${y_keys:-0}" \
     -v z="${z_keys:-0}" -v agg="${agg_type:-0}" ${args[@]} \
-    -f scripts/pivot.awk "$prefield" \
+    -f "$DS_SCRIPT/pivot.awk" "$prefield" \
+    | ds:ttyf "$DS_SEP"
+  ds:pipe_clean $file; rm $prefield
+}
+
+ds:agg() { # ** Aggregate numerical data - ex: '+|3..5': ds:agg [file] [r_aggs] [c_aggs] [x_aggs] [awkargs]
+  if ds:pipe_open; then
+    local file=$(ds:tmp 'ds_agg') piped=0
+    cat /dev/stdin > $file
+  else
+    ds:file_check "$1"
+    local file="$1"; shift; fi
+  
+  [[ "$1" && ! "$1" =~ '-' ]] && local r_aggs="$1" && shift
+  [[ "$1" && ! "$1" =~ '-' ]] && local c_aggs="$1" && shift
+  [[ "$1" && ! "$1" =~ '-' ]] && local x_aggs="$1" && shift
+
+  local args=( "$@" ) prefield=$(ds:tmp "ds_agg_prefield")
+  if ds:noawkfs; then
+    local fs="$(ds:inferfs "$file" true)"
+  else
+    local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
+    if [ "$fs_idx" = "" ]; then
+      local fs_idx="$(ds:arr_idx '^-F' ${args[@]})"
+      local fs="$(echo "${args[$fs_idx]}" | tr -d '\-F')"
+    else
+      local fs="$(echo "${args[$fs_idx]}" | tr -d 'FS=')"
+      let local fsv_idx=$fs_idx-1
+      unset "args[$fsv_idx]"; fi
+    unset "args[$fs_idx]"; fi
+  ds:prefield "$file" "$fs" 1 > $prefield
+  awk -v FS="$DS_SEP" -v OFS="$fs" -v r_aggs="$r_aggs" -v c_aggs="$c_aggs" \
+    -v x_aggs="$x_aggs" ${args[@]} -f "$DS_SCRIPT/agg.awk" "$prefield" \
     | ds:ttyf "$DS_SEP"
   ds:pipe_clean $file; rm $prefield
 }
@@ -1022,7 +1089,7 @@ ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sort
   else
     ds:file_check "$1"
     local file="$1"; shift; fi
-  grep -Eq '^[0-9\.:;\!\?,]+$' <(echo "$1") && local keys="$1" && shift
+  grep -Eq '^-' <(echo "$1") || local keys="$1" && shift
   [ "$keys" ] && grep -Eq '^[A-z]$' <(echo "$1") && local ord="$1" && shift
   [ "$ord" ] && grep -Eq '^[A-z]$' <(echo "$1") && local type="$1" && shift
   local args=( "$@" )

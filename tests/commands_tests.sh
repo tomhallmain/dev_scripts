@@ -497,6 +497,41 @@ ds:commands'
 [[ "$(ds:deps ds:help)" = "$help_deps" ]]                    || ds:fail 'deps command failed'
 [ "$(ds:websel https://www.google.com title)" = Google ]    || ds:fail 'webpage title command failed or internet is out'
 
+# INTEGRATION
+
+
+expected='
+PIVOT@@@7@@@21@@@14@@@28@@@474@@@
+459 PC  BURGLARY RESIDENCE@@@12@@@7@@@10@@@13@@@353@@@
+TOWED/STORED VEHICLE@@@9@@@8@@@15@@@9@@@428@@@
+459 PC  BURGLARY VEHICLE@@@23@@@22@@@15@@@15@@@441@@@
+TOWED/STORED VEH-14602.6@@@11@@@8@@@9@@@11@@@462@@@
+10851(A)VC TAKE VEH W/O OWNER@@@21@@@24@@@15@@@23@@@627@@@
+
+5150 WI DANGER SELF/OTHERS@@@101
+594(B)(1)PC  VANDALISM +$400@@@111
+CASUALTY REPORT@@@111
+484 PETTY THEFT/LICENSE PLATE@@@115
+459 PC  BURGLARY BUSINESS@@@134
+TRAFFIC-ACCIDENT-NON INJURY@@@170
+TRAFFIC-ACCIDENT INJURY@@@178
+594(B)(2)(A) VANDALISM/ -$400@@@186
+10851 VC AUTO THEFT LOCATE@@@214
+MISSING PERSON@@@256
+459 PC  BURGLARY RESIDENCE@@@353
+TOWED/STORED VEHICLE@@@428
+459 PC  BURGLARY VEHICLE@@@441
+TOWED/STORED VEH-14602.6@@@462
+PIVOT@@@474
+10851(A)VC TAKE VEH W/O OWNER@@@627'
+actual="$(ds:sbsp tests/data/testcrimedata.csv '\/' "" -v apply_to_fields=1 \
+  | ds:reo a '2,NF>3' \
+  | ds:pvt 6 1 4 c \
+  | awk -F$DS_SEP '{sum=0;for (f=3;f<=NF;f++)sum+=$f;print $0 "@@@" sum}' \
+  | ds:s NF n \
+  | ds:reo '1~PIVOT, >300' '1,[PIVOT%7,>300' -v uniq=1 | cat)"
+[ "$actual" = "$expected" ] || ds:fail 'integration case 1 failed'
+
 # CLEANUP
 
 rm $tmp

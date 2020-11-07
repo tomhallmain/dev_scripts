@@ -52,14 +52,15 @@ BEGIN {
 
 NR == 1 { 
   if (header) { # TODO
-    GenKeys(NF, x, XK, XKeys, YK)
-    GenKeys(NF, y, YK, YKeys, XK) }
+    GenHeaderKeys(NF, x, XK, XKeys, YK)
+    GenHeaderKeys(NF, y, YK, YKeys, XK)
+    }
   if (gen_z) {
     GenZKeys(NF, ZK, ZKeys, XK, YK)
     len_z = length(ZK) }
 }
 
-no_agg { # TODO: Handle noagg partial duplicate case
+{ # TODO: Handle noagg partial duplicate case
   if (NF < 1) next
 
   x_str = ""; y_str = ""; z_str = ""
@@ -74,7 +75,16 @@ no_agg { # TODO: Handle noagg partial duplicate case
   if (x_str y_str z_str == "") next
   X[x_str]++
   Y[y_str]++
-  Z[x_str y_str] = z_str
+  if (no_agg)
+    Z[x_str y_str] = z_str
+  else if (c)
+    Z[x_str y_str]++
+  else if (s) {
+    adder = z_str + 0
+    Z[x_str y_str] *= adder }
+  else if (p) {
+    multiplier = z_str + 0
+    Z[x_str y_str] *= multiplier }
 
   if (debug) {
     print x_str, y_str
@@ -88,10 +98,12 @@ END {
 #  if (!lenx || !leny || !lenz) {
 #    print "No data to pivot or unable to pivot with given params"; exit 1 }
 
-  printf "%s", "PIVOT" OFS
+  printf "%s", "PIVOT" 
+  for (yk = 1; yk <= length(YKeys); yk++)
+    printf "%s", OFS
   for (x in X)
     printf "%s", x
-  print ""
+  print "\n"
 
   for (y in Y) {
     printf "%s", y

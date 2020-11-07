@@ -19,13 +19,11 @@
 #
 #       r and c refer to row and column order args respectively.
 #
-#
 #       Comma is the order arg separator. To escape a comma, it must have two backslashes 
 #       when passed to AWK, so it must have three backslashes if in double quotes, or two 
 #       in single quotes:
 #
 #          > awk -f reorder.awk -v r="~\\\," c='~\\,'
-#
 #
 #       ds:reo is the caller function for the reorder.awk script. To run any of the 
 #       examples below, map AWK args as given in SYNOPSIS. For example, to print columns 
@@ -37,7 +35,7 @@
 #
 #          $ data_in | ds:reo [r_args_str] [c_args_str] [prefield=true] [awkargs]
 #
-#
+# FIELD CONSIDERATIONS
 #       When running ds:reo, an attempt is made to infer a field separator of up to
 #       three characters. If none is found, FS will be set to default value, a single 
 #       space = " ". To override the FS, add as a trailing awkarg. Be sure to escape 
@@ -53,7 +51,6 @@
 #
 #          $ ds:reo addresses.csv '[ZIP%3' a -v FS=""
 #
-#
 #       When running ds:reo, an attempt is made to extract relevant instances of field 
 #       separators in the case that a field separator appears in field values. To turn this 
 #       off set prefield to false in the positional arg.
@@ -63,12 +60,11 @@
 #       If ds:reo detects it is connected to a terminal, it will attempt to fit the data 
 #       into the terminal width using the same field separator. If the data is being sent to 
 #       a file or a pipe, no attempt to fit will be made. One easy way to turn off fit is to 
-#       cat the output.
+#       cat the output or redirect to a file.
 #
 #          $ echo "data" | ds:reo 1,2,3 | cat
 #
-#
-# FUNCTIONS
+# SIMPLE USAGE
 #       Print help:
 #
 #          $ ds:reo -h
@@ -93,7 +89,6 @@
 #
 #         (Example: Print all rows, only column 4)
 #
-#
 #       Print index range (ranges are inclusive of ending indices):
 #
 #          $ ds:reo 1,100..200 1..3,5
@@ -113,7 +108,6 @@
 #
 #          $ ds:reo /start/.. /start/../end/
 #
-#
 #       Turn off field separation for calculation and output - set c to "off":
 #
 #          $ ds:reo start## off
@@ -128,7 +122,11 @@
 #
 #          $ ds:reo 'NR%2,NR%2=1' 'NF<10'
 #
-##
+#       Output with row and column index numbers from source:
+#
+#          $ ds:reo rev rev -v idx=1
+#
+# ADVANCED USAGE
 #       Filter records by field values and/or fields by record values:
 #
 #       -- Using basic math expressions, across the entire opposite span:
@@ -214,12 +212,6 @@
 #       Constrain output to unique indices on searches, expressions, reverses:
 #
 #          $ ds:reo a 'len()>0,len()<100000' -v uniq=1
-#
-#
-#       Output with row and column index numbers from source:
-#
-#          $ ds:reo rev rev -v idx=1
-#
 #
 #
 # VERSION

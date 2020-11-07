@@ -14,9 +14,9 @@ BEGIN {
   else
     Keys[1] = 0
 
-  if (type && "numeric" ~ "^"type)
+  if (type && "numeric" ~ "^"type) {
     n = 1
-  if (n) n_re = "^ *\$? ?([0-9]{,3},)*[0-9]+\.?[0-9]*"
+    n_re = "^ *\$? ?([0-9]{,3},)*[0-9]+\.?[0-9]*" }
   n_keys = length(Keys)
   if (order && "desc" ~ "^"order)
     desc = 1
@@ -29,6 +29,7 @@ BEGIN {
 
   for (i = 1; i <= n_keys; i++) {
     kf = Keys[i]
+    if (kf == "NF") kf = NF
     if (i == 1) { sort_key = $kf }
     else { sort_key = sort_key FS $kf }
   }
