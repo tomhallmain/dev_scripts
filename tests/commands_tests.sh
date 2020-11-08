@@ -580,7 +580,7 @@ expected='@@@PIVOT@@@7@@@21@@@14@@@28@@@+|all@@@
 @@@459 PC  BURGLARY VEHICLE@@@23@@@22@@@15@@@15@@@462@@@
 @@@TOWED/STORED VEH-14602.6@@@11@@@8@@@9@@@11@@@463@@@
 @@@10851(A)VC TAKE VEH W/O OWNER@@@21@@@24@@@15@@@23@@@653@@@
-+|all@@@@@@249@@@234@@@221@@@279@@@8081@@@'
++|all@@@@@@249@@@234@@@221@@@279@@@7585@@@'
 actual="$(ds:sbsp tests/data/testcrimedata.csv '\/' "" -v apply_to_fields=1 \
   | ds:reo a '2,NF>3' \
   | ds:pvt 6 1 4 c \

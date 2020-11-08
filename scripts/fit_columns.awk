@@ -64,6 +64,7 @@
 ## TODO: Resolve lossy multibyte char output
 ## TODO: Fit newlines in fields
 ## TODO: Fix rounding in some cases (see test reo output fit)
+## TODO: Negative number handling
 
 BEGIN {
   WCW_FS = " "

@@ -227,6 +227,7 @@
 ## TODO: Expressions and comparisons against cross-index total
 ## TODO: Expressions and comparisons between fields (standard awk)
 ## TODO: Range support for index number and pattern endpoints combined
+## TODO: Fix extended logic breaking order of reversals in opposite span
 
 ## SETUP
 
