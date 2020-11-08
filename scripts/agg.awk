@@ -132,7 +132,7 @@ END {
     if (!CAgg[i]) { print ""; continue }
     split(CAgg[i], CAggVec, ",")
     for (j = 1; j <= fixed_nf; j++) {
-      if (CAggVec[j]) printf "%s", CAggVec[j]
+      if (CAggVec[j]) printf "%s", EvalExpr(CAggVec[j])
       if (j < fixed_nf)
         printf "%s", OFS }
     if (totals) {
@@ -191,8 +191,9 @@ function GenRExpr(agg) {
     f = Fs[j]; op = Ops[j+1]
     gsub(/(\$|[[:space:]]+)/, "", f)
     val = $f
-    gsub(/(\$|^[[:space:]]+|[[:space:]]+$)/, "", val)
-    if (val && val ~ /^[0-9]+\.?[0-9]*$/)
+    gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
+    if (debug) print "GENREXPR: " expr val op
+    if (val && val ~ /^-?[0-9]+\.?[0-9]*$/)
       expr = expr val op }
   return expr
 }
@@ -209,14 +210,17 @@ function AdvCarryVec(c_agg_i, nf, agg_amort, carry) { # TODO: This is probably w
     if (!CarryVec[f]) CarryVec[f] = "0"
     sep = f == 1 ? "" : ","
     val = $f
-    gsub(/(\$|^[[:space:]]+|[[:space:]]+$)/, "", val)
-    if (val && val ~ /^[0-9]+\.?[0-9]*$/)
-      carry = carry sep EvalExpr(CarryVec[f] margin_op val)
+    gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
+    if (debug) print "ADVCARRYVEC: " carry sep CarryVec[f] margin_op val
+    if (val && val ~ /^-?[0-9]+\.?[0-9]*$/)
+      carry = carry sep CarryVec[f] margin_op val
     else
       carry = carry sep CarryVec[f] }
   AggAmort[c_agg_i] = right
-  for (j = 1; j <= ra_count; j++) {
-    Totals[c_agg_i, j] = EvalExpr(Totals[c_agg_i, j] margin_op RAgg[RA[j], NR]) }
+  if (!header || NR > 1) {
+    for (j = 1; j <= ra_count; j++) {
+      if (margin_op == "*" && Totals[c_agg_i, j] == "") Totals[c_agg_i, j] = 1
+      Totals[c_agg_i, j] = EvalExpr(Totals[c_agg_i, j] margin_op RAgg[RA[j], NR]) }}
   return carry
 }
 
@@ -227,6 +231,7 @@ function GenXExpr() {
 
 function EvalExpr(expr) {
   res = 0
+  nm = gsub(/\*-/, "*", expr)
   split(expr, a, "+")
   for(a_i in a){
     split(a[a_i], s, "-")
@@ -243,7 +248,7 @@ function EvalExpr(expr) {
             u[u_i] = e[1]; delete e
             if (u_i > 1) u[1] = u[1] % u[u_i] }
           d[d_i] = u[1]; delete u
-          if (d_i > 1) d[1] /= d[d_i] }
+          if (d_i > 1 && d[d_i] != 0) d[1] /= d[d_i] }
         m[m_i] = d[1]; delete d
         if (m_i > 1) m[1] *= m[m_i] }
       s[s_i] = m[1]; delete m
@@ -252,7 +257,7 @@ function EvalExpr(expr) {
 
   for (a_i in a)
     res += a[a_i]
-  return res
+  return nm % 2 ? -res : res
 }
 
 function EvalCompExpr(left, right, comp) {

@@ -27,6 +27,8 @@ BEGIN {
       RelevantFields[af] = 1 }
     if (length(RelevantFields) < 1) exit 1 }
   unescaped_pattern = Unescape(subsep_pattern)
+  if (OFS ~ "\\[:space:\\]\\{") OFS = "  "
+  else if (OFS ~ "\\[:space:\\]") OFS = " "
 }
 
 NR == FNR {

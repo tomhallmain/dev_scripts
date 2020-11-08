@@ -530,7 +530,7 @@ ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1
       [[ "$k" =~ " " ]] && local k2="$(ds:substr "$k" " " "")" k1="$(ds:substr "$k" "" " ")"
     elif ds:test '^([0-9]+,)+[0-9]+$' "$1"; then
       local k="$1"; shift
-      ds:test '^([0-9]+,)+[0-9]+$' "$1" && local k1="$k" k2="$1"
+      ds:test '^([0-9]+,)+[0-9]+$' "$1" && local k1="$k" k2="$1" && shift
     fi
     local args=( "$@" )
     [ "$k2" ] && local args=("${args[@]}" -v "k1=$k1" -v "k2=$k2") || local args=("${args[@]}" -v "k=$k")
@@ -827,6 +827,9 @@ ds:agg() { # ** Aggregate numerical data by index - i.e. '+|3..5': ds:agg [file]
   [ "$1" ] && ! grep -Eq '^-' <(echo "$1") && local c_aggs="$1" && shift
   [ "$1" ] && ! grep -Eq '^-' <(echo "$1") && local x_aggs="$1" && shift
 
+  if [ ! "$r_aggs" ] && [ ! "$x_aggs" ] && [ ! "$x_aggs" ]; then
+    local r_aggs='+|all' c_aggs='+|all'; fi
+
   local args=( "$@" ) prefield=$(ds:tmp "ds_agg_prefield")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
@@ -1048,13 +1051,23 @@ ds:sbsp() { # ** Extend fields by a common subseparator: ds:sbsp [file] subsep_p
     ds:file_check "$1"
     local file="$1"; shift; fi
   local ssp=(-v subsep_pattern="${1:- }") nmh=(-v nomatch_handler="${2:- }")
-  local args=("${@:3}")
+  local args=("${@:3}") prefield=$(ds:tmp "ds_sbsp_prefield")
   if ds:noawkfs; then
-    local fs="$(ds:inferfs "$file")"
-    local fsargs=(-v FS="$fs" -v OFS="$fs"); fi
-  awk ${fsargs[@]} ${ssp[@]} ${nmh[@]} ${args[@]} -f "$DS_SCRIPT/subseparator.awk" \
-    "$file" "$file" 2> /dev/null
-  ds:pipe_clean $file
+    local fs="$(ds:inferfs "$file" true)"
+  else
+    local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
+    if [ "$fs_idx" = "" ]; then
+      local fs_idx="$(ds:arr_idx '^\-F' ${args[@]})"
+      local fs="$(echo ${args[$fs_idx]} | tr -d '\-F')"
+    else
+      local fs="$(echo ${args[$fs_idx]} | tr -d 'FS=')"
+      let local fsv_idx=$fs_idx-1
+      unset "args[$fsv_idx]"; fi
+    unset "args[$fs_idx]"; fi
+  ds:prefield "$file" "$fs" > $prefield
+  awk -v FS="$DS_SEP" -v OFS="$fs"  ${ssp[@]} ${nmh[@]} ${args[@]} -f "$DS_SCRIPT/subseparator.awk" \
+    "$prefield" "$prefield" 2> /dev/null
+  ds:pipe_clean $file; rm $prefield
 }
 
 ds:dostounix() { # Remove ^M / CR characters in place: ds:dostounix file
@@ -1110,9 +1123,9 @@ ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sort
   [ "$type" ] && local args=("${args[@]}" -v type="$type")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" f true f f)"
-    awk -v FS="$fs" -f "$DS_SCRIPT/fields_qsort.awk" ${args[@]} "$file" 2> /dev/null
+    awk -v FS="$fs" ${args[@]} -f "$DS_SCRIPT/fields_qsort.awk" "$file" 2> /dev/null
   else #TODO: Replace with consistent fs logic
-    awk -f "$DS_SCRIPT/fields_qsort.awk" ${args[@]} "$file" 2> /dev/null; fi
+    awk ${args[@]} -f "$DS_SCRIPT/fields_qsort.awk" "$file" 2> /dev/null; fi
   ds:pipe_clean $file
 }
 alias ds:s="ds:sortm"
