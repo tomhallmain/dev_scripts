@@ -328,6 +328,7 @@ ds:git_squash() { # Squash last n commits (alias ds:gsq): ds:gsq [n_commits=1]
   git reset --soft HEAD~$extent
   git commit --edit -m"$(git log --format=%B --reverse HEAD..HEAD@{1})"
 }
+alias ds:gsq="ds:git_squash"
 
 ds:git_time_stat() { # Last local pull+change+commit times (alias ds:gts): cd repo; ds:gts
   ds:not_git && return 1
