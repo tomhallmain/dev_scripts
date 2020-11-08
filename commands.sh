@@ -31,6 +31,18 @@ ds:help() { # Print help for a given command: ds:help ds_command
   ds:commands "" t | ds:reo "2,~$1" a
 }
 
+ds:vi() { # Search for file and open it in vim: ds:vi search [dir]
+  [ ! "$1" ] && echo 'Filename search pattern missing!' && ds:help ds:vi && return 1
+  local search="${1}" dir="${2:-.}"
+  if fd --version &>/dev/null; then
+    local fl="$(fd -t f "$search" "$dir" | head -n1)"
+  elif fd-find --version &>/dev/null; then
+    local fl="$(fd-find -t f "$search" "$dir" | head -n1)"
+  else
+    local fl="$(find "$dir" -type f -name "*$search*" -maxdepth 10 | head -n1)"; fi
+  vi "$fl"
+}
+
 ds:gvi() { # Grep and open vim on the first match: ds:gvi search [file|dir]
   local search="$1"
   if [ -f "$2" ]; then local file="$2"
@@ -803,7 +815,7 @@ ds:pvt() { # ** Pivot data: ds:pv [file] [y_keys] [x_keys] [z_keys] [agg_type] [
   ds:pipe_clean $file; rm $prefield
 }
 
-ds:agg() { # ** Aggregate numerical data - ex: '+|3..5': ds:agg [file] [r_aggs] [c_aggs] [x_aggs] [awkargs]
+ds:agg() { # ** Aggregate numerical data by index - i.e. '+|3..5': ds:agg [file] [r_aggs] [c_aggs] [x_aggs] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_agg') piped=0
     cat /dev/stdin > $file
@@ -811,9 +823,9 @@ ds:agg() { # ** Aggregate numerical data - ex: '+|3..5': ds:agg [file] [r_aggs] 
     ds:file_check "$1"
     local file="$1"; shift; fi
   
-  [[ "$1" && ! "$1" =~ '-' ]] && local r_aggs="$1" && shift
-  [[ "$1" && ! "$1" =~ '-' ]] && local c_aggs="$1" && shift
-  [[ "$1" && ! "$1" =~ '-' ]] && local x_aggs="$1" && shift
+  [ "$1" ] && ! grep -Eq '^-' <(echo "$1") && local r_aggs="$1" && shift
+  [ "$1" ] && ! grep -Eq '^-' <(echo "$1") && local c_aggs="$1" && shift
+  [ "$1" ] && ! grep -Eq '^-' <(echo "$1") && local x_aggs="$1" && shift
 
   local args=( "$@" ) prefield=$(ds:tmp "ds_agg_prefield")
   if ds:noawkfs; then
@@ -1089,7 +1101,7 @@ ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sort
   else
     ds:file_check "$1"
     local file="$1"; shift; fi
-  grep -Eq '^-' <(echo "$1") || local keys="$1" && shift
+  ! grep -Eq '^-' <(echo "$1") && local keys="$1" && shift
   [ "$keys" ] && grep -Eq '^[A-z]$' <(echo "$1") && local ord="$1" && shift
   [ "$ord" ] && grep -Eq '^[A-z]$' <(echo "$1") && local type="$1" && shift
   local args=( "$@" )

@@ -1,6 +1,7 @@
 
 @@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
 @@@@@@@@@@@@
+**@@@ds:agg@@@@@@Aggregate numerical data by index - i.e. '+|3..5'@@@ds:agg [file] [r_aggs] [c_aggs] [x_aggs] [awkargs]
 @@@ds:asgn@@@@@@Print lines from a file matching assignment pattern@@@ds:asgn file
 @@@ds:commands@@@@@@List commands from dev_scripts/commands.sh@@@ds:commands [bufferchar] [utils]
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
@@ -15,7 +16,7 @@
 @@@ds:fail@@@@@@Safe failure, kills parent but returns to prompt@@@ds:fail [error_message]
 **@@@ds:fieldcounts@@@ds:fc@@@Print value counts@@@ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
 @@@ds:filename_str@@@@@@Add string to beginning or end of a filename@@@ds:filename_str file str [prepend|append]
-**@@@ds:fit@@@@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file] [awkargs]
+**@@@ds:fit@@@@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file*] [awkargs]
 @@@ds:fsrc@@@@@@Show the source of a shell function@@@ds:fsrc func
 @@@ds:gexec@@@@@@Generate a script from pieces of another and run it@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
 @@@ds:git_add_com_push@@@ds:gacmp@@@Add, commit with message, push@@@ds:gacmp commit_message
@@ -41,7 +42,7 @@
 **@@@ds:insert@@@@@@Redirect input into a file at lineno or pattern@@@ds:insert file [lineno|pattern] [srcfile]
 @@@ds:iter@@@@@@Repeat a string some number of times@@@ds:iter str [n=1] [fs]
 @@@ds:jira@@@@@@Opens Jira at specified workspace and issue@@@ds:jira workspace_subdomain [issue]
-**@@@ds:jn@@@@@@Join two files, or a file and STDIN, with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [awkargs]
+**@@@ds:jn@@@@@@Join two files, or a file and STDIN, with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=t] [awkargs]
 **@@@ds:join_by@@@@@@Join a shell array by given delimiter@@@ds:join_by delimiter [join_array]
 **@@@ds:mini@@@@@@Crude minify, remove whitespace and newlines@@@ds:mini [file] [newline_sep=;]
 @@@ds:new@@@@@@Refresh zsh or bash interactive session@@@ds:new
@@ -59,7 +60,7 @@
 **@@@ds:rev@@@@@@Reverse lines from standard input@@@data | ds:rev
 **@@@ds:sbsp@@@@@@Extend fields by a common subseparator@@@ds:sbsp [file] subsep_pattern [nomatch_handler= ] [awkargs]
 @@@ds:searchn@@@@@@Searches current names for string, returns matches@@@ds:searchn name
-@@@ds:searchx@@@@@@Search file for C-lang/curly-brace top-level object@@@ds:searchx file [search] [q]
+@@@ds:searchx@@@@@@Search file for C-lang/curly-brace top-level object@@@ds:searchx file|dir [search] [q]
 @@@ds:sedi@@@@@@Linux-portable sed in place substitution@@@ds:sedi file|dir search [replace]
 **@@@ds:select@@@@@@Select code from a file by regex anchors@@@ds:select file [startpattern endpattern]
 **@@@ds:shape@@@@@@Print data shape by length or FS@@@ds:shape [file] [FS] [chart_size=15ln] [chart_off=f]
@@ -76,6 +77,7 @@
 @@@ds:trace@@@@@@Search shell trace for a pattern@@@ds:trace [command] [search]
 **@@@ds:transpose@@@ds:t@@@Transpose field values@@@ds:transpose [file] [awkargs]
 **@@@ds:unicode@@@@@@Get UTF-8 unicode for a character sequence@@@ds:unicode [str]
+@@@ds:vi@@@@@@Search for file and open it in vim@@@ds:vi search [dir]
 @@@ds:websel@@@@@@Download and extract inner html by regex@@@ds:websel url [tag_re] [attrs_re]
 @@@@@@@@@@@@
 @@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE

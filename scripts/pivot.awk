@@ -2,6 +2,7 @@
 #
 # Pivot data
 ## TODO: Keys by header name
+## TODO: Sort rows and cols by header - use multisort script?
 
 BEGIN {
   if (!x || !y) {
@@ -73,8 +74,10 @@ NR == 1 {
     z_str = i == len_z ? z_str $ZKeys[i] : z_str $ZKeys[i] "::"
 
   if (x_str y_str z_str == "") next
+
   X[x_str]++
   Y[y_str]++
+
   if (no_agg)
     Z[x_str y_str] = z_str
   else if (c)
@@ -103,7 +106,7 @@ END {
     printf "%s", OFS
   for (x in X)
     printf "%s", x
-  print "\n"
+  print ""
 
   for (y in Y) {
     printf "%s", y
@@ -114,7 +117,7 @@ END {
 }
 
 function GenHeaderKeys(nf, str, This, ThisKeys, CompArr) {
-
+  TODO = 1 # TODO
 }
 function GenZKeys(nf, Z, ZKeys, XK, YK) {
   z_count = 1

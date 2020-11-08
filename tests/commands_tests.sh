@@ -120,6 +120,38 @@ j
 j2'
 [ "$(echo -e "$sort_input" | ds:sortm 1 a n)" = "$sort_output" ] || ds:fail 'sortm failed numeric sort case'
 
+# PREFIELD TESTS
+
+prefield_expected='Last Name@@@Street Address@@@First Name
+Doe@@@120 jefferson st.@@@John
+McGinnis@@@220 hobo Av.@@@Jack
+Repici@@@120 Jefferson St.@@@"John ""Da Man"""
+Tyler@@@"7452 Terrace ""At the Plaza"" road"@@@Stephen
+Blankman@@@@@@
+Jet@@@"9th, at Terrace plc"@@@"Joan ""the bone"", Anne"'
+prefield_actual="$(ds:prefield $complex_csv3 , 1)"
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed base dq case'
+
+prefield_expected='-rw-r--r--@@@1@@@tomhall@@@4330@@@Oct@@@12@@@11:55@@@emoji
+-rw-r--r--@@@1@@@tomhall@@@0@@@Oct@@@3@@@17:30@@@file with space, and: commas & colons \ slashes
+-rw-r--r--@@@1@@@tomhall@@@12003@@@Oct@@@3@@@17:30@@@infer_jf_test_joined.csv
+-rw-r--r--@@@1@@@tomhall@@@5245@@@Oct@@@3@@@17:30@@@infer_join_fields_test1.csv
+-rw-r--r--@@@1@@@tomhall@@@6043@@@Oct@@@3@@@17:30@@@infer_join_fields_test2.csv'
+prefield_actual="$(ds:prefield $ls_sq '[[:space:]]+')"
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed base sq case'
+
+prefield_expected='Conference room 1@@@John,  \n  Please bring the M. Mathers file for review   \n  -J.L.@@@10/18/2002@@@test, field
+Conference room 1@@@John \n  Please bring the M. Mathers file for review \n  -J.L.@@@10/18/2002@@@"
+Conference room 1@@@"@@@10/18/2002'
+prefield_actual="$(ds:prefield $complex_csv4 ,)"
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed newline lossy quotes case'
+
+prefield_expected='Conference room 1@@@"John,   \n  Please bring the M. Mathers file for review   \n  -J.L."@@@10/18/2002@@@"test, field"
+"Conference room 1"@@@"John, \n  Please bring the M. Mathers file for review \n  -J.L."@@@10/18/2002@@@""
+"Conference room 1"@@@""@@@10/18/2002'
+prefield_actual="$(ds:prefield $complex_csv4 , 1)"
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed newline retain outer quotes case'
+
 # REO TESTS
 
 reo_input='d c a b f
@@ -186,7 +218,8 @@ reo_actual="$(echo "$reo_input" | ds:reo rev rev -v idx=1)"
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed rev idx case'
 
 reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>130' off)"
-reo_expected='@@@ds:gexec@@@@@@Generate a script from pieces of another and run it@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]'
+reo_expected='@@@ds:gexec@@@@@@Generate a script from pieces of another and run it@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
+**@@@ds:jn@@@@@@Join two files, or a file and STDIN, with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=t] [awkargs]'
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed full row len case'
 
 reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>50' 2)"
@@ -221,7 +254,7 @@ reo_expected='3
 reo_input=$(for i in $(seq -16 16); do
     printf "%s " $i; printf "%s " $(echo "-1*$i" | bc)
     if [ $(echo "$i%5" | bc) -eq 0 ]; then echo test; else echo nah; fi; done)
-reo_output='-1 nah
+reo_expected='-1 nah
 -2 nah
 -3 nah
 -4 nah
@@ -244,7 +277,7 @@ reo_output='-1 nah
 -5 test
 -10 test
 -15 test'
-[ "$(echo "$reo_input" | ds:reo "2<0, 3~test" "31!=14")" = "$reo_output" ] || ds:fail 'reo command failed extended cases'
+[ "$(echo "$reo_input" | ds:reo "2<0, 3~test" "31!=14")" = "$reo_expected" ] || ds:fail 'reo command failed extended cases'
 
 reo_input="$(for i in $(seq -10 20); do 
     [ $i -eq -10 ] && ds:iter test 23 && echo && ds:iter _TeST_ 20 && echo
@@ -363,38 +396,115 @@ nfs_actual="$(ds:newfs $complex_csv1 :: | grep -h Joan)"
 [ "$nfs_expected" = "$nfs_actual" ] || ds:fail 'newfs command failed'
 
 
-# PREFIELD TESTS
+# SUBSEP TESTS
 
-prefield_expected='Last Name@@@Street Address@@@First Name
-Doe@@@120 jefferson st.@@@John
-McGinnis@@@220 hobo Av.@@@Jack
-Repici@@@120 Jefferson St.@@@"John ""Da Man"""
-Tyler@@@"7452 Terrace ""At the Plaza"" road"@@@Stephen
-Blankman@@@@@@
-Jet@@@"9th, at Terrace plc"@@@"Joan ""the bone"", Anne"'
-prefield_actual="$(ds:prefield $complex_csv3 , 1)"
-[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed base dq case'
+sbsp_actual="$(ds:sbsp tests/data/subseps_test "SEP" | ds:reo 1,7 | cat)"
+sbsp_expected='A;A;A;A
+G;G;G;G'
+[ "$sbsp_expected" = "$sbsp_actual" ] || ds:fail 'sbsp command failed'
 
-prefield_expected='-rw-r--r--@@@1@@@tomhall@@@4330@@@Oct@@@12@@@11:55@@@emoji
--rw-r--r--@@@1@@@tomhall@@@0@@@Oct@@@3@@@17:30@@@file with space, and: commas & colons \ slashes
--rw-r--r--@@@1@@@tomhall@@@12003@@@Oct@@@3@@@17:30@@@infer_jf_test_joined.csv
--rw-r--r--@@@1@@@tomhall@@@5245@@@Oct@@@3@@@17:30@@@infer_join_fields_test1.csv
--rw-r--r--@@@1@@@tomhall@@@6043@@@Oct@@@3@@@17:30@@@infer_join_fields_test2.csv'
-prefield_actual="$(ds:prefield $ls_sq '[[:space:]]+')"
-[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed base sq case'
+# POW TESTS
 
-prefield_expected='Conference room 1@@@John,  \n  Please bring the M. Mathers file for review   \n  -J.L.@@@10/18/2002@@@test, field
-Conference room 1@@@John \n  Please bring the M. Mathers file for review \n  -J.L.@@@10/18/2002@@@"
-Conference room 1@@@"@@@10/18/2002'
-prefield_actual="$(ds:prefield $complex_csv4 ,)"
-[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed newline lossy quotes case'
+pow_expected="23,ACK,0
+24,Mark,0
+25,ACK
+27,ACER PRESS,0
+28,Mark
+28,ACER PRESS
+74,0"
+pow_actual="$(ds:pow $complex_csv2 20 | cat)"
+[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed base case'
 
-prefield_expected='Conference room 1@@@"John,   \n  Please bring the M. Mathers file for review   \n  -J.L."@@@10/18/2002@@@"test, field"
-"Conference room 1"@@@"John, \n  Please bring the M. Mathers file for review \n  -J.L."@@@10/18/2002@@@""
-"Conference room 1"@@@""@@@10/18/2002'
-prefield_actual="$(ds:prefield $complex_csv4 , 1)"
-[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed newline retain outer quotes case'
+pow_expected="0.22,3,5
+0.26,3
+0.5,4,5
+0.53,4
+0.74,5"
+pow_actual="$(ds:pow $complex_csv2 20 t | cat)"
+[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed combin counts case'
 
+# PVT TESTS
+
+pvt_input='1 2 3 4
+5 6 7 5
+4 6 5 8'
+pvt_expected='PIVOT@@@1@@@5@@@4@@@
+2@@@3::4@@@@@@@@@
+6@@@@@@7::5@@@5::8@@@'
+pvt_actual="$(echo "$pvt_input" | ds:pvt 2 1)"
+[ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt command failed gen z case'
+pvt_expected='PIVOT@@@1@@@5@@@4@@@
+2@@@3@@@@@@@@@
+6@@@@@@7@@@5@@@'
+pvt_actual="$(echo "$pvt_input" | ds:pvt 2 1 3)"
+[ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt command failed spec z case'
+
+# AGG TESTS
+
+echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" > $tmp
+agg_expected='one@@@two@@@three@@@four@@@0
+1@@@2@@@3@@@4@@@5
+4@@@3@@@2@@@1@@@5
+1@@@2@@@4@@@3@@@6
+3@@@2@@@4@@@1@@@6'
+[ "$(ds:agg $tmp '$3+$2')" = "$agg_expected" ] || ds:fail 'agg command failed R specific agg base case'
+agg_expected='one@@@two@@@three@@@four
+1@@@2@@@3@@@4
+4@@@3@@@2@@@1
+1@@@2@@@4@@@3
+3@@@2@@@4@@@1
+6@@@7@@@9@@@8'
+[ "$(ds:agg $tmp 0 '$2+$3+$4')" = "$agg_expected" ] || ds:fail 'agg command failed C specific agg base case'
+
+agg_expected='one@@@two@@@three@@@four@@@0
+1@@@2@@@3@@@4@@@24
+4@@@3@@@2@@@1@@@6
+1@@@2@@@4@@@3@@@24
+3@@@2@@@4@@@1@@@8'
+agg_actual="$(echo -e "one,two,three,four\n1,2,3,4\n4,3,2,1\n1,2,4,3\n3,2,4,1" | ds:agg '*|2..4')"
+[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg command failed R specific range agg base case'
+
+# add base specific range case for c aggs here
+
+agg_expected='one@@@two@@@three@@@four@@@0
+1@@@2@@@3@@@4@@@10
+4@@@3@@@2@@@1@@@10
+1@@@2@@@4@@@3@@@10
+3@@@2@@@4@@@1@@@10'
+agg_actual="$(echo -e "one:two:three:four\n1:2:3:4\n4:3:2:1\n1:2:4:3\n3:2:4:1" | ds:agg '+|all')"
+[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg command failed R all agg base case'
+agg_expected='one@@@two@@@three@@@four
+1@@@2@@@3@@@4
+4@@@3@@@2@@@1
+1@@@2@@@4@@@3
+3@@@2@@@4@@@1
+9@@@9@@@13@@@9'
+agg_actual="$(echo -e "one;two;three;four\n1;2;3;4\n4;3;2;1\n1;2;4;3\n3;2;4;1" | ds:agg 0 '+|all')"
+[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg command failed C all agg base case'
+
+agg_expected='one@@@two@@@three@@@four@@@0
+1@@@2@@@3@@@4@@@10
+4@@@3@@@2@@@1@@@10
+1@@@2@@@4@@@3@@@10
+3@@@2@@@4@@@1@@@10
+9@@@9@@@13@@@9@@@40'
+[ "$(ds:agg $tmp '+|all' '+|all')" = "$agg_expected" ] || ds:fail 'agg command failed R+C all agg base case'
+agg_expected='@@@one@@@two@@@three@@@four@@@+|all
+@@@1@@@2@@@3@@@4@@@10
+@@@4@@@3@@@2@@@1@@@10
+@@@1@@@2@@@4@@@3@@@10
+@@@3@@@2@@@4@@@1@@@10
++|all@@@9@@@9@@@13@@@9@@@40'
+[ "$(ds:agg $tmp '+|all' '+|all' -v header=1)" = "$agg_expected" ] || ds:fail 'agg command failed R+C all agg header case'
+
+agg_expected='@@@one@@@two@@@three@@@four@@@+|all@@@*|2..4@@@/|all
+@@@1@@@2@@@3@@@4@@@10@@@24@@@0.0416667
+@@@4@@@3@@@2@@@1@@@10@@@6@@@0.666667
+@@@1@@@2@@@4@@@3@@@10@@@24@@@0.0416667
+@@@3@@@2@@@4@@@1@@@10@@@8@@@0.375
++|$2/$3@@@0.25@@@0.666667@@@1.5@@@4@@@1@@@4@@@0.0625
++|all@@@9@@@9@@@13@@@9@@@40@@@62@@@1.125'
+[ "$(ds:agg $tmp '+|all,*|2..4,/|all' '+|$2/$3,+|all' -v header=1)" = "$agg_expected" ] || ds:fail 'agg command failed C+R multiple aggs header case'
 
 # ASSORTED COMMANDS TESTS
 
@@ -438,11 +548,6 @@ mini_output="1;2;3;4;5;6;7;8;9;10"
 [ "$(ds:unicode "cats😼😻")" = '\U63\U61\U74\U73\U1F63C\U1F63B' ]        || ds:fail 'unicode command failed base case'
 [ "$(echo "cats😼😻" | ds:unicode)" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed pipe case'
 
-sbsp_actual="$(ds:sbsp tests/data/subseps_test "SEP" | ds:reo 1,7 | cat)"
-sbsp_expected='A;A;A;A
-G;G;G;G'
-[ "$sbsp_expected" = "$sbsp_actual" ] || ds:fail 'sbsp command failed'
-
 todo_expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 [ "$(ds:todo tests/commands_tests.sh | head -n1)" = "$todo_expected" ] || ds:fail 'todo command failed'
 
@@ -450,38 +555,6 @@ todo_expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 [ "$(echo "TEST" | ds:substr "T" "ST")" = "E" ] || ds:fail 'substr command failed pipee case'
 substr_actual="$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")"
 [ "4" = "$substr_actual" ]                      || ds:fail 'substr command failed extended regex case'
-
-pow_expected="23,ACK,0
-24,Mark,0
-25,ACK
-27,ACER PRESS,0
-28,Mark
-28,ACER PRESS
-74,0"
-pow_actual="$(ds:pow $complex_csv2 20 | cat)"
-[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed base case'
-
-pow_expected="0.22,3,5
-0.26,3
-0.5,4,5
-0.53,4
-0.74,5"
-pow_actual="$(ds:pow $complex_csv2 20 t | cat)"
-[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed combin counts case'
-
-pvt_input='1 2 3 4
-5 6 7 5
-4 6 5 8'
-pvt_expected='PIVOT@@@1@@@5@@@4@@@
-2@@@3::4@@@@@@@@@
-6@@@@@@7::5@@@5::8@@@'
-pvt_actual="$(echo "$pvt_input" | ds:pvt 2 1)"
-[ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt command failed gen z case'
-pvt_expected='PIVOT@@@1@@@5@@@4@@@
-2@@@3@@@@@@@@@
-6@@@@@@7@@@5@@@'
-pvt_actual="$(echo "$pvt_input" | ds:pvt 2 1 3)"
-[ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt command failed spec z case'
 
 if [[ $shell =~ 'bash' ]]; then
   fsrc_expected='support/utils.sh'
@@ -493,44 +566,30 @@ ds:fail
 ds:fit
 ds:reo
 ds:nset
-ds:commands'
-[[ "$(ds:deps ds:help)" = "$help_deps" ]]                    || ds:fail 'deps command failed'
+ds:commands
+ds:jn'
+[[ "$(ds:deps ds:help)" = "$help_deps" ]]                   || ds:fail 'deps command failed'
 [ "$(ds:websel https://www.google.com title)" = Google ]    || ds:fail 'webpage title command failed or internet is out'
 
-# INTEGRATION
 
+# INTEGRATION TESTS
 
-expected='
-PIVOT@@@7@@@21@@@14@@@28@@@474@@@
-459 PC  BURGLARY RESIDENCE@@@12@@@7@@@10@@@13@@@353@@@
-TOWED/STORED VEHICLE@@@9@@@8@@@15@@@9@@@428@@@
-459 PC  BURGLARY VEHICLE@@@23@@@22@@@15@@@15@@@441@@@
-TOWED/STORED VEH-14602.6@@@11@@@8@@@9@@@11@@@462@@@
-10851(A)VC TAKE VEH W/O OWNER@@@21@@@24@@@15@@@23@@@627@@@
-
-5150 WI DANGER SELF/OTHERS@@@101
-594(B)(1)PC  VANDALISM +$400@@@111
-CASUALTY REPORT@@@111
-484 PETTY THEFT/LICENSE PLATE@@@115
-459 PC  BURGLARY BUSINESS@@@134
-TRAFFIC-ACCIDENT-NON INJURY@@@170
-TRAFFIC-ACCIDENT INJURY@@@178
-594(B)(2)(A) VANDALISM/ -$400@@@186
-10851 VC AUTO THEFT LOCATE@@@214
-MISSING PERSON@@@256
-459 PC  BURGLARY RESIDENCE@@@353
-TOWED/STORED VEHICLE@@@428
-459 PC  BURGLARY VEHICLE@@@441
-TOWED/STORED VEH-14602.6@@@462
-PIVOT@@@474
-10851(A)VC TAKE VEH W/O OWNER@@@627'
+expected='@@@PIVOT@@@7@@@21@@@14@@@28@@@+|all@@@
+@@@459 PC  BURGLARY RESIDENCE@@@12@@@7@@@10@@@13@@@356@@@
+@@@TOWED/STORED VEHICLE@@@9@@@8@@@15@@@9@@@434@@@
+@@@459 PC  BURGLARY VEHICLE@@@23@@@22@@@15@@@15@@@462@@@
+@@@TOWED/STORED VEH-14602.6@@@11@@@8@@@9@@@11@@@463@@@
+@@@10851(A)VC TAKE VEH W/O OWNER@@@21@@@24@@@15@@@23@@@653@@@
++|all@@@@@@249@@@234@@@221@@@279@@@8081@@@'
 actual="$(ds:sbsp tests/data/testcrimedata.csv '\/' "" -v apply_to_fields=1 \
   | ds:reo a '2,NF>3' \
   | ds:pvt 6 1 4 c \
-  | awk -F$DS_SEP '{sum=0;for (f=3;f<=NF;f++)sum+=$f;print $0 "@@@" sum}' \
-  | ds:s NF n \
-  | ds:reo '1~PIVOT, >300' '1,[PIVOT%7,>300' -v uniq=1 | cat)"
+  | ds:agg '+|all' '+|all' -v header=1 \
+  | ds:sortm NF n \
+  | ds:reo '2~PIVOT, >300' '1,2[PIVOT%7,2[PIVOT~all' -v uniq=1 | cat)"
 [ "$actual" = "$expected" ] || ds:fail 'integration case 1 failed'
+
+
 
 # CLEANUP
 
