@@ -314,6 +314,21 @@ ds:git_checkout() { # Checkout branch matching pattern (alias ds:gco): ds:gco [p
 }
 alias ds:gco="ds:git_checkout"
 
+ds:git_squash() { # Squash last n commits (alias ds:gsq): ds:gsq [n_commits=1]
+  local extent="${1:-1}"
+  ! ds:is_int "$extent" && echo 'Squash commits to arg must be an integer' && ds:help ds:git_squash && return 1
+  local conf="$(ds:readp "Are you sure you want to squash the last $extent commits on current branch?
+
+    The new commit messages will be:
+      $(git log --format=%B --reverse HEAD..HEAD@{1})
+
+    Please confirm (y/n) " | ds:downcase)"
+  [ ! "$conf" = y ] && echo 'No change made' && return 1
+  let local extent=$extent+1
+  git reset --soft HEAD~$extent
+  git commit --edit -m"$(git log --format=%B --reverse HEAD..HEAD@{1})"
+}
+
 ds:git_time_stat() { # Last local pull+change+commit times (alias ds:gts): cd repo; ds:gts
   ds:not_git && return 1
   local last_pull="$(stat -c %y "$(git rev-parse --show-toplevel)/.git/FETCH_HEAD" 2>/dev/null)"

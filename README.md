@@ -48,7 +48,7 @@ Fits tabular data (including multibyte characters) dynamically into your termina
 
 `ds:reo`
 
-Select, reorder, slice data using inferred field separators. Supports expression evaluation, regex searches, exclusions, and/or logic, frame expressions, reversals, and more. ds:reo will apply ds:fit if the output is to a terminal.
+Select, reorder, slice data using inferred field separators. Supports expression evaluation, regex searches, exclusions, and/or logic, frame expressions, reversals, and more. Runs ds:fit on output if to a terminal.
 
     $ head -n5 tests/data/company_funding_data.csv
     permalink,company,numEmps,category,city,state,fundedDate,raisedAmt,raisedCurrency,round
@@ -56,29 +56,33 @@ Select, reorder, slice data using inferred field separators. Supports expression
     lifelock,LifeLock,,web,Tempe,AZ,1-Oct-06,6000000,USD,a
     lifelock,LifeLock,,web,Tempe,AZ,1-Jan-08,25000000,USD,c
     mycityfaces,MyCityFaces,7,web,Scottsdale,AZ,1-Jan-08,50000,USD,seed
+    
     $ wc -l tests/data/company_funding_data.csv
     1460 tests/data/company_funding_data.csv
+    
     $ ds:reo tests/data/company_funding_data.csv '1, >200000000' '[^c, [^r'
     company   category  city       raisedAmt  raisedCurrency  round
     Facebook  web       Palo Alto  300000000  USD             c
     ZeniMax   web       Rockville  300000000  USD             a
+    
     $ ds:reo tests/data/company_funding_data.csv '[lifelock' '[round,[funded'
     b  1-May-07
     a  1-Oct-06
     c  1-Jan-08
-    $ head -n5 tests/data/company_funding_data.csv | ds:reo '~Jan-08 && NR<6, 3..1' '[company,~Jan-08'
+
+    $ ds:reo tests/data/company_funding_data.csv '~Jan-08 && NR<6, 3..1' '[company,~Jan-08'
     LifeLock     1-Jan-08
     MyCityFaces  1-Jan-08
     LifeLock     1-Oct-06
     LifeLock     1-May-07
     company      fundedDate
 
-
     $ head -n4 tests/data/emoji
     Generating_code_base10 emoji init_awk_len len_simple_extract len_remaining
     9193 ⏩ 3 1 2
     Generating_code_base10 emoji init_awk_len len_simple_extract len_remaining
     9194 ⏪ 3 1 2
+    
     $ ds:reo tests/data/emoji '1, NR%2 && NR>80 && NR<90' '[emoji,others'
     emoji  Generating_code_base10  init_awk_len  len_simple_extract  len_remaining
     ❎     10062                              3                   1              2
@@ -89,7 +93,7 @@ Select, reorder, slice data using inferred field separators. Supports expression
 
 `ds:jn`
 
-Join on multi-key sets or perform full merges of data.
+Join on multi-key sets or perform full merges of data. Runs ds:fit on output if to a terminal.
 
     $ for i in /tmp/jn_a /tmp/jn_b; do echo $i; cat $i; done
     /tmp/jn_a
@@ -111,7 +115,7 @@ Join on multi-key sets or perform full merges of data.
 
 `ds:pvt`
 
-Pivot tabular data.
+Pivot tabular data. Runs ds:fit if output is a terminal.
 
     $ ds:pvt /tmp/jn_a 1,2 4 3
     PIVOT     d  4
@@ -120,7 +124,7 @@ Pivot tabular data.
 
 `ds:agg`
 
-Aggregate number data by specific fields, or by full rows/columns. Note first row is ignored in calcs if header is set.
+Aggregate number data by specific fields, or by full rows/columns. Note first row is ignored in calcs if header is set. Runs ds:fit on output if a terminal.
 
     $ cat /tmp/agg_ex
     a  1  -2  3.0  4
@@ -140,7 +144,7 @@ Aggregate number data by specific fields, or by full rows/columns. Note first ro
 
 `ds:fc`
 
-Get count data for unique lines or sets of fields.
+Get count data for unique lines or sets of fields. Runs ds:fit on output if to a terminal.
 
     $ cat /tmp/fc_ex
     a:1
