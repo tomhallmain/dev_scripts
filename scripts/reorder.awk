@@ -227,7 +227,6 @@
 ## TODO: Expressions and comparisons against cross-index total
 ## TODO: Expressions and comparisons between fields (standard awk)
 ## TODO: Range support for index number and pattern endpoints combined
-## TODO: Fix extended logic breaking order of reversals in opposite span
 
 ## SETUP
 
@@ -643,6 +642,7 @@ function StoreFieldRefs() {
     for (anchor in CAnchors) {
       if (CAnchorSet[anchor]) continue
       split(anchor, Anchors, TkMap["anc"])
+      ignore_case = (ignore_case_global || IgnoreCase[anchor])
       for (f = 1; f <= NF; f++) {
         field = ignore_case ? tolower($f) : $f
         if (Anchors[1] && !CAnchorStart[anchor] && field ~ Anchors[1]) {
@@ -801,7 +801,9 @@ function StoreRowRefs() {
     for (anchor in RAnchors) {
       if (RAnchorSet[anchor]) continue
       split(anchor, Anchors, TkMap["anc"])
+      ignore_case = (ignore_case_global || IgnoreCase[anchor])
       row_test = ignore_case ? tolower($0) : $0
+      if (debug) print anchor", "Anchors[1]", "Anchors[2]", "RAnchorStart[anchor]", "RAnchorEnd[anchor]" "r_ancs
       if (Anchors[1] && !RAnchorStart[anchor] && row_test ~ Anchors[1]) {
         RAnchorStart[anchor] = NR
         if (!RAnchorEnd[anchor]) continue }
@@ -842,6 +844,7 @@ function ResolveRowFilterFrame(frame) {
 function ResolveFilterExtensions(row_call, Extensions, ReoArr, OrdArr, max_val) {
   if (length(Extensions)) {
     for (ext_i in Extensions) {
+      if (!Extensions[ext_i]) continue
       split(Extensions[ext_i], DeleteKeys, ",")
       OrdArr[ext_i] = ResolveMultisetLogic(row_call, ext_i, max_val)
       ReoArr[DeleteKeys[1]] = ext_i; TypeMap[ext_i] = "ext"; delete DeleteKeys[1]
@@ -1148,6 +1151,7 @@ function TestArg(arg, max_i, type, row_call) {
     if (!(sa1 || sa2)) {
       print "Invalid anchor order arg "arg" - anchor arg formats include:"
       print "start_anchor##  start##end  ##end_anchor  /start/../end/" }
+    if (ignore_case_global || arg ~ "\/[Ii](~|$)") IgnoreCase[arg] = 1
     if (type == "anc_re") {
       gsub(/(^\/|\/$)/, "", sa1); gsub(/(^\/|\/$)/, "", sa2) }
     "" ~ sa1; "" ~ sa2 }

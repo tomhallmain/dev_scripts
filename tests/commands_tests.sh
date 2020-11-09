@@ -2,26 +2,40 @@
 # This test script should produce no output if test run is successful
 # TODO: Negative tests, Git tests
 
-test_var=1; tmp=/tmp/ds_commands_tests; q=/dev/null
-shell=$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')
-jnf1="tests/data/infer_join_fields_test1.csv" jnf2="tests/data/infer_join_fields_test2.csv"
-jnd1="tests/data/infer_jf_test_joined.csv" jnd2="tests/data/infer_jf_joined_fit"
-jnd3="tests/data/infer_jf_joined_fit_dz" jnd4="tests/data/infer_jf_joined_fit_sn"
-seps_base="tests/data/seps_test_base" seps_sorted="tests/data/seps_test_sorted" 
+test_var=1
+tmp=/tmp/ds_commands_tests
+q=/dev/null
+shell="$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')"
+jnf1="tests/data/infer_join_fields_test1.csv"
+jnf2="tests/data/infer_join_fields_test2.csv"
+jnd1="tests/data/infer_jf_test_joined.csv"
+jnd2="tests/data/infer_jf_joined_fit"
+jnd3="tests/data/infer_jf_joined_fit_dz"
+jnd4="tests/data/infer_jf_joined_fit_sn"
+seps_base="tests/data/seps_test_base"
+seps_sorted="tests/data/seps_test_sorted" 
 simple_csv="tests/data/company_funding_data.csv"
-complex_csv1="tests/data/addresses.csv" complex_csv3="tests/data/addresses_reordered"
-complex_csv2="tests/data/Sample100.csv" complex_csv4="tests/data/quoted_fields_with_newline.csv" 
+complex_csv1="tests/data/addresses.csv"
+complex_csv3="tests/data/addresses_reordered"
+complex_csv2="tests/data/Sample100.csv"
+complex_csv4="tests/data/quoted_fields_with_newline.csv" 
 complex_csv5="tests/data/taxables.csv"
-ls_sq="tests/data/ls_sq" emoji="tests/data/emoji" emojifit="tests/data/emojifit"
+ls_sq="tests/data/ls_sq"
+emoji="tests/data/emoji"
+emojifit="tests/data/emojifit"
 
 if [[ $shell =~ 'bash' ]]; then
   bsh=0
-  cd "${BASH_SOURCE%/*}/.."; source commands.sh
-  $(ds:fail 'testfail' &> $tmp); testfail=$(cat $tmp)
+  cd "${BASH_SOURCE%/*}/.."
+  source commands.sh
+  $(ds:fail 'testfail' &> $tmp)
+  testfail=$(cat $tmp)
   [[ $testfail =~ '_err_: testfail' ]] || echo 'fail command failed in bash case'
 elif [[ $shell =~ 'zsh' ]]; then
-  cd "$(dirname $0)/.."; source commands.sh
-  $(ds:fail 'testfail' &> $tmp); testfail=$(cat $tmp)
+  cd "$(dirname $0)/.."
+  source commands.sh
+  $(ds:fail 'testfail' &> $tmp)
+  testfail=$(cat $tmp)
   [[ $testfail =~ '_err_: Operation intentionally failed' ]] || echo 'fail command failed in zsh case'
 else
   echo 'unhandled shell detected - only zsh/bash supported at this time'
@@ -32,7 +46,8 @@ fi
 
 [[ $(ds:sh | grep -c "") = 1 && $(ds:sh) =~ sh ]] || ds:fail 'sh command failed'
 
-cmds="tests/data/commands_output" ch="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
+cmds="tests/data/commands_output"
+ch="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
 ds:commands > $tmp
 cmp --silent $cmds $tmp && grep -q "$ch" $tmp     || ds:fail 'commands listing failed'
 
@@ -42,15 +57,15 @@ ds_help_output="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
 ds:nset 'ds:nset' 1> $q                           || ds:fail 'nset command failed'
 ds:searchn 'ds:searchn' 1> $q                     || ds:fail 'searchn failed on func search'
 ds:searchn 'test_var' 1> $q                       || ds:fail 'searchn failed on var search'
-[ "$(ds:ntype 'ds:ntype')" = 'FUNC' ]             || ds:fail 'ntype commmand failed'
+[ "$(ds:ntype 'ds:ntype')" = 'FUNC' ]             || ds:fail 'ntype command failed'
 
 # zsh trace output in subshell lists a file descriptor
 if [[ $shell =~ 'zsh' ]]; then
   ds:trace 'echo test' &>$tmp
-  grep -e "+ds:trace:8> eval 'echo test'" -e "+(eval):1> echo test" $tmp &>/dev/null || ds:fail 'trace command failed'
+  grep -e "+ds:trace:8> eval 'echo test'" -e "+(eval):1> echo test" $tmp &>$q || ds:fail 'trace command failed'
 elif [[ $shell =~ 'bash' ]]; then
   trace_expected_bash="++++ echo test\ntest"
-  [ "$(ds:trace 'echo test' 2>/dev/null)" = "$(echo -e "$trace_expected_bash")" ] || ds:fail 'trace command failed'
+  [ "$(ds:trace 'echo test' 2>$q)" = "$(echo -e "$trace_expected_bash")" ] || ds:fail 'trace command failed'
 fi
 
 # GIT COMMANDS TESTS
@@ -58,19 +73,37 @@ fi
 [ $(ds:git_recent_all | awk '{print $3}' | grep -c "") -gt 2 ] \
   || echo 'git recent all failed, possibly due to no git dirs in home'
 
-# JN, PC, PM, IFS TESTS
+# IFS TESTS
 
 [ "$(ds:inferfs $jnf1)" = ',' ]                             || ds:fail 'inferfs failed extension case'
 [ "$(ds:inferfs $seps_base)" = '\&\%\#' ]                   || ds:fail 'inferfs failed custom separator case'
 [ "$(ds:inferfs $ls_sq)" = '[[:space:]]+' ]                 || ds:fail 'inferfs failed quoted fields case'
 [ "$(ds:inferfs $complex_csv3)" = ',' ]                     || ds:fail 'inferfs failed quoted fields case'
 
+# JN TESTS
+
+echo -e "a b c d\n1 2 3 4" > $tmp
+jn_expected='a b c d b c
+1 2 3 4 3 2'
+jn_actual="$(echo -e "a b c d\n1 3 2 4" | ds:jn $tmp inner 1,4)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed readme single keyset case'
+jn_expected='a c b d
+1 2 3 4'
+jn_actual="$(echo -e "a b c d\n1 3 2 4" | ds:jn $tmp right 1,2,3,4 1,3,2,4)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed readme multi-keyset case'
+jn_expected='a b c d
+1 3 2 4
+1 2 3 4'
+jn_actual="$(echo -e "a b c d\n1 3 2 4" | ds:jn $tmp outer merge)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed readme merge case'
+
 [ $(ds:jn "$jnf1" "$jnf2" o 1 | grep -c "") -gt 15 ]        || ds:fail 'ds:jn failed one-arg shell case'
 [ $(ds:jn "$jnf1" "$jnf2" r -v ind=1 | grep -c "") -gt 15 ] || ds:fail 'ds:jn failed awkarg nonkey case'
 [ $(ds:jn "$jnf1" "$jnf2" l -v k=1 | grep -c "") -gt 15 ]   || ds:fail 'ds:jn failed awkarg key case'
 [ $(ds:jn "$jnf1" "$jnf2" i 1 | grep -c "") -gt 15 ]        || ds:fail 'ds:jn failed inner join case'
+
 ds:jn "$jnf1" "$jnf2" -v ind=1 > $tmp
-cmp --silent "$tmp" "$jnd1"                                 || ds:fail 'ds:jn failed base outer join case'
+cmp --silent $tmp $jnd1                                     || ds:fail 'ds:jn failed base outer join case'
 
 cat "${jnf1}" > $tmp
 [ $(ds:print_comps $jnf1 $tmp | grep -c "") -eq 7 ]         || ds:fail 'print_comps failed no complement case'
@@ -130,7 +163,7 @@ Tyler@@@"7452 Terrace ""At the Plaza"" road"@@@Stephen
 Blankman@@@@@@
 Jet@@@"9th, at Terrace plc"@@@"Joan ""the bone"", Anne"'
 prefield_actual="$(ds:prefield $complex_csv3 , 1)"
-[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed base dq case'
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield failed base dq case'
 
 prefield_expected='-rw-r--r--@@@1@@@tomhall@@@4330@@@Oct@@@12@@@11:55@@@emoji
 -rw-r--r--@@@1@@@tomhall@@@0@@@Oct@@@3@@@17:30@@@file with space, and: commas & colons \ slashes
@@ -138,19 +171,19 @@ prefield_expected='-rw-r--r--@@@1@@@tomhall@@@4330@@@Oct@@@12@@@11:55@@@emoji
 -rw-r--r--@@@1@@@tomhall@@@5245@@@Oct@@@3@@@17:30@@@infer_join_fields_test1.csv
 -rw-r--r--@@@1@@@tomhall@@@6043@@@Oct@@@3@@@17:30@@@infer_join_fields_test2.csv'
 prefield_actual="$(ds:prefield $ls_sq '[[:space:]]+')"
-[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed base sq case'
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield failed base sq case'
 
 prefield_expected='Conference room 1@@@John,  \n  Please bring the M. Mathers file for review   \n  -J.L.@@@10/18/2002@@@test, field
 Conference room 1@@@John \n  Please bring the M. Mathers file for review \n  -J.L.@@@10/18/2002@@@"
 Conference room 1@@@"@@@10/18/2002'
 prefield_actual="$(ds:prefield $complex_csv4 ,)"
-[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed newline lossy quotes case'
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield failed newline lossy quotes case'
 
 prefield_expected='Conference room 1@@@"John,   \n  Please bring the M. Mathers file for review   \n  -J.L."@@@10/18/2002@@@"test, field"
 "Conference room 1"@@@"John, \n  Please bring the M. Mathers file for review \n  -J.L."@@@10/18/2002@@@""
 "Conference room 1"@@@""@@@10/18/2002'
 prefield_actual="$(ds:prefield $complex_csv4 , 1)"
-[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield command failed newline retain outer quotes case'
+[ "$prefield_expected" = "$prefield_actual" ] || ds:fail 'prefield failed newline retain outer quotes case'
 
 # REO TESTS
 
@@ -159,21 +192,21 @@ f e c b a
 f e d c b
 e d c b a'
 reo_output='f e c b a'
-[ "$(echo "$reo_input" | ds:reo 2)" = "$reo_output" ] || ds:fail 'reo command failed base row case'
+[ "$(echo "$reo_input" | ds:reo 2)" = "$reo_output" ] || ds:fail 'reo failed base row case'
 reo_output='c
 e
 e
 d'
-[ "$(echo "$reo_input" | ds:reo a 2)" = "$reo_output" ] || ds:fail 'reo command failed base column case'
+[ "$(echo "$reo_input" | ds:reo a 2)" = "$reo_output" ] || ds:fail 'reo failed base column case'
 
 reo_output='a c d e b
 f a c d b'
-[ "$(echo "$reo_input" | ds:reo 4,1 5,3..1,4)" = "$reo_output" ] || ds:fail 'reo command failed base compound range reo case'
-[ "$(echo "$reo_input" | ds:reo 4,1 5,3..1,4 -v FS="[[:space:]]")" = "$reo_output" ] || ds:fail 'reo command failed FS arg case'
-[ "$(echo "$PATH" | ds:reo 1 5,3..1,4 -F: | ds:transpose | grep -c "")" -eq 5 ] || ds:fail 'reo command failed F arg case'
+[ "$(echo "$reo_input" | ds:reo 4,1 5,3..1,4)" = "$reo_output" ] || ds:fail 'reo failed base compound range reo case'
+[ "$(echo "$reo_input" | ds:reo 4,1 5,3..1,4 -v FS="[[:space:]]")" = "$reo_output" ] || ds:fail 'reo failed FS arg case'
+[ "$(echo "$PATH" | ds:reo 1 5,3..1,4 -F: | ds:transpose | grep -c "")" -eq 5 ] || ds:fail 'reo failed F arg case'
 
 reo_output='f b'
-[ "$(echo "$reo_input" | ds:reo '4!~b' '!~c')" = "$reo_output" ] || ds:fail 'reo command failed exclusive search case'
+[ "$(echo "$reo_input" | ds:reo '4!~b' '!~c')" = "$reo_output" ] || ds:fail 'reo failed exclusive search case'
 
 reo_input='1:2:3:4:5
 5:4:3:2:1
@@ -181,46 +214,46 @@ reo_input='1:2:3:4:5
 :3::2:1'
 
 reo_actual="$(echo "$reo_input" | ds:reo '>5' off)"
-[ "$reo_actual" = "::6::" ] || ds:fail 'reo command failed c off case'
+[ "$reo_actual" = "::6::" ]         || ds:fail 'reo failed c off case'
 reo_actual="$(echo "$reo_input" | ds:reo '~6' off)"
-[ "$reo_actual" = "::6::" ] || ds:fail 'reo command failed c off case'
+[ "$reo_actual" = "::6::" ]         || ds:fail 'reo failed c off case'
 
 reo_actual="$(echo "$reo_input" | ds:reo '6##2' '3##' | cat)"
 reo_expected='6::
 3:2:1
 3:4:5'
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed anchor case'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed anchor case'
 reo_actual="$(echo "$reo_input" | ds:reo '/6/../2/' '/3/..' | cat)"
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed anchor_re case'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed anchor_re case'
 reo_actual="$(echo "$reo_input" | ds:reo '6##2' '##3' | cat)"
 reo_expected='::6
 5:4:3
 1:2:3'
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed anchor case'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed anchor case'
 reo_actual="$(echo "$reo_input" | ds:reo '/6/../2/' '../3/' | cat)"
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed anchor_re case'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed anchor_re case'
 
 reo_expected=':3
 3:6'
 reo_actual="$(echo "$reo_input" | ds:reo 3 3 -v idx=1)"
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed indx idx case'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed indx idx case'
 reo_expected=':4:3
 4:2:
 3::6'
 reo_actual="$(echo "$reo_input" | ds:reo 4..3 4..3 -v idx=1)"
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed rev range idx case'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed rev range idx case'
 reo_expected=':5:4:3:2:1
 4:1:2::3:
 3:::6::
 2:1:2:3:4:5
 1:5:4:3:2:1'
 reo_actual="$(echo "$reo_input" | ds:reo rev rev -v idx=1)"
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed rev idx case'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed rev idx case'
 
 reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>130' off)"
 reo_expected='@@@ds:gexec@@@@@@Generate a script from pieces of another and run it@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
 **@@@ds:jn@@@@@@Join two files, or a file and STDIN, with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=t] [awkargs]'
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed full row len case'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed full row len case'
 
 reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>50' 2)"
 reo_expected='ds:asgn
@@ -231,24 +264,25 @@ ds:nset
 ds:path_elements
 ds:searchx
 ds:srg'
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed basic len case'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed basic len case'
 
 reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len(2)%11 || len(2)=13' 'length()<5 && len()>2')"
 reo_expected='@@@
 ds:gb@@@
 ds:gr@@@
+ds:gsq@@@
 ds:gs@@@
 @@@' # probably a false field here.
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended len case'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed extended len case'
 
 reo_actual="$(echo "$reo_input" | ds:reo 1 'len()>0,len()<2' -v uniq=1)"
 reo_expected='1:2:3:4:5:'
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed uniq col case'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed uniq col case'
 reo_actual="$(echo "$reo_input" | ds:reo 'len(1)>0,len(1)<2' 3 -v uniq=1)"
 reo_expected='3
 3
 6'
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed uniq row case'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed uniq row case'
 
 
 reo_input=$(for i in $(seq -16 16); do
@@ -277,7 +311,7 @@ reo_expected='-1 nah
 -5 test
 -10 test
 -15 test'
-[ "$(echo "$reo_input" | ds:reo "2<0, 3~test" "31!=14")" = "$reo_expected" ] || ds:fail 'reo command failed extended cases'
+[ "$(echo "$reo_input" | ds:reo "2<0, 3~test" "31!=14")" = "$reo_expected" ] || ds:fail 'reo failed extended cases'
 
 reo_input="$(for i in $(seq -10 20); do 
     [ $i -eq -10 ] && ds:iter test 23 && echo && ds:iter _TeST_ 20 && echo
@@ -294,7 +328,7 @@ test test test test test test test test test test test test test test test test 
 test test test test test test test test test test test test test test test test test
 test test test test test test test test test test test test test test test test test
 _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_ _TeST_    _TeST_'
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended cases'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed extended cases'
 
 reo_input='d c a b f
 f e c b a
@@ -306,7 +340,7 @@ reo_expected=' f b a c d d a
  a b c e f f c
  b c d e f f d
  a b c d e e c'
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended others or reverse cases'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed extended others or reverse cases'
 
 reo_actual="$(echo "$reo_input" | ds:reo "1,1,others,[a" ">4,rev,[f~d")"
 reo_expected=' f b a c d d a
@@ -314,52 +348,83 @@ reo_expected=' f b a c d d a
  a b c e f f c
  b c d e f f d
  a b c d e e c'
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended others or reverse cases'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed extended others or reverse cases'
 
 reo_actual="$(echo "$reo_input" | ds:reo "[a~c && 5~a" "[f~d || [e~a && NF>3")"
-reo_expected='a 
-a '
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended logic cases'
+reo_expected='a
+a'
+[ "$(echo -e "$reo_actual" | tr -d " ")" = "$reo_expected" ] || ds:fail 'reo failed extended logic cases'
 
-reo_actual="$(ds:reo $seps_base ">100&&%7" "%7" | ds:fit -v FS="\\\&\\\%\\\#")"
-reo_expected='2    7
-1  420'
-[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo command failed extended logic cases'
+reo_actual="$(ds:reo $seps_base ">100&&%7" "%7")"
+reo_expected='7&%#2
+420&%#1'
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed extended logic cases'
 
 reo_actual="$(ds:reo $seps_base '5[2!~2' | grep -h "^1")"
-[ "$(ds:reo $seps_base '5[2!=2 && 5[2!=23' | grep -h "^1")" = "$reo_actual" ] || ds:fail 'reo command failed comparison case'
+[ "$(ds:reo $seps_base '5[2!=2 && 5[2!=23' | grep -h "^1")" = "$reo_actual" ] || ds:fail 'reo failed comparison case'
+
+head -n5 tests/data/company_funding_data.csv > $tmp
+
+reo_expected='company,category,city,raisedAmt,raisedCurrency,round
+Facebook,web,Palo Alto,300000000,USD,c
+ZeniMax,web,Rockville,300000000,USD,a'
+reo_actual="$(ds:reo $simple_csv '1, >200000000' '[^c, [^r')"
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed readme case 1'
+reo_expected='b,1-May-07
+a,1-Oct-06
+c,1-Jan-08'
+reo_actual="$(ds:reo $tmp '[lifelock' '[round,[funded')"
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed readme case 2'
+reo_expected='LifeLock,1-Jan-08
+MyCityFaces,1-Jan-08
+LifeLock,1-Oct-06
+LifeLock,1-May-07
+company,fundedDate'
+reo_actual="$(ds:reo $tmp '~Jan-08 && NR<6, 3..1' '[company,~Jan-08')"
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed readme case 3'
+reo_expected='b,USD,6850000,1-May-07,AZ,Tempe,web,,LifeLock,lifelock
+a,USD,6000000,1-Oct-06,AZ,Tempe,web,,LifeLock,lifelock
+c,USD,25000000,1-Jan-08,AZ,Tempe,web,,LifeLock,lifelock
+seed,USD,50000,1-Jan-08,AZ,Scottsdale,web,7,MyCityFaces,mycityfaces
+c,USD,25000000,1-Jan-08,AZ,Tempe,web,,LifeLock,lifelock
+a,USD,6000000,1-Oct-06,AZ,Tempe,web,,LifeLock,lifelock
+b,USD,6850000,1-May-07,AZ,Tempe,web,,LifeLock,lifelock
+round,raisedCurrency,raisedAmt,fundedDate,state,city,category,numEmps,company,permalink'
+reo_actual="$(ds:reo $tmp '!~permalink && !~mycity,rev' rev)"
+[ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed extended logic + rev cases'
+
 
 
 # FIT TESTS
 
 fit_var_present="$(echo -e "t 1\nte 2\ntes 3\ntest 4" | ds:fit | awk '{cl=length($0);if(pl && pl!=cl) {print 1;exit};pl=cl}')"
-[ "$fit_var_present" = 1 ]                        && ds:fail 'fit command failed pipe case'
+[ "$fit_var_present" = 1 ]                        && ds:fail 'fit failed pipe case'
 
 fit_expected='Desert City' fit_actual="$(ds:fit "$complex_csv1" | ds:reo 7 4 '-F {2,}')"
-[ "$fit_expected" = "$fit_actual" ]               || ds:fail 'fit command failed base case'
+[ "$fit_expected" = "$fit_actual" ]               || ds:fail 'fit failed base case'
 
 fit_expected='Company Name                            Employee Markme       Description
 INDIAN HERITAGE ,ART & CULTURE          MADHUKAR              ACCESS PUBLISHING INDIA PVT.LTD
 ETHICS, INTEGRITY & APTITUDE ( 3RD/E)   P N ROY ,G SUBBA RAO  ACCESS PUBLISHING INDIA PVT.LTD
 PHYSICAL, HUMAN AND ECONOMIC GEOGRAPHY  D R KHULLAR           ACCESS PUBLISHING INDIA PVT.LTD'
 fit_actual="$(ds:reo "$complex_csv2" 1,35,37,42 2..4 | ds:fit -F,)"
-[ "$(echo -e "$fit_expected")" = "$fit_actual" ]  || ds:fail 'fit command failed quoted field case'
+[ "$(echo -e "$fit_expected")" = "$fit_actual" ]  || ds:fail 'fit failed quoted field case'
 
-ds:fit $emoji > $tmp; cmp --silent $emojifit $tmp || ds:fail 'fit command failed emoji case'
+ds:fit $emoji > $tmp; cmp --silent $emojifit $tmp || ds:fail 'fit failed emoji case'
 
 fit_expected='-rw-r--r--  1  tomhall   4330  Oct  12  11:55  emoji
 -rw-r--r--  1  tomhall      0  Oct   3  17:30  file with space, and: commas & colons \ slashes
 -rw-r--r--  1  tomhall  12003  Oct   3  17:30  infer_jf_test_joined.csv
 -rw-r--r--  1  tomhall   5245  Oct   3  17:30  infer_join_fields_test1.csv
 -rw-r--r--  1  tomhall   6043  Oct   3  17:30  infer_join_fields_test2.csv'
-[ "$(ds:fit $ls_sq)" = "$fit_expected" ] || ds:fail 'fit command failed ls sq case'
+[ "$(ds:fit $ls_sq)" = "$fit_expected" ] || ds:fail 'fit failed ls sq case'
 
 ds:fit $jnd1 -v bufferchar="|" > $tmp
-cmp --silent $jnd2 $tmp || ds:fail 'fit command failed bufferchar/decimal complex csv case'
+cmp --silent $jnd2 $tmp || ds:fail 'fit failed bufferchar/decimal complex csv case'
 ds:fit $jnd1 -v bufferchar="|" -v d=z > $tmp
-cmp --silent $jnd3 $tmp || ds:fail 'fit command failed const decimal complex csv case'
+cmp --silent $jnd3 $tmp || ds:fail 'fit failed const decimal complex csv case'
 ds:fit $jnd1 -v bufferchar="|" -v d=-2 > $tmp
-cmp --silent $jnd4 $tmp || ds:fail 'fit command failed scientific notation complex csv case'
+cmp --silent $jnd4 $tmp || ds:fail 'fit failed scientific notation complex csv case'
 
 fit_expected="Index  Item                              Cost    Tax  Total
     1  Fruit of the Loom Girl's Socks    7.97   0.60   8.57
@@ -371,7 +436,7 @@ fit_expected="Index  Item                              Cost    Tax  Total
     7  Wrench Set, 18 pieces            10.00   0.75  10.75
     8  M and M, 42 oz                    8.98   0.67   9.65
     9  Bertoli Alfredo Sauce             2.12   0.16   2.28"
-[ "$(ds:fit $complex_csv5 | head)" = "$fit_expected" ] || ds:fail 'fit command failed spaced quoted field case'
+[ "$(ds:fit $complex_csv5 | head)" = "$fit_expected" ] || ds:fail 'fit failed spaced quoted field case'
 
 
 # FC TESTS
@@ -379,14 +444,14 @@ fit_expected="Index  Item                              Cost    Tax  Total
 fc_expected='2 mozy,Mozy,26,web,American Fork,UT,1-May-05,1900000,USD,a
 2 zoominfo,ZoomInfo,80,web,Waltham,MA,1-Jul-04,7000000,USD,a'
 fc_actual="$(ds:fieldcounts $simple_csv a 2)"
-[ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed all field case'
+[ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts failed all field case'
 fc_expected='54,1-Jan-08
 54,1-Oct-07'
 fc_actual="$(ds:fieldcounts $simple_csv 7 50)"
-[ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed single field case'
+[ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts failed single field case'
 fc_expected='7,450,Palo Alto,facebook'
 fc_actual="$(ds:fieldcounts $simple_csv 3,5,1 6)"
-[ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts command failed multifield case'
+[ "$fc_expected" = "$fc_actual" ] || ds:fail 'fieldcounts failed multifield case'
 
 
 # NEWFS TESTS
@@ -401,7 +466,14 @@ nfs_actual="$(ds:newfs $complex_csv1 :: | grep -h Joan)"
 sbsp_actual="$(ds:sbsp tests/data/subseps_test "SEP" | ds:reo 1,7 | cat)"
 sbsp_expected='A;A;A;A
 G;G;G;G'
-[ "$sbsp_expected" = "$sbsp_actual" ] || ds:fail 'sbsp command failed'
+[ "$sbsp_expected" = "$sbsp_actual" ] || ds:fail 'sbsp failed'
+sbsp_expected='cdatetime,,,address
+1,1,06 0:00,3108 OCCIDENTAL DR
+1,1,06 0:00,2082 EXPEDITION WAY
+1,1,06 0:00,4 PALEN CT
+1,1,06 0:00,22 BECKFORD CT'
+sbsp_actual="$(ds:reo tests/data/testcrimedata.csv 1..5 1,2 | ds:sbsp '\\/' "" -F,)"
+[ "$sbsp_expected" = "$sbsp_actual" ] || ds:fail 'sbsp failed readme case'
 
 # POW TESTS
 
@@ -413,7 +485,7 @@ pow_expected="23,ACK,0
 28,ACER PRESS
 74,0"
 pow_actual="$(ds:pow $complex_csv2 20 | cat)"
-[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed base case'
+[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow failed base case'
 
 pow_expected="0.22,3,5
 0.26,3
@@ -421,7 +493,7 @@ pow_expected="0.22,3,5
 0.53,4
 0.74,5"
 pow_actual="$(ds:pow $complex_csv2 20 t | cat)"
-[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow command failed combin counts case'
+[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow failed combin counts case'
 
 # PVT TESTS
 
@@ -432,12 +504,18 @@ pvt_expected='PIVOT@@@1@@@5@@@4@@@
 2@@@3::4@@@@@@@@@
 6@@@@@@7::5@@@5::8@@@'
 pvt_actual="$(echo "$pvt_input" | ds:pvt 2 1)"
-[ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt command failed gen z case'
+[ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt failed gen z case'
 pvt_expected='PIVOT@@@1@@@5@@@4@@@
 2@@@3@@@@@@@@@
 6@@@@@@7@@@5@@@'
 pvt_actual="$(echo "$pvt_input" | ds:pvt 2 1 3)"
-[ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt command failed spec z case'
+[ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt failed spec z case'
+pvt_expected='PIVOT@@@@@@d@@@4@@@
+a@@@b@@@c@@@@@@
+1@@@2@@@@@@3@@@'
+pvt_actual="$(echo -e "a b c d\n1 2 3 4" | ds:pvt 1,2 4 3)"
+[ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt failed readme multi-y case'
+
 
 # AGG TESTS
 
@@ -447,14 +525,14 @@ agg_expected='one@@@two@@@three@@@four@@@0
 4@@@3@@@2@@@1@@@5
 1@@@2@@@4@@@3@@@6
 3@@@2@@@4@@@1@@@6'
-[ "$(ds:agg $tmp '$3+$2')" = "$agg_expected" ] || ds:fail 'agg command failed R specific agg base case'
+[ "$(ds:agg $tmp '$3+$2')" = "$agg_expected" ] || ds:fail 'agg failed R specific agg base case'
 agg_expected='one@@@two@@@three@@@four
 1@@@2@@@3@@@4
 4@@@3@@@2@@@1
 1@@@2@@@4@@@3
 3@@@2@@@4@@@1
 6@@@7@@@9@@@8'
-[ "$(ds:agg $tmp 0 '$2+$3+$4')" = "$agg_expected" ] || ds:fail 'agg command failed C specific agg base case'
+[ "$(ds:agg $tmp 0 '$2+$3+$4')" = "$agg_expected" ] || ds:fail 'agg failed C specific agg base case'
 
 agg_expected='one@@@two@@@three@@@four@@@0
 1@@@2@@@3@@@4@@@24
@@ -462,7 +540,7 @@ agg_expected='one@@@two@@@three@@@four@@@0
 1@@@2@@@4@@@3@@@24
 3@@@2@@@4@@@1@@@8'
 agg_actual="$(echo -e "one,two,three,four\n1,2,3,4\n4,3,2,1\n1,2,4,3\n3,2,4,1" | ds:agg '*|2..4')"
-[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg command failed R specific range agg base case'
+[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg failed R specific range agg base case'
 
 # add base specific range case for c aggs here
 
@@ -472,7 +550,7 @@ agg_expected='one@@@two@@@three@@@four@@@0
 1@@@2@@@4@@@3@@@10
 3@@@2@@@4@@@1@@@10'
 agg_actual="$(echo -e "one:two:three:four\n1:2:3:4\n4:3:2:1\n1:2:4:3\n3:2:4:1" | ds:agg '+|all')"
-[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg command failed R all agg base case'
+[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg failed R all agg base case'
 agg_expected='one@@@two@@@three@@@four
 1@@@2@@@3@@@4
 4@@@3@@@2@@@1
@@ -480,7 +558,7 @@ agg_expected='one@@@two@@@three@@@four
 3@@@2@@@4@@@1
 9@@@9@@@13@@@9'
 agg_actual="$(echo -e "one;two;three;four\n1;2;3;4\n4;3;2;1\n1;2;4;3\n3;2;4;1" | ds:agg 0 '+|all')"
-[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg command failed C all agg base case'
+[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg failed C all agg base case'
 
 agg_expected='one@@@two@@@three@@@four@@@0
 1@@@2@@@3@@@4@@@10
@@ -488,14 +566,14 @@ agg_expected='one@@@two@@@three@@@four@@@0
 1@@@2@@@4@@@3@@@10
 3@@@2@@@4@@@1@@@10
 9@@@9@@@13@@@9@@@40'
-[ "$(ds:agg $tmp '+|all' '+|all')" = "$agg_expected" ] || ds:fail 'agg command failed R+C all agg base case'
+[ "$(ds:agg $tmp '+|all' '+|all')" = "$agg_expected" ] || ds:fail 'agg failed R+C all agg base case'
 agg_expected='@@@one@@@two@@@three@@@four@@@+|all
 @@@1@@@2@@@3@@@4@@@10
 @@@4@@@3@@@2@@@1@@@10
 @@@1@@@2@@@4@@@3@@@10
 @@@3@@@2@@@4@@@1@@@10
 +|all@@@9@@@9@@@13@@@9@@@40'
-[ "$(ds:agg $tmp '+|all' '+|all' -v header=1)" = "$agg_expected" ] || ds:fail 'agg command failed R+C all agg header case'
+[ "$(ds:agg $tmp '+|all' '+|all' -v header=1)" = "$agg_expected" ] || ds:fail 'agg failed R+C all agg header case'
 
 agg_expected='@@@one@@@two@@@three@@@four@@@+|all@@@*|2..4@@@/|all
 @@@1@@@2@@@3@@@4@@@10@@@24@@@0.0416667
@@ -504,21 +582,34 @@ agg_expected='@@@one@@@two@@@three@@@four@@@+|all@@@*|2..4@@@/|all
 @@@3@@@2@@@4@@@1@@@10@@@8@@@0.375
 +|$2/$3@@@0.25@@@0.666667@@@1.5@@@4@@@1@@@4@@@0.0625
 +|all@@@9@@@9@@@13@@@9@@@40@@@62@@@1.125'
-[ "$(ds:agg $tmp '+|all,*|2..4,/|all' '+|$2/$3,+|all' -v header=1)" = "$agg_expected" ] || ds:fail 'agg command failed C+R multiple aggs header case'
+[ "$(ds:agg $tmp '+|all,*|2..4,/|all' '+|$2/$3,+|all' -v header=1)" = "$agg_expected" ] || ds:fail 'agg failed C+R multiple aggs header case'
+
+echo -e "a 1 -2 3 4\nb 0 -3 4 1\nc 3 6 2.5 4" > $tmp
+agg_expected='a@@@1@@@-2@@@3@@@4@@@6
+b@@@@@@-3@@@4@@@1@@@2
+c@@@3@@@6@@@2.5@@@4@@@15.5
+@@@4@@@1@@@9.5@@@9@@@23.5'
+[ "$(ds:agg $tmp)" = "$agg_expected" ] || ds:fail 'agg failed readme case'
+agg_expected='a@@@1@@@-2@@@3@@@4@@@-24@@@-6
+b@@@@@@-3@@@4@@@1@@@-12@@@-12
+c@@@3@@@6@@@2.5@@@4@@@180@@@15
+@@@4@@@1@@@9.5@@@9@@@144@@@-3
+@@@3@@@36@@@30@@@16@@@51840@@@1080'
+[ "$(ds:agg $tmp '*|all,$4*$3' '+|all,*|all')" = "$agg_expected" ] || ds:fail 'agg failed readme negatives multiples case'
 
 # ASSORTED COMMANDS TESTS
 
-[ "$(echo 1 2 3 | ds:join_by ', ')" = "1, 2, 3" ] || ds:fail 'join_by command failed on pipe case'
+[ "$(echo 1 2 3 | ds:join_by ', ')" = "1, 2, 3" ] || ds:fail 'join_by failed on pipe case'
 
-[ "$(ds:join_by ', ' 1 2 3)" = "1, 2, 3" ]        || ds:fail 'join_by command failed on pipe case'
+[ "$(ds:join_by ', ' 1 2 3)" = "1, 2, 3" ]        || ds:fail 'join_by failed on pipe case'
 
-[ "$(ds:embrace 'test')" = '{test}' ]             || ds:fail 'embrace command failed'
+[ "$(ds:embrace 'test')" = '{test}' ]             || ds:fail 'embrace failed'
 
 path_el_arr=( tests/data/ infer_join_fields_test1 '.csv' )
 [ -z $bsh ] && let count=1 || let count=0
 for el in $(IFS='\t' ds:path_elements $jnf1); do
   test_el=${path_el_arr[count]}
-  [ $el = $test_el ] || ds:fail "path_elements command failed on $test_el"
+  [ $el = $test_el ] || ds:fail "path_elements failed on $test_el"
   let count+=1
 done
 
@@ -528,22 +619,22 @@ idx_expected='1 5
 3 4
 4 3
 5 1'
-[ "$idx_actual" = "$idx_expected" ] || ds:fail 'idx command failed'
+[ "$idx_actual" = "$idx_expected" ] || ds:fail 'idx failed'
 
 [ "$(ds:filename_str $jnf1 '-1')" = 'tests/data/infer_join_fields_test1-1.csv' ] \
   || ds:fail 'filename_str command failed'
 
-[ "$(ds:iter "a" 3)" = 'a a a' ] || ds:fail 'iter command failed'
+[ "$(ds:iter "a" 3)" = 'a a a' ] || ds:fail 'iter failed'
 
 echo $(ds:root) 1> $q || ds:fail 'root command failed'
 
-[ "$(printf "%s\n" a b c d | ds:rev | tr -d '\n')" = "dcba" ] || ds:fail 'rev command failed'
+[ "$(printf "%s\n" a b c d | ds:rev | tr -d '\n')" = "dcba" ] || ds:fail 'rev failed'
 
 echo > $tmp; for i in $(seq 1 10); do echo test$i >> $tmp; done; ds:sedi $tmp 'test'
 [[ ! "$(head -n1 $tmp)" =~ "test" ]] || ds:fail 'sedi command failed'
 
 mini_output="1;2;3;4;5;6;7;8;9;10"
-[ "$(cat $tmp | ds:mini)" = "$mini_output" ]                             || ds:fail 'mini command failed'
+[ "$(cat $tmp | ds:mini)" = "$mini_output" ]                             || ds:fail 'mini failed'
 
 [ "$(ds:unicode "cats😼😻")" = '\U63\U61\U74\U73\U1F63C\U1F63B' ]        || ds:fail 'unicode command failed base case'
 [ "$(echo "cats😼😻" | ds:unicode)" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed pipe case'
@@ -551,14 +642,14 @@ mini_output="1;2;3;4;5;6;7;8;9;10"
 todo_expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 [ "$(ds:todo tests/commands_tests.sh | head -n1)" = "$todo_expected" ] || ds:fail 'todo command failed'
 
-[ "$(ds:substr "TEST" "T" "ST")" = "E" ]        || ds:fail 'substr command failed base case'
-[ "$(echo "TEST" | ds:substr "T" "ST")" = "E" ] || ds:fail 'substr command failed pipee case'
+[ "$(ds:substr "TEST" "T" "ST")" = "E" ]        || ds:fail 'substr failed base case'
+[ "$(echo "TEST" | ds:substr "T" "ST")" = "E" ] || ds:fail 'substr failed pipee case'
 substr_actual="$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")"
-[ "4" = "$substr_actual" ]                      || ds:fail 'substr command failed extended regex case'
+[ "4" = "$substr_actual" ]                      || ds:fail 'substr failed extended regex case'
 
 if [[ $shell =~ 'bash' ]]; then
   fsrc_expected='support/utils.sh'
-  [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$fsrc_expected" ]] || ds:fail 'fsrc command failed'
+  [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$fsrc_expected" ]] || ds:fail 'fsrc failed'
 fi
 
 help_deps='ds:stag
@@ -568,8 +659,8 @@ ds:reo
 ds:nset
 ds:commands
 ds:jn'
-[[ "$(ds:deps ds:help)" = "$help_deps" ]]                   || ds:fail 'deps command failed'
-[ "$(ds:websel https://www.google.com title)" = Google ]    || ds:fail 'webpage title command failed or internet is out'
+[[ "$(ds:deps ds:help)" = "$help_deps" ]]                   || ds:fail 'deps failed'
+[ "$(ds:websel https://www.google.com title)" = Google ]    || ds:fail 'websel failed or internet is out'
 
 
 # INTEGRATION TESTS
@@ -589,7 +680,13 @@ actual="$(ds:sbsp tests/data/testcrimedata.csv '\/' "" -v apply_to_fields=1 \
   | ds:reo '2~PIVOT, >300' '1,2[PIVOT%7,2[PIVOT~all' -v uniq=1 | cat)"
 [ "$actual" = "$expected" ] || ds:fail 'integration case 1 failed'
 
-
+expected='emoji  Generating_code_base10  init_awk_len  len_simple_extract  len_remaining
+❎     10062                              3                   1              2
+🚧     unknown                            4                   1              3
+❓     10067                              3                   1              2
+❔     10068                              3                   1              2'
+actual="$(cat $emoji | ds:reo '1, NR%2 && NR>80 && NR<90' '[emoji,others' | ds:fit)"
+[ "$actual" = "$expected" ] || ds:fail 'integration readme emoji case failed'
 
 # CLEANUP
 
