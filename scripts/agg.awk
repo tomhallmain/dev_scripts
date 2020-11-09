@@ -207,15 +207,19 @@ function AdvCarryVec(c_agg_i, nf, agg_amort, carry) { # TODO: This is probably w
   match(agg_amort, /[\+\*\-\/]+/)
   margin_op = substr(agg_amort, RSTART, RLENGTH)
   for (f = 1; f <= nf; f++) {
-    if (!CarryVec[f]) CarryVec[f] = "0"
     sep = f == 1 ? "" : ","
     val = $f
     gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
-    if (debug) print "ADVCARRYVEC: " carry sep CarryVec[f] margin_op val
-    if (val && val ~ /^-?[0-9]+\.?[0-9]*$/)
-      carry = carry sep CarryVec[f] margin_op val
-    else
+    if (val && val ~ /^-?[0-9]+\.?[0-9]*$/) {
+      if (!CarryVec[f]) {
+        if (margin_op == "*")
+          CarryVec[f] = "1"
+        else
+          CarryVec[f] = "0" }
+      carry = carry sep CarryVec[f] margin_op val }
+    else {
       carry = carry sep CarryVec[f] }
+    if (debug) print "ADVCARRYVEC: " carry sep CarryVec[f] margin_op val }
   AggAmort[c_agg_i] = right
   if (!header || NR > 1) {
     for (j = 1; j <= ra_count; j++) {

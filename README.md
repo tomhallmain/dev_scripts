@@ -34,7 +34,7 @@ The below functions are especially useful when working in the terminal, and can 
 
 Fits tabular data (including multibyte characters) dynamically into your terminal, and attempts to format it intelligently. If the max field length combined is too long, the longest fields will be right-truncated until the terminal width is reached.
 
-```bash
+```
 $ head -n5 tests/data/taxables.csv
 "Index", "Item", "Cost", "Tax", "Total"
 1, "Fruit of the Loom Girl's Socks",  7.97, 0.60,  8.57
@@ -145,11 +145,11 @@ b     -3  4.0  1   2.0
 c  3   6  2.5  4  15.5
    4   1  9.5  9  23.5
 $ ds:agg /tmp/agg_ex '*|all,$4*$3' '+|all,*|all'
-a  1  -2  3.0  4    -24    -6
-b     -3  4.0  1    -12   -12
-c  3   6  2.5  4    180    15
-   4   1  9.5  9    144    -3
-   0   0  0.0  0  51840  1080
+a  a  -2   3.0   4    -24    -6
+b     -3   4.0   1    -12   -12
+c  3   6   2.5   4    180    15
+   3   1   9.5   9    144    -3
+   3  36  30.0  16  51840  1080
 ```
 
 ### `ds:fc`
@@ -182,7 +182,7 @@ cdatetime    address
 1/1/06 0:00  2082 EXPEDITION WAY
 1/1/06 0:00  4 PALEN CT
 1/1/06 0:00  22 BECKFORD CT
-$ ds:reo tests/data/testcrimedata.csv 1..5 1..3 | ds:sbsp '\\/' "" -F, | ds:fit
+$ ds:reo tests/data/testcrimedata.csv 1..5 1,2 | ds:sbsp '\\/' "" -F, | ds:fit
 cdatetime              address
         1  1  06 0:00  3108 OCCIDENTAL DR
         1  1  06 0:00  2082 EXPEDITION WAY
@@ -225,7 +225,7 @@ Refresh all repos in a given base directory with the newest data.
 
 ## Acknowledgements
 
-[wcwidth.awk](https://github.com/ericpruitt/wcwidth.awk) by Eric Pruitt is the library which allows `ds:fit` to support multibyte characters. Many thanks to him for this implementations.
+[wcwidth.awk](https://github.com/ericpruitt/wcwidth.awk) by Eric Pruitt is the library which allows `ds:fit` to support multibyte characters. Many thanks to him for this implementation.
 
 ## Issues
 

@@ -515,25 +515,25 @@ ds:shape() { # ** Print data shape by length or FS: ds:shape [file] [FS] [chart_
 }
 
 ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=t] [awkargs]
-  ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/join.awk" \
-    | tr -d "#" | less && return
   ds:file_check "$1"
   local f1="$1"; shift
   if ds:pipe_open; then
     local f2=$(ds:tmp 'ds_jn') piped=0
     cat /dev/stdin > $f2
   else
+    ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/join.awk" \
+      | tr -d "#" | less && return
     ds:file_check "$1"
     local f2="$1"; shift; fi
 
   # TODO: PREFIELD
 
   if [ "$1" ]; then
-    [[ "$1" =~ '^d' ]] && local type='diff'
-    [[ "$1" =~ '^i' ]] && local type='inner'
-    [[ "$1" =~ '^l' ]] && local type='left'
-    [[ "$1" =~ '^r' ]] && local type='right'
-    [[ ! "$1" =~ '-' && ! "$1" =~ '^[0-9]+$' ]] && shift; fi
+    ds:test '^d' "$1" && local type='diff'
+    ds:test '^i' "$1" && local type='inner'
+    ds:test '^l' "$1" && local type='left'
+    ds:test '^r' "$1" && local type='right'
+    [[ ! "$1" =~ '-' ]] && ! ds:is_int "$1" && shift; fi
 
   local merge=$(ds:arr_idx 'm(erge)' ${@})
   local has_keyarg=$(ds:arr_idx 'k[12]?=' ${@})
@@ -767,7 +767,7 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file] [ro
   local args=( "${@:$base}" )
   if [ "$cols" = 'off' ] || $(ds:test "(f|false)" "${args[$arr_base]}"); then
     local pf_off=0 args=( "${args[@]:1}" )
-    [ "$cols" = 'off' ] && run_fit='f'
+    [ "$cols" = 'off' ] && local run_fit='f'
   else local prefield=$(ds:tmp "ds_reo_prefield"); fi
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"

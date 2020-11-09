@@ -28,6 +28,7 @@
 @@@ds:git_recent@@@ds:gr@@@Display commits sorted by recency@@@ds:gr [refs=heads] [run_context=display]
 @@@ds:git_recent_all@@@ds:gra@@@Display recent commits for local repos@@@ds:gra [refs=heads] [repos_dir=~]
 @@@ds:git_refresh@@@ds:grr@@@Pull latest for all repos, run installs@@@ds:gr [repos_dir=~]
+@@@ds:git_squash@@@ds:gsq@@@Squash last n commits@@@ds:gsq [n_commits=1]
 @@@ds:git_status@@@ds:gs@@@Run git status for all repos@@@ds:gs
 @@@ds:git_time_stat@@@ds:gts@@@Last local pull+change+commit times@@@cd repo; ds:gts
 @@@ds:goog@@@@@@Search Google@@@ds:goog [search query]

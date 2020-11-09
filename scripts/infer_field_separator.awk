@@ -23,8 +23,8 @@ BEGIN {
   CommonFSOrder[4] = "m"; CommonFS["m"] = ";"; FixedStringFS["m"] = "\\"
   CommonFSOrder[5] = "c"; CommonFS["c"] = ":"; FixedStringFS["c"] = "\\"
   CommonFSOrder[6] = "o"; CommonFS["o"] = ","; FixedStringFS["o"] = "\\"
-  CommonFSOrder[7] = "m"; CommonFS["w"] = "[[:space:]]+"
-  CommonFSOrder[8] = "2m"; CommonFS["2w"] = "[[:space:]]{2,}"
+  CommonFSOrder[7] = "w"; CommonFS["w"] = "[[:space:]]+"
+  CommonFSOrder[8] = "2w"; CommonFS["2w"] = "[[:space:]]{2,}"
   NCommon = length(CommonFS)
   DS_SEP = "@@@"
   sq = "\'"

@@ -23,14 +23,14 @@ fi
 tests="$1"
 
 case "$tests" in
-  inferfs)  ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~inferfs"                  ;;
-  jn)       ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~ds:jn && !~ds:jn$"        ;;
+  inferfs)  ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , IFS TESTS##JN TESTS"       ;;
+  jn)       ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , JN TESTS##SORT TESTS"      ;;
   sort)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , SORT TESTS##PREFIELD"      ;;
   prefield) ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , PREFIELD TESTS##REO TESTS" ;;
   reo)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , REO TESTS##FIT TESTS"      ;;
   fit)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , FIT TESTS##FC TESTS"       ;;
   fc)       ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , FC TESTS##NEWFS TESTS"     ;;
-  newfs)    ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~nfs"                      ;;
+  newfs)    ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , NEWFS TESTS##SUBSEP TESTS" ;;
   todo)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~todo"                     ;;
   substr)   ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~substr"                   ;;
   pow)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , POW TESTS##PVT TESTS"      ;;
