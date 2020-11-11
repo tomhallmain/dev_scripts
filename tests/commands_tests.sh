@@ -520,7 +520,7 @@ pvt_actual="$(echo -e "a b c d\n1 2 3 4" | ds:pvt 1,2 4 3)"
 # AGG TESTS
 
 echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" > $tmp
-agg_expected='one@@@two@@@three@@@four@@@0
+agg_expected='one@@@two@@@three@@@four@@@$3+$2
 1@@@2@@@3@@@4@@@5
 4@@@3@@@2@@@1@@@5
 1@@@2@@@4@@@3@@@6
@@ -534,7 +534,7 @@ agg_expected='one@@@two@@@three@@@four
 6@@@7@@@9@@@8'
 [ "$(ds:agg $tmp 0 '$2+$3+$4')" = "$agg_expected" ] || ds:fail 'agg failed C specific agg base case'
 
-agg_expected='one@@@two@@@three@@@four@@@0
+agg_expected='one@@@two@@@three@@@four@@@*|2..4
 1@@@2@@@3@@@4@@@24
 4@@@3@@@2@@@1@@@6
 1@@@2@@@4@@@3@@@24
@@ -544,7 +544,7 @@ agg_actual="$(echo -e "one,two,three,four\n1,2,3,4\n4,3,2,1\n1,2,4,3\n3,2,4,1" |
 
 # add base specific range case for c aggs here
 
-agg_expected='one@@@two@@@three@@@four@@@0
+agg_expected='one@@@two@@@three@@@four@@@+|all
 1@@@2@@@3@@@4@@@10
 4@@@3@@@2@@@1@@@10
 1@@@2@@@4@@@3@@@10
@@ -560,7 +560,7 @@ agg_expected='one@@@two@@@three@@@four
 agg_actual="$(echo -e "one;two;three;four\n1;2;3;4\n4;3;2;1\n1;2;4;3\n3;2;4;1" | ds:agg 0 '+|all')"
 [ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg failed C all agg base case'
 
-agg_expected='one@@@two@@@three@@@four@@@0
+agg_expected='one@@@two@@@three@@@four@@@+|all
 1@@@2@@@3@@@4@@@10
 4@@@3@@@2@@@1@@@10
 1@@@2@@@4@@@3@@@10
@@ -588,13 +588,13 @@ echo -e "a 1 -2 3 4\nb 0 -3 4 1\nc 3 6 2.5 4" > $tmp
 agg_expected='a@@@1@@@-2@@@3@@@4@@@6
 b@@@@@@-3@@@4@@@1@@@2
 c@@@3@@@6@@@2.5@@@4@@@15.5
-@@@4@@@1@@@9.5@@@9@@@23.5'
++|all@@@4@@@1@@@9.5@@@9@@@23.5'
 [ "$(ds:agg $tmp)" = "$agg_expected" ] || ds:fail 'agg failed readme case'
 agg_expected='a@@@1@@@-2@@@3@@@4@@@-24@@@-6
 b@@@@@@-3@@@4@@@1@@@-12@@@-12
 c@@@3@@@6@@@2.5@@@4@@@180@@@15
-@@@4@@@1@@@9.5@@@9@@@144@@@-3
-@@@3@@@36@@@30@@@16@@@51840@@@1080'
++|all@@@4@@@1@@@9.5@@@9@@@144@@@-3
+*|all@@@3@@@36@@@30@@@16@@@51840@@@1080'
 [ "$(ds:agg $tmp '*|all,$4*$3' '+|all,*|all')" = "$agg_expected" ] || ds:fail 'agg failed readme negatives multiples case'
 
 # ASSORTED COMMANDS TESTS
