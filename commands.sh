@@ -518,15 +518,13 @@ ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1
   ds:file_check "$1"
   local f1="$1"; shift
   if ds:pipe_open; then
-    local f2=$(ds:tmp 'ds_jn') piped=0
+    local f2=$(ds:tmp 'ds_jn') piped=1
     cat /dev/stdin > $f2
   else
     ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/join.awk" \
       | tr -d "#" | less && return
     ds:file_check "$1"
     local f2="$1"; shift; fi
-
-  # TODO: PREFIELD
 
   if [ "$1" ]; then
     ds:test '^d' "$1" && local type='diff'
@@ -556,13 +554,49 @@ ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1
 
   if ds:noawkfs; then
     local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
-    awk -v fs1="$fs1" -v fs2="$fs2" ${args[@]} -f "$DS_SCRIPT/join.awk" \
-      "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"
   else
-    awk ${args[@]} -f "$DS_SCRIPT/join.awk" "$f1" "$f2" 2> /dev/mull | ds:ttyf
-  fi
+    local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
+    if [ "$fs_idx" = "" ]; then
+      local fs_idx="$(ds:arr_idx '^-F' ${args[@]})"
+      if [ "$fs_idx" ]; then
+        [ "$merge" ] && let local fs_idx++
+        local fs1="$(echo "${args[$fs_idx]}" | tr -d '\-F')"; fi
+    else
+      local fs1="$(echo "${args[$fs_idx]}" | tr -d 'FS=')"
+      [ "$merge" ] && let local fs_idx++
+      let local fsv_idx=$fs_idx-1
+      unset "args[$fsv_idx]"; fi
+    [ "$fs_idx" ] && unset "args[$fs_idx]"
+    if ! ds:noawkfs; then
+      local fs1_idx="$(ds:arr_idx '^fs1=' ${args[@]})"
+      local fs2_idx="$(ds:arr_idx '^fs2=' ${args[@]})"
+      if [ "$fs1_idx" ]; then
+        [ "$merge" ] && let local fs1_idx++
+        echo $fs1_idx ${args[$fs1_idx]}
+        local fs1="$(echo "${args[$fs1_idx]}" | tr -d 'fs1=')"
+        unset "args[$fs1_idx]"
+        let local fs1v_idx=$fs1_idx-1
+        [ "$fs1v_idx" ] && unset "args[$fs1v_idx]"; fi
+      if [ "$fs2_idx" ]; then
+        [ "$merge" ] && let local fs2_idx++
+        local fs2="$(echo "${args[$fs2_idx]}" | tr -d 'fs2=')"
+        unset "args[$fs2_idx]"
+        let local fs2v_idx=$fs2_idx-1
+        [ "$fs2v_idx" ] && unset "args[$fs2v_idx]"; fi; fi; fi
+  [ ! "$fs2" ] && local fs2="$fs1"
 
-  ds:pipe_clean $f2
+  if ds:test 'f(alse)' "$args[$(ds:arr_base)]"; then
+    local args=("${args[@]:1}")
+    awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" -v piped=$piped ${args[@]} \
+      -f "$DS_SCRIPT/join.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"
+  else
+    local pf1=$(ds:tmp "ds_jn_prefield1") pf2=$(ds:tmp "ds_jn_prefield2")
+    ds:prefield "$f1" "$fs1" > $pf1; ds:prefield "$f2" "$fs2" > $pf2
+    awk -v FS="$DS_SEP" -v OFS="$fs1" -v left_label="$f1" -v right_label="$f2" \
+      -v piped=$piped ${args[@]} -f "$DS_SCRIPT/join.awk" $pf1 $pf2 2> /dev/null \
+      | ds:ttyf "$fs1"; fi
+
+  ds:pipe_clean $f2; if [ "$pf1" ]; then rm $pf1 $pf2; fi
 }
 
 ds:print_matches() { # ** Get match lines in two datasets (alias ds:pm): ds:pm file [file] [awkargs]
@@ -763,8 +797,7 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file] [ro
       local file="$(cat $tmp; rm $tmp)" rows="${2:-a}" cols="${3:-a}" base=4
     fi
   fi
-  local arr_base=$(ds:arr_base)
-  local args=( "${@:$base}" )
+  local arr_base=$(ds:arr_base) args=("${@:$base}")
   if [ "$cols" = 'off' ] || $(ds:test "(f|false)" "${args[$arr_base]}"); then
     local pf_off=0 args=( "${args[@]:1}" )
     [ "$cols" = 'off' ] && local run_fit='f'

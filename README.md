@@ -30,7 +30,7 @@ Once installed, start a bash or zsh session and run `ds:commands` to see availab
 
 The below functions are especially useful when working in the terminal, and can be applied to many general situations.
 
-### `ds:fit`
+#### `ds:fit`
 
 Fits tabular data (including multibyte characters) dynamically into your terminal, and attempts to format it intelligently. If the max field length combined is too long, the longest fields will be right-truncated until the terminal width is reached.
 
@@ -49,7 +49,7 @@ Index| Item                           | Cost| Tax| Total
     4| Deadpool DVD                   |   14|   1|    16
 ```
 
-### `ds:reo`
+#### `ds:reo`
 
 Select, reorder, slice data using inferred field separators. Supports expression evaluation, regex searches, exclusions, and/or logic, frame expressions, reversals, and more. Runs ds:fit on output if to a terminal.
 
@@ -95,7 +95,7 @@ emoji  Generating_code_base10  init_awk_len  len_simple_extract  len_remaining
 ❔     10068                              3                   1              2
 ```
 
-### `ds:jn`
+#### `ds:jn`
 
 Join data on multi-key sets or perform full merges of data. Runs ds:fit on output if to a terminal.
 
@@ -113,10 +113,10 @@ a  b  c  d  b  c
 $ ds:jn /tmp/jn_a /tmp/jn_b right 1,2,3,4 1,3,2,4
 a  c  b  d
 1  2  3  4
-$ ds:jn /tmp/jn_a /tmp/jn_b outer merge
-a  b  c  d
-1  3  2  4
-1  2  3  4
+$ ds:jn /tmp/jn_a /tmp/jn_b outer merge -v merge_verbose=1
+BOTH       a  b  c  d
+/tmp/jn_b  1  3  2  4
+/tmp/jn_a  1  2  3  4
 ```
 
 ### `ds:pvt`
@@ -130,9 +130,9 @@ PIVOT     d  4
     1  2     3
 ```
 
-### `ds:agg`
+#### `ds:agg`
 
-Aggregate number data by specific fields, or by full rows/columns. Note first row is ignored in calcs if header is set. Runs ds:fit on output if to a terminal.
+Aggregate number data by specific fields, or by full rows/columns. Note headers indicating agg type will be printed in first row/column if var header set in awkargs or if those values are null for the agg. Runs ds:fit on output if to a terminal.
 
 ```bash
 $ cat /tmp/agg_ex
@@ -140,19 +140,19 @@ a  1  -2  3.0  4
 b  0  -3  4.0  1
 c  3   6  2.5  4
 $ ds:agg /tmp/agg_ex
-a  1  -2  3.0  4   6.0
-b     -3  4.0  1   2.0
-c  3   6  2.5  4  15.5
-   4   1  9.5  9  23.5
+a      1  -2  3.0  4   6.0
+b         -3  4.0  1   2.0
+c      3   6  2.5  4  15.5
++|all  4   1  9.5  9  23.5
 $ ds:agg /tmp/agg_ex '*|all,$4*$3' '+|all,*|all'
-a  a  -2   3.0   4    -24    -6
-b     -3   4.0   1    -12   -12
-c  3   6   2.5   4    180    15
-   3   1   9.5   9    144    -3
-   3  36  30.0  16  51840  1080
+a      1  -2   3.0   4    -24    -6
+b         -3   4.0   1    -12   -12
+c      3   6   2.5   4    180    15
++|all  4   1   9.5   9    144    -3
+*|all  3  36  30.0  16  51840  1080
 ```
 
-### `ds:fc`
+#### `ds:fc`
 
 Get count data for unique lines or sets of fields. Runs ds:fit on output if to a terminal.
 
@@ -171,7 +171,7 @@ $ ds:fc /tmp/fc_ex 2
 3  1
 ```
 
-### `ds:sbsp`
+#### `ds:sbsp`
 
 Split off new fields by a given field subseparator pattern.
 
@@ -190,7 +190,7 @@ cdatetime              address
         1  1  06 0:00  22 BECKFORD CT
 ```
 
-### `ds:trace`
+#### `ds:trace`
 
 View or search shell trace output.
 
@@ -207,19 +207,19 @@ Press enter to trace last command
 +ds:test:3> grep -Eq '(t|true)'
 ```
 
-### `ds:git_cross_view`
+#### `ds:git_cross_view`
 
 View the current state of your git branches across all repos.
 
 ![](https://github.com/tomhallmain/dev_scripts/blob/master/assets/gcv_ex.png?raw=true)
 
-### `ds:git_recent` and `ds:git_recent_all`
+#### `ds:git_recent` and `ds:git_recent_all`
 
 View most recent commits for current repo or all repos in a colorful way.
 
 ![](https://github.com/tomhallmain/dev_scripts/blob/master/assets/gr_gra_ex.png?raw=true)
 
-### `ds:git_refresh`
+#### `ds:git_refresh`
 
 Refresh all repos in a given base directory with the newest data.
 

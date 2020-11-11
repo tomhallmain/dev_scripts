@@ -11,7 +11,7 @@
 BEGIN {
   sq = "'"
   dq = "\""
-  na = (FS == "" || FS ~ sq || FS ~ dq)
+  na = (FS == "" || FS ~ sq || FS ~ dq || (FS ~ ":" && !(FS ~ /\[/)))
 
   if (!na) {
     if (FS == " ") FS = "[[:space:]]+"
@@ -30,7 +30,10 @@ BEGIN {
     if (debug) DebugPrint(0) }
 }
 
-na || (!q_rebal && !($0 ~ FS)) { print; next }
+na || (!q_rebal && !($0 ~ FS)) {
+  gsub(FS, OFS)
+  print; next
+}
 
 q_rebal && !($0 ~ QRe["e"]) {
   if (debug) DebugPrint(6)

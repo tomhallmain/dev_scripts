@@ -1,7 +1,6 @@
 #!/bin/bash
 set -o pipefail
 
-
 # Generates a static report of selector elements from a Rails-based QA 
 # repo in comparison to other Rails-based view repos - need to add repos
 # involved to the VIEW_REPOS array defined below for this to work, and map them
@@ -12,8 +11,7 @@ set -o pipefail
 
 # TODO: UPDATE RUN OPTIONS AND CASED LOGIC
 # TODO: ADD SEARCH FOR SELECTOR USAGE IN SPECS AND PAGES METHODS
-# TODO: JOIN BY SELECTOR + ATTR ?
-# TODO: MORE VALIDATIONS
+# TODO: JOIN BY SELECTOR + ATTR
 
 # Handle option flags and set conditional variables
 
