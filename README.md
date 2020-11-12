@@ -132,7 +132,7 @@ PIVOT     d  4
 
 #### `ds:agg`
 
-Aggregate number data by specific fields, or by full rows/columns. Note headers indicating agg type will be printed in first row/column if var header set in awkargs or if those values are null for the agg. Runs ds:fit on output if to a terminal.
+Aggregate data by specific indices or by full rows/columns by field value. For example, count all instances of a regex match, or sum number data. Note headers indicating agg type will be printed in first row/column if var header set in awkargs or if those values are null for the agg. Runs ds:fit on output if to a terminal.
 
 ```bash
 $ cat /tmp/agg_ex
@@ -144,12 +144,12 @@ a      1  -2  3.0  4   6.0
 b         -3  4.0  1   2.0
 c      3   6  2.5  4  15.5
 +|all  4   1  9.5  9  23.5
-$ ds:agg /tmp/agg_ex '*|all,$4*$3' '+|all,*|all'
-a      1  -2   3.0   4    -24    -6
-b         -3   4.0   1    -12   -12
-c      3   6   2.5   4    180    15
-+|all  4   1   9.5   9    144    -3
-*|all  3  36  30.0  16  51840  1080
+$ ds:agg /tmp/agg_ex '*|all,$4*$3,~b' '+|all,*|all'
+a      1  -2   3.0   4    -24    -6  ~b
+b         -3   4.0   1    -12   -12   1
+c      3   6   2.5   4    180    15   0
++|all  4   1   9.5   9    144    -3   1
+*|all  3  36  30.0  16  51840  1080   0
 ```
 
 #### `ds:fc`

@@ -81,11 +81,11 @@ ds:gvi() { # Grep and open vim on the first match: ds:gvi search [file|dir]
   vi +$line "$file" || return 1
 }
 
-ds:searchn() { # Searches current names for string, returns matches: ds:searchn name
+ds:searchn() { # Searches current environment names: ds:searchn name
   ds:ndata | awk -v s="$1" '$0~s{print}'
 }
 
-ds:nset() { # Test if name (function, alias, variable) is defined: ds:nset name [search_vars=f]
+ds:nset() { # Test if name (function/alias/variable) is defined: ds:nset name [search_vars=f]
   [ "$2" ] && ds:ntype "$1" &> /dev/null || type "$1" &> /dev/null
 }
 
@@ -173,7 +173,7 @@ ds:test() { # ** Test input quietly with extended regex: ds:test regex [str|file
   echo "$2" | grep -Eq "$1"
 }
 
-ds:substr() { # ** Extract a substring from a string with regex: ds:substr str [leftanc] [rightanc]
+ds:substr() { # ** Extract a substring with regex: ds:substr str [leftanc] [rightanc]
   if ds:pipe_open; then
     local str="$(cat /dev/stdin)"
   else
@@ -216,7 +216,7 @@ ds:filename_str() { # Add string to beginning or end of a filename: ds:filename_
   printf "${dirpath}${filename}"
 }
 
-ds:path_elements() { # Returns dirname, filename, extension from a filepath: ds:path_elements file
+ds:path_elements() { # Returns dirname/filename/extension from filepath: ds:path_elements file
   ds:file_check "$1"
   local filepath="$1" dirpath=$(dirname "$1") filename=$(basename "$1")
   local extension=$([[ "$filename" = *.* ]] && echo ".${filename##*.}" || echo '')
@@ -426,7 +426,7 @@ ds:todo() { # List todo items found in paths: ds:todo [searchpaths=.]
   [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
 }
 
-ds:searchx() { # Search file for C-lang/curly-brace top-level object: ds:searchx file|dir [search] [q]
+ds:searchx() { # Search for a C-lang/curly-brace top-level object: ds:searchx file|dir [search] [q]
   if [[ -d "$1" && "$2" ]]; then
     local tmp="$(ds:tmp 'ds_searchx')" w="\033[37;1m" nc="\033[0m"
     if ds:nset 'rg'; then
@@ -454,7 +454,7 @@ ds:searchx() { # Search file for C-lang/curly-brace top-level object: ds:searchx
   # TODO: Add variable search
 }
 
-ds:select() { # ** Select code from a file by regex anchors: ds:select file [startpattern endpattern]
+ds:select() { # ** Select code by regex anchors: ds:select file [startpattern endpattern]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_select') piped=0 start="$2" end="$3"
     cat /dev/stdin > $file
@@ -514,15 +514,18 @@ ds:shape() { # ** Print data shape by length or FS: ds:shape [file] [FS] [chart_
   ds:pipe_clean $file
 }
 
-ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=t] [awkargs]
-  ds:file_check "$1"
-  local f1="$1"; shift
+ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
+  # TODO: n-source joins
   if ds:pipe_open; then
     local f2=$(ds:tmp 'ds_jn') piped=1
     cat /dev/stdin > $f2
+    ds:file_check "$1"
+    local f1="$1"; shift
   else
     ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/join.awk" \
       | tr -d "#" | less && return
+    ds:file_check "$1"
+    local f1="$1"; shift
     ds:file_check "$1"
     local f2="$1"; shift; fi
 
@@ -585,16 +588,16 @@ ds:jn() { # ** Join two files, or a file and STDIN, with any keyset: ds:jn file1
         [ "$fs2v_idx" ] && unset "args[$fs2v_idx]"; fi; fi; fi
   [ ! "$fs2" ] && local fs2="$fs1"
 
-  if ds:test 'f(alse)' "$args[$(ds:arr_base)]"; then
-    local args=("${args[@]:1}")
-    awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" -v piped=$piped ${args[@]} \
-      -f "$DS_SCRIPT/join.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"
-  else
+  if ds:test 't(rue)' "$args[$(ds:arr_base)]"; then
     local pf1=$(ds:tmp "ds_jn_prefield1") pf2=$(ds:tmp "ds_jn_prefield2")
     ds:prefield "$f1" "$fs1" > $pf1; ds:prefield "$f2" "$fs2" > $pf2
     awk -v FS="$DS_SEP" -v OFS="$fs1" -v left_label="$f1" -v right_label="$f2" \
       -v piped=$piped ${args[@]} -f "$DS_SCRIPT/join.awk" $pf1 $pf2 2> /dev/null \
-      | ds:ttyf "$fs1"; fi
+      | ds:ttyf "$fs1"
+  else
+    ! ds:test '(-|=)' "${args[$(ds:arr_base)]}" && local args=("${args[@]:1}")
+    awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" -v piped=$piped ${args[@]} \
+      -f "$DS_SCRIPT/join.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"; fi
 
   ds:pipe_clean $f2; if [ "$pf1" ]; then rm $pf1 $pf2; fi
 }
@@ -864,7 +867,7 @@ ds:pvt() { # ** Pivot data: ds:pv [file] [y_keys] [x_keys] [z_keys] [agg_type] [
   ds:pipe_clean $file; rm $prefield
 }
 
-ds:agg() { # ** Aggregate numerical data by index - i.e. '+|3..5': ds:agg [file] [r_aggs] [c_aggs] [x_aggs] [awkargs]
+ds:agg() { # ** Aggregate by index/pattern - i.e. '+|3..5,~search': ds:agg [file] [r_aggs] [c_aggs] [x_aggs] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_agg') piped=0
     cat /dev/stdin > $file
@@ -892,7 +895,7 @@ ds:agg() { # ** Aggregate numerical data by index - i.e. '+|3..5': ds:agg [file]
       let local fsv_idx=$fs_idx-1
       unset "args[$fsv_idx]"; fi
     unset "args[$fs_idx]"; fi
-  ds:prefield "$file" "$fs" 1 > $prefield
+  ds:prefield "$file" "$fs" > $prefield
   awk -v FS="$DS_SEP" -v OFS="$fs" -v r_aggs="$r_aggs" -v c_aggs="$c_aggs" \
     -v x_aggs="$x_aggs" ${args[@]} -f "$DS_SCRIPT/agg.awk" "$prefield" \
     | ds:ttyf "$DS_SEP"
@@ -1067,7 +1070,7 @@ ds:hist() { # ** Print histograms for all number fields in data: ds:hist [file] 
 
 }
 
-ds:asgn() { # Print lines from a file matching assignment pattern: ds:asgn file
+ds:asgn() { # Print lines matching assignment pattern: ds:asgn file
   ds:file_check "$1"
   if ds:nset 'rg'; then
     rg "[[:alnum:]_]+ *=[^=<>]" $1 
@@ -1076,7 +1079,7 @@ ds:asgn() { # Print lines from a file matching assignment pattern: ds:asgn file
   if [ ! $? ]; then echo 'No assignments found in file!'; fi
 }
 
-ds:enti() { # Print text entities from a file separated by pattern: ds:enti [file] [sep= ] [min=1] [order=a]
+ds:enti() { # Print text entities separated by pattern: ds:enti [file] [sep= ] [min=1] [order=a]
   if ds:pipe_open; then
     local file=/tmp/newfs piped=0
     cat /dev/stdin > $file
@@ -1179,7 +1182,7 @@ ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sort
 }
 alias ds:s="ds:sortm"
 
-ds:srg() { # Scope rg/grep to a set of files that contain a match: ds:srg scope_pattern search_pattern [dir] [invert=]
+ds:srg() { # Scope grep to files that contain a match: ds:srg scope_pattern search_pattern [dir] [invert=]
   ([ "$1" ] && [ "$2" ]) || ds:fail 'Missing scope and/or search pattern args'
   local scope="$1" search="$2"
   [ -d "$3" ] && local basedir="$3" || local basedir="$PWD"
@@ -1361,7 +1364,7 @@ ds:deps() { # Identify the dependencies of a shell function: ds:deps name [filte
   rm $tmp; [ "$rm_dt" ] && rm $ndt
 }
 
-ds:gexec() { # Generate a script from pieces of another and run it: ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
+ds:gexec() { # Generate a script from pieces of another and run: ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
   [ "$1" ] && local run="$1" && shift || (ds:help ds:gexec && return 1)
   ds:file_check "$1"
   [ -d "$2" ] || ds:fail 'second arg must be a directory'

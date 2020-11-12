@@ -164,7 +164,11 @@ BEGIN {
   "wc -l < \""ARGV[1]"\"" | getline f1nr; f1nr+=0 # Get number of rows in file1
 }
 
-debug { print NR, FNR, keycount, key, FS }
+debug {
+  if (NR == 1) {
+    for (i in Keys1) print i, Keys1[i]
+    for (i in Keys2) print i, Keys2[i] }
+  print NR, FNR, keycount, key, FS }
 keycount = 0
 
 merge && FNR == 1 { GenMergeKeys(mf_max ? mf_max : NF, K1, K2) }
@@ -206,14 +210,14 @@ NR > FNR {
   key = keybase _ keycount
 
   if (key in SK1) {
-    while (key in SK1) {
-      sk1_keycount = SK1[key]
+    SK2[key]++
+    while (key _ SK2[key] in S1) {
+      sk2_keycount = SK2[key]
       if (run_inner) {
         record_count++
         if (ind) printf "%s", record_count OFS
-        print GenInnerOutputString(S1[key, sk1_keycount], $0, K2, max_nf1, max_nf2, fs1) }
-      delete S1[key, sk1_keycount]
-      SK1[key]--
+        print GenInnerOutputString(S1[key, sk2_keycount], $0, K2, max_nf1, max_nf2, fs1) }
+      delete S1[key, sk2_keycount]
       keycount++
       key = keybase _ keycount }}
   else {
@@ -233,12 +237,11 @@ END {
   if (skip_left) exit
 
   # Print first file unmatched rows
-  for (key in S1) {
+  for (compound_key in S1) {
     record_count++
     if (ind) printf "%s", record_count OFS
-    print GenLeftOutputString(S1[key], K1, max_nf1, max_nf2, fs1) }
+    print GenLeftOutputString(S1[compound_key], K1, max_nf1, max_nf2, fs1) }
 }
-
 
 function GenMergeKeys(nf, K1, K2) {
   for (f = 1; f <= nf; f++) {

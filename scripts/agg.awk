@@ -32,8 +32,6 @@ BEGIN {
     XA[i] = AggExpr(XAggs[i], 0)
     XAI[XA[i]] = i }
 
-#  if (r && !c && !x)
-#    r_base = 1
   if (r || c || x)
     r_c_base = 1
   if (x)
@@ -60,25 +58,6 @@ NR < 2 {
   if (!fixed_nf) fixed_nf = NF
 }
 
-r_base {
-  if (print_og) {
-    printf "%s", $0 OFS
-    if (NF < fixed_nf)
-      for (i = NF + 1; i < fixed_nf; i++)
-        printf "%s", OFS }
-
-  for (i = 1; i <= ra_count; i++) {
-    agg = RA[i]
-    if (!RAgg[agg, NR])
-      RAgg[agg, NR] = EvalExpr(GenRExpr(agg))
-    print_str = header && NR < 2 ? RAggs[i] : RAgg[agg, NR]
-    printf "%s", print_str
-    if (i < ra_count)
-      printf "%s", OFS }
-
-  print ""; next
-}
-
 r_c_base {
   _[NR] = $0
   RHeader[NR] = $1
@@ -100,14 +79,12 @@ r_c_base {
 x && NR in XRs { # 3 arrs, one for row indices, one for col indices, one to tie back the keys from NR
   for (i in XA) {
     agg = XA[i]
-    if ((NR i) in XCRs)
-    }
+    if (NR i in XCRs) {
+      todo = 1 }}
 }
 
 
 END {
-  #if (r_base) exit
-
   totals = length(Totals)
 
   for (i = 1; i <= NR; i++) {
@@ -217,8 +194,8 @@ function GenRExpr(agg) {
       val = $f
       gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
       if (debug) print "GENREXPR: " expr val op
-      if (val && val ~ /^-?[0-9]+\.?[0-9]*$/)
-        expr = expr val op }}
+      if (val && val ~ /^-?[0-9]+\.?[0-9]*$/) {
+        expr = expr TruncVal(val) op }}}
 
   return expr
 }
@@ -249,7 +226,7 @@ function AdvCarryVec(c_agg_i, nf, agg_amort, carry) { # TODO: This is probably w
       if (val && val ~ /^-?[0-9]+\.?[0-9]*$/) {
         if (!CarryVec[f])
           CarryVec[f] = margin_op == "*" ? "1" : "0"
-        carry = carry sep CarryVec[f] margin_op val }
+        carry = carry sep CarryVec[f] margin_op TruncVal(val) }
       else {
         carry = carry sep CarryVec[f] }}
     if (debug) print "ADVCARRYVEC: " carry sep CarryVec[f] margin_op val }
@@ -318,4 +295,12 @@ function Min(a, b) {
 
 function Indexed(expr, field) {
   return expr ~ "\\$" field
+}
+
+function TruncVal(val) {
+  large_val = val > 999
+  large_dec = val ~ /\.[0-9]{3,}/
+  if (large_val && large_dec)
+    val = int(val)
+  return val
 }

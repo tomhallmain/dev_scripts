@@ -1,8 +1,8 @@
 
 @@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
 @@@@@@@@@@@@
-**@@@ds:agg@@@@@@Aggregate numerical data by index - i.e. '+|3..5'@@@ds:agg [file] [r_aggs] [c_aggs] [x_aggs] [awkargs]
-@@@ds:asgn@@@@@@Print lines from a file matching assignment pattern@@@ds:asgn file
+**@@@ds:agg@@@@@@Aggregate by index/pattern - i.e. '+|3..5,~search@@@ds:agg [file] [r_aggs] [c_aggs] [x_aggs] [awkargs]
+@@@ds:asgn@@@@@@Print lines matching assignment pattern@@@ds:asgn file
 @@@ds:commands@@@@@@List commands from dev_scripts/commands.sh@@@ds:commands [bufferchar] [utils]
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [n_lines=1] [file]
@@ -12,13 +12,13 @@
 **@@@ds:dup_input@@@@@@Duplicate standard input in aggregate@@@data | ds:dup_input
 @@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir]
 @@@ds:embrace@@@@@@Enclose a string on each side by args@@@embrace str [left={] [right=}]
-@@@ds:enti@@@@@@Print text entities from a file separated by pattern@@@ds:enti [file] [sep= ] [min=1] [order=a]
+@@@ds:enti@@@@@@Print text entities separated by pattern@@@ds:enti [file] [sep= ] [min=1] [order=a]
 @@@ds:fail@@@@@@Safe failure, kills parent but returns to prompt@@@ds:fail [error_message]
 **@@@ds:fieldcounts@@@ds:fc@@@Print value counts@@@ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
 @@@ds:filename_str@@@@@@Add string to beginning or end of a filename@@@ds:filename_str file str [prepend|append]
 **@@@ds:fit@@@@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file*] [awkargs]
 @@@ds:fsrc@@@@@@Show the source of a shell function@@@ds:fsrc func
-@@@ds:gexec@@@@@@Generate a script from pieces of another and run it@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
+@@@ds:gexec@@@@@@Generate a script from pieces of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
 @@@ds:git_add_com_push@@@ds:gacmp@@@Add, commit with message, push@@@ds:gacmp commit_message
 @@@ds:git_branch@@@ds:gb@@@Run git branch for all repos@@@ds:gb
 @@@ds:git_checkout@@@ds:gco@@@Checkout branch matching pattern@@@ds:gco [pattern]
@@ -43,14 +43,14 @@
 **@@@ds:insert@@@@@@Redirect input into a file at lineno or pattern@@@ds:insert file [lineno|pattern] [srcfile]
 @@@ds:iter@@@@@@Repeat a string some number of times@@@ds:iter str [n=1] [fs]
 @@@ds:jira@@@@@@Opens Jira at specified workspace and issue@@@ds:jira workspace_subdomain [issue]
-**@@@ds:jn@@@@@@Join two files, or a file and STDIN, with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=t] [awkargs]
+**@@@ds:jn@@@@@@Join two files or a file and STDIN with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
 **@@@ds:join_by@@@@@@Join a shell array by given delimiter@@@ds:join_by delimiter [join_array]
 **@@@ds:mini@@@@@@Crude minify, remove whitespace and newlines@@@ds:mini [file] [newline_sep=;]
 @@@ds:new@@@@@@Refresh zsh or bash interactive session@@@ds:new
 **@@@ds:newfs@@@@@@Outputs a file with an updated field separator@@@ds:newfs [file] [newfs=,] [awkargs]
-@@@ds:nset@@@@@@Test if name (function, alias, variable) is defined@@@ds:nset name [search_vars=f]
+@@@ds:nset@@@@@@Test if name (function/alias/variable) is defined@@@ds:nset name [search_vars=f]
 @@@ds:ntype@@@@@@Get name type - function, alias, variable@@@ds:ntype name
-@@@ds:path_elements@@@@@@Returns dirname, filename, extension from a filepath@@@ds:path_elements file
+@@@ds:path_elements@@@@@@Returns dirname/filename/extension from filepath@@@ds:path_elements file
 **@@@ds:pipe_check@@@@@@Detect if pipe has data or over [n_lines]@@@data | ds:pipe_check [n_lines]
 **@@@ds:pow@@@@@@Print the frequency distribution of fielded data@@@ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
 **@@@ds:print_comps@@@ds:pc@@@Print non-matching lines on keys given@@@ds:pc file [file] [awkargs]
@@ -60,18 +60,18 @@
 **@@@ds:reo@@@@@@Reorder/repeat/slice data by rows and cols@@@ds:reo [-h|file] [rows] [cols] [prefield=t] [awkargs]
 **@@@ds:rev@@@@@@Reverse lines from standard input@@@data | ds:rev
 **@@@ds:sbsp@@@@@@Extend fields by a common subseparator@@@ds:sbsp [file] subsep_pattern [nomatch_handler= ] [awkargs]
-@@@ds:searchn@@@@@@Searches current names for string, returns matches@@@ds:searchn name
-@@@ds:searchx@@@@@@Search file for C-lang/curly-brace top-level object@@@ds:searchx file|dir [search] [q]
+@@@ds:searchn@@@@@@Searches current environment names@@@ds:searchn name
+@@@ds:searchx@@@@@@Search for a C-lang/curly-brace top-level object@@@ds:searchx file|dir [search] [q]
 @@@ds:sedi@@@@@@Linux-portable sed in place substitution@@@ds:sedi file|dir search [replace]
-**@@@ds:select@@@@@@Select code from a file by regex anchors@@@ds:select file [startpattern endpattern]
+**@@@ds:select@@@@@@Select code by regex anchors@@@ds:select file [startpattern endpattern]
 **@@@ds:shape@@@@@@Print data shape by length or FS@@@ds:shape [file] [FS] [chart_size=15ln] [chart_off=f]
 @@@ds:so@@@@@@Search Stack Overflow@@@ds:so [search query]
 **@@@ds:sort@@@@@@Sort with inferred field sep of exactly 1 char@@@ds:sort [unix_sort_args] [file]
 **@@@ds:sortm@@@ds:s@@@Sort with inferred field sep of >=1 char@@@ds:sortm [file] [keys] [order=a|d] [sort_type] [awkargs]
 @@@ds:src@@@@@@Source a piece of file@@@ds:src file ["searchx" pattern] || [line endline] || [pattern linesafter]
-@@@ds:srg@@@@@@Scope rg/grep to a set of files that contain a match@@@ds:srg scope_pattern search_pattern [dir] [invert=]
+@@@ds:srg@@@@@@Scope grep to files that contain a match@@@ds:srg scope_pattern search_pattern [dir] [invert=]
 **@@@ds:stag@@@@@@Print field-separated data in staggered rows@@@ds:stag [file] [stag_size]
-**@@@ds:substr@@@@@@Extract a substring from a string with regex@@@ds:substr str [leftanc] [rightanc]
+**@@@ds:substr@@@@@@Extract a substring with regex@@@ds:substr str [leftanc] [rightanc]
 **@@@ds:test@@@@@@Test input quietly with extended regex@@@ds:test regex [str|file] [test_file=f]
 @@@ds:tmp@@@@@@Shortcut for quiet mktemp@@@ds:tmp filename
 @@@ds:todo@@@@@@List todo items found in paths@@@ds:todo [searchpaths=.]
