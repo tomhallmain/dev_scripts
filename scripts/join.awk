@@ -112,19 +112,28 @@ BEGIN {
   if (!fs1) fs1 = FS
   if (!fs2) fs2 = FS
   FS = fs1
-  if (!(FS ~ "\\[\:.+\:\\]")) OFS = FS
+  if (OFS ~ /\[\:.+\:\]\{2,\}/)
+    OFS = "  "
+  else if (OFS ~ /\[\:.+\:\]/)
+    OFS = " "
 
   if (merge) {
-    if (merge_verbose || right_label || left_label) {
+    if (merge_verbose) {
       merge_verbose = 1
       file_labels = (ARGV[1] && ARGV[2] && ARGV[1] != ARGV[2])
       if (!left_label)
-        left_label = (file_labels ? ARGV[1] : "FILE1") OFS
+        left_label = (file_labels ? ARGV[1] : "FILE1")
       if (!right_label)
-        right_label = (file_labels ? ARGV[2] : "FILE2/PIPED") OFS
+        right_label = (file_labels ? ARGV[2] : "FILE2")
       if (!inner_label)
-        inner_label = "BOTH" OFS }}
+        inner_label = "BOTH"
+      left_label = left_label OFS
+      right_label = piped ? "PIPEDDATA" OFS : right_label OFS
+      inner_label = inner_label OFS }
+    else {
+      left_label = ""; right_label = ""; inner_label = "" }}
   else {
+    left_label = ""; right_label = ""; inner_label = ""
     if (k) { k1 = k; k2 = k; equal_keys = 1 }
     else if (!k1 || !k2) {
       print "Missing key"; exit 1 }
@@ -155,7 +164,11 @@ BEGIN {
   "wc -l < \""ARGV[1]"\"" | getline f1nr; f1nr+=0 # Get number of rows in file1
 }
 
-debug { print NR, FNR, keycount, key, FS }
+debug {
+  if (NR == 1) {
+    for (i in Keys1) print i, Keys1[i]
+    for (i in Keys2) print i, Keys2[i] }
+  print NR, FNR, keycount, key, FS }
 keycount = 0
 
 merge && FNR == 1 { GenMergeKeys(mf_max ? mf_max : NF, K1, K2) }
@@ -174,8 +187,9 @@ NR == FNR {
   while (key in S1) {
     keycount++
     key = keybase _ keycount }
-  
-  S1[key] = $0
+
+  SK1[key]++
+  S1[key, SK1[key]] = $0
 
   if (NR == f1nr) FS = fs2
   next
@@ -195,13 +209,15 @@ NR > FNR {
   keybase = GenKeyString(Keys2)
   key = keybase _ keycount
 
-  if (key in S1) {
-    while (key in S1) {
+  if (key in SK1) {
+    SK2[key]++
+    while (key _ SK2[key] in S1) {
+      sk2_keycount = SK2[key]
       if (run_inner) {
         record_count++
         if (ind) printf "%s", record_count OFS
-        print GenInnerOutputString(S1[key], $0, K2, max_nf1, max_nf2, fs1) }
-      delete S1[key]
+        print GenInnerOutputString(S1[key, sk2_keycount], $0, K2, max_nf1, max_nf2, fs1) }
+      delete S1[key, sk2_keycount]
       keycount++
       key = keybase _ keycount }}
   else {
@@ -221,12 +237,11 @@ END {
   if (skip_left) exit
 
   # Print first file unmatched rows
-  for (key in S1) {
+  for (compound_key in S1) {
     record_count++
     if (ind) printf "%s", record_count OFS
-    print GenLeftOutputString(S1[key], K1, max_nf1, max_nf2, fs1) }
+    print GenLeftOutputString(S1[compound_key], K1, max_nf1, max_nf2, fs1) }
 }
-
 
 function GenMergeKeys(nf, K1, K2) {
   for (f = 1; f <= nf; f++) {

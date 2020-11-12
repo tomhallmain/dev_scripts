@@ -36,14 +36,17 @@ BEGIN {
   if (!agg) no_agg = 1
 
   if (z) {
-    len_z = split(z, ZKeys, /[[:punct:]]+/)
-    for (i = 1; i <= len_z; i++)
-      key = ZKeys[i]
-      if (!(key ~ /^[0-9]+$/)) {
-        print "Field keys must be integers"; exit 1 }
-      if (key in XK || key in YK) {
-        print "Field sets cannot overlap"; exit 1 }
-      ZK[key] = 1 }
+    if (z ~ /[A-z]/)
+      count_xy = 1
+    else {
+      len_z = split(z, ZKeys, /[[:punct:]]+/)
+      for (i = 1; i <= len_z; i++)
+        key = ZKeys[i]
+        if (!(key ~ /^[0-9]+$/)) {
+          print "Field keys must be integers"; exit 1 }
+        if (key in XK || key in YK) {
+          print "Field sets cannot overlap"; exit 1 }
+        ZK[key] = 1 }}
   else gen_z = 1
 
   if (transform || transform_expr) {
@@ -70,17 +73,18 @@ NR == 1 {
     x_str = x_str $XKeys[i] OFS
   for (i=1; i<=len_y; i++)
     y_str = y_str $YKeys[i] OFS
-  for (i=1; i<=len_z; i++)
-    z_str = i == len_z ? z_str $ZKeys[i] : z_str $ZKeys[i] "::"
+  if (!count_xy)
+    for (i=1; i<=len_z; i++)
+      z_str = i == len_z ? z_str $ZKeys[i] : z_str $ZKeys[i] "::"
 
   if (x_str y_str z_str == "") next
 
   X[x_str]++
   Y[y_str]++
 
-  if (no_agg)
+  if (no_agg && !count_xy)
     Z[x_str y_str] = z_str
-  else if (c)
+  else if (c || count_xy)
     Z[x_str y_str]++
   else if (s) {
     adder = z_str + 0

@@ -12,6 +12,12 @@ jnd1="tests/data/infer_jf_test_joined.csv"
 jnd2="tests/data/infer_jf_joined_fit"
 jnd3="tests/data/infer_jf_joined_fit_dz"
 jnd4="tests/data/infer_jf_joined_fit_sn"
+jnr1="tests/data/jn_repeats1"
+jnr2="tests/data/jn_repeats2"
+jnr3="tests/data/jn_repeats3"
+jnr4="tests/data/jn_repeats4"
+jnrjn1="tests/data/jn_repeats_jnd1"
+jnrjn2="tests/data/jn_repeats_jnd2"
 seps_base="tests/data/seps_test_base"
 seps_sorted="tests/data/seps_test_sorted" 
 simple_csv="tests/data/company_funding_data.csv"
@@ -104,10 +110,15 @@ jn_actual="$(echo -e "a b c d\n1 3 2 4" | ds:jn $tmp outer merge)"
 
 ds:jn "$jnf1" "$jnf2" -v ind=1 > $tmp
 cmp --silent $tmp $jnd1                                     || ds:fail 'ds:jn failed base outer join case'
+ds:jn "$jnr1" "$jnr2" o 2,3,4,5 > $tmp
+cmp --silent $tmp $jnrjn1                                   || ds:fail 'ds:jn failed repeats partial keyset case'
+ds:jn "$jnr3" "$jnr4" o merge -v merge_verbose=1 > $tmp
+cmp --silent $tmp $jnrjn2                                   || ds:fail 'ds:jn failed repeats merge case'
 
-cat "${jnf1}" > $tmp
+
+cat "$jnf1" > $tmp
 [ $(ds:print_comps $jnf1 $tmp | grep -c "") -eq 7 ]         || ds:fail 'print_comps failed no complement case'
-[ "$(ds:print_comps $jnf1{,})" = 'Files are the same!' ]    || ds:fail 'print_comps failed no complement case'
+[ "$(ds:print_comps $jnf1{,})" = 'Files are the same!' ]    || ds:fail 'print_comps failed no complement samefile case'
 [ $(ds:print_comps $jnf1 $jnf2 -v k1=2 -v k2=3,4 | grep -c "") -eq 197 ] \
   || ds:fail 'print_comps failed complments case'
 
@@ -251,19 +262,13 @@ reo_actual="$(echo "$reo_input" | ds:reo rev rev -v idx=1)"
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed rev idx case'
 
 reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>130' off)"
-reo_expected='@@@ds:gexec@@@@@@Generate a script from pieces of another and run it@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
-**@@@ds:jn@@@@@@Join two files, or a file and STDIN, with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=t] [awkargs]'
+reo_expected='**@@@ds:jn@@@@@@Join two files or a file and STDIN with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=f] [awkargs]'
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed full row len case'
 
-reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>50' 2)"
-reo_expected='ds:asgn
-ds:enti
-ds:gexec
+reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>48' 2)"
+reo_expected='ds:agg
 ds:jn
-ds:nset
-ds:path_elements
-ds:searchx
-ds:srg'
+ds:nset'
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed basic len case'
 
 reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len(2)%11 || len(2)=13' 'length()<5 && len()>2')"
@@ -520,7 +525,7 @@ pvt_actual="$(echo -e "a b c d\n1 2 3 4" | ds:pvt 1,2 4 3)"
 # AGG TESTS
 
 echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" > $tmp
-agg_expected='one@@@two@@@three@@@four@@@0
+agg_expected='one@@@two@@@three@@@four@@@$3+$2
 1@@@2@@@3@@@4@@@5
 4@@@3@@@2@@@1@@@5
 1@@@2@@@4@@@3@@@6
@@ -534,7 +539,7 @@ agg_expected='one@@@two@@@three@@@four
 6@@@7@@@9@@@8'
 [ "$(ds:agg $tmp 0 '$2+$3+$4')" = "$agg_expected" ] || ds:fail 'agg failed C specific agg base case'
 
-agg_expected='one@@@two@@@three@@@four@@@0
+agg_expected='one@@@two@@@three@@@four@@@*|2..4
 1@@@2@@@3@@@4@@@24
 4@@@3@@@2@@@1@@@6
 1@@@2@@@4@@@3@@@24
@@ -544,7 +549,7 @@ agg_actual="$(echo -e "one,two,three,four\n1,2,3,4\n4,3,2,1\n1,2,4,3\n3,2,4,1" |
 
 # add base specific range case for c aggs here
 
-agg_expected='one@@@two@@@three@@@four@@@0
+agg_expected='one@@@two@@@three@@@four@@@+|all
 1@@@2@@@3@@@4@@@10
 4@@@3@@@2@@@1@@@10
 1@@@2@@@4@@@3@@@10
@@ -560,7 +565,7 @@ agg_expected='one@@@two@@@three@@@four
 agg_actual="$(echo -e "one;two;three;four\n1;2;3;4\n4;3;2;1\n1;2;4;3\n3;2;4;1" | ds:agg 0 '+|all')"
 [ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg failed C all agg base case'
 
-agg_expected='one@@@two@@@three@@@four@@@0
+agg_expected='one@@@two@@@three@@@four@@@+|all
 1@@@2@@@3@@@4@@@10
 4@@@3@@@2@@@1@@@10
 1@@@2@@@4@@@3@@@10
@@ -588,14 +593,22 @@ echo -e "a 1 -2 3 4\nb 0 -3 4 1\nc 3 6 2.5 4" > $tmp
 agg_expected='a@@@1@@@-2@@@3@@@4@@@6
 b@@@@@@-3@@@4@@@1@@@2
 c@@@3@@@6@@@2.5@@@4@@@15.5
-@@@4@@@1@@@9.5@@@9@@@23.5'
++|all@@@4@@@1@@@9.5@@@9@@@23.5'
 [ "$(ds:agg $tmp)" = "$agg_expected" ] || ds:fail 'agg failed readme case'
 agg_expected='a@@@1@@@-2@@@3@@@4@@@-24@@@-6
 b@@@@@@-3@@@4@@@1@@@-12@@@-12
 c@@@3@@@6@@@2.5@@@4@@@180@@@15
-@@@4@@@1@@@9.5@@@9@@@144@@@-3
-@@@3@@@36@@@30@@@16@@@51840@@@1080'
++|all@@@4@@@1@@@9.5@@@9@@@144@@@-3
+*|all@@@3@@@36@@@30@@@16@@@51840@@@1080'
 [ "$(ds:agg $tmp '*|all,$4*$3' '+|all,*|all')" = "$agg_expected" ] || ds:fail 'agg failed readme negatives multiples case'
+agg_expected='a@@@1@@@-2@@@3@@@4@@@-24@@@-6@@@~b
+b@@@@@@-3@@@4@@@1@@@-12@@@-12@@@1
+c@@@3@@@6@@@2.5@@@4@@@180@@@15@@@0
++|all@@@4@@@1@@@9.5@@@9@@@144@@@-3@@@1
+*|all@@@3@@@36@@@30@@@16@@@51840@@@1080@@@0'
+[ "$(ds:agg $tmp '*|all,$4*$3,~b' '+|all,*|all')" = "$agg_expected" ] || ds:fail 'agg failed readme kitchen sink case'
+
+
 
 # ASSORTED COMMANDS TESTS
 

@@ -11,9 +11,15 @@
 BEGIN {
   sq = "'"
   dq = "\""
-  na = (FS == "" || FS ~ sq || FS ~ dq)
 
-  if (!na) {
+  if (FS == "" || FS ~ sq || FS ~ dq || (FS ~ ":" && !(FS ~ /\[/)))
+    na = 1
+
+  else if (FS == "@@@") {
+    simple_replace = 1
+    replace_fs = retain_outer_quotes ? OFS : "(\"?" OFS "\"?|'?" OFS "'?)" }
+
+  else {
     if (FS == " ") FS = "[[:space:]]+"
     if (fixed_space) FS = " "
     lenfs = length(FS)
@@ -30,7 +36,15 @@ BEGIN {
     if (debug) DebugPrint(0) }
 }
 
-na || (!q_rebal && !($0 ~ FS)) { print; next }
+na || (!q_rebal && !($0 ~ FS)) {
+  gsub(FS, OFS)
+  print; next
+}
+
+simple_replace {
+  gsub(replace_fs, OFS)
+  print; next
+}
 
 q_rebal && !($0 ~ QRe["e"]) {
   if (debug) DebugPrint(6)

@@ -59,7 +59,7 @@ while getopts ":ab:Dfhmo:sv" opt; do
     D)  getoptsGetOptarg $@
         DEEP=${OPTARG:-true} ;;
     f)  which fd &> /dev/null
-        [ $? ] && USE_FD=true || (echo 'FD not set - running all repos using find') 
+        [ $? = 0 ] && USE_FD=true || (echo 'FD not set - running all repos using find') 
         DEEP=true ;;
     h)  lbvHelp ;;
     m)  INCLUDE_MASTER_ONLYS=true ;;
