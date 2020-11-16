@@ -5,7 +5,7 @@ DS_SCRIPT="$DS_LOC/scripts"
 DS_SUPPORT="$DS_LOC/support"
 source "$DS_SUPPORT/utils.sh"
 
-ds:commands() { # List commands from dev_scripts/commands.sh: ds:commands [bufferchar] [utils]
+ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils]
   [ "$2" ] && local utils="$DS_SUPPORT/utils.sh"
   echo
   grep -h '[[:alnum:]_]*()' "$DS_LOC/commands.sh" "$utils" 2>/dev/null | grep -hv 'grep -h' | sort \
@@ -588,7 +588,7 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file1 [
         [ "$fs2v_idx" ] && unset "args[$fs2v_idx]"; fi; fi; fi
   [ ! "$fs2" ] && local fs2="$fs1"
 
-  if ds:test 't(rue)' "$args[$(ds:arr_base)]"; then
+  if ds:test 't(rue)?' "$args[$(ds:arr_base)]"; then
     local pf1=$(ds:tmp "ds_jn_prefield1") pf2=$(ds:tmp "ds_jn_prefield2")
     ds:prefield "$f1" "$fs1" > $pf1; ds:prefield "$f2" "$fs2" > $pf2
     awk -v FS="$DS_SEP" -v OFS="$fs1" -v left_label="$f1" -v right_label="$f2" \
@@ -654,7 +654,11 @@ ds:inferh() { # Infer if headers present in a file: ds:inferh file [awkargs]
   ds:file_check "$1"
   local file="$1"; shift
   local args=( "$@" )
-  awk ${args[@]} -f "$DS_SCRIPT/infer_headers.awk" "$file" 2> /dev/null
+  if ds:noawkfs; then
+    local fs="$(ds:inferfs "$file" true)"
+    awk ${args[@]} -v FS="$fs" -f "$DS_SCRIPT/infer_headers.awk" "$file" 2> /dev/null
+  else
+    awk ${args[@]} -f "$DS_SCRIPT/infer_headers.awk" "$file" 2> /dev/null; fi
 }
 
 ds:inferk() { # ** Infer join fields in two text data files: ds:inferk file [file] [awkargs]
@@ -680,7 +684,7 @@ ds:inferk() { # ** Infer join fields in two text data files: ds:inferk file [fil
 
 ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [custom=t] [file_ext=t] [high_cert=f]
   ds:file_check "$1"
-  local file="$1" reparse="${2:-false}" custom="${3:-true}" file_ext="${4:-true}" hc="${5:-false}"
+  local file="$1" reparse="${2:-f}" custom="${3:-t}" file_ext="${4:-true}" hc="${5:-f}"
 
   if [ "$file_ext" = true ]; then
     read -r dirpath filename extension <<<$(ds:path_elements "$file")
@@ -699,7 +703,7 @@ ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [c
       -v custom="$custom" "$file" 2> /dev/null; fi
 }
 
-ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*] [awkargs]
+ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*] [prefield=t] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_fit') piped=0 hc=f
     cat /dev/stdin > $file
@@ -717,8 +721,10 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
     else
       ds:file_check "$1"
       local file="$1" hc=true; shift; fi; fi
+  if ds:test '(f(alse)?|off)' "$1"; then
+    local pf_off=0; shift
+  else local prefield=$(ds:tmp "ds_fit_prefield"); fi
   local args=( "$@" ) buffer=${DS_FIT_BUFFER:-2} tty_size=$(tput cols)
-  local prefield=$(ds:tmp "ds_fit_prefield")
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true true true $hc)"
   else
@@ -731,11 +737,16 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
       let local fsv_idx=$fs_idx-1
       unset "args[$fsv_idx]"; fi
     unset "args[$fs_idx]"; fi
-  ds:prefield "$file" "$fs" 0 > $prefield
   ds:awksafe && local args=( ${args[@]} -v awksafe=1 -f "$DS_SUPPORT/wcwidth.awk" )
-  awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" \
-    ${args[@]} -f "$DS_SCRIPT/fit_columns.awk" $prefield{,} 2>/dev/null
-  ds:pipe_clean $file; rm $prefield
+  if [ "$pf_off" ]; then
+    awk -v FS="$fs" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" \
+      ${args[@]} -f "$DS_SCRIPT/fit_columns.awk" $file{,} 2>/dev/null
+  else
+    ds:prefield "$file" "$fs" 0 > $prefield
+    awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" \
+      ${args[@]} -f "$DS_SCRIPT/fit_columns.awk" $prefield{,} 2>/dev/null
+    rm $prefield; fi
+  ds:pipe_clean $file
 }
 
 ds:stag() { # ** Print field-separated data in staggered rows: ds:stag [file] [stag_size]
@@ -1130,16 +1141,20 @@ ds:dostounix() { # Remove ^M / CR characters in place: ds:dostounix file
   rm $tmpfile
 }
 
-ds:mini() { # ** Crude minify, remove whitespace and newlines: ds:mini [file] [newline_sep=;]
+ds:mini() { # ** Crude minify, remove whitespace and newlines: ds:mini [file] [newline_sep=;] [blank_only=f]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_mini') piped=0
     cat /dev/stdin > $file
   else
     ds:file_check "$1"
     local file="$1"; shift; fi
-  local program='{gsub("(\n\r)+" ,"'"${1:-;}"'");gsub("\n+" ,"'"${1:-;}"'")
-      gsub("\t+" ,"'"${1:-;}"'");gsub("[[:space:]]{2,}"," ");print}'
-  awk -v RS="\0" "$program" "$file" 2> /dev/null | awk -v RS="\0" "$program" 2> /dev/null
+  if ds:test 't(rue)?' "$2"; then
+    perl -pe 'chomp if ($_ =~ /\S/)' "$file"
+  else
+    local program='{gsub("(\n\r)+" ,"'"${1:-;}"'");gsub("\n+" ,"'"${1:-;}"'")
+        gsub("\t+" ,"'"${1:-;}"'");gsub("[[:space:]]{2,}"," ");print}'
+    awk -v RS="\0" "$program" "$file" 2> /dev/null | awk -v RS="\0" "$program" 2> /dev/null
+  fi
   ds:pipe_clean $file
 }
 
@@ -1206,7 +1221,7 @@ ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [recurse=r
 
   local dirname="${dirname:-$PWD}" recurse="$2" hidden="$3" datefilter
   ds:nset 'fd' && local FD=1
-  [ "$recurse" ] && ([ "$recurse" = 'r' ] || [ "$recurse" = 'true' ]) || unset recurse
+  [ "$recurse" ] && ds:test '(r(ecurse)?|t(rue)?)' || unset recurse
 
   [ "$(ls --time-style=%D 2>/dev/null)" ] || local bsd=1
   local prg='{for(f=1;f<NF;f++){printf "%s ", $f;if($f~"^[0-3][0-9]/[0-3][0-9]/[0-9][0-9]$")printf "\""};print $NF "\""}'
@@ -1248,7 +1263,7 @@ ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [recurse=r
   [ $? = 0 ] || (echo "$notfound" && return 1)
 }
 
-ds:sedi() { # Linux-portable sed in place substitution: ds:sedi file|dir search [replace]
+ds:sedi() { # Run global in place substitutions: ds:sedi file|dir search [replace]
   [ "$1" ] && [ "$2" ] || ds:fail 'Missing required args: ds:sedi file|dir search [replace]'
   if [ -f "$1" ]; then
     local file="$1"
@@ -1257,16 +1272,28 @@ ds:sedi() { # Linux-portable sed in place substitution: ds:sedi file|dir search 
     local conf="$(ds:readp "Confirm replacement of \"$2\" -> \"$3\" on all files in $dir (y/n):" | ds:downcase)"
     [ ! "$conf" = y ] && echo 'No change made!' && return 1; fi
 
-  local search="$(printf "%q" "$2")"
-  [ "$3" ] && local replace="$(printf "%q" "$3")"
+  if [ "$(printf "%q" _ > /dev/null)" ]; then
+    local search="$(printf "%q" "$2")"
+    [ "$3" ] && local replace="$(printf "%q" "$3")"
+  else
+    local search="$2"
+    [ "$3" ] && local replace="$3"; fi
+  if ds:test '/' "$search$replace"; then
+    local sepalts=('@' '#' '%' '&' ';' ':' ',' '|')
+    local count="$(ds:arr_base)"
+    while [ ! "$sep" ]; do
+      ds:test "${sepalts[$count]}" "$search$replace" && let local count++ && continue
+      local sep="${sepalts[$count]}"
+      break; done
+    [ ! "$sep" ] && echo 'Failed replacement - please try strings with less token characters.' && return 1
+  else local sep='/'; fi
   if [ "$file" ]; then
-    perl -pi -e "s/${search}/${replace}/g" "$file"
+    perl -pi -e "s${sep}${search}${sep}${replace}${sep}g" "$file"
   else
     while IFS=$'\n' read -r file; do
+      perl -pi -e "s${sep}${search}${sep}${replace}${sep}g" "$file"
       echo "replaced \"$search\" with \"$replace\" in $file"
-      perl -pi -e "s/${search}/${replace}/g" "$file"
     done < <(grep -r --files-with-match "$search" "$dir"); fi
-  # TODO: Fix for forward slash replacement case and printf %q
 }
 
 ds:dff() { # Diff shortcut for more relevant changes: ds:dff file1 file2 [suppress_common]
@@ -1280,6 +1307,20 @@ ds:dff() { # Diff shortcut for more relevant changes: ds:dff file1 file2 [suppre
 ds:gwdf() { # Git word diff shortcut: ds:gwdf [git_diff_args]
   local args=( "$@" )
   git diff --word-diff-regex="[A-Za-z0-9. ]|[^[:space:]]" --word-diff=color ${args[@]}
+}
+
+ds:line() { # ** Execute commands on var line: ds:line [seed_cmds] line_cmds [IFS=\n]
+  if ds:pipe_open; then
+    local file="$(ds:tmp 'ds_line')" piped=0
+    cat /dev/stdin > $file
+  else local seed_cmds="$1"; shift; fi
+  local OLD_IFS="$IFS"
+  [ "$2" ] && local sep="$2" || local sep=$'\n'
+  while IFS=$sep read -r line; do
+    eval "$1"; [ $? -gt 0 ] && local stts=1
+    done < <([ "$piped" ] && cat $file || eval "$seed_cmds")
+  ds:pipe_clean $file
+  IFS="$OLD_IFS"; return $stts
 }
 
 ds:goog() { # Search Google: ds:goog [search query]

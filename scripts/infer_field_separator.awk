@@ -234,7 +234,7 @@ END {
         Winners[s] = s 
         if (debug) DebugPrint(11) }}}
 
-  if (max_chunk_sep) {
+  if (max_chunk_sep && !length(NoVar)) {
     if (debug) print "No zero var seps and sectional novar sep exists, override with sep "max_chunk_sep
     print CommonFS[max_chunk_sep]
     exit }
