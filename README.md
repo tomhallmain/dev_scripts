@@ -119,7 +119,7 @@ BOTH       a  b  c  d
 /tmp/jn_a  1  2  3  4
 ```
 
-### `ds:pvt`
+#### `ds:pvt`
 
 Pivot tabular data. Runs ds:fit on output if to a terminal.
 

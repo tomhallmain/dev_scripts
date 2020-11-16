@@ -3,7 +3,7 @@
 @@@@@@@@@@@@
 **@@@ds:agg@@@@@@Aggregate by index/pattern - i.e. '+|3..5,~search@@@ds:agg [file] [r_aggs] [c_aggs] [x_aggs] [awkargs]
 @@@ds:asgn@@@@@@Print lines matching assignment pattern@@@ds:asgn file
-@@@ds:commands@@@@@@List commands from dev_scripts/commands.sh@@@ds:commands [bufferchar] [utils]
+@@@ds:commands@@@@@@List dev_scripts commands@@@ds:commands [bufferchar] [utils]
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [n_lines=1] [file]
 @@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=(FUNC|ALIAS)] [call_func] [data]
@@ -16,7 +16,7 @@
 @@@ds:fail@@@@@@Safe failure, kills parent but returns to prompt@@@ds:fail [error_message]
 **@@@ds:fieldcounts@@@ds:fc@@@Print value counts@@@ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
 @@@ds:filename_str@@@@@@Add string to beginning or end of a filename@@@ds:filename_str file str [prepend|append]
-**@@@ds:fit@@@@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file*] [awkargs]
+**@@@ds:fit@@@@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file*] [prefield=t] [awkargs]
 @@@ds:fsrc@@@@@@Show the source of a shell function@@@ds:fsrc func
 @@@ds:gexec@@@@@@Generate a script from pieces of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
 @@@ds:git_add_com_push@@@ds:gacmp@@@Add, commit with message, push@@@ds:gacmp commit_message
@@ -45,7 +45,8 @@
 @@@ds:jira@@@@@@Opens Jira at specified workspace and issue@@@ds:jira workspace_subdomain [issue]
 **@@@ds:jn@@@@@@Join two files or a file and STDIN with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
 **@@@ds:join_by@@@@@@Join a shell array by given delimiter@@@ds:join_by delimiter [join_array]
-**@@@ds:mini@@@@@@Crude minify, remove whitespace and newlines@@@ds:mini [file] [newline_sep=;]
+**@@@ds:line@@@@@@Execute commands on var line@@@ds:line [seed_cmds] line_cmds [IFS=\n]
+**@@@ds:mini@@@@@@Crude minify, remove whitespace and newlines@@@ds:mini [file] [newline_sep=;] [blank_only=f]
 @@@ds:new@@@@@@Refresh zsh or bash interactive session@@@ds:new
 **@@@ds:newfs@@@@@@Outputs a file with an updated field separator@@@ds:newfs [file] [newfs=,] [awkargs]
 @@@ds:nset@@@@@@Test if name (function/alias/variable) is defined@@@ds:nset name [search_vars=f]
@@ -62,7 +63,7 @@
 **@@@ds:sbsp@@@@@@Extend fields by a common subseparator@@@ds:sbsp [file] subsep_pattern [nomatch_handler= ] [awkargs]
 @@@ds:searchn@@@@@@Searches current environment names@@@ds:searchn name
 @@@ds:searchx@@@@@@Search for a C-lang/curly-brace top-level object@@@ds:searchx file|dir [search] [q]
-@@@ds:sedi@@@@@@Linux-portable sed in place substitution@@@ds:sedi file|dir search [replace]
+@@@ds:sedi@@@@@@Run global in place substitutions@@@ds:sedi file|dir search [replace]
 **@@@ds:select@@@@@@Select code by regex anchors@@@ds:select file [startpattern endpattern]
 **@@@ds:shape@@@@@@Print data shape by length or FS@@@ds:shape [file] [FS] [chart_size=15ln] [chart_off=f]
 @@@ds:so@@@@@@Search Stack Overflow@@@ds:so [search query]

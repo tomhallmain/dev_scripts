@@ -8,6 +8,7 @@ q=/dev/null
 shell="$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')"
 jnf1="tests/data/infer_join_fields_test1.csv"
 jnf2="tests/data/infer_join_fields_test2.csv"
+jnf3="tests/data/infer_join_fields_test3.scsv"
 jnd1="tests/data/infer_jf_test_joined.csv"
 jnd2="tests/data/infer_jf_joined_fit"
 jnd3="tests/data/infer_jf_joined_fit_dz"
@@ -82,9 +83,17 @@ fi
 # IFS TESTS
 
 [ "$(ds:inferfs $jnf1)" = ',' ]                             || ds:fail 'inferfs failed extension case'
-[ "$(ds:inferfs $seps_base)" = '\&\%\#' ]                   || ds:fail 'inferfs failed custom separator case'
+[ "$(ds:inferfs $seps_base)" = '\&\%\#' ]                   || ds:fail 'inferfs failed custom separator case 1'
+[ "$(ds:inferfs $jnf3)" = '\;\;' ]                          || ds:fail 'inferfs failed custom separator case 2'
 [ "$(ds:inferfs $ls_sq)" = '[[:space:]]+' ]                 || ds:fail 'inferfs failed quoted fields case'
 [ "$(ds:inferfs $complex_csv3)" = ',' ]                     || ds:fail 'inferfs failed quoted fields case'
+
+# INFERH TESTS
+
+[ "$(ds:inferh $seps_base)" ]                               && ds:fail 'inferh failed custom separator noheaders case'
+[ "$(ds:inferh $ls_sq)" ]                                   && ds:fail 'inferh failed ls noheaders case'
+[ "$(ds:inferfs $simple_csv)" ]                             || ds:fail 'inferh failed basic headers case'
+[ "$(ds:inferfs $complex_csv3)" ]                           || ds:fail 'inferh failed complex headers case'
 
 # JN TESTS
 
@@ -442,6 +451,64 @@ fit_expected="Index  Item                              Cost    Tax  Total
     8  M and M, 42 oz                    8.98   0.67   9.65
     9  Bertoli Alfredo Sauce             2.12   0.16   2.28"
 [ "$(ds:fit $complex_csv5 | head)" = "$fit_expected" ] || ds:fail 'fit failed spaced quoted field case'
+
+fit_input='# Test comment 1
+1,2,3,4,5,100
+a,b,c,d,e,f
+g,h,i,j,k,l,m,f,o
+,,2,3,5,1
+# Test comment 2
+// Diff style comment'
+
+fit_expected='# Test comment 1
+1,2,3,4,5,100
+a                      b  c  d  e  f
+g                      h  i  j  k  l  m  f  o
+                          2  3  5  1
+# Test comment 2
+// Diff style comment'
+fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v startfit=a | sed -E 's/[[:space:]]+$//g')"
+[ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed startfit case'
+
+fit_expected='# Test comment 1
+1  2  3  4  5  100
+a  b  c  d  e  f
+g,h,i,j,k,l,m,f,o
+,,2,3,5,1
+# Test comment 2
+// Diff style comment'
+fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v startfit=2 -v endfit=f | sed -E 's/[[:space:]]+$//g')"
+[ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed startfit endfit case'
+
+fit_expected='# Test comment 1
+1  2  3  4  5  100
+a  b  c  d  e  f
+g  h  i  j  k  l    m  f  o
+      2  3  5  1
+# Test comment 2
+// Diff style comment'
+fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v startrow=2 -v endrow=5 | sed -E 's/[[:space:]]+$//g')"
+[ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed startrow endrow case'
+
+fit_expected='# Test comment 1
+1,2,3,4,5,100
+a  b  c  d  e  f
+g  h  i  j  k  l  m  f  o
+,,2,3,5,1
+# Test comment 2
+// Diff style comment'
+fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v onlyfit='^[a-z]' | sed -E 's/[[:space:]]+$//g')"
+[ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed onlyfit case'
+
+fit_expected='# Test comment 1
+1,2,3,4,5,100
+a  b  c  d  e  f
+g,h,i,j,k,l,m,f,o
+      2  3  5  1
+# Test comment 2
+// Diff style comment'
+fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v nofit='(^1|^#|^//|o$)' | sed -E 's/[[:space:]]+$//g')"
+[ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed nofit case'
 
 
 # FC TESTS

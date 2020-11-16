@@ -9,9 +9,9 @@ set -o pipefail
 # structured and probably needs to be updated to be made useful in contexts of 
 # different environments.
 
-# TODO: UPDATE RUN OPTIONS AND CASED LOGIC
-# TODO: ADD SEARCH FOR SELECTOR USAGE IN SPECS AND PAGES METHODS
-# TODO: JOIN BY SELECTOR + ATTR
+# TODO: Update run opts
+# TODO: Search for selector usage in unit tests and pages methods
+# TODO: Join by selector + attr
 
 # Handle option flags and set conditional variables
 

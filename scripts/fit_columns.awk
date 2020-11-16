@@ -60,15 +60,29 @@
 #
 #       Custom character for buffer/separator:
 #    -v bufferchar="|"
-## TODO: 'Apply to rows / ignore rows' logic
+#
+#       Do not fit, but still fit rows matching pattern:
+#    -v nofit=pattern
+#
+#       Fit only rows matching pattern, print rest normally:
+#    -v onlyfit=pattern
+#
+#       Start fit at pattern, end fit at pattern:
+#    -v startfit=100
+#    -v endfit=200
+#
+#       Start fit at row number, end fit at row number:
+#    -v startrow=100
+#    -v endrow=200
 ## TODO: Resolve lossy multibyte char output
 ## TODO: Fit newlines in fields
 ## TODO: Fix rounding in some cases (see test reo output fit)
-## TODO: Negative number handling
 
 BEGIN {
   WCW_FS = " "
   FIT_FS = FS
+  partial_fit = nofit || onlyfit || startfit || endfit || startrow || endrow
+  prefield = FS == "@@@"
 
   if (d < 0) {
     sn = -d
@@ -99,6 +113,33 @@ BEGIN {
 
   if (!tty_size)
     "tput cols" | getline tty_size; tty_size += 0
+}
+
+partial_fit {
+  if (FNR < 2) {
+    fit_complete = 0
+    in_fit = 0 }
+  if (in_fit) {
+    if ((endfit && $0 ~ endfit) \
+      || (endrow && FNR == endrow)) {
+      in_fit = 0
+      fit_complete = 1 }}
+  else {
+    if (fit_complete \
+      || (nofit && $0 ~ nofit) \
+      || (onlyfit && !($0 ~ onlyfit)) \
+      || (startrow && FNR < startrow) \
+      || (startfit && !($0 ~ startfit))) {
+      if (NR == FNR)
+        next
+      else {
+        if (prefield) gsub(FS, OFS) # Need to add to prefield too to ensure this isn't lossy
+        print; next }}
+    else if ((startfit && $0 ~ startfit) \
+      || (startrow && FNR == startrow) \
+      || (!startfit && endfit) \
+      || (!startrow && endrow))
+      in_fit = 1 }
 }
 
 NR == FNR { # First pass, gather field info
@@ -154,7 +195,7 @@ NR == FNR { # First pass, gather field info
         FMax[i] += recap_n_diff
         total_f_len += recap_n_diff }}
 
-    if (FNR < 30 && f ~ num_re) {
+    if (FNR < 30 && f ~ num_re) { # TODO: Change this count cutoff logic to only rows where fit applies
       if (debug && !NSet[i]) DebugPrint(7)
       NSet[i] = 1
       if (len > NMax[i]) NMax[i] = len }
@@ -233,7 +274,8 @@ NR == FNR { # First pass, gather field info
 }
 
 NR > FNR { # Second pass, scale down fields if length > tty_size and print
-  if (FNR == 1) {
+  if (!reconciled) {
+    reconciled = 1
     for (i = 1; i <= max_nf; i++) {
       if (FMax[i]) {
         MaxFLen[i] = FMax[i]
@@ -360,7 +402,7 @@ function CutStringByVisibleLen(str, red_len) {
       add = substr(p_cur, 1, Max(red_len - red_str_len, 0))
       rem_str = substr(rem_str, index(rem_str, p_cur) + length(p_cur) + 1)
       next_color = p == p_len ? rem_str : substr(rem_str, 1, index(rem_str, PrintStr[p+1]))
-          if (FNR==15 && i == 1) print p, "PCUR:" p_cur, "ADD:" add, "REMSTR" rem_str
+      if (debug && FNR==15 && i == 1) print p, "PCUR:" p_cur, "ADD:" add, "REMSTR" rem_str
       red_str = red_str add next_color
       red_str_len += length(add) }}
   else {

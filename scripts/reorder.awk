@@ -1247,6 +1247,7 @@ function BuildTokens(Tk) {
 
 function EvalExpr(expr) {
   res = 0
+  nm = gsub(/\*-/, "*", expr)
   # TODO: Add gsub for fields comparison here
   split(expr, a, "+")
   for(a_i in a){
@@ -1273,7 +1274,7 @@ function EvalExpr(expr) {
 
   for (a_i in a)
     res += a[a_i]
-  return res
+  return nm % 2 ? -res : res
 }
 
 function EvalCompExpr(left, right, comp) {

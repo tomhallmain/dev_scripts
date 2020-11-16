@@ -1,5 +1,15 @@
 #!/bin/bash
-# TODO Source commands file
+if [[ $shell =~ 'bash' ]]; then
+  bsh=0
+  cd "${BASH_SOURCE%/*}/.."
+elif [[ $shell =~ 'zsh' ]]; then
+  cd "$(dirname $0)/.."
+else
+  echo 'unhandled shell detected - only zsh/bash supported at this time - exiting test script'
+  exit 1
+fi
+source commands.sh
+
 for i in $(seq 9193 9203) 9748 9749 9875 9889 9917 9918 9924 9925 9928 9939 9940 9961 9962 $(seq 9968 9978) 9981 9994 9995 10024 10060 10062 10067 10068 10069 10134 10135 11088 11093
 do
   printf -v n "%x" $i
