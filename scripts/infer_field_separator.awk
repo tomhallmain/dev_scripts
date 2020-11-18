@@ -254,7 +254,7 @@ END {
         split(fs1, Tmp, "")
         for (i = 1; i <= length(Tmp); i++) {
           char = Tmp[i]
-          fs1re = (char == "\\") ? fs1re "\\" char : fs1re char }
+          fs1re = (char == "\\" || char == "\|") ? fs1re "\\" char : fs1re char }
         split(fs2, Tmp, "")
         for (i = 1; i <= length(Tmp); i++) {
           char = Tmp[i]

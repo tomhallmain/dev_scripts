@@ -82,7 +82,7 @@ ds:gvi() { # Grep and open vim on the first match: ds:gvi search [file|dir]
 }
 
 ds:searchn() { # Searches current environment names: ds:searchn name
-  ds:ndata | awk -v s="$1" '$0~s{print}'
+  ds:ndata | awk -v s="$1" '$2~s{print}'
 }
 
 ds:nset() { # Test if name (function/alias/variable) is defined: ds:nset name [search_vars=f]
@@ -372,10 +372,10 @@ ds:git_recent() { # Display commits sorted by recency (alias ds:gr): ds:gr [refs
   if [ "$run_context" = display ]; then
     local format='%(color:white)%(HEAD) %(color:bold yellow)%(refname:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
     git for-each-ref --sort=-committerdate refs/"$refs" \
-      --format="$format" --color=always | ds:fit -F"$DS_SEP"
+      --format="$format" --color=always | ds:fit -F"$DS_SEP" -v color=never
   else
     # If not for immediate display, return extra field for further parsing
-    local format='%(color:white)%(HEAD) %(color:bold yellow)%(refname:short)@@@%(committerdate:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
+    local format='%(color:white)%(HEAD) %(color:bold yellow)%(refname:short)@@@%(committerdate:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:cyan)%(objectname:short)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
     git for-each-ref refs/$refs --format="$format" --color=always; fi
 }
 alias ds:gr="ds:git_recent"
@@ -385,15 +385,16 @@ ds:git_recent_all() { # Display recent commits for local repos (alias ds:gra): d
   local w="\033[37;1m" nc="\033[0m"
   local refs="$1"
   [ -d "$2" ] && cd "$2" || cd ~
-  echo -e "${w}repo@@@   ${w}branch@@@sortfield@@@${w}commit time@@@${w}commit message@@@${w}author${nc}" > $all_recent
+  echo -e "${w}repo@@@   ${w}branch@@@sortfield@@@${w}commit time@@@${w}hash@@@${w}commit message@@@${w}author${nc}" > $all_recent
   while IFS=$'\n' read -r dir; do
-    [ -d "${dir}/.git" ] && (cd "$dir" && \
-      (ds:git_recent "$refs" parse | awk -v repo="$dir" -F"$DS_SEP" '
-        {print "\033[1;31m" repo "@@@", $0}') >> $all_recent )
+    [ -d "${dir}/.git" ] && \
+    (cd "$dir" &>/dev/null 3>/dev/null 4>/dev/null 5>/dev/null 6>/dev/null && \
+    (ds:git_recent "$refs" parse | awk -v repo="$dir" -F"$DS_SEP" '
+    {print "\033[1;31m" repo "@@@", $0}') >> $all_recent)
   done < <(find * -maxdepth 0 -type d)
   echo
   ds:sortm $all_recent -v order=d -F"$DS_SEP" -v k=3 \
-    | ds:reo "a" "NF!=3" -F"$DS_SEP" -v OFS="$DS_SEP" | ds:ttyf
+    | ds:reo "a" "NF!=3" -F"$DS_SEP" -v OFS="$DS_SEP" | ds:ttyf "$DS_SEP" "" -v color=never
   local stts=$?
   echo
   rm $all_recent
@@ -466,30 +467,32 @@ ds:select() { # ** Select code by regex anchors: ds:select file [startpattern en
 }
 
 ds:insert() { # ** Redirect input into a file at lineno or pattern: ds:insert file [lineno|pattern] [srcfile]
+  if ds:pipe_open; then
+    local source=$(ds:tmp 'ds_selectsource') piped=0
+    cat /dev/stdin > $source
+  else
+    local source=$(ds:tmp 'ds_selectsource')
+    if [ -f "$3" ]; then
+      cat "$3" > $source
+    elif [ "$3" ]; then
+      echo "$3" > $source
+    else
+      rm $source; ds:fail 'Insertion source not provided'; fi; fi
   ds:file_check "$1"
-  local sink="$1" where="$2" source=$(ds:tmp 'ds_selectsource') tmp=$(ds:tmp 'ds_select')
-  local nsinklines=$(cat $sink | wc -l)
+  local sink="$1" where="$2" tmp=$(ds:tmp 'ds_select')
+  local nsinklines=$(cat $sink | grep -c .)
   if ds:is_int "$where"; then
     [ "$where" -lt "$nsinklines" ] || ds:fail 'Insertion point not provided or invalid'
     local lineno="$where"
   elif [ "$where" ]; then
     local pattern="$where"
-    if [ $(grep "$pattern" "$sink" | wc -l) -gt 1 ]; then
+    if [ $(grep -c "$pattern" "$sink") -gt 1 ]; then
       local conftext='File contains multiple instaces of pattern - are you sure you want to proceed? (y|n)'
       local confirm="$(ds:readp "$conftext")"
       [ "$confirm" != "y" ] && rm $source $tmp && echo 'Exit with no insertion' && return 1
     fi
   else
     rm $source $tmp; ds:fail 'Insertion point not provided or invalid'; fi
-  if ds:pipe_open; then
-    local piped=0; cat /dev/stdin > $source
-  else
-    if [ -f "$3" ]; then
-      cat "$3" > $source
-    elif [ "$3" ]; then
-      echo "$3" > $source
-    else
-      rm $source $tmp; ds:fail 'Insertion source not provided'; fi; fi
   awk -v src="$src" -v lineno=$lineno -v pattern="$pattern" \
     -f "$DS_SCRIPT/insert.awk" "$sink" $source > $tmp
   cat $tmp > "$sink"
@@ -617,7 +620,7 @@ ds:print_matches() { # ** Get match lines in two datasets (alias ds:pm): ds:pm f
     local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
 
     awk -v fs1="$fs1" -v fs2="$fs2" -v piped=$piped ${args[@]} \
-      -f "$DS_SCRIPT/matches.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"
+      -f "$DS_SCRIPT/matches.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1" -v color=never
   else
     awk -v piped=$piped ${args[@]} -f "$DS_SCRIPT/matches.awk" "$f1" "$f2" \
       2> /dev/null | ds:ttyf; fi
@@ -639,13 +642,11 @@ ds:print_comps() { # ** Print non-matching lines on keys given (alias ds:pc): ds
   local args=( "$@" )
   if ds:noawkfs; then
     local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
-
     awk -v fs1="$fs1" -v fs2="$fs2" -v piped=$piped ${args[@]} \
-      -f "$DS_SCRIPT/complements.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"
+      -f "$DS_SCRIPT/complements.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1" -v color=never
   else
     awk -v piped=$piped ${args[@]} -f "$DS_SCRIPT/complements.awk" "$f1" "$f2" \
       2> /dev/null | ds:ttyf; fi
-  
   ds:pipe_clean $f2
 }
 alias ds:pc="ds:print_comps"
@@ -673,12 +674,10 @@ ds:inferk() { # ** Infer join fields in two text data files: ds:inferk file [fil
   local args=( "$@" )
   if ds:noawkfs; then
     local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
-
     awk -v fs1="$fs1" -v fs2="$fs2" ${args[@]} -f "$DS_SCRIPT/infer_join_fields.awk" \
       "$f1" "$f2" 2> /dev/null
   else
     awk ${args[@]} -f "$DS_SCRIPT/infer_join_fields.awk" "$f1" "$f2" 2> /dev/null; fi
-
   ds:pipe_clean $f2
 }
 
@@ -784,8 +783,7 @@ ds:idx() { # ** Attach an index to lines from a file or STDIN: ds:idx [file] [st
       -f "$DS_SCRIPT/index.awk" "$file" 2> /dev/null
   else # TODO: Replace with consistent fs logic
     awk ${args[@]} -v header="${1:-1}" -v pipeout="$pipe_out" \
-      -f "$DS_SCRIPT/index.awk" "$file" 2> /dev/null
-  fi
+      -f "$DS_SCRIPT/index.awk" "$file" 2> /dev/null; fi
   ds:pipe_clean $file
 }
 
@@ -982,7 +980,7 @@ ds:pow() { # ** Print the frequency distribution of fielded data: ds:pow [file] 
   ds:prefield "$file" "$fs" 1 > $prefield
   awk -v FS="$DS_SEP" -v OFS="$fs" -v min=${min:-1} -v c_counts=${flds:-0} -v invert=${inv:-0} \
     ${args[@]} -f "$DS_SCRIPT/power.awk" $prefield 2>/dev/null \
-    | ds:sortm 1 a n -v FS="$fs" | sed 's///' | ds:ttyf "$fs"
+    | ds:sortm 1 a n -v FS="$fs" | sed 's///' | ds:ttyf "$fs" -v color=never
   ds:pipe_clean $file; rm $prefield
 }
 
@@ -1016,10 +1014,10 @@ ds:fieldcounts() { # ** Print value counts (alias ds:fc): ds:fc [file] [fields=1
     ds:prefield "$file" "$fs" > $prefield
     ds:test "\[.+\]" "$fs" && fs=" " 
     awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v min="$min" -v fields="$fields" \
-      -f "$DS_SCRIPT/field_counts.awk" $prefield 2>/dev/null | sort -n$order | ds:ttyf "$fs"
+      -f "$DS_SCRIPT/field_counts.awk" $prefield 2>/dev/null | sort -n$order | ds:ttyf "$fs" -v color=never
   else
     awk ${args[@]}-v min="$min" -v fields="$fields" \
-      -f "$DS_SCRIPT/field_counts.awk" "$file" 2>/dev/null | sort -n$order | ds:ttyf "$fs"
+      -f "$DS_SCRIPT/field_counts.awk" "$file" 2>/dev/null | sort -n$order | ds:ttyf "$fs" -v color=never
   fi
   ds:pipe_clean $file; [ "$prefield" ] && rm $prefield; :
 }
@@ -1078,7 +1076,6 @@ ds:hist() { # ** Print histograms for all number fields in data: ds:hist [file] 
   awk -v FS="$DS_SEP" -v OFS="$fs" -v n_bins=$n_bins -v max_bar_leb=$bar_len \
     ${args[@]} -f "$DS_SCRIPT/hist.awk" $prefield 2> /dev/null
   ds:pipe_clean $file; rm $prefield
-
 }
 
 ds:asgn() { # Print lines matching assignment pattern: ds:asgn file
@@ -1247,7 +1244,7 @@ ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [recurse=r
           -mtime -7d ${cmd_exec[@]} 2> /dev/null
       fi
     ) | sed "s:\\$(echo -n "$dirname")\/::" | awk "$prg" | sort -k$sortf \
-      | ds:fit -v FS=" " | ds:pipe_check
+      | ds:fit -v FS=" " -v color=never | ds:pipe_check
   else
     if [ "$(date -v -0d 2>/dev/null)" ]; then
       for i in {0..6}; do
@@ -1258,7 +1255,7 @@ ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [recurse=r
 
     ([ "$bsd" ] && stat -l -t "%D" "$dirname"/* \
       || ls -ghtG$hidden --time-style=+%D "$dirname" \
-    ) | grep -v '^d' | grep ${dates[@]} | awk "$prg" | ds:fit -v FS=" " | ds:pipe_check
+    ) | grep -v '^d' | grep ${dates[@]} | awk "$prg" | ds:fit -v FS=" " -v color=never | ds:pipe_check
   fi
   [ $? = 0 ] || (echo "$notfound" && return 1)
 }

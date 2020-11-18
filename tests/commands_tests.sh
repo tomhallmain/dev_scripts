@@ -28,6 +28,7 @@ complex_csv2="tests/data/Sample100.csv"
 complex_csv4="tests/data/quoted_fields_with_newline.csv" 
 complex_csv5="tests/data/taxables.csv"
 ls_sq="tests/data/ls_sq"
+inferfs_chunks="tests/data/inferfs_chunks_test"
 emoji="tests/data/emoji"
 emojifit="tests/data/emojifit"
 
@@ -87,13 +88,14 @@ fi
 [ "$(ds:inferfs $jnf3)" = '\;\;' ]                          || ds:fail 'inferfs failed custom separator case 2'
 [ "$(ds:inferfs $ls_sq)" = '[[:space:]]+' ]                 || ds:fail 'inferfs failed quoted fields case'
 [ "$(ds:inferfs $complex_csv3)" = ',' ]                     || ds:fail 'inferfs failed quoted fields case'
+[ "$(ds:inferfs $inferfs_chunks)" = ',' ]                   || ds:fail 'inferfs failed simple chunks case'
 
 # INFERH TESTS
 
-[ "$(ds:inferh $seps_base)" ]                               && ds:fail 'inferh failed custom separator noheaders case'
-[ "$(ds:inferh $ls_sq)" ]                                   && ds:fail 'inferh failed ls noheaders case'
-[ "$(ds:inferfs $simple_csv)" ]                             || ds:fail 'inferh failed basic headers case'
-[ "$(ds:inferfs $complex_csv3)" ]                           || ds:fail 'inferh failed complex headers case'
+ds:inferh $seps_base 2>$q                                   && ds:fail 'inferh failed custom separator noheaders case'
+ds:inferh $ls_sq 2>$q                                       && ds:fail 'inferh failed ls noheaders case'
+ds:inferh $simple_csv 2>$q                                  || ds:fail 'inferh failed basic headers case'
+ds:inferh $complex_csv3 2>$q                                || ds:fail 'inferh failed complex headers case'
 
 # JN TESTS
 
@@ -411,7 +413,7 @@ reo_actual="$(ds:reo $tmp '!~permalink && !~mycity,rev' rev)"
 
 # FIT TESTS
 
-fit_var_present="$(echo -e "t 1\nte 2\ntes 3\ntest 4" | ds:fit | awk '{cl=length($0);if(pl && pl!=cl) {print 1;exit};pl=cl}')"
+fit_var_present="$(echo -e "t 1\nte 2\ntes 3\ntest 4" | ds:fit -v color=never | awk '{cl=length($0);if(pl && pl!=cl) {print 1;exit};pl=cl}')"
 [ "$fit_var_present" = 1 ]                        && ds:fail 'fit failed pipe case'
 
 fit_expected='Desert City' fit_actual="$(ds:fit "$complex_csv1" | ds:reo 7 4 '-F {2,}')"
@@ -421,7 +423,7 @@ fit_expected='Company Name                            Employee Markme       Desc
 INDIAN HERITAGE ,ART & CULTURE          MADHUKAR              ACCESS PUBLISHING INDIA PVT.LTD
 ETHICS, INTEGRITY & APTITUDE ( 3RD/E)   P N ROY ,G SUBBA RAO  ACCESS PUBLISHING INDIA PVT.LTD
 PHYSICAL, HUMAN AND ECONOMIC GEOGRAPHY  D R KHULLAR           ACCESS PUBLISHING INDIA PVT.LTD'
-fit_actual="$(ds:reo "$complex_csv2" 1,35,37,42 2..4 | ds:fit -F,)"
+fit_actual="$(ds:reo "$complex_csv2" 1,35,37,42 2..4 | ds:fit -F, -v color=never)"
 [ "$(echo -e "$fit_expected")" = "$fit_actual" ]  || ds:fail 'fit failed quoted field case'
 
 ds:fit $emoji > $tmp; cmp --silent $emojifit $tmp || ds:fail 'fit failed emoji case'
@@ -431,7 +433,7 @@ fit_expected='-rw-r--r--  1  tomhall   4330  Oct  12  11:55  emoji
 -rw-r--r--  1  tomhall  12003  Oct   3  17:30  infer_jf_test_joined.csv
 -rw-r--r--  1  tomhall   5245  Oct   3  17:30  infer_join_fields_test1.csv
 -rw-r--r--  1  tomhall   6043  Oct   3  17:30  infer_join_fields_test2.csv'
-[ "$(ds:fit $ls_sq)" = "$fit_expected" ] || ds:fail 'fit failed ls sq case'
+[ "$(ds:fit $ls_sq -v color=never)" = "$fit_expected" ] || ds:fail 'fit failed ls sq case'
 
 ds:fit $jnd1 -v bufferchar="|" > $tmp
 cmp --silent $jnd2 $tmp || ds:fail 'fit failed bufferchar/decimal complex csv case'
@@ -450,7 +452,7 @@ fit_expected="Index  Item                              Cost    Tax  Total
     7  Wrench Set, 18 pieces            10.00   0.75  10.75
     8  M and M, 42 oz                    8.98   0.67   9.65
     9  Bertoli Alfredo Sauce             2.12   0.16   2.28"
-[ "$(ds:fit $complex_csv5 | head)" = "$fit_expected" ] || ds:fail 'fit failed spaced quoted field case'
+[ "$(ds:fit $complex_csv5 -v color=never | head)" = "$fit_expected" ] || ds:fail 'fit failed spaced quoted field case'
 
 fit_input='# Test comment 1
 1,2,3,4,5,100
@@ -467,7 +469,7 @@ g                      h  i  j  k  l  m  f  o
                           2  3  5  1
 # Test comment 2
 // Diff style comment'
-fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v startfit=a | sed -E 's/[[:space:]]+$//g')"
+fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v startfit=a -v color=never | sed -E 's/[[:space:]]+$//g')"
 [ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed startfit case'
 
 fit_expected='# Test comment 1
@@ -477,7 +479,7 @@ g,h,i,j,k,l,m,f,o
 ,,2,3,5,1
 # Test comment 2
 // Diff style comment'
-fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v startfit=2 -v endfit=f | sed -E 's/[[:space:]]+$//g')"
+fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v startfit=2 -v endfit=f -v color=never | sed -E 's/[[:space:]]+$//g')"
 [ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed startfit endfit case'
 
 fit_expected='# Test comment 1
@@ -487,7 +489,7 @@ g  h  i  j  k  l    m  f  o
       2  3  5  1
 # Test comment 2
 // Diff style comment'
-fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v startrow=2 -v endrow=5 | sed -E 's/[[:space:]]+$//g')"
+fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v startrow=2 -v endrow=5 -v color=never | sed -E 's/[[:space:]]+$//g')"
 [ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed startrow endrow case'
 
 fit_expected='# Test comment 1
@@ -497,7 +499,7 @@ g  h  i  j  k  l  m  f  o
 ,,2,3,5,1
 # Test comment 2
 // Diff style comment'
-fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v onlyfit='^[a-z]' | sed -E 's/[[:space:]]+$//g')"
+fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v onlyfit='^[a-z]' -v color=never | sed -E 's/[[:space:]]+$//g')"
 [ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed onlyfit case'
 
 fit_expected='# Test comment 1
@@ -507,8 +509,32 @@ g,h,i,j,k,l,m,f,o
       2  3  5  1
 # Test comment 2
 // Diff style comment'
-fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v nofit='(^1|^#|^//|o$)' | sed -E 's/[[:space:]]+$//g')"
+fit_actual="$(echo -e "$fit_input" | ds:fit -F, -v nofit='(^1|^#|^//|o$)' -v color=never | sed -E 's/[[:space:]]+$//g')"
 [ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed nofit case'
+
+fit_input="one two three four + *\n-7 -5 -7 -1 -20 -48\n0.0833 0.1667 0.0938 1.333 0.01 0.0017"
+fit_expected='    one      two    three    four       +         *
+-7.0000  -5.0000  -7.0000  -1.000  -20.00  -48.0000
+ 0.0833   0.1667   0.0938   1.333    0.01    0.0017'
+fit_actual="$(echo -e "$fit_input" | ds:fit -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed negative decimal case 1'
+
+fit_input='a@@@1@@@-2@@@3@@@4@@@-0.0416667@@@6@@@-24@@@-6
+b@@@0@@@-3@@@4@@@1@@@0@@@2@@@0@@@-2
+c@@@3@@@6@@@2.5@@@4@@@0.05@@@15.5@@@180@@@-15.5
+-@@@-4@@@-1@@@-9.5@@@-9@@@-0.0083333@@@-23.5@@@-156@@@23.5
+/@@@0@@@1@@@4.8@@@1@@@0@@@0.774194@@@0@@@-0.774194
+*@@@0@@@36@@@30@@@16@@@0@@@186@@@0@@@-186
++@@@4@@@1@@@9.5@@@9@@@0.0083333@@@23.5@@@156@@@-23.5'
+fit_expected='a   1  -2   3.0   4  -0.0416667       6.000000   -24      -6.000000
+b   0  -3   4.0   1   0.0000000       2.000000     0      -2.000000
+c   3   6   2.5   4   0.0500000      15.500000   180     -15.500000
+-  -4  -1  -9.5  -9  -0.0083333     -23.500000  -156      23.500000
+/   0   1   4.8   1   0.0000000       0.774194     0      -0.774194
+*   0  36  30.0  16   0.0000000     186.000000     0    -186.000000
++   4   1   9.5   9   0.0083333      23.500000   156     -23.500000'
+fit_actual="$(echo -e "$fit_input" | ds:fit -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed negative decimal case 2'
 
 
 # FC TESTS
@@ -652,30 +678,48 @@ agg_expected='@@@one@@@two@@@three@@@four@@@+|all@@@*|2..4@@@/|all
 @@@4@@@3@@@2@@@1@@@10@@@6@@@0.666667
 @@@1@@@2@@@4@@@3@@@10@@@24@@@0.0416667
 @@@3@@@2@@@4@@@1@@@10@@@8@@@0.375
-+|$2/$3@@@0.25@@@0.666667@@@1.5@@@4@@@1@@@4@@@0.0625
+$2/$3@@@0.25@@@0.666667@@@1.5@@@4@@@1@@@4@@@0.0625
 +|all@@@9@@@9@@@13@@@9@@@40@@@62@@@1.125'
-[ "$(ds:agg $tmp '+|all,*|2..4,/|all' '+|$2/$3,+|all' -v header=1)" = "$agg_expected" ] || ds:fail 'agg failed C+R multiple aggs header case'
+[ "$(ds:agg $tmp '+|all,*|2..4,/|all' '$2/$3,+|all' -v header=1)" = "$agg_expected" ] || ds:fail 'agg failed C+R multiple aggs header case'
 
 echo -e "a 1 -2 3 4\nb 0 -3 4 1\nc 3 6 2.5 4" > $tmp
 agg_expected='a@@@1@@@-2@@@3@@@4@@@6
-b@@@@@@-3@@@4@@@1@@@2
+b@@@0@@@-3@@@4@@@1@@@2
 c@@@3@@@6@@@2.5@@@4@@@15.5
 +|all@@@4@@@1@@@9.5@@@9@@@23.5'
 [ "$(ds:agg $tmp)" = "$agg_expected" ] || ds:fail 'agg failed readme case'
 agg_expected='a@@@1@@@-2@@@3@@@4@@@-24@@@-6
-b@@@@@@-3@@@4@@@1@@@-12@@@-12
+b@@@0@@@-3@@@4@@@1@@@0@@@-12
 c@@@3@@@6@@@2.5@@@4@@@180@@@15
-+|all@@@4@@@1@@@9.5@@@9@@@144@@@-3
-*|all@@@3@@@36@@@30@@@16@@@51840@@@1080'
++|all@@@4@@@1@@@9.5@@@9@@@156@@@-3
+*|all@@@0@@@36@@@30@@@16@@@0@@@1080'
 [ "$(ds:agg $tmp '*|all,$4*$3' '+|all,*|all')" = "$agg_expected" ] || ds:fail 'agg failed readme negatives multiples case'
 agg_expected='a@@@1@@@-2@@@3@@@4@@@-24@@@-6@@@~b
-b@@@@@@-3@@@4@@@1@@@-12@@@-12@@@1
+b@@@0@@@-3@@@4@@@1@@@0@@@-12@@@1
 c@@@3@@@6@@@2.5@@@4@@@180@@@15@@@0
-+|all@@@4@@@1@@@9.5@@@9@@@144@@@-3@@@1
-*|all@@@3@@@36@@@30@@@16@@@51840@@@1080@@@0'
++|all@@@4@@@1@@@9.5@@@9@@@156@@@-3@@@1
+*|all@@@0@@@36@@@30@@@16@@@0@@@1080@@@0'
 [ "$(ds:agg $tmp '*|all,$4*$3,~b' '+|all,*|all')" = "$agg_expected" ] || ds:fail 'agg failed readme kitchen sink case'
 
-
+echo -e "one two three four\nakk 2 3 4\nblah 3 2 1\nyuge 2 4 3\ngoal 2 4 1" > $tmp
+agg_expected='one@@@two@@@three@@@four@@@/@@@+@@@*@@@-
+akk@@@2@@@3@@@4@@@0.166667@@@9@@@24@@@-9
+blah@@@3@@@2@@@1@@@1.5@@@6@@@6@@@-6
+yuge@@@2@@@4@@@3@@@0.166667@@@9@@@24@@@-9
+goal@@@2@@@4@@@1@@@0.5@@@7@@@8@@@-7
+-@@@-9@@@-13@@@-9@@@-2.33334@@@-31@@@-62@@@31
+/@@@0.166667@@@0.09375@@@1.33333@@@1.33333@@@0.0238096@@@0.0208334@@@0.0238096
+*@@@24@@@96@@@12@@@0.0208334@@@3402@@@27648@@@3402
++@@@9@@@13@@@9@@@2.33334@@@31@@@62@@@-31'
+[ "$(ds:agg $tmp '/,+,*,-' '\-,/,*,+')" = "$agg_expected" ] || ds:fail 'agg failed all shortforms case'
+agg_expected='one@@@two@@@three@@@four@@@three+two@@@-
+akk@@@2@@@3@@@4@@@5@@@-9
+blah@@@3@@@2@@@1@@@5@@@-6
+yuge@@@2@@@4@@@3@@@6@@@-9
+goal@@@2@@@4@@@1@@@6@@@-7
+akk-goal@@@0@@@-1@@@3@@@-1@@@-2
+blah/yuge@@@1.5@@@0.5@@@0.333333@@@0.833333@@@0.666667'
+[ "$(ds:agg $tmp 'three+two,-' 'akk-goal,blah/yuge')" ] || ds:fail 'agg failed keysearch cases'
 
 # ASSORTED COMMANDS TESTS
 
@@ -765,8 +809,18 @@ expected='emoji  Generating_code_base10  init_awk_len  len_simple_extract  len_r
 🚧     unknown                            4                   1              3
 ❓     10067                              3                   1              2
 ❔     10068                              3                   1              2'
-actual="$(cat $emoji | ds:reo '1, NR%2 && NR>80 && NR<90' '[emoji,others' | ds:fit)"
+actual="$(cat $emoji | ds:reo '1, NR%2 && NR>80 && NR<90' '[emoji,others' | ds:fit -v color=never)"
 [ "$actual" = "$expected" ] || ds:fail 'integration readme emoji case failed'
+
+expected='    one      two     three     four         +         *
+ 1.0000   2.0000    3.0000   4.0000   10.0000   24.0000
+ 4.0000   3.0000    2.0000   1.0000   10.0000   24.0000
+ 1.0000   2.0000    4.0000   3.0000   10.0000   24.0000
+ 3.0000   2.0000    4.0000   1.0000   10.0000   24.0000
+-9.0000  -9.0000  -13.0000  -9.0000  -40.0000  -96.0000
+ 0.0833   0.1667    0.0938   1.3333    0.0100    0.0017'
+actual="$(echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" | ds:agg '+,*' '\-,/' | ds:fit -v d=4 -v color=never)"
+[ "$actual" = "$expected" ] || ds:fail 'integration agg fit negative decimals case failed'
 
 # CLEANUP
 

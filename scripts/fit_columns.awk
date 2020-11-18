@@ -5,7 +5,7 @@
 #       ds:fit, fit_columns.awk
 #
 # SYNOPSIS
-#       ds:fit [-h|--help|file] [awkargs]
+#       ds:fit [-h|--help|file] [prefield=t] [awkargs]
 #
 # DESCRIPTION
 #       fit_columns.awk is a sript to fit a table of values with dynamic column 
@@ -68,8 +68,8 @@
 #    -v onlyfit=pattern
 #
 #       Start fit at pattern, end fit at pattern:
-#    -v startfit=100
-#    -v endfit=200
+#    -v startfit=startpattern
+#    -v endfit=endpattern
 #
 #       Start fit at row number, end fit at row number:
 #    -v startrow=100
@@ -77,6 +77,8 @@
 ## TODO: Resolve lossy multibyte char output
 ## TODO: Fit newlines in fields
 ## TODO: Fix rounding in some cases (see test reo output fit)
+## TODO: Ingestion of scientific notation / floats (max decimal length default)
+## TODO: Pagination
 
 BEGIN {
   WCW_FS = " "
@@ -97,9 +99,12 @@ BEGIN {
       sn_len = 2 + d + 4 } # e.g. 0.00e+00
 
   if (!buffer) buffer = 2
+  if (!(color == "never")) {
+    color_on = 1; color_pending = 1 }
 
   if (!(color == "never")) {
     hl = "\033[1;93m"
+    white = "\033[1:37m"
     orange = "\033[38;2;255;165;1m"
     red = "\033[1;31m"
     no_color = "\033[0m" }
@@ -109,10 +114,62 @@ BEGIN {
   trailing_color_re = "[^^]\x1b\[((0|1);)?(3|4)?[0-7](;(0|1))?m"
   decimal_re = "^[[:space:]]*\\$?-?\\$?[0-9]+[\.][0-9]+[[:space:]]*$"
   num_re = "^[[:space:]]*\\$?-?\\$?[0-9]+([\.][0-9]*)?[[:space:]]*$"
+  int_re = "^[[:space:]]*-?\\$?[0-9]+[[:space:]]*$"
   null_re = "^\<?NULL\>?$"
 
   if (!tty_size)
     "tput cols" | getline tty_size; tty_size += 0
+}
+
+FNR < 2 && NR > FNR { # Reconcile lengths with term width after first pass
+  for (i = 1; i <= max_nf; i++) {
+    if (FMax[i]) {
+      MaxFLen[i] = FMax[i]
+      total_f_len += buffer
+
+      if (FMax[i] / total_f_len > 0.4 ) { 
+        GMax[i] = FMax[i] + buffer
+        g_max_len += GMax[i]
+        g_count++ }}}
+
+  shrink = tty_size && total_f_len > tty_size
+
+  if (shrink) {
+    if (color_on) PrintWarning()
+
+    if (length(GMax)) {
+      while (g_max_len / total_f_len / length(GMax) > Min(length(GMax) / max_nf * 2, 1) \
+              && total_f_len > tty_size) {
+        for (i in GMax) {
+          cut_len = int(FMax[i]/30)
+          FMax[i] -= cut_len
+          total_f_len -= cut_len
+          g_max_len -= cut_len
+          ShrinkF[i] = 1
+          MaxFLen[i] = FMax[i]
+          if (debug) DebugPrint(9) }}}
+
+    reduction_scaler = 14
+    
+    while (total_f_len > tty_size && reduction_scaler > 0) {
+      avg_f_len = total_f_len / max_nf
+      cut_len = int(avg_f_len/10)
+      scaled_cut = cut_len * reduction_scaler
+      if (debug) DebugPrint(4)
+      
+      for (i = 1; i <= max_nf; i++) {
+        if (! DSet[i] \
+            && ! (NSet[i] && ! NOverset[i]) \
+            && FMax[i] > scaled_cut \
+            && FMax[i] - cut_len > buffer) {
+          mod_cut_len = int((cut_len*2) ^ (FMax[i] / total_f_len))
+          FMax[i] -= cut_len
+          total_f_len -= cut_len
+          ShrinkF[i] = 1
+          MaxFLen[i] = FMax[i]
+          if (debug) DebugPrint(5) }}
+
+      reduction_scaler-- }}
 }
 
 partial_fit {
@@ -195,9 +252,11 @@ NR == FNR { # First pass, gather field info
         FMax[i] += recap_n_diff
         total_f_len += recap_n_diff }}
 
-    if (FNR < 30 && f ~ num_re) { # TODO: Change this count cutoff logic to only rows where fit applies
+    if (FNR < 30 && f ~ num_re) { # TODO: Change this limit logic to only rows where fit applies
       if (debug && !NSet[i]) DebugPrint(7)
       NSet[i] = 1
+      if (!DSet[i] && !DecPush[i] && f ~ int_re && match(f, /^(\$|-)/))
+        DecPush[i] = l_diff ? len : RLENGTH
       if (len > NMax[i]) NMax[i] = len }
 
     if (!dec_off && !DSet[i] && f ~ decimal_re) {
@@ -212,8 +271,12 @@ NR == FNR { # First pass, gather field info
         sn_diff = sn_len - orig_max
         f_diff = Max(sn_diff, 0) }
       else {
-        gsub("[^0-9]", "", NParts[i])
-        int_len = length(int(NParts[1]))
+        gsub("[^0-9\-]", "", NParts[1])
+        int_len = length(NParts[1])
+        if (DecPush[i] && !(NParts[1] ~ /^($|-)/)) {
+          int_len = Max(DecPush[i], int_len)
+          delete DecPush[i] }
+        if (int_len > NMax[i]) NMax[i] = int_len
         int_diff = int_len + 1 + d_len - len
         if (d == "z") {
           d_len++ # Removing dot
@@ -238,8 +301,12 @@ NR == FNR { # First pass, gather field info
           sn_diff = sn_len - orig_max
           f_diff = Max(sn_diff, 0) }
         else {
-          gsub("[^0-9]", "", NParts[1])
+          gsub("[^0-9\-]", "", NParts[1])
           int_len = length(int(NParts[1]))
+          if (DecPush[i] && !(NParts[1] ~ /^($|-)/)) {
+            int_len = Max(DecPush[i], int_len)
+            delete DecPush[i] }
+          if (int_len > NMax[i]) NMax[i] = int_len
           dot = (d_len == 0 ? 0 : 1)
           int_diff = int_len + dot + d_len - len
 
@@ -257,12 +324,16 @@ NR == FNR { # First pass, gather field info
       if (debug && f_diff) DebugPrint(3) }
 
     else if (l_diff > 0) {
-      if (sn && NSet[i] && ! NOverset[i] && NMax[i] > sn0_len && f ~ num_re) {
-        if (len > SaveNMax[i]) SaveNMax[i] = len
-        sn_diff = sn0_len - orig_max
-        
-        l_diff = sn_diff }
-      if (sn && (f ~ num_re) == 0) if (len > SaveSMax[i]) save_s_max[i] = len
+      if (NSet[i] && ! NOverset[i] && f ~ num_re) {
+        if (len > SaveNMax[i]) {
+          SaveNMax[i] = len
+          if (!DSet[i]) DecPush[i] = len }
+        if (sn && NMax[i] > sn0_len) {
+          sn_diff = sn0_len - orig_max
+          l_diff = sn_diff }}
+
+      if (sn && !(f ~ num_re))
+        if (len > SaveSMax[i]) SaveSMax[i] = len
 
       f_diff = l_diff
 
@@ -273,58 +344,7 @@ NR == FNR { # First pass, gather field info
   if (NF > max_nf) max_nf = NF
 }
 
-NR > FNR { # Second pass, scale down fields if length > tty_size and print
-  if (!reconciled) {
-    reconciled = 1
-    for (i = 1; i <= max_nf; i++) {
-      if (FMax[i]) {
-        MaxFLen[i] = FMax[i]
-        total_f_len += buffer
-
-        if (FMax[i] / total_f_len > 0.4 ) { 
-          GMax[i] = FMax[i] + buffer
-          g_max_len += GMax[i]
-          g_count++ }}}
-
-    shrink = tty_size && total_f_len > tty_size
-
-    if (shrink) {
-      if (!(color == "never")) PrintWarning()
-
-      if (length(GMax)) {
-        while (g_max_len / total_f_len / length(GMax) > Min(length(GMax) / max_nf * 2, 1) \
-                && total_f_len > tty_size) {
-          for (i in GMax) {
-            cut_len = int(FMax[i]/30)
-            FMax[i] -= cut_len
-            total_f_len -= cut_len
-            g_max_len -= cut_len
-            ShrinkF[i] = 1
-            MaxFLen[i] = FMax[i]
-            if (debug) DebugPrint(9) }}}
-
-      reduction_scaler = 14
-      
-      while (total_f_len > tty_size && reduction_scaler > 0) {
-        avg_f_len = total_f_len / max_nf
-        cut_len = int(avg_f_len/10)
-        scaled_cut = cut_len * reduction_scaler
-        if (debug) DebugPrint(4)
-        
-        for (i = 1; i <= max_nf; i++) {
-          if (! DSet[i] \
-              && ! (NSet[i] && ! NOverset[i]) \
-              && FMax[i] > scaled_cut \
-              && FMax[i] - cut_len > buffer) {
-            mod_cut_len = int((cut_len*2) ^ (FMax[i] / total_f_len))
-            FMax[i] -= cut_len
-            total_f_len -= cut_len
-            ShrinkF[i] = 1
-            MaxFLen[i] = FMax[i]
-            if (debug) DebugPrint(5) }}
-
-        reduction_scaler-- }}}
-
+NR > FNR { # Second pass, print formatted if applicable
   for (i = 1; i <= max_nf; i++) {
     not_last_f = i < max_nf;
     if (FMax[i]) {
@@ -351,15 +371,20 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
         justify_str = "%" # Right-align
         fmt_str = justify_str print_len type_str
 
+        if (color_on && color_pending) fmt_str = white fmt_str no_color
+
         printf fmt_str, value
         if (not_last_f) PrintBuffer(buffer)
       }
       else {
         if (ShrinkF[i]) {
-          color = hl; color_off = no_color
+          if (color_on) {
+            a_color = hl; color_off = no_color }
           value = CutStringByVisibleLen($i, MaxFLen[i] + WCWIDTH_DIFF[FNR, i]) }
         else {
-          color = ""; color_off = ""
+          if (color_on) {
+            a_color = color_pending ? white : ""
+            color_off = color_pending ? no_color : "" }
           value = $i }
 
         if (not_last_f)
@@ -368,7 +393,7 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
           print_len = length(value) + COLOR_DIFF[FNR, i] + WCWIDTH_DIFF[FNR, i]
 
         justify_str = "%-" # Left-align
-        fmt_str = color justify_str print_len "s" color_off
+        fmt_str = a_color justify_str print_len "s" color_off
 
         printf fmt_str, value
         if (not_last_f) PrintBuffer(buffer)
@@ -376,6 +401,8 @@ NR > FNR { # Second pass, scale down fields if length > tty_size and print
     if (debug && FNR < 4) DebugPrint(6) }
 
   print ""
+
+  if (color_pending) color_pending = 0
 }
 
 

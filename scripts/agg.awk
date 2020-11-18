@@ -22,14 +22,14 @@ BEGIN {
     exit x
     xa_count = split(x_aggs, XAggs, /,/) }
   for (i in RAggs) {
-    RA[i] = AggExpr(RAggs[i], 1)
+    RA[i] = AggExpr(RAggs[i], 1, i)
     RAI[RA[i]] = i }
   for (i in CAggs) {
-    CA[i] = AggExpr(CAggs[i], -1)
+    CA[i] = AggExpr(CAggs[i], 0, i)
     CAI[CA[i]] = i
     AggAmort[i] = CA[i] }
   for (i in XAggs) {
-    XA[i] = AggExpr(XAggs[i], 0)
+    XA[i] = AggExpr(XAggs[i], -1, i)
     XAI[XA[i]] = i }
 
   if (r || c || x)
@@ -46,7 +46,7 @@ BEGIN {
   "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0
 
   if (gen)
-    GenAllAggExpr(max_nr, -1)
+    GenAllAggExpr(max_nr, 0)
 
   OFS = (FS ~ "\\[:space:\\]") ? " " : FS
 }
@@ -56,6 +56,9 @@ NR < 2 {
   if (header) GenHeaderCAggExpr(HeaderAggs)
   if (gen) GenAllAggExpr(NF, 1)
   if (!fixed_nf) fixed_nf = NF
+  if (r) {
+    for (i in RA) {
+      if (KeyAgg[1, i]) SetRAggKeyFields(i, RA[i]) }}
 }
 
 r_c_base {
@@ -72,7 +75,7 @@ r_c_base {
 
   for (i in CA) {
     agg_amort = AggAmort[i]
-    if (!SearchAggs[agg_amort] && !Indexed(agg_amort, NR)) continue
+    if (!KeyAgg[0, i] && !SearchAggs[agg_amort] && !Indexed(agg_amort, NR)) continue
     CAgg[i] = AdvCarryVec(i, NF, agg_amort, CAgg[i]) }
 }
 
@@ -92,14 +95,14 @@ END {
     if (print_og) {
       split(_[i], Row, FS)
       for (j = 1; j <= fixed_nf; j++) {
-        if (Row[j]) printf "%s", Row[j]
+        printf "%s", Row[j]
         if (j < fixed_nf || ra_count)
           printf "%s", OFS }}
     else if (i == 1 && header) {
       printf "%s", RHeader[i] OFS }
     for (j = 1; j <= ra_count; j++) {
       agg = RA[j]
-      print_header = (header || !RAgg[agg, j]) && i < 2
+      print_header = (header || !RAgg[agg, i]) && i < 2
       print_str = print_header ? RAggs[j] : RAgg[agg, i]
       printf "%s", print_str
       if (j < ra_count)
@@ -124,34 +127,62 @@ END {
         if (j < ra_count)
           printf "%s", OFS }}
     print "" }
+
+  if (debug) {
+    for (i in RA) {
+      print i" "RAggs[i]" "RA[i]
+      print "KeyAgg? "KeyAgg[1, i]
+      print "SearchAgg? "SearchAgg[RA[i]]
+      print "AllAgg? "AllAggs[RA[i]] }
+    for (i in CA) {
+      print i" "CAggs[i]" "CA[i]
+      print "KeyAgg? "KeyAgg[0, i]
+      print "SearchAgg? "SearchAgg[CA[i]]
+      print "AllAgg? "AllAggs[CA[i]] }}
 }
 
 
 
-function AggExpr(agg_expr, call) {
+function AggExpr(agg_expr, call, call_idx) {
   gsub(/[[:space:]]+/, "", agg_expr)
+  all_agg = 0
 
-  if (agg_expr ~ /\|all$/)
-    AllAggs[agg_expr] = 1
+  if (agg_expr ~ /^[\+\-\*\/]\|all$/) {
+    all_agg = 1
+    AllAggs[agg_expr] = 1 }
 
-  else if (agg_expr ~ /\|.+\.\./) {
-    split(agg_expr, Agg, /\|/)
-    op = Agg[1] ? Agg[1] : "+"
-    gsub(/\$/, "", Agg[2])
-    split(Agg[2], AggAnchor, /\.\./)
-    agg_expr = "$" AggAnchor[1]
+  else if (agg_expr ~ /^[\+\-\*\/]$/) {
+    agg_expr = agg_expr "|all"
+    all_agg = 1
+    AllAggs[agg_expr] = 1 }
+
+  else if (agg_expr ~ /^[\+\-\*\/]\|.*\.\./) {
+    split(agg_expr, AggBase, /\|/)
+    op = AggBase[1] ? AggBase[1] : "+"
+    gsub(/\$/, "", AggBase[2])
+    split(AggBase[2], AggAnchor, /\.\./)
+    if (!AggAnchor[1]) AggAnchor[1] = 1
+    if (!AggAnchor[2])
+      AggAnchor[2] = call > 0 ? max_nr : 100
+    agg_expr = op "$" AggAnchor[1]
     for (j = AggAnchor[1] + 1; j < AggAnchor[2]; j++)
       agg_expr = agg_expr op "$" j
     agg_expr = agg_expr op "$" AggAnchor[2] }
 
-  else if (agg_expr ~ /^~/)
-    SearchAggs[agg_expr] = substr(agg_expr, 2, length(agg_expr))
+  else if (agg_expr ~ /^~/) {
+    SearchAggs[agg_expr] = substr(agg_expr, 2, length(agg_expr)) }
 
   else if (agg_expr ~ /[A-z]/) {
-    print "Aggregation expression unhandled"
-    print "Example valid expressions:"
-    print "\"+|all\"  \"$3+$2\"  \"*|7..9\"  \"~search_pattern\""
-    exit 1 }
+    KeyAgg[call, call_idx] = 1 }
+
+  if (!(all_agg || SearchAggs[agg_expr])) {
+    match(agg_expr, /^[\+\-\*\/]/)
+    if (agg_expr ~ /^[\+]/)
+      agg_expr = "0+" substr(agg_expr, RLENGTH + 1, length(agg_expr))
+    else if (agg_expr ~ /^[\-]/)
+      agg_expr = "0-" substr(agg_expr, RLENGTH + 1, length(agg_expr))
+    else if (agg_expr ~ /^[\*\/]/)
+      agg_expr = "1*" substr(agg_expr, RLENGTH + 1, length(agg_expr)) }
 
   return agg_expr
 }
@@ -160,9 +191,9 @@ function GenHeaderCAggExpr(HeaderAggs) { # TODO
   for (agg in HeaderAggs) {
     split(agg, Agg, /\|/)
     if (agg in CAI)
-      CA[CAI[agg]] = AggExpr(Agg[1]"|1.."max, -1)
+      CA[CAI[agg]] = AggExpr(Agg[1]"|1.."max, 0)
     if (agg in XAI)
-      XA[XAI[agg]] = AggExpr(Agg[i]"|1.."max, 0) }
+      XA[XAI[agg]] = AggExpr(Agg[i]"|1.."max, -1) }
 }
 
 function GenAllAggExpr(max, call) {
@@ -170,11 +201,25 @@ function GenAllAggExpr(max, call) {
     split(agg, Agg, /\|/)
     if (call > 0 && agg in RAI)
       RA[RAI[agg]] = AggExpr(Agg[1]"|1.."max, 1)
-    if (call < 0 && agg in CAI) {
-      CA[CAI[agg]] = AggExpr(Agg[1]"|1.."max, -1)
+    if (!call && agg in CAI) {
+      CA[CAI[agg]] = AggExpr(Agg[1]"|1.."max, 0)
       AggAmort[CAI[agg]] = CA[CAI[agg]] }
-    if (!call && agg in XAI)
-      XA[XAI[agg]] = AggExpr(Agg[i]"|1.."max, 0) }
+    if (call < 0 && agg in XAI)
+      XA[XAI[agg]] = AggExpr(Agg[i]"|1.."max, -1) }
+}
+
+function SetRAggKeyFields(r_agg_i, agg_expr) {
+  keys = split(agg_expr, Keys, /[\+\*\-\/]/)
+  gsub(/\+/, "____+____", agg_expr)
+  gsub(/\-/, "____-____", agg_expr)
+  gsub(/\*/, "____*____", agg_expr)
+  gsub(/\//, "____/____", agg_expr)
+  for (k = 1; k <= length(Keys); k++) {
+    for (f = 1; f <= NF; f++)
+      if ($f ~ Keys[k]) gsub("(____)?"Keys[k]"(____)?", "$"f, agg_expr) }
+  gsub(/[^\+\*\-\/0-9\$]/, "", agg_expr)
+  RA[r_agg_i] = agg_expr
+  RAI[agg_expr] = r_agg_i
 }
 
 function GenRExpr(agg) {
@@ -187,14 +232,18 @@ function GenRExpr(agg) {
 
   else {
     fs = split(agg, Fs, /[\+\*\-\/]/)
-    ops = split(agg, Ops, /\$([0-9]+|NF)/)
+    ops = split(agg, Ops, /[^\+\*\-\/]+/)
     for (j = 1; j <= fs; j++) {
       f = Fs[j]; op = Ops[j+1]
+    if (f ~ /\$[0-9]+/) {
       gsub(/(\$|[[:space:]]+)/, "", f)
-      val = $f
-      gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
-      if (debug) print "GENREXPR: " expr val op
-      if (val && val ~ /^-?[0-9]+\.?[0-9]*$/) {
+      val = f ? $f : ""
+      gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val) }
+    else
+      val = f
+
+    if (debug) print agg " :: GENREXPR: " expr val op
+      if (val != "" && val ~ /^-?[0-9]+\.?[0-9]*$/) {
         expr = expr TruncVal(val) op }}}
 
   return expr
@@ -202,17 +251,25 @@ function GenRExpr(agg) {
 
 function AdvCarryVec(c_agg_i, nf, agg_amort, carry) { # TODO: This is probably wildly inefficient
   split(carry, CarryVec, ",")
-  carry = ""
-  vec_expr = ""
+  t_carry = ""
+  active_key = ""
   search = 0
   if (SearchAggs[agg_amort]) {
     search = SearchAggs[agg_amort] }
   else {
-    match(agg_amort, /\$([0-9]+|NR)/)
+    if (!agg_amort) return carry
+    match(agg_amort, /[^\+\*\-\/]+/)
+    if (KeyAgg[0, c_agg_i]) {
+      row = $0; gsub(/[[:space:]]+/, "", row)
+      active_key = substr(agg_amort, RSTART, RLENGTH)
+      if (!(row ~ active_key))
+        return carry }
     right = substr(agg_amort, RSTART + RLENGTH, length(agg_amort))
     AggAmort[c_agg_i] = right
     match(agg_amort, /[\+\*\-\/]+/)
     margin_op = substr(agg_amort, RSTART, RLENGTH) }
+
+  if (debug) print c_agg_i, agg_amort, carry
 
   for (f = 1; f <= nf; f++) {
     sep = f == 1 ? "" : ","
@@ -220,23 +277,32 @@ function AdvCarryVec(c_agg_i, nf, agg_amort, carry) { # TODO: This is probably w
     if (search) { 
       if (!CarryVec[f]) CarryVec[f] = "0"
       margin_op = val ~ search ? "+1" : "" 
-      carry = carry sep CarryVec[f] margin_op }
+      t_carry = t_carry sep CarryVec[f] margin_op }
     else {
       gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
-      if (val && val ~ /^-?[0-9]+\.?[0-9]*$/) {
-        if (!CarryVec[f])
-          CarryVec[f] = margin_op == "*" ? "1" : "0"
-        carry = carry sep CarryVec[f] margin_op TruncVal(val) }
+      if (val != "" && val ~ /^-?[0-9]+\.?[0-9]*$/) {
+        if (!CarryVec[f]) {
+          if (margin_op == "*")
+            CarryVec[f] = "1"
+          else if (margin_op == "/")
+            margin_op = ""
+          else {
+            CarryVec[f] = "0"
+            if (active_key && margin_op == "-") margin_op = "+" }}
+        t_carry = t_carry sep CarryVec[f] margin_op TruncVal(val) }
       else {
-        carry = carry sep CarryVec[f] }}
-    if (debug) print "ADVCARRYVEC: " carry sep CarryVec[f] margin_op val }
+        t_carry = t_carry sep CarryVec[f] }}
+    if (debug) print CA[c_agg_i]" :: ADVCARRYVEC: " t_carry sep CarryVec[f] margin_op val }
 
   if (!search && (!header || NR > 1)) {
     for (j = 1; j <= ra_count; j++) {
+      if (RAgg[RA[j], NR] == "" || (NR == 1 && RAgg[RA[j], NR] == 0)) continue
       if (margin_op == "*" && Totals[c_agg_i, j] == "") Totals[c_agg_i, j] = 1
+      if (debug)
+        print NR" TOTALADV: RA "RA[j]", CA "CA[c_agg_i]" -- "Totals[c_agg_i, j] margin_op RAgg[RA[j], NR]
       Totals[c_agg_i, j] = EvalExpr(Totals[c_agg_i, j] margin_op RAgg[RA[j], NR]) }}
 
-  return carry
+  return t_carry
 }
 
 function GenXExpr() { #TODO
@@ -247,6 +313,8 @@ function GenXExpr() { #TODO
 function EvalExpr(expr) {
   res = 0
   nm = gsub(/\*-/, "*", expr)
+  nm += gsub(/\/-/, "/", expr)
+  gsub(/--/, "+", expr)
   split(expr, a, "+")
   for(a_i in a){
     split(a[a_i], s, "-")
