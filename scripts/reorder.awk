@@ -548,7 +548,7 @@ function StoreFieldRefs() {
       ignore_case = (ignore_case_global || IgnoreCase[search])
       if (ignore_case) base_search = tolower(base_search)
       for (f = 1; f <= NF; f++) {
-        field = ic ? tolower($f) : $f
+        field = ignore_case ? tolower($f) : $f
         if (field ~ base_search) SearchFO[search] = SearchFO[search] f"," }}
 
     for (search in RCSearches) {
@@ -1248,6 +1248,8 @@ function BuildTokens(Tk) {
 function EvalExpr(expr) {
   res = 0
   nm = gsub(/\*-/, "*", expr)
+  nm += gsub(/\/-/, "/", expr)
+  gsub(/--/, "+", expr)
   # TODO: Add gsub for fields comparison here
   split(expr, a, "+")
   for(a_i in a){

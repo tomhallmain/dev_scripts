@@ -32,7 +32,9 @@ The below functions are especially useful when working in the terminal, and can 
 
 #### `ds:fit`
 
-Fits tabular data (including multibyte characters) dynamically into your terminal, and attempts to format it intelligently. If the max field length combined is too long, the longest fields will be right-truncated until the terminal width is reached.
+Fits tabular data (including multibyte characters) dynamically into your terminal, and attempts to format it richly and intelligently. If the max field lengths for all fields combined is too long, the longest fields will be right-truncated until the terminal width is reached.
+
+Also supports file sets as arguments to a single call for quickly reporting on multiple disjoined files.
 
 ```
 $ head -n5 tests/data/taxables.csv
@@ -41,12 +43,15 @@ $ head -n5 tests/data/taxables.csv
 2, "Rawlings Little League Baseball", 2.97, 0.22,  3.19
 3, "Secret Antiperspirant",           1.29, 0.10,  1.39
 4, "Deadpool DVD",                   14.96, 1.12, 16.08
+
 $ head tests/data/Taxables.csv | ds:fit -v bufferchar="|" -v d=z
 Index| Item                           | Cost| Tax| Total
     1| Fruit of the Loom Girl's Socks |    7|   0|     8
     2| Rawlings Little League Baseball|    2|   0|     3
     3| Secret Antiperspirant          |    1|   0|     1
     4| Deadpool DVD                   |   14|   1|    16
+
+$ ds:fit $(fd -e csv) # Fit all CSVs in current dir with fd
 ```
 
 #### `ds:reo`
@@ -107,12 +112,15 @@ a b c d
 /tmp/jn_b
 a b c d
 1 3 2 4
+
 $ ds:jn /tmp/jn_a /tmp/jn_b inner 1,4
 a  b  c  d  b  c
 1  2  3  4  3  2
+
 $ ds:jn /tmp/jn_a /tmp/jn_b right 1,2,3,4 1,3,2,4
 a  c  b  d
 1  2  3  4
+
 $ ds:jn /tmp/jn_a /tmp/jn_b outer merge -v merge_verbose=1
 BOTH       a  b  c  d
 /tmp/jn_b  1  3  2  4
@@ -139,20 +147,22 @@ $ cat /tmp/agg_ex
 a  1  -2  3.0  4
 b  0  -3  4.0  1
 c  3   6  2.5  4
+
 $ ds:agg /tmp/agg_ex
 a      1  -2  3.0  4   6.0
-b         -3  4.0  1   2.0
+b      0  -3  4.0  1   2.0
 c      3   6  2.5  4  15.5
 +|all  4   1  9.5  9  23.5
-$ ds:agg /tmp/agg_ex '*|all,$4*$3,~b' '+|all,*|all'
-a      1  -2   3.0   4    -24    -6  ~b
-b         -3   4.0   1    -12   -12   1
-c      3   6   2.5   4    180    15   0
-+|all  4   1   9.5   9    144    -3   1
-*|all  3  36  30.0  16  51840  1080   0
+
+$ ds:agg /tmp/agg_ex '*|all,$4*$3,~b' '+,*'
+a  1  -2   3.0   4    -24    -6  ~b
+b  0  -3   4.0   1    -12   -12   1
+c  3   6   2.5   4    180    15   0
++  4   1   9.5   9    144    -3   1
+*  3  36  30.0  16  51840  1080   0
 ```
 
-#### `ds:fc`
+#### `ds:fieldcounts`
 
 Get count data for unique lines or sets of fields. Runs ds:fit on output if to a terminal.
 
@@ -162,11 +172,13 @@ a:1
 a:2
 a:1
 b:1
-$ ds:fc /tmp/fc_ex | cat
+
+$ ds:fieldcounts /tmp/fc_ex | cat
 1 a:2
 1 b:1
 2 a:1
-$ ds:fc /tmp/fc_ex 2
+
+$ ds:fieldcounts /tmp/fc_ex 2
 1  2
 3  1
 ```
@@ -182,6 +194,7 @@ cdatetime    address
 1/1/06 0:00  2082 EXPEDITION WAY
 1/1/06 0:00  4 PALEN CT
 1/1/06 0:00  22 BECKFORD CT
+
 $ ds:reo tests/data/testcrimedata.csv 1..5 1,2 | ds:sbsp '\\/' "" -F, | ds:fit
 cdatetime              address
         1  1  06 0:00  3108 OCCIDENTAL DR

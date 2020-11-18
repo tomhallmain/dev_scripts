@@ -1,4 +1,4 @@
-1e+00| policyID| fl_site_limit| f_site_limit| tiv_2011| tiv_2012| statecode| county          | eq_site_limit| hu_site_limit
+[1:37m1e+00[0m| [1:37mpolicyID[0m| [1:37mfl_site_limit[0m| [1:37mf_site_limit[0m| [1:37mtiv_2011[0m| [1:37mtiv_2012[0m| [1:37mstatecode[0m| [1:37mcounty          [0m| [1:37meq_site_limit[0m| [1:37mhu_site_limit[0m
 2e+00|    9e+05|        <NULL>|       <NULL>|   <NULL>|   <NULL>| FL       |                 |              |              
 3e+00|    9e+05|        <NULL>|       <NULL>|   <NULL>|   <NULL>| FL       | 0               |         0e+00|         0e+00
 4e+00|    4e+05|         1e+06|        1e+06|    1e+06|    1e+06| FL       | CLAY COUNTY     |         1e+06|         1e+06
