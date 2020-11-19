@@ -4,20 +4,31 @@
 
 DS_SEP=$'@@@'
 
-ds:file_check() { # Test for file validity and fail if invalid: ds:file_check file_arg [enable_search]
+ds:file_check() { # Test for file validity and fail if invalid: ds:file_check testfile [writable=f] [enable_search]
   [ -z "$1" ] && ds:fail 'File not provided!'
   local tf="$1"
-  if [ "$2" ]; then
-    if [ -f "$tf" ]; then
+  if ds:test 't(rue)?' "$2"; then
+    [[ -w "$tf" && -f "$tf" ]] || ds:fail 'File is not writable!'
+  elif [ "$3" ]; then
+    if [[ -e "$tf" && ! -d "$tf" ]]; then
       echo -n "$tf"
     else
       local f=$(ds:nset 'fd' && fd -1 -t f "$tf" || find . -type f -name "*$tf*" | head -n1)
       [[ -z "$f" || ! -f "$f" ]] && ds:fail 'File not provided or invalid!'
       local conf=$(ds:readp "Arg is not a file - run on closest match ${f}? (y/n)" | ds:downcase)
-      [ "$conf" = "y" ] && echo -n "$f" && return || ds:fail 'File not provided or invalid!'
+      [ "$conf" = "y" ] && echo -n "$f" || ds:fail 'File not provided or invalid!'
     fi
-  else
-    [ ! -f "$tf" ] && ds:fail 'File not provided or invalid!'; fi
+  elif [ ! -e "$tf" ] || [ -d "$tf" ]; then
+    ds:fail 'File not provided or invalid!'; fi
+}
+
+ds:fd_check() { # Convert fds into files: ds:fd_check testfile
+  [ -z "$1" ] && ds:fail 'File not provided!'
+  if [[ "$1" =~ '/dev/fd/' ]]; then
+    local ds_fd="$(ds:tmp 'ds_fd')"
+    cat "$1" > "$ds_fd"
+    echo -n "$ds_fd"
+  else echo -n "$1"; fi
 }
 
 ds:noawkfs() { # Test whether AWK arg for setting field separator is present: ds:noawkfs

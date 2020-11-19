@@ -59,8 +59,8 @@ ch="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
 ds:commands > $tmp
 cmp --silent $cmds $tmp && grep -q "$ch" $tmp     || ds:fail 'commands listing failed'
 
-ds_help_output="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
-@@@ds:help@@@@@@Print help for a given command@@@ds:help ds_command"
+ds_help_output="COMMAND@@@DESCRIPTION@@@USAGE@@@
+ds:help@@@Print help for a given command@@@ds:help ds_command@@@"
 [ "$(ds:help 'ds:help')" = "$ds_help_output" ]    || ds:fail 'help command failed'
 ds:nset 'ds:nset' 1> $q                           || ds:fail 'nset command failed'
 ds:searchn 'ds:searchn' 1> $q                     || ds:fail 'searchn failed on func search'
@@ -277,8 +277,7 @@ reo_expected='**@@@ds:jn@@@@@@Join two files or a file and STDIN with any keyset
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed full row len case'
 
 reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>48' 2)"
-reo_expected='ds:agg
-ds:jn
+reo_expected='ds:jn
 ds:nset'
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed basic len case'
 
