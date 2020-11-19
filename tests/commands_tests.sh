@@ -720,6 +720,30 @@ akk-goal@@@0@@@-1@@@3@@@-1@@@-2
 blah/yuge@@@1.5@@@0.5@@@0.333333@@@0.833333@@@0.666667'
 [ "$(ds:agg $tmp 'three+two,-' 'akk-goal,blah/yuge')" ] || ds:fail 'agg failed keysearch cases'
 
+# CASE TESTS
+
+case_input='test_vAriANt Case'
+
+case_expected='test_variant case'
+case_actual="$(echo "$case_input" | ds:case down)"
+[ "$case_actual" = "$case_expected" ] || ds:fail 'case failed lower/down case'
+case_expected='TEST_VARIANT CASE'
+case_actual="$(echo "$case_input" | ds:case uc)"
+[ "$case_actual" = "$case_expected" ] || ds:fail 'case failed upper case'
+case_expected='Test V Ari Ant Case'
+case_actual="$(echo "$case_input" | ds:case proper)"
+[ "$case_actual" = "$case_expected" ] || ds:fail 'case failed proper case'
+case_expected='testVAriAntCase'
+case_actual="$(echo "$case_input" | ds:case cc)"
+[ "$case_actual" = "$case_expected" ] || ds:fail 'case failed camel case'
+case_expected='test_v_ari_ant_case'
+case_actual="$(ds:case "$case_input" sc)"
+[ "$case_actual" = "$case_expected" ] || ds:fail 'case failed snake case'
+case_expected='TEST_V_ARI_ANT_CASE'
+case_actual="$(ds:case "$case_input" var)"
+[ "$case_actual" = "$case_expected" ] || ds:fail 'case failed variable case'
+
+
 # ASSORTED COMMANDS TESTS
 
 [ "$(echo 1 2 3 | ds:join_by ', ')" = "1, 2, 3" ] || ds:fail 'join_by failed on pipe case'

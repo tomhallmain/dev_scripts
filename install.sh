@@ -167,7 +167,7 @@ echo
 echo 'Shell session refresh is required before commands will be usable.'
 echo
 conf="$(ds:readp 'Would you like to refresh now? (y/n)')"
-if [ "$(ds:downcase "$conf")" = y ]; then
+if [ "$conf" = y ]; then
   echo
   echo 'Dev Scripts now installed - restarting shell in 5 seconds'
   echo

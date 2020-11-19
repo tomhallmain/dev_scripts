@@ -323,7 +323,7 @@ ds:git_squash() { # Squash last n commits (alias ds:gsq): ds:gsq [n_commits=1]
     The new commit messages will be:
       $(git log --format=%B --reverse HEAD..HEAD@{1})
 
-    Please confirm (y/n) " | ds:downcase)"
+    Please confirm (y/n)")"
   [ ! "$conf" = y ] && echo 'No change made' && return 1
   let local extent=$extent+1
   git reset --soft HEAD~$extent
@@ -360,12 +360,12 @@ ds:git_branch() { # Run git branch for all repos (alias ds:gb): ds:gb
 }
 alias ds:gb="ds:git_branch"
 
-ds:git_add_com_push() { # Add, commit with message, push (alias ds:gacmp): ds:gacmp commit_message
+ds:git_add_com_push() { # Add, commit with message, push (alias ds:gacp): ds:gacp commit_message
   ds:not_git && return 1
   local commit_msg="$1"
   ds:git_add_all; ds:gcam "$commit_msg"; ds:git_push_cur
 }
-alias ds:gacmp="ds:git_add_com_push"
+alias ds:gacp="ds:git_add_com_push"
 
 ds:git_recent() { # Display commits sorted by recency (alias ds:gr): ds:gr [refs=heads] [run_context=display]
   ds:not_git && return 1
@@ -1269,7 +1269,7 @@ ds:sedi() { # Run global in place substitutions: ds:sedi file|dir search [replac
     local file="$1"
   else
     [ -d "$1" ] && local dir="$1" || local dir=.
-    local conf="$(ds:readp "Confirm replacement of \"$2\" -> \"$3\" on all files in $dir (y/n):" | ds:downcase)"
+    local conf="$(ds:readp "Confirm replacement of \"$2\" -> \"$3\" on all files in $dir (y/n):")"
     [ ! "$conf" = y ] && echo 'No change made!' && return 1; fi
 
   if [ "$(printf "%q" _ > /dev/null)" ]; then
@@ -1362,6 +1362,21 @@ ds:unicode() { # ** Get UTF-8 unicode for a character sequence: ds:unicode [str]
     local code="$(printf "$i" | xxd -b | awk -F"[[:space:]]" "$prg" | bc)"
     printf "\\\U$code"
   done; echo
+}
+
+ds:case() { # ** Recase text data globally or in part: ds:case [string] [tocase=proper] [filter]
+  local file=$(ds:tmp 'ds_case') piped=0
+  if ds:pipe_open; then
+    cat /dev/stdin > $file
+  elif [[ -e "$1" && ! -d "$1" ]]; then
+    cat "$1" > $file; shift
+  elif [ "$1" ]; then
+    echo "$1" > $file; shift
+  else
+    ds:fail 'Input string not found: ** | ds:case [string] [tocase=proper] [filter]'
+  fi
+  awk -v tocase="${1:-pc}" -f "$DS_SCRIPT/case.awk" $file
+  ds:pipe_clean $file
 }
 
 ds:websel() { # Download and extract inner html by regex: ds:websel url [tag_re] [attrs_re]

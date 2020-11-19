@@ -3,6 +3,7 @@
 @@@@@@@@@@@@
 **@@@ds:agg@@@@@@Aggregate by index/pattern@@@ds:agg [file] [r_aggs] [c_aggs] [x_aggs] [awkargs]
 @@@ds:asgn@@@@@@Print lines matching assignment pattern@@@ds:asgn file
+**@@@ds:case@@@@@@Recase text data globally or in part@@@ds:case [string] [tocase=proper] [filter]
 @@@ds:commands@@@@@@List dev_scripts commands@@@ds:commands [bufferchar] [utils]
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [file] [n_lines=1]
@@ -19,7 +20,7 @@
 **@@@ds:fit@@@@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file*] [prefield=t] [awkargs]
 @@@ds:fsrc@@@@@@Show the source of a shell function@@@ds:fsrc func
 @@@ds:gexec@@@@@@Generate a script from pieces of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
-@@@ds:git_add_com_push@@@ds:gacmp@@@Add, commit with message, push@@@ds:gacmp commit_message
+@@@ds:git_add_com_push@@@ds:gacp@@@Add, commit with message, push@@@ds:gacp commit_message
 @@@ds:git_branch@@@ds:gb@@@Run git branch for all repos@@@ds:gb
 @@@ds:git_checkout@@@ds:gco@@@Checkout branch matching pattern@@@ds:gco [pattern]
 @@@ds:git_cross_view@@@ds:gcv@@@Display table of git repos vs branches@@@ds:gcv [:ab:Dfhmo:sv]

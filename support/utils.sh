@@ -15,7 +15,7 @@ ds:file_check() { # Test for file validity and fail if invalid: ds:file_check te
     else
       local f=$(ds:nset 'fd' && fd -1 -t f "$tf" || find . -type f -name "*$tf*" | head -n1)
       [[ -z "$f" || ! -f "$f" ]] && ds:fail 'File not provided or invalid!'
-      local conf=$(ds:readp "Arg is not a file - run on closest match ${f}? (y/n)" | ds:downcase)
+      local conf=$(ds:readp "Arg is not a file - run on closest match ${f}? (y/n)")
       [ "$conf" = "y" ] && echo -n "$f" || ds:fail 'File not provided or invalid!'
     fi
   elif [ ! -e "$tf" ] || [ -d "$tf" ]; then
@@ -179,7 +179,7 @@ ds:readp() { # Portable read prompt: ds:readp [message]
     read "readvar?$1 "
   else
     ds:fail 'This shell unsupported at this time'; fi
-  ds:downcase $readvar; unset readvar
+  ds:case $readvar down; unset readvar
 }
 
 # TODO: Remove these unnecessary git methods
@@ -200,14 +200,6 @@ ds:gcam() { # Git commit add message
     git commit -am "$1"
   else
     git commit; fi
-}
-
-ds:downcase() { # ** Downcase strings: ds:downcase str
-  if ds:pipe_open; then
-    cat /dev/stdin | tr "[:upper:]" "[:lower:]"
-  else
-    echo "$1" | tr "[:upper:]" "[:lower:]"
-  fi
 }
 
 ds:is_int() { # Tests if arg is an integer: ds:is_int arg
