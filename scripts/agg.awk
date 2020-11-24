@@ -3,8 +3,6 @@
 # Aggregate values by expressions
 #
 #
-## TODO: Fix CAggs multiply, divide case
-##   (for some reason divide specific rows case works when +| is prepended)
 ## TODO: XAggs
 ## TODO: CAggs / Raggs scoping
 ## TODO: og_off case - use indices?
@@ -22,6 +20,7 @@ BEGIN {
     exit x
     xa_count = split(x_aggs, XAggs, /,/) }
   for (i in RAggs) {
+    if (RAggs[i] == "off") { delete RAggs[i]; continue }
     RA[i] = AggExpr(RAggs[i], 1, i)
     RAI[RA[i]] = i }
   for (i in CAggs) {
@@ -243,8 +242,8 @@ function GenRExpr(agg) {
       val = f
 
     if (debug) print agg " :: GENREXPR: " expr val op
-      if (val != "" && val ~ /^-?[0-9]+\.?[0-9]*$/) {
-        expr = expr TruncVal(val) op }}}
+    if (val != "" && val ~ /^-?[0-9]*\.?[0-9]+((E|e)(\+|-)[0-9]+)?$/)
+      expr = expr TruncVal(val) op }}
 
   return expr
 }
@@ -280,7 +279,7 @@ function AdvCarryVec(c_agg_i, nf, agg_amort, carry) { # TODO: This is probably w
       t_carry = t_carry sep CarryVec[f] margin_op }
     else {
       gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
-      if (val != "" && val ~ /^-?[0-9]+\.?[0-9]*$/) {
+      if (val != "" && val ~ /^-?[0-9]*\.?[0-9]+((E|e)(\+|-)?[0-9]+)?$/) {
         if (!CarryVec[f]) {
           if (margin_op == "*")
             CarryVec[f] = "1"
@@ -368,7 +367,8 @@ function Indexed(expr, field) {
 function TruncVal(val) {
   large_val = val > 999
   large_dec = val ~ /\.[0-9]{3,}/
-  if (large_val && large_dec)
-    val = int(val)
-  return val
+  if ((large_val && large_dec) || /^-?[0-9]*\.?[0-9]+(E|e)\+?([4-9]|[1-9][0-9]+)$/)
+    return int(val)
+  else
+    return sprintf("%f", val) # Small floats flow through this logic
 }

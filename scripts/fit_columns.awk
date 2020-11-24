@@ -77,8 +77,10 @@
 ## TODO: Resolve lossy multibyte char output
 ## TODO: Fit newlines in fields
 ## TODO: Fix rounding in some cases (see test reo output fit)
-## TODO: Ingestion of scientific notation / floats (max decimal length default)
 ## TODO: Pagination
+## TODO: dec_off > no_tf_num
+## TODO: Variant float output for normal sized nums
+## TODO: SetType function checking field against relevant re one time at start
 
 BEGIN {
   WCW_FS = " "
@@ -86,10 +88,15 @@ BEGIN {
   partial_fit = nofit || onlyfit || startfit || endfit || startrow || endrow
   prefield = FS == "@@@"
 
-  if (d < 0) {
+  if (d != "z" && !(d ~ /-?[0-9]+/)) {
+    d = 0 }
+  else if (d < 0) {
     sn = -d
     d = "z" }
   
+  if (d)
+    fix_dec = d == "z" ? 0 : d
+
   sn0_len = 1 + 4 # e.g. 0e+00
   
   if (sn && d) {
@@ -112,10 +119,11 @@ BEGIN {
   # TODO: Support more complex color defs like orange above
   color_re = "\x1b\[((0|1);)?(3|4)?[0-7](;(0|1))?m"
   trailing_color_re = "[^^]\x1b\[((0|1);)?(3|4)?[0-7](;(0|1))?m"
-  decimal_re = "^[[:space:]]*\\$?-?\\$?[0-9]+[\.][0-9]+[[:space:]]*$"
-  num_re = "^[[:space:]]*\\$?-?\\$?[0-9]+([\.][0-9]*)?[[:space:]]*$"
-  int_re = "^[[:space:]]*-?\\$?[0-9]+[[:space:]]*$"
   null_re = "^\<?NULL\>?$"
+  int_re = "^[[:space:]]*-?\\$?[0-9]+[[:space:]]*$"
+  num_re = "^[[:space:]]*\\$?-?\\$?[0-9]*\\.?[0-9]+[[:space:]]*$"
+  decimal_re = "^[[:space:]]*\\$?-?\\$?[0-9]*\\.[0-9]+[[:space:]]*$"
+  float_re = "^[[:space:]]*-?[0-9]\.[0-9]+(E|e)(\\+|-)?[0-9]+[[:space:]]*$"
 
   if (!tty_size)
     "tput cols" | getline tty_size; tty_size += 0
@@ -200,6 +208,7 @@ partial_fit {
 }
 
 NR == FNR { # First pass, gather field info
+  fitrows++
   for (i = 1; i <= NF; i++) {
     init_f = $i
     init_len = length(init_f)
@@ -243,8 +252,8 @@ NR == FNR { # First pass, gather field info
 
     # Otherwise just handle simple field length increases and store number
     # columns for later justification
-    
-    if (NSet[i] && !DSet[i] && !NOverset[i] && !(f ~ num_re) && !(f ~ null_re) && len > 0) {
+
+    if (len > 0 && NSet[i] && !DSet[i] && !NOverset[i] && !AnyFmtNum(f) && !(f ~ null_re)) {
       NOverset[i] = 1
       if (debug) DebugPrint(8)
       if (SaveNMax[i] > FMax[i] && SaveNMax[i] > SaveSMax[i]) {
@@ -252,82 +261,126 @@ NR == FNR { # First pass, gather field info
         FMax[i] += recap_n_diff
         total_f_len += recap_n_diff }}
 
-    if (FNR < 30 && f ~ num_re) { # TODO: Change this limit logic to only rows where fit applies
-      if (debug && !NSet[i]) DebugPrint(7)
-      NSet[i] = 1
-      if (!DSet[i] && !DecPush[i] && f ~ int_re && match(f, /^(\$|-)/))
-        DecPush[i] = l_diff ? len : RLENGTH
-      if (len > NMax[i]) NMax[i] = len }
+    if (f ~ num_re) {
+      if (fitrows < 30) {
+        if (debug && !NSet[i]) DebugPrint(7)
+        NSet[i] = 1 }
+      if (NSet[i] && !NOverset[i]) {
+        if (f ~ int_re) {
+          if (len > IMax[i]) IMax[i] = len
+          if (!DSet[i] && len > DecPush[i] && f ~ /^(\$|-)/) {
+            DecPush[i] = len }}
+        if (f ~ /^0+[1-9]/) {
+          f = sprintf("%f", f)
+          if (f ~ /\.[0-9]+0+/)
+            sub(/0*$/, "", f) # Remove trailing zeros in decimal part
+          len = length(f); l_diff = len - orig_max }
+        if (len > NMax[i]) NMax[i] = len }}
 
-    if (!dec_off && !DSet[i] && f ~ decimal_re) {
+    if (NSet[i] && !NOverset[i] && !LargeVals[i] && (f+0 > 9999)) LargeVals[i] = 1
+
+    if (!dec_off && !DSet[i] && ComplexFmtNum(f)) {
       DSet[i] = 1
-      split(f, NParts, "\.")
-      sub("0*$", "", NParts[2]) # Remove trailing zeros in decimal part
+      float = f ~ float_re
+      tval = TruncVal(f, 0, LargeVals[i])
+      if (tval ~ /\.[0-9]+0+/)
+        sub(/0*$/, "", tval) # Remove trailing zeros in decimal part
+      sub(/\.0*$/, "", tval) # Remove decimal part if equal to zero
+      t_len = length(tval)
+      t_diff = 0
+      l_diff = t_len - orig_max
+      split(tval, NParts, /\./)
       d_len = length(NParts[2])
       DMax[i] = d_len
+      apply_decimal = (d != "z" && (d || DMax[i]))
 
       if (sn) {
         if (!d) sn_len = 2 + d_len + 4
         sn_diff = sn_len - orig_max
         f_diff = Max(sn_diff, 0) }
       else {
-        gsub("[^0-9\-]", "", NParts[1])
+        gsub(/[^0-9\-]/, "", NParts[1])
         int_len = length(NParts[1])
+        if (int_len > 4) LargeVals[i] = 1
+
         if (DecPush[i] && !(NParts[1] ~ /^($|-)/)) {
-          int_len = Max(DecPush[i], int_len)
+          int_len = Max(DecPush[i] + apply_decimal, int_len)
+          dec_push = 1
           delete DecPush[i] }
         if (int_len > NMax[i]) NMax[i] = int_len
-        int_diff = int_len + 1 + d_len - len
-        if (d == "z") {
-          d_len++ # Removing dot
-          d_diff = -1 * d_len }
-        else {
-          d_diff = (d ? d - d_len : 0) }
+        int_diff = int_len - t_len
 
-        f_diff = Max(l_diff + int_diff + d_diff, 0) }
+        if (int_len > IMax[i])
+          IMax[i] = int_len
+        else
+          int_diff += IMax[i] - int_len
 
-      if (debug && f_diff) DebugPrint(2) }
+        if (l_diff > 0) {
+          if (apply_decimal) {
+            dot = (fix_dec || d_len ? 1 : 0)
+            dec = (float || !d_len ? dot : 0)
+            d_diff = dec + (d ? fix_dec : d_len) }
 
-    else if (!dec_off && DSet[i] && f ~ num_re) {
-        split(f, NParts, "\.")
-        sub("0*$", "", NParts[2]) # Remove trailing zeros in decimal part
+          f_diff = Max(l_diff + int_diff + d_diff - t_diff, 0) }}
+
+      if (debug) DebugPrint(2) }
+
+    else if (!dec_off && DSet[i] && AnyFmtNum(f)) {
+        float = f ~ float_re
+        tval = TruncVal(f, 0, LargeVals[i])
+        if (tval ~ /\.[0-9]+0+/)
+          sub(/0*$/, "", tval) # Remove trailing zeros in decimal part
+        sub(/\.0*$/, "", tval) # Remove decimal part if equal to zero
+        t_len = length(tval)
+        t_diff = float ? 0 : Max(len - t_len, 0)
+        l_diff = t_len - orig_max
+        split(tval, NParts, /\./)
         d_len = length(NParts[2])
         if (d_len > DMax[i]) {
-          dmax_diff = d_len - DMax[i]
+          dmax_diff = float ? d_len - DMax[i] : 0
           DMax[i] = d_len }
+        apply_decimal = (d != "z" && (d || DMax[i]))
 
         if (sn) {
           if (!d) sn_len = 2 + DMax[i] + 4
           sn_diff = sn_len - orig_max
           f_diff = Max(sn_diff, 0) }
         else {
-          gsub("[^0-9\-]", "", NParts[1])
+          gsub(/[^0-9\-]/, "", NParts[1])
           int_len = length(int(NParts[1]))
-          if (DecPush[i] && !(NParts[1] ~ /^($|-)/)) {
-            int_len = Max(DecPush[i], int_len)
-            delete DecPush[i] }
-          if (int_len > NMax[i]) NMax[i] = int_len
-          dot = (d_len == 0 ? 0 : 1)
-          int_diff = int_len + dot + d_len - len
+          if (int_len > 4) LargeVals[i] = 1
 
-          if (d == "z") {
-            d_len + dot 
-            d_diff = -1 * d_len
-            f_diff = Max(l_diff + int_diff + d_diff, 0) }
+          if (orig_max) {
+            if (DecPush[i] && !(NParts[1] ~ /^($|-)/)) {
+              int_len = Max(DecPush[i], int_len)
+              dec_push = 1
+              delete DecPush[i] }
+            if (int_len > NMax[i]) NMax[i] = int_len
+            int_diff = len - t_len
+
+            if (int_len > IMax[i])
+              IMax[i] = int_len
+            else if (!float)
+              int_diff += IMax[i] - int_len
+
+            if (apply_decimal) {
+              dot = (fix_dec || d_len ? 1 : 0)
+              dec = (d ? fix_dec : DMax[i])
+              d_diff = (float || !d_len ? dot : 0) + dec - d_len
+              f_diff = Max(l_diff + int_diff + d_diff + dmax_diff - t_diff, 0) }
+            else {
+              f_diff = Max(l_diff + int_diff + d_diff + dmax_diff - t_diff, 0) }}
+
           else {
-            dot = (!dot)
-            dec = (d ? d : DMax[i])
-            if (l_diff + dec + dot > 0) {
-              d_diff = dec - d_len + dot
-              f_diff = Max(l_diff + int_diff + d_diff + dmax_diff, 0) }}}
+            if (int_len > NMax[i]) NMax[i] = int_len
+            f_diff = l_diff }}
 
       if (debug && f_diff) DebugPrint(3) }
 
     else if (l_diff > 0) {
-      if (NSet[i] && ! NOverset[i] && f ~ num_re) {
+      if (NSet[i] && !NOverset[i] && f ~ num_re) {
         if (len > SaveNMax[i]) {
-          SaveNMax[i] = len
-          if (!DSet[i]) DecPush[i] = len }
+          SaveNMax[i] = len }
         if (sn && NMax[i] > sn0_len) {
           sn_diff = sn0_len - orig_max
           l_diff = sn_diff }}
@@ -350,15 +403,15 @@ NR > FNR { # Second pass, print formatted if applicable
     if (FMax[i]) {
       if (DSet[i] || (NSet[i] && ! NOverset[i])) {
         
-        if ($i ~ num_re) {
+        if (AnyFmtNum($i)) {
           if (DSet[i]) {
             if (d == "z") {
               type_str = (sn ? ".0e" : "s")
               value = int($i) }
             else {
-              dec = (d ? d : DMax[i])
+              dec = (d ? fix_dec : DMax[i])
               type_str = (sn ? "." dec "e" : "." dec "f")
-              value = $i }}
+              value = TruncVal($i, dec, LargeVals[i]) }}
           else {
             type_str = (sn ? ".0e" : "s")
             value = $i }}
@@ -398,7 +451,7 @@ NR > FNR { # Second pass, print formatted if applicable
         printf fmt_str, value
         if (not_last_f) PrintBuffer(buffer)
       }}
-    if (debug && FNR < 4) DebugPrint(6) }
+    if (debug && FNR < 2) DebugPrint(6) }
 
   print ""
 
@@ -437,6 +490,25 @@ function CutStringByVisibleLen(str, red_len) {
 
   return red_str
 }
+function TruncVal(val, dec, large_vals) {
+  if (large_vals || (val+0 > 9999) || val ~ /-?[0-9]\.[0-9]+(E|e\+)([4-9]|[1-9][0-9]+)$/) {
+    dec_f = d ? fix_dec : Max(dec, 0)
+    full_f = length(int(val))
+    if (dec_f) full_f += dec_f + 1
+    return sprintf("%"full_f"."dec_f"f", val) }
+  else if (val ~ /\.[0-9]{5,}$/) {
+    dec_f = d ? fix_dec : Max(dec, 4)
+    full_f = length(int(val)) + dec_f + 1
+    return sprintf("%"full_f"."dec_f"f", val) }
+  else {
+    return sprintf("%f", val) } # Small floats flow through this logic
+}
+function AnyFmtNum(str) {
+  return (str ~ num_re || str ~ decimal_re || str ~ float_re)
+}
+function ComplexFmtNum(str) {
+  return (str ~ decimal_re || str ~ float_re)
+}
 function Max(a, b) {
   if (a > b) return a
   else if (a < b) return b
@@ -460,13 +532,17 @@ function DebugPrint(case) {
   # Switch statement not supported in all Awk implementations
   if (debug_col && i != debug_col) return
   if (case == 1) {
-    if (!title_printed) { title_printed=1
+    if (!debug1_title_printed) { debug1_title_printed=1
       printf "%-20s%5s%5s%5s%5s%5s%5s\n", "", "FNR", "i", "len", "ogmx", "fmxi", "ldf" }
     printf "%-20s%5s%5s%5s%5s%5s%5s", "max change: ", FNR, i, len, orig_max, FMax[i], l_diff }
-  else if (case == 2)
-    printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s", "decimal setting: ", FNR, i, d, d_len, d_len,  orig_max, len, int_diff, d_diff, l_diff, f_diff
-  else if (case == 3)
-    printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s", "decimal adjustment: ", FNR, i, d, d_len, DMax[i],  orig_max, len, int_diff, d_diff, l_diff, f_diff
+  else if (case == 2) {
+    if (!debug2_title_printed) { debug2_title_printed=1
+      printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s\n", "", "FNR", "i", "d", "i_ln", "d_ln", "t_ln", "nmax", "dmax", "omax", "len", "i_df", "d_df", "l_df", "t_df", "f_df", "tval" }
+    printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s", "decimal setting: ", FNR, i, d, int_len, d_len, t_len, NMax[i], 0, orig_max, len, int_diff, d_diff, l_diff, t_diff, f_diff, tval }
+  else if (case == 3) {
+    if (!debug3_title_printed) { debug3_title_printed=1
+      printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s\n", "", "FNR", "i", "d", "i_ln", "d_ln", "t_ln", "nmax", "dmax", "omax", "len", "i_df", "d_df", "l_df", "t_df", "f_df", "tval" }
+    printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s", "decimal adjustment: ", FNR, i, d, int_len, d_len, t_len, NMax[i], DMax[i], orig_max, len, int_diff, d_diff, l_diff, t_diff, f_diff, tval }
   else if (case == 4) {
     if (!s_title_printed) { s_title_printed=1
       printf "%-15s%5s%5s%5s%5s%5s%5s%5s\n", "", "i", "fmxi", "avfl", "mxnf", "rdsc", "tfl", "ttys" }

@@ -624,8 +624,9 @@ function StoreFieldRefs() {
         if (settable) anchor = f
         else if (len_expr) {
           anchor = length($f) }
-        else if ($f ~ Re["decnum"]) {
-          anchor = $f; gsub("[\$,]", "", anchor) }
+        else if ($f ~ Re["decnum"] || $f ~ Re["float"]) {
+          anchor = $f; gsub("[\$,\"]", "", anchor); anchor += 0
+          if (anchor ~ Re["float"]) anchor = int(anchor) }
         else if (comp == "!=") anchor = ""
         else continue
         eval = EvalExpr(anchor base_expr)
@@ -776,8 +777,9 @@ function StoreRowRefs() {
         if (position_test) { if (f > 1) break; else anchor = NR }
         else if (len_expr)
           anchor = c_off ? length($0) : length($f)
-        else if ($f ~ Re["decnum"]) {
-          anchor = $f; gsub("[\$,]", "", anchor) }
+        else if ($f ~ Re["decnum"] || $f ~ Re["float"]) {
+          anchor = $f; gsub("[\$,\"]", "", anchor); anchor += 0
+          if (anchor ~ Re["float"]) anchor = int(anchor) }
         else if (comp == "!=") anchor = ""
         else continue
         eval = EvalExpr(anchor base_expr)
@@ -1131,9 +1133,7 @@ function TestArg(arg, max_i, type, row_call) {
       gsub(Re["len"], "", len_arg); sub("\\)", "", len_arg)
       LenExpr[arg] = len_arg }
     if (substr(arg, 1, 1) ~ Re["intmat"]) SpecExpr[arg] = 1
-    for (sa_i = 2; sa_i <= length(Subargv); sa_i++)
-      if (!(Subargv[sa_i] ~ Re["int"])) nonint_sarg = 1
-    if (nonint_sarg || !(arg ~ Re["matarg1"] || arg ~ Re["matarg2"])) {
+    if (!(arg ~ Re["matarg1"] || arg ~ Re["matarg2"])) {
       print "Invalid expression order arg "arg" - expression format examples include:"
       print "NR%2  2%3=5  NF!=4  *6/8%2=1  length(6)>20"
       exit 1 }}
@@ -1203,13 +1203,14 @@ function BuildRe(Re) {
   Re["int"] = "^[0-9]+$"
   Re["n_int"] = "^-?[0-9]+$"
   Re["nan"] = "[^0-9]"
-  Re["decnum"] = "^[[:space:]]*(\\-)?(\\()?(\\$)?[0-9,]+([\.][0-9]*)?(\\))?[[:space:]]*$"
+  Re["decnum"] = "^[[:space:]]*\"?-?\\(?\\$?[0-9,]*\\.?[0-9]+\\)?\"?[[:space:]]*$"
+  Re["float"] = "^[[:space:]]*\"?-?[0-9]\\.[0-9]+(E|e\\+)[0-9]+\"?[[:space:]]*$"
   Re["intmat"] = "[0-9!\\+\\-\\*\/%\\^<>=]"
   Re["comp"] = "(<|>|!?=)"
   Re["ext"] = "[[:space:]]*(&&|\\|\\|)[[:space:]]*"
   Re["extcomp"] = "[^&\|]*[^&\|]"
-  Re["matarg1"] = "^(NR|NF|len(gth)?\\([0-9]*\\))?[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])[0-9]+)?$"
-  Re["matarg2"] = "^(NR|NF|len(gth)?\\([0-9]*\\))?(!=|[=<>%])[0-9]+$"
+  Re["matarg1"] = "^(NR|NF|len(gth)?\\([0-9]*\\))?[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])-?[0-9]+([\.][0-9]*)?)?$"
+  Re["matarg2"] = "^(NR|NF|len(gth)?\\([0-9]*\\))?(!=|[=<>%])-?[0-9]+([\.][0-9]*)?$"
   Re["frmat"] = "\\[[^~]+[0-9\\+\\-\\*\\/%\\^]+((!=|[=<>])[0-9]+)?$" #]
   Re["frre"] = "\\[.+!?~.+" #]
   Re["alltokens"] = "[(\\.\\.)\\~\\+\\-\\*\\/%\\^<>(!=)=\\[(##)]"
@@ -1400,7 +1401,7 @@ function DebugPrint(case, arg) {
     if (uniq) print "unique output case" }
 
   else if (case == 5) {
-    print "NR: "NR ", f: "f ", anchor: "anchor ", apply to: "base_expr ", evals to: "eval ", compare: "comp, compval }
+    print "NR: "NR ", f: "f", anchor: "anchor", apply to: "base_expr", evals to: "eval", compare: "comp, compval }
   else if (case == 6) {
     if (length(RRExprs)) { print "------------- RRExprs --------------"
       for (ex in RRExprs) print ex " " ExprRO[ex] }
