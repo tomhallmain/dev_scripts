@@ -13,6 +13,7 @@ jnd1="tests/data/infer_jf_test_joined.csv"
 jnd2="tests/data/infer_jf_joined_fit"
 jnd3="tests/data/infer_jf_joined_fit_dz"
 jnd4="tests/data/infer_jf_joined_fit_sn"
+jnd5="tests/data/infer_jf_joined_fit_d2"
 jnr1="tests/data/jn_repeats1"
 jnr2="tests/data/jn_repeats2"
 jnr3="tests/data/jn_repeats3"
@@ -28,6 +29,7 @@ complex_csv2="tests/data/Sample100.csv"
 complex_csv4="tests/data/quoted_fields_with_newline.csv" 
 complex_csv5="tests/data/taxables.csv"
 ls_sq="tests/data/ls_sq"
+floats="tests/data/floats_test"
 inferfs_chunks="tests/data/inferfs_chunks_test"
 emoji="tests/data/emoji"
 emojifit="tests/data/emojifit"
@@ -435,22 +437,26 @@ fit_expected='-rw-r--r--  1  tomhall   4330  Oct  12  11:55  emoji
 [ "$(ds:fit $ls_sq -v color=never)" = "$fit_expected" ] || ds:fail 'fit failed ls sq case'
 
 ds:fit $jnd1 -v bufferchar="|" > $tmp
-cmp --silent $jnd2 $tmp || ds:fail 'fit failed bufferchar/decimal complex csv case'
+cmp --silent $jnd2 $tmp || ds:fail 'fit failed bufferchar/decimal case'
 ds:fit $jnd1 -v bufferchar="|" -v d=z > $tmp
-cmp --silent $jnd3 $tmp || ds:fail 'fit failed const decimal complex csv case'
+cmp --silent $jnd3 $tmp || ds:fail 'fit failed const decimal case'
 ds:fit $jnd1 -v bufferchar="|" -v d=-2 > $tmp
-cmp --silent $jnd4 $tmp || ds:fail 'fit failed scientific notation complex csv case'
+cmp --silent $jnd4 $tmp || ds:fail 'fit failed scientific notation / float output case'
+ds:fit $jnd1 -v bufferchar="|" -v d=2 > $tmp
+cmp --silent $jnd5 $tmp || ds:fail 'fit failed fixed 2-place decimal case'
 
-fit_expected="Index  Item                              Cost    Tax  Total
-    1  Fruit of the Loom Girl's Socks    7.97   0.60   8.57
-    2  Rawlings Little League Baseball   2.97   0.22   3.19
-    3  Secret Antiperspirant             1.29   0.10   1.39
-    4  Deadpool DVD                     14.96   1.12  16.08
-    5  Maxwell House Coffee 28 oz        7.28   0.55   7.83
-    6  Banana Boat Sunscreen, 8 oz       6.68   0.50   7.18
-    7  Wrench Set, 18 pieces            10.00   0.75  10.75
-    8  M and M, 42 oz                    8.98   0.67   9.65
-    9  Bertoli Alfredo Sauce             2.12   0.16   2.28"
+#add dec_off check
+
+fit_expected="Index  Item                              Cost   Tax  Total
+    1  Fruit of the Loom Girl's Socks    7.97  0.60   8.57
+    2  Rawlings Little League Baseball   2.97  0.22   3.19
+    3  Secret Antiperspirant             1.29  0.10   1.39
+    4  Deadpool DVD                     14.96  1.12  16.08
+    5  Maxwell House Coffee 28 oz        7.28  0.55   7.83
+    6  Banana Boat Sunscreen, 8 oz       6.68  0.50   7.18
+    7  Wrench Set, 18 pieces            10.00  0.75  10.75
+    8  M and M, 42 oz                    8.98  0.67   9.65
+    9  Bertoli Alfredo Sauce             2.12  0.16   2.28"
 [ "$(ds:fit $complex_csv5 -v color=never | head)" = "$fit_expected" ] || ds:fail 'fit failed spaced quoted field case'
 
 fit_input='# Test comment 1
@@ -525,15 +531,21 @@ c@@@3@@@6@@@2.5@@@4@@@0.05@@@15.5@@@180@@@-15.5
 /@@@0@@@1@@@4.8@@@1@@@0@@@0.774194@@@0@@@-0.774194
 *@@@0@@@36@@@30@@@16@@@0@@@186@@@0@@@-186
 +@@@4@@@1@@@9.5@@@9@@@0.0083333@@@23.5@@@156@@@-23.5'
-fit_expected='a   1  -2   3.0   4  -0.0416667       6.000000   -24      -6.000000
-b   0  -3   4.0   1   0.0000000       2.000000     0      -2.000000
-c   3   6   2.5   4   0.0500000      15.500000   180     -15.500000
--  -4  -1  -9.5  -9  -0.0083333     -23.500000  -156      23.500000
-/   0   1   4.8   1   0.0000000       0.774194     0      -0.774194
-*   0  36  30.0  16   0.0000000     186.000000     0    -186.000000
-+   4   1   9.5   9   0.0083333      23.500000   156     -23.500000'
+fit_expected='a   1  -2   3.0   4   -0.0417    6.0000   -24    -6.0000
+b   0  -3   4.0   1    0.0000    2.0000     0    -2.0000
+c   3   6   2.5   4    0.0500   15.5000   180   -15.5000
+-  -4  -1  -9.5  -9   -0.0083  -23.5000  -156    23.5000
+/   0   1   4.8   1    0.0000    0.7742     0    -0.7742
+*   0  36  30.0  16    0.0000  186.0000     0  -186.0000
++   4   1   9.5   9    0.0083   23.5000   156   -23.5000'
 fit_actual="$(echo -e "$fit_input" | ds:fit -v color=never | sed -E 's/[[:space:]]+$//g')"
 [ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed negative decimal case 2'
+
+fit_expected='Ints     2020    2021   2022  2023.000000       2024  2025.000000  2026.000000  2027.000000  2028.000000  2029.000000  2030.00000  2031.00000  2032.000000
+Nums       70      71    -72    73.000000        -74    75.000000    76.000000    77.000000    78.000000    79.000000    80.00000    81.00000    82.000000
+Floats  10550  -11130  11742    -0.000124  -13069600     0.000001    -0.000145     0.000153     0.000162     0.000171     0.00018     0.00019     0.000201'
+fit_actual="$(ds:fit $floats -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed float ingestion case'
 
 
 # FC TESTS
