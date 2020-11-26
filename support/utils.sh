@@ -1,6 +1,6 @@
 #!/bin/bash
-# TODO: Extract FS from args
 # TODO: portable readlink
+# TODO: commands tests for these
 
 DS_SEP=$'@@@'
 
@@ -19,6 +19,7 @@ ds:file_check() { # Test for file validity and fail if invalid: ds:file_check te
       [ "$conf" = "y" ] && echo -n "$f" || ds:fail 'File not provided or invalid!'
     fi
   elif [ ! -e "$tf" ] || [ -d "$tf" ]; then
+  # TODO: Bash -e test fails on fds
     ds:fail 'File not provided or invalid!'; fi
 }
 
@@ -29,6 +30,22 @@ ds:fd_check() { # Convert fds into files: ds:fd_check testfile
     cat "$1" > "$ds_fd"
     echo -n "$ds_fd"
   else echo -n "$1"; fi
+}
+
+ds:extractfs() { # Infer or extract single awk FS from args: ds:extractfs
+  if ds:noawkfs; then
+    local fs="$(ds:inferfs "$file" true)"
+  else
+    local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
+    if [ "$fs_idx" = "" ]; then
+      local fs_idx="$(ds:arr_idx '^\-F' ${args[@]})"
+      local fs="$(echo ${args[$fs_idx]} | tr -d '\-F')"
+    else
+      local fs="$(echo ${args[$fs_idx]} | tr -d 'FS=')"
+      let local fsv_idx=$fs_idx-1
+      unset "args[$fsv_idx]"; fi
+    unset "args[$fs_idx]"; fi
+  echo -n "$fs"
 }
 
 ds:noawkfs() { # Test whether AWK arg for setting field separator is present: ds:noawkfs

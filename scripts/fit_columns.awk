@@ -43,23 +43,23 @@
 #       Run with custom buffer (default is 1):
 #    -v buffer=5
 #
-#       Run with custom decimal setting (default is the max for column value):
+#       Custom character for buffer/separator:
+#    -v bufferchar="|"
+#
+#       Run with custom decimal setting:
 #    -v d=4
 #
-#       Run with custom decimal setting of zero (why? awk coerces 0 to false):
+#       Run with custom decimal setting of zero:
 #    -v d=z
+#
+#       Run with float output on decimal/number-valued fields:
+#    -v d=-1
 #
 #       Run with no color or warning:
 #    -v color=never
 #
 #       Run without decimal transformations:
 #    -v dec_off=1
-#
-#       Run with scientific notation on decimal/number-valued fields:
-#    -v d=-1
-#
-#       Custom character for buffer/separator:
-#    -v bufferchar="|"
 #
 #       Do not fit, but still fit rows matching pattern:
 #    -v nofit=pattern
@@ -74,6 +74,7 @@
 #       Start fit at row number, end fit at row number:
 #    -v startrow=100
 #    -v endrow=200
+#
 ## TODO: Resolve lossy multibyte char output
 ## TODO: Fit newlines in fields
 ## TODO: Fix rounding in some cases (see test reo output fit)
@@ -364,7 +365,7 @@ NR == FNR { # First pass, gather field info
               int_diff += IMax[i] - int_len
 
             if (apply_decimal) {
-              dot = (fix_dec || d_len ? 1 : 0)
+              dot = 1
               dec = (d ? fix_dec : DMax[i])
               d_diff = (float || !d_len ? dot : 0) + dec - d_len
               f_diff = Max(l_diff + int_diff + d_diff + dmax_diff - t_diff, 0) }
@@ -398,6 +399,7 @@ NR == FNR { # First pass, gather field info
 }
 
 NR > FNR { # Second pass, print formatted if applicable
+  gsub(/\015$/, "")
   for (i = 1; i <= max_nf; i++) {
     not_last_f = i < max_nf;
     if (FMax[i]) {

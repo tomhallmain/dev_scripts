@@ -39,7 +39,7 @@ error_exit() {
 if [ -n "$($SHELL -c 'echo $ZSH_VERSION')" ]; then
   zzsh=0
   DS_LOC="$(readlink_f "$0")"
-  [ -f ~/.zshrc ] && grep -q "dev_scripts" ~/.zshrc && zshrc_set=0
+  [ -f ~/.zshrc ] && grep -q "dev_scripts/commands.sh" ~/.zshrc && zshrc_set=0
   if [ "$zshrc_set" ]; then
     zshrc_preset=0
   else
@@ -57,7 +57,7 @@ fi
 
 if [ -f /bin/bash ]; then
   bazh=0
-  [ -f ~/.bashrc ] && grep -q "dev_scripts/init.sh" ~/.bashrc && bashrc_set=0
+  [ -f ~/.bashrc ] && grep -q "dev_script/commands.shs" ~/.bashrc && bashrc_set=0
   if [ "$bashrc_set" ]; then
     bashrc_preset=0
   else
