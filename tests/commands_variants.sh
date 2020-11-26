@@ -36,7 +36,8 @@ case "$tests" in
   pow)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , POW TESTS##PVT TESTS"      ;;
   pvt)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , PVT TESTS##AGG TESTS"      ;;
   agg)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , AGG TESTS##CASE TESTS"     ;;
-  case)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , CASE TESTS##ASSORTED"      ;;
+  case)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , CASE TESTS##GRAPH"         ;;
+  graph)    ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , GRAPH TESTS##ASSORTED"     ;;
   deps)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , help_deps##ds:deps"        ;;
   int)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , INTEGRATION##"             ;;
 esac

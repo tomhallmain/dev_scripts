@@ -1,15 +1,15 @@
 
 @@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
 @@@@@@@@@@@@
-**@@@ds:agg@@@@@@Aggregate by index/pattern@@@ds:agg [file] [r_aggs] [c_aggs] [x_aggs] [awkargs]
+**@@@ds:agg@@@@@@Aggregate by index/pattern@@@ds:agg [file] [r_aggs] [c_aggs]
 @@@ds:asgn@@@@@@Print lines matching assignment pattern@@@ds:asgn file
 **@@@ds:case@@@@@@Recase text data globally or in part@@@ds:case [string] [tocase=proper] [filter]
 @@@ds:commands@@@@@@List dev_scripts commands@@@ds:commands [bufferchar] [utils]
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [file] [n_lines=1]
-@@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=(FUNC|ALIAS)] [call_func] [data]
+@@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=(FUNC|ALIAS)] [caller] [ndata]
 @@@ds:dff@@@@@@Diff shortcut for more relevant changes@@@ds:dff file1 file2 [suppress_common]
-@@@ds:dostounix@@@@@@Remove ^M / CR characters in place@@@ds:dostounix file
+**@@@ds:dostounix@@@@@@Remove ^M / CR characters in place@@@ds:dostounix [file]
 **@@@ds:dup_input@@@@@@Duplicate standard input in aggregate@@@data | ds:dup_input
 @@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir]
 @@@ds:embrace@@@@@@Enclose a string on each side by args@@@embrace str [left={] [right=}]
@@ -28,11 +28,12 @@
 @@@ds:git_purge_local@@@ds:gpl@@@Purge branches from local git repos@@@ds:gpl [repos_dir=~]
 @@@ds:git_recent@@@ds:gr@@@Display commits sorted by recency@@@ds:gr [refs=heads] [run_context=display]
 @@@ds:git_recent_all@@@ds:gra@@@Display recent commits for local repos@@@ds:gra [refs=heads] [repos_dir=~]
-@@@ds:git_refresh@@@ds:grr@@@Pull latest for all repos, run installs@@@ds:gr [repos_dir=~]
+@@@ds:git_refresh@@@ds:grf@@@Pull latest for all repos, run installs@@@ds:grf [repos_dir=~]
 @@@ds:git_squash@@@ds:gsq@@@Squash last n commits@@@ds:gsq [n_commits=1]
 @@@ds:git_status@@@ds:gs@@@Run git status for all repos@@@ds:gs
 @@@ds:git_time_stat@@@ds:gts@@@Last local pull+change+commit times@@@cd repo; ds:gts
 @@@ds:goog@@@@@@Search Google@@@ds:goog [search query]
+**@@@ds:graph@@@@@@Extract graph relationships from DAG base data@@@ds:graph [file]
 @@@ds:gvi@@@@@@Grep and open vim on the first match@@@ds:gvi search [file|dir]
 @@@ds:gwdf@@@@@@Git word diff shortcut@@@ds:gwdf [git_diff_args]
 @@@ds:help@@@@@@Print help for a given command@@@ds:help ds_command
@@ -57,11 +58,11 @@
 **@@@ds:pow@@@@@@Print the frequency distribution of fielded data@@@ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
 **@@@ds:print_comps@@@ds:pc@@@Print non-matching lines on keys given@@@ds:pc file [file] [awkargs]
 **@@@ds:print_matches@@@ds:pm@@@Get match lines in two datasets@@@ds:pm file [file] [awkargs]
-**@@@ds:pvt@@@@@@Pivot data@@@ds:pv [file] [y_keys] [x_keys] [z_keys] [agg_type] [awkargs]
+**@@@ds:pvt@@@@@@Pivot tabular data@@@ds:pv [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
 @@@ds:recent@@@@@@List files modified in last 7 days@@@ds:recent [dir=.] [recurse=r] [hidden=h]
 **@@@ds:reo@@@@@@Reorder/repeat/slice data by rows and cols@@@ds:reo [-h|file] [rows] [cols] [prefield=t] [awkargs]
 **@@@ds:rev@@@@@@Reverse lines from standard input@@@data | ds:rev
-**@@@ds:sbsp@@@@@@Extend fields by a common subseparator@@@ds:sbsp [file] subsep_pattern [nomatch_handler= ] [awkargs]
+**@@@ds:sbsp@@@@@@Extend fields by a common subseparator@@@ds:sbsp [file] subsep_pattern [nomatch_handler= ]
 @@@ds:searchn@@@@@@Searches current environment names@@@ds:searchn name
 @@@ds:searchx@@@@@@Search for a C-lang/curly-brace top-level object@@@ds:searchx file|dir [search] [q]
 @@@ds:sedi@@@@@@Run global in place substitutions@@@ds:sedi file|dir search [replace]
@@ -70,9 +71,9 @@
 @@@ds:so@@@@@@Search Stack Overflow@@@ds:so [search query]
 **@@@ds:sort@@@@@@Sort with inferred field sep of exactly 1 char@@@ds:sort [unix_sort_args] [file]
 **@@@ds:sortm@@@ds:s@@@Sort with inferred field sep of >=1 char@@@ds:sortm [file] [keys] [order=a|d] [sort_type] [awkargs]
-@@@ds:src@@@@@@Source a piece of file@@@ds:src file ["searchx" pattern] || [line endline] || [pattern linesafter]
+@@@ds:src@@@@@@Source a piece of file@@@ds:src file ["searchx" pattern] || [start end] || [search linesafter]
 @@@ds:srg@@@@@@Scope grep to files that contain a match@@@ds:srg scope_pattern search_pattern [dir] [invert=]
-**@@@ds:stag@@@@@@Print field-separated data in staggered rows@@@ds:stag [file] [stag_size]
+**@@@ds:stag@@@@@@Print tabular data in staggered rows@@@ds:stag [file] [stag_size]
 **@@@ds:substr@@@@@@Extract a substring with regex@@@ds:substr str [leftanc] [rightanc]
 **@@@ds:test@@@@@@Test input quietly with extended regex@@@ds:test regex [str|file] [test_file=f]
 @@@ds:tmp@@@@@@Shortcut for quiet mktemp@@@ds:tmp filename

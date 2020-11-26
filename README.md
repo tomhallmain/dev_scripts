@@ -39,12 +39,12 @@ Also supports file sets as arguments to a single call for quickly reporting on m
 ```
 $ head -n5 tests/data/taxables.csv
 "Index", "Item", "Cost", "Tax", "Total"
-1, "Fruit of the Loom Girl's Socks",  7.97, 0.60,  8.57
-2, "Rawlings Little League Baseball", 2.97, 0.22,  3.19
-3, "Secret Antiperspirant",           1.29, 0.10,  1.39
-4, "Deadpool DVD",                   14.96, 1.12, 16.08
+1, "Fruit of the Loom Girl's Socks", 7.97, 0.60, 8.57
+2, "Rawlings Little League Baseball", 2.97, 0.22, 3.19
+3, "Secret Antiperspirant", 1.29, 0.10, 1.39
+4, "Deadpool DVD",    14.96, 1.12, 16.08
 
-$ head tests/data/Taxables.csv | ds:fit -v bufferchar="|" -v d=z
+$ head -n5 tests/data/Taxables.csv | ds:fit -v bufferchar="|" -v d=z
 Index| Item                           | Cost| Tax| Total
     1| Fruit of the Loom Girl's Socks |    7|   0|     8
     2| Rawlings Little League Baseball|    2|   0|     3
@@ -57,6 +57,8 @@ $ ds:fit $(fd -e csv) # Fit all CSVs in current dir with fd
 #### `ds:reo`
 
 Select, reorder, slice data using inferred field separators. Supports expression evaluation, regex searches, exclusions, and/or logic, frame expressions, reversals, and more. Runs ds:fit on output if to a terminal.
+
+Also supports file sets as arguments to a single call for quickly reporting on multiple disjoined files.
 
 ```bash
 $ head -n5 tests/data/company_funding_data.csv
@@ -85,7 +87,11 @@ MyCityFaces  1-Jan-08
 LifeLock     1-Oct-06
 LifeLock     1-May-07
 company      fundedDate
+```
 
+Multibyte characters are supported by `ds:fit` and `ds:reo`.
+
+```bash
 $ head -n4 tests/data/emoji
 Generating_code_base10 emoji init_awk_len len_simple_extract len_remaining
 9193 ⏩ 3 1 2
@@ -155,11 +161,11 @@ c      3   6  2.5  4  15.5
 +|all  4   1  9.5  9  23.5
 
 $ ds:agg /tmp/agg_ex '*|all,$4*$3,~b' '+,*'
-a  1  -2   3.0   4    -24    -6  ~b
-b  0  -3   4.0   1    -12   -12   1
-c  3   6   2.5   4    180    15   0
-+  4   1   9.5   9    144    -3   1
-*  3  36  30.0  16  51840  1080   0
+a  1  -2   3.0   4  -24    -6  ~b
+b  0  -3   4.0   1    0   -12   1
+c  3   6   2.5   4  180    15   0
++  4   1   9.5   9  156    -3   1
+*  3  36  30.0  16    0  1080   0
 ```
 
 #### `ds:fieldcounts`

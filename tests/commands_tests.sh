@@ -610,9 +610,14 @@ pvt_input='1 2 3 4
 5 6 7 5
 4 6 5 8'
 pvt_expected='PIVOT@@@1@@@5@@@4@@@
+2@@@1@@@@@@@@@
+6@@@@@@1@@@1@@@'
+pvt_actual="$(echo "$pvt_input" | ds:pvt 2 1)"
+[ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt failed count z case'
+pvt_expected='PIVOT@@@1@@@5@@@4@@@
 2@@@3::4@@@@@@@@@
 6@@@@@@7::5@@@5::8@@@'
-pvt_actual="$(echo "$pvt_input" | ds:pvt 2 1)"
+pvt_actual="$(echo "$pvt_input" | ds:pvt 2 1 0)"
 [ "$pvt_actual" = "$pvt_expected" ] || ds:fail 'pvt failed gen z case'
 pvt_expected='PIVOT@@@1@@@5@@@4@@@
 2@@@3@@@@@@@@@
@@ -754,6 +759,26 @@ case_actual="$(ds:case "$case_input" sc)"
 case_expected='TEST_V_ARI_ANT_CASE'
 case_actual="$(ds:case "$case_input" var)"
 [ "$case_actual" = "$case_expected" ] || ds:fail 'case failed variable case'
+case_expected='Test.V.Ari.Ant.Case'
+case_actual="$(ds:case "$case_input" ocase)"
+[ "$case_actual" = "$case_expected" ] || ds:fail 'case failed object case'
+
+# GRAPH TESTS
+
+graph_input="1:2\n2:3\n3:4"
+graph_expected='4
+4:3
+4:3:2
+4:3:2:1'
+graph_actual="$(echo -e "$graph_input" | ds:graph -v FS=:)"
+[ "$graph_actual" = "$graph_expected" ] || ds:fail 'graph failed'
+graph_input="2:1\n3:2\n4:3"
+graph_expected='1
+1:2
+1:2:3
+1:2:3:4'
+graph_actual="$(echo -e "$graph_input" | ds:graph)"
+[ "$graph_actual" = "$graph_expected" ] || ds:fail 'graph failed'
 
 
 # ASSORTED COMMANDS TESTS
@@ -856,6 +881,11 @@ expected='    one      two     three     four         +         *
  0.0833   0.1667    0.0938   1.3333    0.0100    0.0017'
 actual="$(echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" | ds:agg '+,*' '\-,/' | ds:fit -v d=4 -v color=never)"
 [ "$actual" = "$expected" ] || ds:fail 'integration agg fit negative decimals case failed'
+
+input='a  1  -2  3.0  4
+b  0  -3  4.0  1
+c  3   6  2.5  4'
+expected=''
 
 # CLEANUP
 
