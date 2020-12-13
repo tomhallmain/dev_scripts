@@ -14,7 +14,7 @@
 #
 ## TODO: Handle escapes, null Chars, SUBSEP
 ## TODO: Regex FS length handling
-## TODO: Infer absensce of separator
+## TODO: Infer absence of separator
 
 BEGIN {
   CommonFSOrder[1] = "w"; CommonFS["s"] = " "; FixedStringFS["s"] = "\\"

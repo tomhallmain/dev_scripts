@@ -19,15 +19,15 @@ lbvHelp() {
   echo "Script to print a view of local git repositories against branches."
   echo
   echo "Syntax: [-ab:Dfhmo:s]"
-  echo "a    Run for all local repos found (implies d, m)"
-  echo "b    Run for a custom base directory filepath arg"
-  echo "D    Deep search for all repos in base directory"
-  echo "f    Run all find using fd if installed (implies a, d, m)"
-  echo "h    Print this help"
-  echo "m    Include repos found with only master branch"
-  echo "o    Override repos to run with filepath args"
-  echo "s    Mark repos and branches with untracked changes"
-  echo "v    Run in verbose mode"
+  echo "-a    Run for all local repos found (implies D, m)"
+  echo "-b    Run for a custom base directory filepath arg"
+  echo "-D    Deep search for all repos in base directory"
+  echo "-f    Run find using fd if installed (implies D)"
+  echo "-h    Print this help"
+  echo "-m    Include repos found with only master branch"
+  echo "-o    Override repos to run with filepath args"
+  echo "-s    Mark repos and branches with untracked changes"
+  echo "-v    Run in verbose mode"
   echo
   exit
 }
@@ -59,7 +59,8 @@ while getopts ":ab:Dfhmo:sv" opt; do
     D)  getoptsGetOptarg $@
         DEEP=${OPTARG:-true} ;;
     f)  which fd &> /dev/null
-        [ $? = 0 ] && USE_FD=true || (echo 'FD not set - running all repos using find') 
+        [ $? = 0 ] && USE_FD=true || echo 'Unable to validate fd command - '\
+          'FD not set - running all repos using find'
         DEEP=true ;;
     h)  lbvHelp ;;
     m)  INCLUDE_MASTER_ONLYS=true ;;
@@ -99,7 +100,7 @@ BLUE="\033[0;34m"
 NC="\033[0m" # No Color
 
 TABLE_DATA="${WHITE}BRANCHES_____________\_____________REPOS${GRAY}"
-[ $BASE_DIR ] || BASE_DIR=$HOME
+[ "$BASE_DIR" ] || BASE_DIR="$HOME"
 FIND_DIRS=(/Users /bin /usr /var)
 BASE_DIRS=()
 ALL_REPOS=()
@@ -107,7 +108,7 @@ SORTED_REPOS=()
 ALL_BRANCHES=()
 UNIQ_BRANCHES=()
 BRANCH_TRACKINGS=()
-OLD_IFS=$IFS
+OLD_IFS="$IFS"
 
 
 
@@ -117,7 +118,7 @@ OLD_IFS=$IFS
 isInt() {
   local test="$1"
   local n_re="^[0-9]$"
-  [[ $test =~ $n_re ]]
+  [[ "$test" =~ $n_re ]]
 }
 generateAllowedVarName() {
   # Shell doesn't allow some chars in var names
@@ -138,7 +139,7 @@ generateAllowedVarName() {
   var="${var//8/_EIGHT_}"
   var="${var//9/_NINE_}"
   
-  printf '%s\n' "${var}"
+  printf '%s\n' "$var"
 }
 spaceRemove() {
   local spaced="$@"
@@ -154,9 +155,8 @@ spaceToUnderscore() {
 }
 associateKeyToArray() {
   # Bash 3 doesn't support hashes
-  local key="${1}"
-  local vals="${@:2}"
-  printf -v "${key}" %s " ${vals[@]} "
+  local key="$1" vals="${@:2}"
+  printf -v "$key" %s " ${vals[@]} "
 }
 rangeBind() {
   if   (($1 < $3)) ; then echo "$3"
@@ -165,10 +165,9 @@ rangeBind() {
   fi
 }
 repeatString() {
-  local input="$1"
-  local count="$2"
-  printf -v myString "%${count}s"
-  printf '%s\n' "${myString// /$input}"
+  local input="$1" count="$2"
+  printf -v str "%${count}s"
+  printf '%s\n' "${str// /$input}"
 }
 argIndex() {
   unset str
@@ -226,7 +225,7 @@ done < <(
 )
 
 [ $SPIN_PID ] && kill -9 $SPIN_PID > /dev/null 2>&1; printf '\e[K'
-IFS=$OLD_IFS
+IFS="$OLD_IFS"
 [[ $VERBOSE && $OVERRIDE_REPOS ]] && echo 'Override repos valid'
 REPOS=( ${ALL_REPOS[@]} )
 let input_repo_count=${#REPOS[@]}

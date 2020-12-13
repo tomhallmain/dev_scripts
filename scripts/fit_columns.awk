@@ -61,7 +61,7 @@
 #       Run without decimal transformations:
 #    -v dec_off=1
 #
-#       Do not fit, but still fit rows matching pattern:
+#       Fit all rows except where matching pattern:
 #    -v nofit=pattern
 #
 #       Fit only rows matching pattern, print rest normally:
@@ -75,6 +75,9 @@
 #    -v startrow=100
 #    -v endrow=200
 #
+#       Fit up to a certain number of columns, and squeeze the rest:
+#    -v endfit_col=10
+#
 ## TODO: Resolve lossy multibyte char output
 ## TODO: Fit newlines in fields
 ## TODO: Fix rounding in some cases (see test reo output fit)
@@ -86,8 +89,15 @@
 BEGIN {
   WCW_FS = " "
   FIT_FS = FS
+
+  if (file && !nofit && !onlyfit && !startfit && !endfit && !startrow && !endrow) {
+    if (file ~ /\.(properties|csv|tsv)$/)
+      nofit = "^#" }
+
   partial_fit = nofit || onlyfit || startfit || endfit || startrow || endrow
   prefield = FS == "@@@"
+  if (OFS ~ "\\[:space:\\]\\{") OFS = "  "
+  else if (OFS ~ "\\[:space:\\]") OFS = " "
 
   if (d != "z" && !(d ~ /-?[0-9]+/)) {
     d = 0 }
@@ -111,7 +121,7 @@ BEGIN {
     color_on = 1; color_pending = 1 }
 
   if (!(color == "never")) {
-    hl = "\033[1;93m"
+    hl = "\033[1;36m"
     white = "\033[1:37m"
     orange = "\033[38;2;255;165;1m"
     red = "\033[1;31m"
@@ -167,11 +177,11 @@ FNR < 2 && NR > FNR { # Reconcile lengths with term width after first pass
       if (debug) DebugPrint(4)
       
       for (i = 1; i <= max_nf; i++) {
-        if (! DSet[i] \
-            && ! (NSet[i] && ! NOverset[i]) \
+        if (!DSet[i] \
+            && !(NSet[i] && ! NOverset[i]) \
             && FMax[i] > scaled_cut \
             && FMax[i] - cut_len > buffer) {
-          mod_cut_len = int((cut_len*2) ^ (FMax[i] / total_f_len))
+          mod_cut_len = int((cut_len*2) ^ (FMax[i]/total_f_len))
           FMax[i] -= cut_len
           total_f_len -= cut_len
           ShrinkF[i] = 1
@@ -211,7 +221,19 @@ partial_fit {
 NR == FNR { # First pass, gather field info
   fitrows++
   for (i = 1; i <= NF; i++) {
-    init_f = $i
+    if (endfit_col) {
+      if (i == 1) res_line = $0
+      match(res_line, FS)
+      res_line = substr(res_line, RSTART+RLENGTH, length(res_line))
+      if (i < endfit_col)
+        init_f = $i
+      else {
+        gsub(FS, OFS, res_line)
+        ResLine[NR] = res_line
+        init_f = res_line }}
+    else {
+      init_f = $i }
+
     init_len = length(init_f)
     if (init_len < 1) continue
 
@@ -393,31 +415,34 @@ NR == FNR { # First pass, gather field info
 
       if (debug) DebugPrint(1) }
 
-    if (f_diff) { FMax[i] += f_diff; total_f_len += f_diff }}
+    if (f_diff) { FMax[i] += f_diff; total_f_len += f_diff }
+    if (endfit_col && i == endfit_col) break }
 
-  if (NF > max_nf) max_nf = NF
+  if (NF > max_nf)
+    max_nf = endfit_col && endfit_col < NF ? endfit_col : NF
 }
 
 NR > FNR { # Second pass, print formatted if applicable
-  gsub(/\015$/, "")
+  gsub(/\015$/, "") # TODO: Move to prefield
   for (i = 1; i <= max_nf; i++) {
-    not_last_f = i < max_nf;
+    not_last_f = i < max_nf
+    f = endfit_col && i == endfit_col ? ResLine[FNR] : $i
     if (FMax[i]) {
       if (DSet[i] || (NSet[i] && ! NOverset[i])) {
         
-        if (AnyFmtNum($i)) {
+        if (AnyFmtNum(f)) {
           if (DSet[i]) {
             if (d == "z") {
               type_str = (sn ? ".0e" : "s")
-              value = int($i) }
+              value = int(f) }
             else {
               dec = (d ? fix_dec : DMax[i])
               type_str = (sn ? "." dec "e" : "." dec "f")
-              value = TruncVal($i, dec, LargeVals[i]) }}
+              value = TruncVal(f, dec, LargeVals[i]) }}
           else {
             type_str = (sn ? ".0e" : "s")
-            value = $i }}
-        else { type_str = "s"; value = $i }
+            value = f }}
+        else { type_str = "s"; value = f }
 
         #if (not_last_f)
         print_len = FMax[i] + COLOR_DIFF[FNR, I] + WCWIDTH_DIFF[FNR, i]
@@ -435,12 +460,12 @@ NR > FNR { # Second pass, print formatted if applicable
         if (ShrinkF[i]) {
           if (color_on) {
             a_color = hl; color_off = no_color }
-          value = CutStringByVisibleLen($i, MaxFLen[i] + WCWIDTH_DIFF[FNR, i]) }
+          value = CutStringByVisibleLen(f, MaxFLen[i] + WCWIDTH_DIFF[FNR, i]) }
         else {
           if (color_on) {
             a_color = color_pending ? white : ""
             color_off = color_pending ? no_color : "" }
-          value = $i }
+          value = f }
 
         if (not_last_f)
           print_len = MaxFLen[i] + COLOR_DIFF[FNR, i] + WCWIDTH_DIFF[FNR, i]
