@@ -57,7 +57,7 @@ fi
 
 if [ -f /bin/bash ]; then
   bazh=0
-  [ -f ~/.bashrc ] && grep -q "dev_script/commands.shs" ~/.bashrc && bashrc_set=0
+  [ -f ~/.bashrc ] && grep -q "dev_script/commands.sh" ~/.bashrc && bashrc_set=0
   if [ "$bashrc_set" ]; then
     bashrc_preset=0
   else

@@ -44,7 +44,7 @@ $ head -n5 tests/data/taxables.csv
 3, "Secret Antiperspirant", 1.29, 0.10, 1.39
 4, "Deadpool DVD",    14.96, 1.12, 16.08
 
-$ head -n5 tests/data/Taxables.csv | ds:fit -v bufferchar="|" -v d=z
+$ head -n5 tests/data/taxables.csv | ds:fit -v bufferchar="|" -v d=z
 Index| Item                           | Cost| Tax| Total
     1| Fruit of the Loom Girl's Socks |    7|   0|     8
     2| Rawlings Little League Baseball|    2|   0|     3
@@ -201,7 +201,7 @@ cdatetime    address
 1/1/06 0:00  4 PALEN CT
 1/1/06 0:00  22 BECKFORD CT
 
-$ ds:reo tests/data/testcrimedata.csv 1..5 1,2 | ds:sbsp '\\/' "" -F, | ds:fit
+$ ds:sbsp tests/data/testcrimedata.csv '\\/' "" -v apply_to_fields=1 | ds:reo 1..5 1..4
 cdatetime              address
         1  1  06 0:00  3108 OCCIDENTAL DR
         1  1  06 0:00  2082 EXPEDITION WAY

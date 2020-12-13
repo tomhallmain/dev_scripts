@@ -18,19 +18,34 @@
 # 1 4
 #
 
+BEGIN {
+  if (OFS ~ "\\\\") OFS = UnescapeOFS()
+  if (OFS ~ "\\[:space:\\]\{") OFS = "  "
+  else if (OFS ~ "\\[:space:\\]\+") OFS = " "
+}
+
 {
   Shoots[$1] = $2
   Bases[$2] = 1
 }
 
-END{
+END {
   for (base in Bases){
     if (!(base in Shoots))
       print base }
 
-  for (shoot in Shoots)
-    if (Shoots[shoot])
-      print Backtrace(shoot, Shoots[shoot])
+  for (shoot in Shoots) {
+    if (Shoots[shoot]) {
+      if (shoot == Shoots[shoot]) {
+        Cycles[shoot] = 1
+        continue }
+      print Backtrace(shoot, Shoots[shoot]) }}
+
+  if (length(Cycles)) {
+    print "WARNING: "length(Cycles)" cycles found!"
+    for (cycle in Cycles)
+      print "CYCLENODE__" cycle
+    exit 1 }
 }
 
 function Backtrace(start, test_base) {
@@ -39,5 +54,12 @@ function Backtrace(start, test_base) {
 function Extend(branch, offshoot) {
   return branch OFS offshoot
 }
+function UnescapeOFS() {
+  split(OFS, OFSTokens, "\\")
+  OFS = ""
+  for (i = 1; i <= length(OFSTokens); i++)
+    OFS = OFS OFSTokens[i]
 
+  return OFS
+}
 

@@ -10,7 +10,6 @@
 # > awk -v lineno=lineno -f insert.awk sinkfile sourcefile
 
 NR == FNR { _[NR] = $0 }
-
 NR > FNR { __[FNR] = $0 }
 
 END {
@@ -21,12 +20,10 @@ END {
       mtch = 1
       ins = 0
       for (j = 1; j <= length(__); j++) 
-        print __[j]
-    }
+        print __[j] }
 
     if (!mtch && (i == lineno || line ~ pattern)) { ins = 1 }
 
-    print line
-  }
+    print line }
 }
 

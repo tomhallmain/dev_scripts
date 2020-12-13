@@ -407,8 +407,9 @@ alias ds:gg="ds:git_graph"
 
 ds:todo() { # List todo items found in paths: ds:todo [searchpaths=.]
   ds:nset 'rg' && local RG=true
+  local re='(TODO|FIXME|XXX)( |:|\-)'
   if [ -z "$1" ]; then
-    [ "$RG" ] && rg -His 'TODO' || grep -irs 'TODO' --color=always .
+    [ "$RG" ] && rg -His "$re" || grep -irs "$re" --color=always .
     echo
   else
     local search_paths=( "${@}" )
@@ -416,8 +417,8 @@ ds:todo() { # List todo items found in paths: ds:todo [searchpaths=.]
       if [[ ! -d "$search_path" && ! -f "$search_path" ]]; then
         echo "$search_path is not a file or directory or is not found"
         local bad_dir=0; continue; fi
-      [ "$RG" ] && rg -His 'TODO' "$search_path" \
-        || grep -irs 'TODO' --color=always "$search_path"
+      [ "$RG" ] && rg -His "$re" "$search_path" \
+        || grep -irs "$re" --color=always "$search_path"
       echo
     done; fi
   [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
@@ -724,11 +725,11 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
   local fs="$(cat $fstmp; rm $fstmp)"
   ds:awksafe && local args=( ${args[@]} -v awksafe=1 -f "$DS_SUPPORT/wcwidth.awk" )
   if [ "$pf_off" ]; then
-    awk -v FS="$fs" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" \
+    awk -v FS="$fs" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$file" \
       ${args[@]} -f "$DS_SCRIPT/fit_columns.awk" $file{,} 2>/dev/null
   else
     ds:prefield "$file" "$fs" 0 > $prefield
-    awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" \
+    awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$file" \
       ${args[@]} -f "$DS_SCRIPT/fit_columns.awk" $prefield{,} 2>/dev/null
     rm $prefield; fi
   ds:pipe_clean $file
@@ -774,7 +775,7 @@ ds:idx() { # ** Attach an index to lines from a file or STDIN: ds:idx [file] [st
   ds:pipe_clean $file
 }
 
-ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file] [rows] [cols] [prefield=t] [awkargs]
+ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [rows] [cols] [prefield=t] [awkargs]
   if ds:pipe_open; then
     local rows="${1:-a}" cols="${2:-a}" base=3
     local file=$(ds:tmp "ds_reo") piped=0
@@ -864,7 +865,7 @@ ds:agg() { # ** Aggregate by index/pattern: ds:agg [file] [r_aggs] [c_aggs]
   ds:prefield "$file" "$fs" > $prefield
   awk -v FS="$DS_SEP" -v OFS="$fs" -v r_aggs="$r_aggs" -v c_aggs="$c_aggs" \
     -v x_aggs="$x_aggs" ${args[@]} -f "$DS_SCRIPT/agg.awk" "$prefield" \
-    | ds:ttyf "$DS_SEP"
+    | ds:ttyf "$fs"
   ds:pipe_clean $file; rm $prefield
 }
 

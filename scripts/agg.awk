@@ -47,9 +47,10 @@ BEGIN {
   if (gen)
     GenAllAggExpr(max_nr, 0)
 
-  OFS = (FS ~ "\\[:space:\\]") ? " " : FS
+  if (OFS ~ "\\\\") OFS = UnescapeOFS()
+  if (OFS ~ "\\[:space:\\]\{") OFS = "  "
+  else if (OFS ~ "\\[:space:\\]\+") OFS = " "
 }
-
 
 NR < 2 {
   if (header) GenHeaderCAggExpr(HeaderAggs)
@@ -234,16 +235,22 @@ function GenRExpr(agg) {
     ops = split(agg, Ops, /[^\+\*\-\/]+/)
     for (j = 1; j <= fs; j++) {
       f = Fs[j]; op = Ops[j+1]
-    if (f ~ /\$[0-9]+/) {
-      gsub(/(\$|[[:space:]]+)/, "", f)
-      val = f ? $f : ""
-      gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val) }
-    else
-      val = f
+      if (f ~ /\$[0-9]+/) {
+        gsub(/(\$|[[:space:]]+)/, "", f)
+        val = f ? $f : ""
+        gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val) }
+      else
+        val = f # Expects a static number value
 
-    if (debug) print agg " :: GENREXPR: " expr val op
-    if (val != "" && val ~ /^-?[0-9]*\.?[0-9]+((E|e)(\+|-)[0-9]+)?$/)
-      expr = expr TruncVal(val) op }}
+      if (debug) print agg " :: GENREXPR: " expr val op
+      if (val == "") continue
+      if (match(val, /-?[0-9]*\.?[0-9]+((E|e)(\+|-)[0-9]+)?/)) {
+        if (extract_vals)
+          val = substr(val, RSTART, RSTART+RLENGTH)
+        else if (RSTART > 1 || RLENGTH < length(val))
+          continue
+
+        expr = expr TruncVal(val) op }}}
 
   return expr
 }
@@ -279,7 +286,12 @@ function AdvCarryVec(c_agg_i, nf, agg_amort, carry) { # TODO: This is probably w
       t_carry = t_carry sep CarryVec[f] margin_op }
     else {
       gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
-      if (val != "" && val ~ /^-?[0-9]*\.?[0-9]+((E|e)(\+|-)?[0-9]+)?$/) {
+      if (val != "" && match(val, /-?[0-9]*\.?[0-9]+((E|e)(\+|-)?[0-9]+)?/)) {
+        if (extract_vals)
+          val = substr(val, RSTART, RSTART+RLENGTH)
+        else if (RSTART > 1 || RLENGTH < length(val)) {
+          t_carry = t_carry sep CarryVec[f]
+          continue }
         if (!CarryVec[f]) {
           if (margin_op == "*")
             CarryVec[f] = "1"
@@ -371,4 +383,12 @@ function TruncVal(val) {
     return int(val)
   else
     return sprintf("%f", val) # Small floats flow through this logic
+}
+function UnescapeOFS() {
+  split(OFS, OFSTokens, "\\")
+  OFS = ""
+  for (i = 1; i <= length(OFSTokens); i++)
+    OFS = OFS OFSTokens[i]
+
+  return OFS
 }

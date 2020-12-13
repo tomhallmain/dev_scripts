@@ -227,6 +227,7 @@
 ## TODO: Expressions and comparisons against cross-index total
 ## TODO: Expressions and comparisons between fields (standard awk)
 ## TODO: Range support for index number and pattern endpoints combined
+## TODO: Full line regex check for field non-specific searches
 
 ## SETUP
 
@@ -276,7 +277,8 @@ BEGIN {
     base_reo = 1
 
   if (OFS ~ "\\\\") OFS = UnescapeOFS()
-  if (OFS ~ "\\[:space:\\]") OFS = " "
+  if (OFS ~ "\\[:space:\\]\{") OFS = "  "
+  else if (OFS ~ "\\[:space:\\]\+") OFS = " "
   reo_r_len = length(ReoR)
   reo_c_len = length(ReoC)
   if (debug) { DebugPrint(0); DebugPrint(7) }

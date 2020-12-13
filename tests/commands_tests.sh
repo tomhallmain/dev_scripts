@@ -547,6 +547,12 @@ Floats  10550  -11130  11742    -0.000124  -13069600     0.000001    -0.000145  
 fit_actual="$(ds:fit $floats -v color=never | sed -E 's/[[:space:]]+$//g')"
 [ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed float ingestion case'
 
+ps aux | ds:fit -F'[[:space:]]+' -v color=never -v endfit_col=10 | awk '{print length($0)}' > $tmp
+tty_width="$(tput cols)"
+for fit_length in $(cat $tmp); do
+  [ "$fit_length" -lt "$tty_width" ] || ds:fail 'fit failed endfit_col case'
+done
+
 
 # FC TESTS
 
@@ -634,107 +640,107 @@ pvt_actual="$(echo -e "a b c d\n1 2 3 4" | ds:pvt 1,2 4 3)"
 # AGG TESTS
 
 echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" > $tmp
-agg_expected='one@@@two@@@three@@@four@@@$3+$2
-1@@@2@@@3@@@4@@@5
-4@@@3@@@2@@@1@@@5
-1@@@2@@@4@@@3@@@6
-3@@@2@@@4@@@1@@@6'
+agg_expected='one two three four $3+$2
+1 2 3 4 5
+4 3 2 1 5
+1 2 4 3 6
+3 2 4 1 6'
 [ "$(ds:agg $tmp '$3+$2')" = "$agg_expected" ] || ds:fail 'agg failed R specific agg base case'
-agg_expected='one@@@two@@@three@@@four
-1@@@2@@@3@@@4
-4@@@3@@@2@@@1
-1@@@2@@@4@@@3
-3@@@2@@@4@@@1
-6@@@7@@@9@@@8'
+agg_expected='one two three four
+1 2 3 4
+4 3 2 1
+1 2 4 3
+3 2 4 1
+6 7 9 8'
 [ "$(ds:agg $tmp 0 '$2+$3+$4')" = "$agg_expected" ] || ds:fail 'agg failed C specific agg base case'
 
-agg_expected='one@@@two@@@three@@@four@@@*|2..4
-1@@@2@@@3@@@4@@@24
-4@@@3@@@2@@@1@@@6
-1@@@2@@@4@@@3@@@24
-3@@@2@@@4@@@1@@@8'
+agg_expected='one,two,three,four,*|2..4
+1,2,3,4,24
+4,3,2,1,6
+1,2,4,3,24
+3,2,4,1,8'
 agg_actual="$(echo -e "one,two,three,four\n1,2,3,4\n4,3,2,1\n1,2,4,3\n3,2,4,1" | ds:agg '*|2..4')"
 [ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg failed R specific range agg base case'
 
 # add base specific range case for c aggs here
 
-agg_expected='one@@@two@@@three@@@four@@@+|all
-1@@@2@@@3@@@4@@@10
-4@@@3@@@2@@@1@@@10
-1@@@2@@@4@@@3@@@10
-3@@@2@@@4@@@1@@@10'
+agg_expected='one:two:three:four:+|all
+1:2:3:4:10
+4:3:2:1:10
+1:2:4:3:10
+3:2:4:1:10'
 agg_actual="$(echo -e "one:two:three:four\n1:2:3:4\n4:3:2:1\n1:2:4:3\n3:2:4:1" | ds:agg '+|all')"
 [ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg failed R all agg base case'
-agg_expected='one@@@two@@@three@@@four
-1@@@2@@@3@@@4
-4@@@3@@@2@@@1
-1@@@2@@@4@@@3
-3@@@2@@@4@@@1
-9@@@9@@@13@@@9'
+agg_expected='one;two;three;four
+1;2;3;4
+4;3;2;1
+1;2;4;3
+3;2;4;1
+9;9;13;9'
 agg_actual="$(echo -e "one;two;three;four\n1;2;3;4\n4;3;2;1\n1;2;4;3\n3;2;4;1" | ds:agg 0 '+|all')"
 [ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg failed C all agg base case'
 
-agg_expected='one@@@two@@@three@@@four@@@+|all
-1@@@2@@@3@@@4@@@10
-4@@@3@@@2@@@1@@@10
-1@@@2@@@4@@@3@@@10
-3@@@2@@@4@@@1@@@10
-9@@@9@@@13@@@9@@@40'
-[ "$(ds:agg $tmp '+|all' '+|all')" = "$agg_expected" ] || ds:fail 'agg failed R+C all agg base case'
-agg_expected='@@@one@@@two@@@three@@@four@@@+|all
-@@@1@@@2@@@3@@@4@@@10
-@@@4@@@3@@@2@@@1@@@10
-@@@1@@@2@@@4@@@3@@@10
-@@@3@@@2@@@4@@@1@@@10
-+|all@@@9@@@9@@@13@@@9@@@40'
+agg_expected='one two three four +|all
+1 2 3 4 10
+4 3 2 1 10
+1 2 4 3 10
+3 2 4 1 10
+9 9 13 9 40'
+[ "$(ds:agg $tmp)" = "$agg_expected" ] || ds:fail 'agg failed R+C all agg base case'
+agg_expected=' one two three four +|all
+ 1 2 3 4 10
+ 4 3 2 1 10
+ 1 2 4 3 10
+ 3 2 4 1 10
++|all 9 9 13 9 40'
 [ "$(ds:agg $tmp '+|all' '+|all' -v header=1)" = "$agg_expected" ] || ds:fail 'agg failed R+C all agg header case'
 
-agg_expected='@@@one@@@two@@@three@@@four@@@+|all@@@*|2..4@@@/|all
-@@@1@@@2@@@3@@@4@@@10@@@24@@@0.0416667
-@@@4@@@3@@@2@@@1@@@10@@@6@@@0.666667
-@@@1@@@2@@@4@@@3@@@10@@@24@@@0.0416667
-@@@3@@@2@@@4@@@1@@@10@@@8@@@0.375
-$2/$3@@@0.25@@@0.666667@@@1.5@@@4@@@1@@@4@@@0.0625
-+|all@@@9@@@9@@@13@@@9@@@40@@@62@@@1.125'
+agg_expected=' one two three four +|all *|2..4 /|all
+ 1 2 3 4 10 24 0.0416667
+ 4 3 2 1 10 6 0.666667
+ 1 2 4 3 10 24 0.0416667
+ 3 2 4 1 10 8 0.375
+$2/$3 0.25 0.666667 1.5 4 1 4 0.0625
++|all 9 9 13 9 40 62 1.125'
 [ "$(ds:agg $tmp '+|all,*|2..4,/|all' '$2/$3,+|all' -v header=1)" = "$agg_expected" ] || ds:fail 'agg failed C+R multiple aggs header case'
 
 echo -e "a 1 -2 3 4\nb 0 -3 4 1\nc 3 6 2.5 4" > $tmp
-agg_expected='a@@@1@@@-2@@@3@@@4@@@6
-b@@@0@@@-3@@@4@@@1@@@2
-c@@@3@@@6@@@2.5@@@4@@@15.5
-+|all@@@4@@@1@@@9.5@@@9@@@23.5'
+agg_expected='a 1 -2 3 4 6
+b 0 -3 4 1 2
+c 3 6 2.5 4 15.5
++|all 4 1 9.5 9 23.5'
 [ "$(ds:agg $tmp)" = "$agg_expected" ] || ds:fail 'agg failed readme case'
-agg_expected='a@@@1@@@-2@@@3@@@4@@@-24@@@-6
-b@@@0@@@-3@@@4@@@1@@@0@@@-12
-c@@@3@@@6@@@2.5@@@4@@@180@@@15
-+|all@@@4@@@1@@@9.5@@@9@@@156@@@-3
-*|all@@@0@@@36@@@30@@@16@@@0@@@1080'
+agg_expected='a 1 -2 3 4 -24 -6
+b 0 -3 4 1 0 -12
+c 3 6 2.5 4 180 15
++|all 4 1 9.5 9 156 -3
+*|all 0 36 30 16 0 1080'
 [ "$(ds:agg $tmp '*|all,$4*$3' '+|all,*|all')" = "$agg_expected" ] || ds:fail 'agg failed readme negatives multiples case'
-agg_expected='a@@@1@@@-2@@@3@@@4@@@-24@@@-6@@@~b
-b@@@0@@@-3@@@4@@@1@@@0@@@-12@@@1
-c@@@3@@@6@@@2.5@@@4@@@180@@@15@@@0
-+|all@@@4@@@1@@@9.5@@@9@@@156@@@-3@@@1
-*|all@@@0@@@36@@@30@@@16@@@0@@@1080@@@0'
+agg_expected='a 1 -2 3 4 -24 -6 ~b
+b 0 -3 4 1 0 -12 1
+c 3 6 2.5 4 180 15 0
++|all 4 1 9.5 9 156 -3 1
+*|all 0 36 30 16 0 1080 0'
 [ "$(ds:agg $tmp '*|all,$4*$3,~b' '+|all,*|all')" = "$agg_expected" ] || ds:fail 'agg failed readme kitchen sink case'
 
 echo -e "one two three four\nakk 2 3 4\nblah 3 2 1\nyuge 2 4 3\ngoal 2 4 1" > $tmp
-agg_expected='one@@@two@@@three@@@four@@@/@@@+@@@*@@@-
-akk@@@2@@@3@@@4@@@0.166667@@@9@@@24@@@-9
-blah@@@3@@@2@@@1@@@1.5@@@6@@@6@@@-6
-yuge@@@2@@@4@@@3@@@0.166667@@@9@@@24@@@-9
-goal@@@2@@@4@@@1@@@0.5@@@7@@@8@@@-7
--@@@-9@@@-13@@@-9@@@-2.33334@@@-31@@@-62@@@31
-/@@@0.166667@@@0.09375@@@1.33333@@@1.33333@@@0.0238096@@@0.0208334@@@0.0238096
-*@@@24@@@96@@@12@@@0.0208334@@@3402@@@27648@@@3402
-+@@@9@@@13@@@9@@@2.33334@@@31@@@62@@@-31'
+agg_expected='one two three four / + * -
+akk 2 3 4 0.166667 9 24 -9
+blah 3 2 1 1.5 6 6 -6
+yuge 2 4 3 0.166667 9 24 -9
+goal 2 4 1 0.5 7 8 -7
+- -9 -13 -9 -2.33334 -31 -62 31
+/ 0.166667 0.09375 1.33333 1.33333 0.0238096 0.0208334 0.0238096
+* 24 96 12 0.0208334 3402 27648 3402
++ 9 13 9 2.33334 31 62 -31'
 [ "$(ds:agg $tmp '/,+,*,-' '\-,/,*,+')" = "$agg_expected" ] || ds:fail 'agg failed all shortforms case'
-agg_expected='one@@@two@@@three@@@four@@@three+two@@@-
-akk@@@2@@@3@@@4@@@5@@@-9
-blah@@@3@@@2@@@1@@@5@@@-6
-yuge@@@2@@@4@@@3@@@6@@@-9
-goal@@@2@@@4@@@1@@@6@@@-7
-akk-goal@@@0@@@-1@@@3@@@-1@@@-2
-blah/yuge@@@1.5@@@0.5@@@0.333333@@@0.833333@@@0.666667'
+agg_expected='one two three four three+two -
+akk 2 3 4 5 -9
+blah 3 2 1 5 -6
+yuge 2 4 3 6 -9
+goal 2 4 1 6 -7
+akk-goal 0 -1 3 -1 -2
+blah/yuge 1.5 0.5 0.333333 0.833333 0.666667'
 [ "$(ds:agg $tmp 'three+two,-' 'akk-goal,blah/yuge')" ] || ds:fail 'agg failed keysearch cases'
 
 # CASE TESTS
@@ -880,12 +886,41 @@ expected='    one      two     three     four         +         *
 -9.0000  -9.0000  -13.0000  -9.0000  -40.0000  -96.0000
  0.0833   0.1667    0.0938   1.3333    0.0100    0.0017'
 actual="$(echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" | ds:agg '+,*' '\-,/' | ds:fit -v d=4 -v color=never)"
-[ "$actual" = "$expected" ] || ds:fail 'integration agg fit negative decimals case failed'
+[ "$actual" = "$expected" ] || ds:fail 'integration agg fit negative decimals case 1 failed'
 
 input='a  1  -2  3.0  4
 b  0  -3  4.0  1
 c  3   6  2.5  4'
-expected=''
+expected='a   1  -2   3.0   4    6.0000   -24
+b   0  -3   4.0   1    2.0000     0
+c   3   6   2.5   4   15.5000   180
+-  -4  -1  -9.5  -9  -23.5000  -156
+/   0   1   4.8   1    0.7742     0'
+actual="$(echo -e "$input" | ds:agg '+,*' '\-,/' | ds:fit -v color=never)"
+[ "$actual" = "$expected" ] || ds:fail 'integration agg fit negative decimals case 2 failed'
+
+
+# MULTISORT TESTS
+
+expected='a b c d
+c d e f
+b a d f
+h i o p'
+actual="$(echo -e "b a c d\nd c e f\na b d f\ni h o p" | awk -f scripts/multisort.awk | sed -E 's/[[:space:]]+$//g')"
+[ "$actual" = "$expected" ] || ds:fail 'Multisort simple char case ascending failed'
+
+expected='p i o h
+f d e c
+f a d b
+d b c a'
+actual="$(echo -e "b a c d\nd c e f\na b d f\ni h o p" | awk -v order=d -f scripts/multisort.awk | sed -E 's/[[:space:]]+$//g')"
+[ "$actual" = "$expected" ] || ds:fail 'Multisort simple char case descending failed'
+
+expected='2f 1
+4 30
+3oi 409'
+actual="$(echo -e "1 2f\n409 3oi\n30 4" | awk -v type=n -f scripts/multisort.awk | sed -E 's/[[:space:]]+$//g')"
+[ "$actual" = "$expected" ] || ds:fail 'Multisort number asscending case failed'
 
 # CLEANUP
 
