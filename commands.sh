@@ -27,6 +27,7 @@ ds:help() { # Print help for a given command: ds:help ds_command
   [[ "$1" =~ 'reo' ]] && ds:reo -h && return
   [[ "$1" =~ 'fit' ]] && ds:fit -h && return
   [[ "$1" =~ 'jn' ]] && ds:jn -h && return
+  [[ "$1" =~ 'agg' ]] && ds:agg -h && return
   [[ "$1" =~ 'stag' ]] && ds:stag -h && return
   ds:commands "" t | ds:reo "2, 2~$1 || 3~$1" "2[$1~. || 3[$1~."
 }
@@ -552,7 +553,7 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file1 [
     local args=( "$@" )
     [ "$k2" ] && local args=("${args[@]}" -v "k1=$k1" -v "k2=$k2") || local args=("${args[@]}" -v "k=$k")
   else local args=( "$@" ); fi
-  [ "$merge" ] && unset "args[$merge]" && local args=("${args[@]}" -v 'merge=1')
+  [ "$merge" ] && local args=("${args[@]:1}" -v 'merge=1')
   [ "$type" ] && local args=("${args[@]}" -v "join=$type")
 
   if ds:noawkfs; then
@@ -562,11 +563,9 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file1 [
     if [ "$fs_idx" = "" ]; then
       local fs_idx="$(ds:arr_idx '^-F' ${args[@]})"
       if [ "$fs_idx" ]; then
-        [ "$merge" ] && let local fs_idx++
         local fs1="$(echo "${args[$fs_idx]}" | tr -d '\-F')"; fi
     else
       local fs1="$(echo "${args[$fs_idx]}" | tr -d 'FS=')"
-      [ "$merge" ] && let local fs_idx++
       let local fsv_idx=$fs_idx-1
       unset "args[$fsv_idx]"; fi
     [ "$fs_idx" ] && unset "args[$fs_idx]"
@@ -574,14 +573,12 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file1 [
       local fs1_idx="$(ds:arr_idx '^fs1=' ${args[@]})"
       local fs2_idx="$(ds:arr_idx '^fs2=' ${args[@]})"
       if [ "$fs1_idx" ]; then
-        [ "$merge" ] && let local fs1_idx++
         echo $fs1_idx ${args[$fs1_idx]}
         local fs1="$(echo "${args[$fs1_idx]}" | tr -d 'fs1=')"
         unset "args[$fs1_idx]"
         let local fs1v_idx=$fs1_idx-1
         [ "$fs1v_idx" ] && unset "args[$fs1v_idx]"; fi
       if [ "$fs2_idx" ]; then
-        [ "$merge" ] && let local fs2_idx++
         local fs2="$(echo "${args[$fs2_idx]}" | tr -d 'fs2=')"
         unset "args[$fs2_idx]"
         let local fs2v_idx=$fs2_idx-1
@@ -843,12 +840,13 @@ ds:pvt() { # ** Pivot tabular data: ds:pv [file] [y_keys] [x_keys] [z_keys=count
   ds:pipe_clean $file; rm $prefield
 }
 
-ds:agg() { # ** Aggregate by index/pattern: ds:agg [file] [r_aggs] [c_aggs]
+ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file] [r_aggs] [c_aggs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_agg') piped=0
     cat /dev/stdin > $file
   else
-    # TODO: man page
+    ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/agg.awk" \
+      | tr -d "#" | less && return
     ds:file_check "$1"
     local file="$(ds:fd_check "$1")"; shift; fi
   
@@ -865,7 +863,7 @@ ds:agg() { # ** Aggregate by index/pattern: ds:agg [file] [r_aggs] [c_aggs]
   ds:prefield "$file" "$fs" > $prefield
   awk -v FS="$DS_SEP" -v OFS="$fs" -v r_aggs="$r_aggs" -v c_aggs="$c_aggs" \
     -v x_aggs="$x_aggs" ${args[@]} -f "$DS_SCRIPT/agg.awk" "$prefield" \
-    | ds:ttyf "$fs"
+    | ds:ttyf "$fs" "" -v nofit='Cross__FS__Aggregation'
   ds:pipe_clean $file; rm $prefield
 }
 
@@ -1046,7 +1044,7 @@ ds:sbsp() { # ** Extend fields by a common subseparator: ds:sbsp [file] subsep_p
 
 ds:dostounix() { # ** Remove ^M / CR characters in place: ds:dostounix [file]
   if ds:pipe_open; then
-    local file=$(ds:tmp 'ds_sbsp') piped=0
+    local file=$(ds:tmp 'ds_dostounix_piped') piped=0
     cat /dev/stdin > $file
   else
     ds:file_check "$1"
@@ -1212,12 +1210,16 @@ ds:sedi() { # Run global in place substitutions: ds:sedi file|dir search [replac
     done < <(grep -r --files-with-match "$search" "$dir"); fi
 }
 
-ds:dff() { # Diff shortcut for more relevant changes: ds:dff file1 file2 [suppress_common]
-  local tty_size=$(tput cols)
+ds:dff() { # Diff shortcut for more relevant changes: ds:dff file1 file2 [suppress_common] [color=t]
+  local tty_size=$(tput cols) color="${4:-t}"
   let local tty_half=$tty_size/2
   [ "$3" ] && local sup=--suppress-common-lines && set -- "${@:1:2}"
-  diff -b -y -W $tty_size $sup ${@} | expand | awk -v tty_half=$tty_half \
+  if ds:test 't(rue)?' "$color"; then
+    diff -b -y -W $tty_size $sup ${@} | expand | awk -v tty_half=$tty_half \
     -f "$DS_SCRIPT/diff_color.awk" | less
+  else
+    diff -b -y -W $tty_size $sup ${@} | expand | less
+  fi
 }
 
 ds:gwdf() { # Git word diff shortcut: ds:gwdf [git_diff_args]

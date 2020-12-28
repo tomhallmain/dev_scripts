@@ -71,6 +71,8 @@
 #    -v startfit=startpattern
 #    -v endfit=endpattern
 #
+#    NOTE: To match the FS in patterns above, use the string '__FS__'
+#
 #       Start fit at row number, end fit at row number:
 #    -v startrow=100
 #    -v endrow=200
@@ -93,6 +95,11 @@ BEGIN {
   if (file && !nofit && !onlyfit && !startfit && !endfit && !startrow && !endrow) {
     if (file ~ /\.(properties|csv|tsv)$/)
       nofit = "^#" }
+  else if (nofit || onlyfit || startfit || endfit) {
+    gsub(/__FS__/, FS, nofit)
+    gsub(/__FS__/, FS, onlyfit)
+    gsub(/__FS__/, FS, startfit)
+    gsub(/__FS__/, FS, endfit) }
 
   partial_fit = nofit || onlyfit || startfit || endfit || startrow || endrow
   prefield = FS == "@@@"
@@ -220,6 +227,7 @@ partial_fit {
 
 NR == FNR { # First pass, gather field info
   fitrows++
+
   for (i = 1; i <= NF; i++) {
     if (endfit_col) {
       if (i == 1) res_line = $0
@@ -230,9 +238,12 @@ NR == FNR { # First pass, gather field info
       else {
         gsub(FS, OFS, res_line)
         ResLine[NR] = res_line
-        init_f = res_line }}
+        init_f = res_line
+      }
+    }
     else {
-      init_f = $i }
+      init_f = $i
+    }
 
     init_len = length(init_f)
     if (init_len < 1) continue
@@ -242,7 +253,8 @@ NR == FNR { # First pass, gather field info
     tc_diff = init_len - len_ntc
     if (tc_diff > 0) {
       color_detected = 1
-      COLOR_DIFF[NR, i] = tc_diff }
+      COLOR_DIFF[NR, i] = tc_diff
+    }
 
     f = StripColors(init_f)
     len = length(f)
@@ -258,14 +270,19 @@ NR == FNR { # First pass, gather field info
       FS = WCW_FS
       wcw = wcscolumns(f)
       FS = FIT_FS
+
       wcw_diff = len - wcw
+
       if (wcw_diff == 0) {
         f_wcw_kludge = StripBasicASCII(f)
         len_wcw_kludge = length(f_wcw_kludge)
-        wcw_diff += len_wcw_kludge }
+        wcw_diff += len_wcw_kludge
+      }
       if (wcw_diff) {
         WCWIDTH_DIFF[NR, i] = wcw_diff
-        if (debug) DebugPrint(10) }}
+        if (debug) DebugPrint(10)
+      }
+    }
 
     # If column unconfirmed as decimal and the current field is decimal
     # set decimal for column and handle field length changes
@@ -282,36 +299,49 @@ NR == FNR { # First pass, gather field info
       if (SaveNMax[i] > FMax[i] && SaveNMax[i] > SaveSMax[i]) {
         recap_n_diff = Max(SaveNMax[i] - FMax[i], 0)
         FMax[i] += recap_n_diff
-        total_f_len += recap_n_diff }}
+        total_f_len += recap_n_diff
+      }
+    }
 
     if (f ~ num_re) {
       if (fitrows < 30) {
         if (debug && !NSet[i]) DebugPrint(7)
         NSet[i] = 1 }
+
       if (NSet[i] && !NOverset[i]) {
         if (f ~ int_re) {
           if (len > IMax[i]) IMax[i] = len
-          if (!DSet[i] && len > DecPush[i] && f ~ /^(\$|-)/) {
-            DecPush[i] = len }}
+
+          if (!DSet[i] && len > DecPush[i] && f ~ /^(\$|-)/)
+            DecPush[i] = len
+        }
         if (f ~ /^0+[1-9]/) {
           f = sprintf("%f", f)
           if (f ~ /\.[0-9]+0+/)
             sub(/0*$/, "", f) # Remove trailing zeros in decimal part
-          len = length(f); l_diff = len - orig_max }
-        if (len > NMax[i]) NMax[i] = len }}
+
+          len = length(f); l_diff = len - orig_max
+        }
+        if (len > NMax[i]) NMax[i] = len 
+      }
+    }
 
     if (NSet[i] && !NOverset[i] && !LargeVals[i] && (f+0 > 9999)) LargeVals[i] = 1
 
     if (!dec_off && !DSet[i] && ComplexFmtNum(f)) {
       DSet[i] = 1
+
       float = f ~ float_re
       tval = TruncVal(f, 0, LargeVals[i])
+
       if (tval ~ /\.[0-9]+0+/)
         sub(/0*$/, "", tval) # Remove trailing zeros in decimal part
       sub(/\.0*$/, "", tval) # Remove decimal part if equal to zero
+
       t_len = length(tval)
       t_diff = 0
       l_diff = t_len - orig_max
+
       split(tval, NParts, /\./)
       d_len = length(NParts[2])
       DMax[i] = d_len
@@ -320,7 +350,8 @@ NR == FNR { # First pass, gather field info
       if (sn) {
         if (!d) sn_len = 2 + d_len + 4
         sn_diff = sn_len - orig_max
-        f_diff = Max(sn_diff, 0) }
+        f_diff = Max(sn_diff, 0)
+      }
       else {
         gsub(/[^0-9\-]/, "", NParts[1])
         int_len = length(NParts[1])
@@ -329,7 +360,8 @@ NR == FNR { # First pass, gather field info
         if (DecPush[i] && !(NParts[1] ~ /^($|-)/)) {
           int_len = Max(DecPush[i] + apply_decimal, int_len)
           dec_push = 1
-          delete DecPush[i] }
+          delete DecPush[i]
+        }
         if (int_len > NMax[i]) NMax[i] = int_len
         int_diff = int_len - t_len
 
@@ -342,32 +374,42 @@ NR == FNR { # First pass, gather field info
           if (apply_decimal) {
             dot = (fix_dec || d_len ? 1 : 0)
             dec = (float || !d_len ? dot : 0)
-            d_diff = dec + (d ? fix_dec : d_len) }
+            d_diff = dec + (d ? fix_dec : d_len)
+          }
 
-          f_diff = Max(l_diff + int_diff + d_diff - t_diff, 0) }}
+          f_diff = Max(l_diff + int_diff + d_diff - t_diff, 0)
+        }
+      }
 
       if (debug) DebugPrint(2) }
 
     else if (!dec_off && DSet[i] && AnyFmtNum(f)) {
         float = f ~ float_re
         tval = TruncVal(f, 0, LargeVals[i])
+
         if (tval ~ /\.[0-9]+0+/)
           sub(/0*$/, "", tval) # Remove trailing zeros in decimal part
         sub(/\.0*$/, "", tval) # Remove decimal part if equal to zero
+
         t_len = length(tval)
         t_diff = float ? 0 : Max(len - t_len, 0)
         l_diff = t_len - orig_max
+
         split(tval, NParts, /\./)
         d_len = length(NParts[2])
+
         if (d_len > DMax[i]) {
           dmax_diff = float ? d_len - DMax[i] : 0
-          DMax[i] = d_len }
+          DMax[i] = d_len
+        }
+
         apply_decimal = (d != "z" && (d || DMax[i]))
 
         if (sn) {
           if (!d) sn_len = 2 + DMax[i] + 4
           sn_diff = sn_len - orig_max
-          f_diff = Max(sn_diff, 0) }
+          f_diff = Max(sn_diff, 0)
+        }
         else {
           gsub(/[^0-9\-]/, "", NParts[1])
           int_len = length(int(NParts[1]))
@@ -377,7 +419,8 @@ NR == FNR { # First pass, gather field info
             if (DecPush[i] && !(NParts[1] ~ /^($|-)/)) {
               int_len = Max(DecPush[i], int_len)
               dec_push = 1
-              delete DecPush[i] }
+              delete DecPush[i]
+            }
             if (int_len > NMax[i]) NMax[i] = int_len
             int_diff = len - t_len
 
@@ -390,33 +433,46 @@ NR == FNR { # First pass, gather field info
               dot = 1
               dec = (d ? fix_dec : DMax[i])
               d_diff = (float || !d_len ? dot : 0) + dec - d_len
-              f_diff = Max(l_diff + int_diff + d_diff + dmax_diff - t_diff, 0) }
+              f_diff = Max(l_diff + int_diff + d_diff + dmax_diff - t_diff, 0)
+            }
             else {
-              f_diff = Max(l_diff + int_diff + d_diff + dmax_diff - t_diff, 0) }}
+              f_diff = Max(l_diff + int_diff + d_diff + dmax_diff - t_diff, 0)
+            }
+          }
 
           else {
             if (int_len > NMax[i]) NMax[i] = int_len
-            f_diff = l_diff }}
+            f_diff = l_diff
+          }
+        }
 
-      if (debug && f_diff) DebugPrint(3) }
+      if (debug && f_diff) DebugPrint(3)
+    }
 
     else if (l_diff > 0) {
       if (NSet[i] && !NOverset[i] && f ~ num_re) {
         if (len > SaveNMax[i]) {
-          SaveNMax[i] = len }
+          SaveNMax[i] = len
+        }
         if (sn && NMax[i] > sn0_len) {
           sn_diff = sn0_len - orig_max
-          l_diff = sn_diff }}
+          l_diff = sn_diff
+        }
+      }
 
       if (sn && !(f ~ num_re))
         if (len > SaveSMax[i]) SaveSMax[i] = len
 
       f_diff = l_diff
 
-      if (debug) DebugPrint(1) }
+      if (debug) DebugPrint(1)
+    }
 
     if (f_diff) { FMax[i] += f_diff; total_f_len += f_diff }
-    if (endfit_col && i == endfit_col) break }
+
+    if (endfit_col && i == endfit_col) break
+
+  }
 
   if (NF > max_nf)
     max_nf = endfit_col && endfit_col < NF ? endfit_col : NF
@@ -456,6 +512,7 @@ NR > FNR { # Second pass, print formatted if applicable
         printf fmt_str, value
         if (not_last_f) PrintBuffer(buffer)
       }
+
       else {
         if (ShrinkF[i]) {
           if (color_on) {
@@ -477,7 +534,8 @@ NR > FNR { # Second pass, print formatted if applicable
 
         printf fmt_str, value
         if (not_last_f) PrintBuffer(buffer)
-      }}
+      }
+    }
     if (debug && FNR < 2) DebugPrint(6) }
 
   print ""
@@ -502,18 +560,27 @@ function StripBasicASCII(str) {
 function CutStringByVisibleLen(str, red_len) {
   if (str ~ trailing_color_re) {
     rem_str = str; red_str = ""; red_str_len = 0; next_color = ""
+
     split(str, PrintStr, trailing_color_re)
     p_len = length(PrintStr)
+
     for (p = 1; p <= p_len && red_str_len <= red_len; p++) {
+
       p_cur = p == 1 ? PrintStr[p] : substr(PrintStr[p], 2)
+
       add = substr(p_cur, 1, Max(red_len - red_str_len, 0))
+
       rem_str = substr(rem_str, index(rem_str, p_cur) + length(p_cur) + 1)
+
       next_color = p == p_len ? rem_str : substr(rem_str, 1, index(rem_str, PrintStr[p+1]))
-      if (debug && FNR==15 && i == 1) print p, "PCUR:" p_cur, "ADD:" add, "REMSTR" rem_str
+ 
       red_str = red_str add next_color
-      red_str_len += length(add) }}
+      red_str_len += length(add)
+    }
+  }
   else {
-    red_str = substr(str, 1, red_len) }
+    red_str = substr(str, 1, red_len)
+  }
 
   return red_str
 }
@@ -522,13 +589,17 @@ function TruncVal(val, dec, large_vals) {
     dec_f = d ? fix_dec : Max(dec, 0)
     full_f = length(int(val))
     if (dec_f) full_f += dec_f + 1
-    return sprintf("%"full_f"."dec_f"f", val) }
+
+    return sprintf("%"full_f"."dec_f"f", val)
+  }
   else if (val ~ /\.[0-9]{5,}$/) {
     dec_f = d ? fix_dec : Max(dec, 4)
     full_f = length(int(val)) + dec_f + 1
-    return sprintf("%"full_f"."dec_f"f", val) }
-  else {
-    return sprintf("%f", val) } # Small floats flow through this logic
+
+    return sprintf("%"full_f"."dec_f"f", val)
+  }
+  else
+    return sprintf("%f", val) # Small floats flow through this logic
 }
 function AnyFmtNum(str) {
   return (str ~ num_re || str ~ decimal_re || str ~ float_re)

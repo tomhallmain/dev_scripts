@@ -166,12 +166,12 @@ e d c b a'
 
 sort_input="1\nj\n98\n47\n9\n05\nj2\n9ju\n9\n9d" 
 sort_output='1
-47
 05
 9
-9
 9d
+9
 9ju
+47
 98
 j
 j2'
@@ -743,6 +743,25 @@ akk-goal 0 -1 3 -1 -2
 blah/yuge 1.5 0.5 0.333333 0.833333 0.666667'
 [ "$(ds:agg $tmp 'three+two,-' 'akk-goal,blah/yuge')" ] || ds:fail 'agg failed keysearch cases'
 
+echo -e "a 2 3 4\nb 3 4 5\na 4 5 2\nc 7 7 7" > $tmp
+agg_expected='a 2 3 4
+b 3 4 5
+a 4 5 2
+c 7 7 7
++|~a 6 8 6
++ 16 19 18'
+[ "$(ds:agg $tmp 0 '+|~a,+')" ] || ds:fail 'agg failed conditional C agg case'
+
+echo -e "one:two:three:four\n1:2:3:4\n4:3:2:1\n1:2:4:3\n3:2:4:1" > $tmp
+agg_expected='one:two:three:four:+|$4>3||$4<2
+1:2:3:4:8
+4:3:2:1:7
+1:2:4:3:8
+3:2:4:1:8'
+[ "$(ds:agg $tmp '+|$4>3||$4<2')" ] || ds:fail 'agg failed conditional R agg case'
+
+
+
 # CASE TESTS
 
 case_input='test_vAriANt Case'
@@ -842,7 +861,8 @@ if [[ $shell =~ 'bash' ]]; then
   [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$fsrc_expected" ]] || ds:fail 'fsrc failed'
 fi
 
-help_deps='ds:stag
+help_deps='ds:agg
+ds:stag
 ds:fail
 ds:fit
 ds:reo
