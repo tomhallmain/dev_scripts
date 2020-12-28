@@ -1,14 +1,14 @@
 
 @@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
 @@@@@@@@@@@@
-**@@@ds:agg@@@@@@Aggregate by index/pattern@@@ds:agg [file] [r_aggs] [c_aggs]
+**@@@ds:agg@@@@@@Aggregate by index/pattern@@@ds:agg [-h|file] [r_aggs] [c_aggs]
 @@@ds:asgn@@@@@@Print lines matching assignment pattern@@@ds:asgn file
 **@@@ds:case@@@@@@Recase text data globally or in part@@@ds:case [string] [tocase=proper] [filter]
 @@@ds:commands@@@@@@List dev_scripts commands@@@ds:commands [bufferchar] [utils]
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [file] [n_lines=1]
 @@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=(FUNC|ALIAS)] [caller] [ndata]
-@@@ds:dff@@@@@@Diff shortcut for more relevant changes@@@ds:dff file1 file2 [suppress_common]
+@@@ds:dff@@@@@@Diff shortcut for more relevant changes@@@ds:dff file1 file2 [suppress_common] [color=t]
 **@@@ds:dostounix@@@@@@Remove ^M / CR characters in place@@@ds:dostounix [file]
 **@@@ds:dup_input@@@@@@Duplicate standard input in aggregate@@@data | ds:dup_input
 @@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir]

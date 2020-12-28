@@ -146,7 +146,7 @@ PIVOT     d  4
 
 #### `ds:agg`
 
-Aggregate data by specific indices or by full rows/columns by field value. For example, count all instances of a regex match, or sum number data. Note headers indicating agg type will be printed in first row/column if var header set in awkargs or if those values are null for the agg. Runs ds:fit on output if to a terminal.
+Aggregate data by specific indices or by full rows/columns by field value. For example, count all instances of a regex match, sum number data at each index, or group the results of an operation on one index by unique values from another index.
 
 ```bash
 $ cat /tmp/agg_ex
@@ -214,7 +214,7 @@ cdatetime              address
 View or search shell trace output.
 
 ```
-$ ds:test '(t|true)' true
+$ ds:test 't(rue)?' true
 $ ds:trace
 Press enter to trace last command
 +ds:trace:7> eval 'ds:test '\''(t|true)'\'' true'

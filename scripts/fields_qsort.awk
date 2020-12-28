@@ -86,7 +86,7 @@ function QSAN(A,left,right,    i,last) {
   for (i = left+1; i <= right; i++) {
     if (GetN(A[i]) < GetN(A[left]))
       S(A, ++last, i)
-    else if (GetN(A[i]) == GetN(A[left]) && Ext[A[i]] && NExt[A[i]] < NExt[A[left]])
+    else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]])
       S(A, ++last, i) }
 
   S(A, left, last)
@@ -103,7 +103,7 @@ function QSDN(A,left,right,    i,last) {
   for (i = left+1; i <= right; i++) {
     if (GetN(A[i]) > GetN(A[left]))
       S(A, ++last, i)
-    else if (GetN(A[i]) == GetN(A[left]) && Ext[A[i]] && NExt[A[i]] < NExt[A[left]])
+    else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]])
       S(A, ++last, i) }
 
   S(A, left, last)
@@ -127,6 +127,7 @@ function GetN(str) {
     n_str = sprintf("%f", n_str)
     gsub(/[^0-9\.Ee\+\-]+/, "", n_str)
     gsub(/^0*/, "", n_str)
+    n_str = n_str + 0
     NS[str] = n_str
     return n_str }
   else

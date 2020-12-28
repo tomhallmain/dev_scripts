@@ -12,7 +12,7 @@
 #       options for output.
 #
 #       To run the script, ensure AWK is installed and in your path (on most Unix-based
-#       systems it should be), and call it on a file:
+#       systems it should be), and call it on two files:
 #
 #          > awk -f join.awk file1 file2
 #
@@ -30,11 +30,11 @@
 #       different FS, assign to vars fs1 and fs2. Be sure to escape and quote if needed. 
 #       AWK's extended regex can be used as FS:
 #
-#          $ ds:jn file1 file2 -v FS=" {2,}"
-#
 #          $ ds:jn file1 file2 -v fs1=',' -v fs2=':'
 #
-#          $ ds:jn a rev -F'\\\|'
+#          $ ds:jn file1 file2 -v FS=" {2,}"
+#
+#          $ ds:jn file1 file2 -F'\\\|'
 #
 #       If FS is set to an empty string, all characters will be separated.
 #

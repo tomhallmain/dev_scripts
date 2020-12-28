@@ -39,5 +39,6 @@ case "$tests" in
   case)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , CASE TESTS##GRAPH"         ;;
   graph)    ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , GRAPH TESTS##ASSORTED"     ;;
   deps)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , help_deps##ds:deps"        ;;
-  int)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , INTEGRATION##"             ;;
+  int)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , INTEGRATION##MULTISORT"    ;;
+  exper)    ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , MULTISORT TESTS##"         ;;
 esac
