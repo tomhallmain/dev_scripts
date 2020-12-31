@@ -13,12 +13,13 @@ ds:file_check() { # Test for file validity and fail if invalid: ds:file_check te
     if [[ -e "$tf" && ! -d "$tf" ]]; then
       echo -n "$tf"
     else
-      local f=$(ds:nset 'fd' && fd -1 -t f "$tf" || find . -type f -name "*$tf*" | head -n1)
+      local f=$(ds:nset 'fd' && fd -t f "utils" -x grep -Il '.' {} \; | head -n1 \
+        || find . -type f -name "*$tf*" -not -path '*/\.*' -exec grep -Il '.' {} \; | head -n1)
       [[ -z "$f" || ! -f "$f" ]] && ds:fail 'File not provided or invalid!'
       local conf=$(ds:readp "Arg is not a file - run on closest match ${f}? (y/n)")
       [ "$conf" = "y" ] && echo -n "$f" || ds:fail 'File not provided or invalid!'
     fi
-  elif [ ! -e "$tf" ] || [ -d "$tf" ]; then
+  elif [ ! -e "$tf" ] || [ -d "$tf" ] || ! grep -Iq "" "$tf"; then
   # TODO: Bash -e test fails on fds
     ds:fail 'File not provided or invalid!'; fi
 }

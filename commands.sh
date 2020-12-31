@@ -32,20 +32,41 @@ ds:help() { # Print help for a given command: ds:help ds_command
   ds:commands "" t | ds:reo "2, 2~$1 || 3~$1" "2[$1~. || 3[$1~."
 }
 
-ds:vi() { # Search for file and open it in vim: ds:vi search [dir]
+ds:vi() { # Search for file and open it in vim: ds:vi search [dir] [edit_all_match=f]
   [ ! "$1" ] && echo 'Filename search pattern missing!' && ds:help ds:vi && return 1
-  local search="${1}" dir="${2:-.}"
+  local search="${1}" dir="${2:-.}" all="${3:-f}"
   if fd --version &>/dev/null; then
-    local fl="$(fd -t f "$search" "$dir" | head -n1)"
+    local fl="$(fd -t f "$search" "$dir" | head -n100 | sed -E 's#^\./##g')"
   elif fd-find --version &>/dev/null; then
-    local fl="$(fd-find -t f "$search" "$dir" | head -n1)"
+    local fl="$(fd-find -t f "$search" "$dir" | head -n100 | sed -E 's#^\./##g')"
   else
-    local fl="$(find "$dir" -type f -name "*$search*" -maxdepth 10 | head -n1)"; fi
-  vi "$fl"
+    local fl="$(find "$dir" -type f -name "*$search*" -maxdepth 10 | head -n100 | sed -E 's#^\./##g')"; fi
+  local matchcount="$(echo -e "$fl" | wc -l | xargs)"
+  ! ds:is_int "$matchcount" && ds:fail 'Unable to find a match with current args'
+  if [ "$matchcount" -gt 1 ]; then
+    ds:test 't(rue)?' "$all" || local singlefile=0
+    if [ $singlefile ]; then
+      echo 'Multiple matches found - select a file:'
+      echo -e "$fl" | ds:idx 1 -v FS=$DS_SEP | ds:fit -v FS=$DS_SEP
+      while [ ! $confirmed ]; do
+        local choice="$(ds:readp 'Enter a number from the set of files:')"
+        if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
+          local confirmed=0
+        else
+          echo "Unable to read selection, try again."; fi; done
+      local fl="$(echo -e "$fl" | ds:reo $choice off | head -n1)"; fi; fi
+  if [ "$singlefile" ]; then
+    if [ -f "$fl" ]; then
+      [ -f ".$file.swp" ] && ds:fail "File $file already open"
+      vi "$fl"
+    else ds:fail 'Failed to load file'; fi
+  else
+    echo 'Editing files:'; echo -e "$fl"
+    vi $(echo -e "$fl"); fi
 }
 
-ds:gvi() { # Grep and open vim on the first match: ds:gvi search [file|dir]
-  local search="$1"
+ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_match=f]
+  local search="$1" all="${3:-f}"
   if [ -f "$2" ]; then local file="$2"
     if ds:nset 'rg'; then
       local line=$(rg --line-number "$search" "$file" | head -n1 | ds:reo 1 1 -v FS=":")
@@ -53,34 +74,81 @@ ds:gvi() { # Grep and open vim on the first match: ds:gvi search [file|dir]
       local line=$(grep --line-number "$search" "$file" | head -n1 | ds:reo 1 1 -v FS=":")
     fi
   else
+    ds:test 't(rue)?' "$all" || local singlefile=0
     local tmp=$(ds:tmp 'ds_gvi')
     [ -d "$2" ] && local dir="$2"
     if [ -z $dir ]; then
       local dir="." basedir_f=($(find . -maxdepth 0 -type f | grep -v ":"))
-      [ ! "$2" = "" ] && local filesearch="1~$2" || local filesearch=1
+      [ ! "$2" = "" ] && local filesearch="1~$2" || local filesearch=a
       if ds:nset 'rg'; then
         rg -Hno --no-heading --hidden --color=never -g '!*:*' -g '!.git' \
           "$search" ${basedir_f[@]} "$dir" > $tmp
       else
         grep -HInors --color=never --exclude ':' --excludedir '.git' \
           "$search" ${basedir_f[@]} "$dir" > $tmp; fi
-      local fileline="$(ds:reo $tmp "$filesearch" 1,2 -F: -v q=1 | head -n1)"
-      local file="${fileline%:*}" line=${fileline##*:}
+      local fileline="$(ds:reo $tmp "$filesearch" 1,2 -F: -v q=1 | head -n100 | sed -E 's#^\./##g')"
+      local fileset="$(echo -e "$fileline" | ds:fc 1 1 -v FS=: | ds:reo a 2 -F:)"
+      local matchcount="$(echo -e "$fileset" | wc -l | xargs)"
+      ! ds:is_int "$matchcount" && rm $tmp && ds:fail 'Unable to find a match with current args'
+      [ "$matchcount" -gt 1 ] && local multiplematch=0
+      if [ "$singlefile" ]; then
+        if [ $multiplematch ]; then
+          echo 'Multiple matches found - select a file:'
+          echo -e "$fileset" | ds:idx 1 -F: | ds:fit -v FS=: -v color=never
+          while [ ! $confirmed ]; do
+            local choice="$(ds:readp 'Enter a number from the set of files:')"
+            if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
+              local confirmed=0
+            else
+              echo "Unable to read selection, try again."; fi; done
+          local filechoice="$(echo -e "$fileset" | ds:reo $choice off)"
+          local fileline="$(echo -e "$fileline" | ds:reo "1~$filechoice" | head -n1)"; fi
+        local file="${fileline%:*}" line=${fileline##*:}; fi
     else
       local basedir_f=($(find "$dir" -maxdepth 0 -type f | grep -v ":"))
       if ds:nset 'rg'; then
         rg -Hno --no-heading --hidden --color=never -g '!*:*' -g '!.git' \
-          "$search" ${basedir_f[@]} "$dir" | head -n1 > $tmp
+          "$search" ${basedir_f[@]} "$dir" | head -n100 > $tmp
       else
         grep -HInors --color=never --exclude ':' --excludedir '.git' \
-          "$search" ${basedir_f[@]} "$dir" | head -n1 > $tmp; fi
-      local fileline="$(ds:reo $tmp 1 1,2 -F: -v q=1 | head -n1)"
-      local file="${fileline%:*}" line=${fileline##*:}
-    fi
+          "$search" ${basedir_f[@]} "$dir" | head -n100 > $tmp; fi
+      local fileline="$(sed -E 's#^\./##g' $tmp | ds:reo a 1,2 -F: -v q=1)"
+      local fileset="$(echo -e "$fileline" | ds:fc 1 1 -v FS=: | ds:reo a 2 -F:)"
+      local matchcount="$(echo -e "$fileset" | wc -l | xargs)"
+      ! ds:is_int "$matchcount" && rm $tmp && ds:fail 'Unable to find a match with current args'
+      [ "$matchcount" -gt 1 ] && local multiplematch=0
+      if [ "$singlefile" ]; then
+        if [ $multiplematch ]; then
+          echo 'Multiple matches found - select a file:'
+          echo -e "$fileset" | ds:idx 1 -F: | ds:fit -v FS=: -v color=never
+          while [ $confirmed = "" ]; do
+            local choice="$(ds:readp 'Enter a number from the set of files:')"
+            if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
+              local confirmed=0
+            else
+              echo "Unable to read selection, try again."; fi; done
+          local filechoice="$(echo -e "$fileset" | ds:reo $choice off)"
+          local fileline="$(echo -e "$fileline" | ds:reo "1~$filechoice" | head -n1)"; fi
+        local file="${fileline%:*}" line=${fileline##*:}; fi; fi
     rm $tmp
-    [ -f "$file" ] || ds:fail 'No match found'; fi
-  ds:is_int "$line" || ds:fail 'No match found'
-  vi +$line "$file" || return 1
+    if [ "$singlefile" ]; then
+      [ -f "$file" ] || ds:fail 'No match found'; fi; fi
+  if [[ "$singlefile" || ! $multiplematch ]]; then
+    ds:is_int "$line" || ds:fail 'No match found'
+    vi +$line "$file" || return 1
+  else
+    echo 'Running vim on all file matches. To move to the next file quit the current one.'
+    echo 'To quit the loop press Ctrl+C after quitting a file.'
+    sleep 4
+    OLD_IFS="$IFS"; IFS=$'\n'
+    for fl in $(echo -e "$fileline"); do
+      local file="${fl%:*}" line="${fl##*:}"
+      [ -f "$file" ] && ds:is_int "$line" || continue
+      ds:test "${file}${DS_SEP}" "$seenfiles" && continue
+      local seenfiles="${seenfiles}${file}${DS_SEP}"
+      [ -f ".$file.swp" ] && echo "File $file already open - can't open matchline $line" && continue 
+      sleep 1; vi +$line "$file"; done
+    IFS="$OLD_IFS"; fi
 }
 
 ds:searchn() { # Searches current environment names: ds:searchn name
@@ -191,7 +259,7 @@ ds:substr() { # ** Extract a substring with regex: ds:substr str [leftanc] [righ
   [ "$out" ] && printf "$out" || echo 'No string match to extract'
 }
 
-ds:iter() { # Repeat a string some number of times: ds:iter str [n=1] [fs]
+ds:iter() { # Repeat a string: ds:iter str [n=1] [fs]
   local str="$1" fs="${3:- }" out="$1"
   let n_repeats=${2:-1}-1
   for ((i=1;i<=$n_repeats;i++)); do local out="${out}${fs}${str}"; done
@@ -205,7 +273,7 @@ ds:embrace() { # Enclose a string on each side by args: embrace str [left={] [ri
   echo -n "${l}${val}${r}"
 }
 
-ds:filename_str() { # Add string to beginning or end of a filename: ds:filename_str file str [prepend|append]
+ds:filename_str() { # Add string to filename, preserving path: ds:filename_str file str [prepend|append]
   read -r dirpath filename extension <<<$(ds:path_elements "$1")
   [ ! -d "$dirpath" ] && echo 'Filepath given is invalid' && return 1
   local add="$2" position=${3:-append}
@@ -279,14 +347,24 @@ ds:fsrc() { # Show the source of a shell function: ds:fsrc func
   rm $tmp
 }
 
-ds:trace() { # Search shell trace for a pattern: ds:trace [command] [search]
+ds:trace() { # Search shell trace for a pattern: ds:trace [command] [search] [strace] [strace_args]
   if [ -z "$1" ]; then
     local cmd="$(fc -ln -1)"
     [[ "\"$cmd\"" =~ 'ds:trace' ]] && return 1
     ds:readp 'Press enter to trace last command'
   else
-    local cmd="$1"; fi
-  grep --color=always "$2" <(set -x &> /dev/null; eval "$cmd" 2>&1)
+    local cmd="$1"; shift; fi
+  local search="$1" run_strace="$2"
+  if [ -z "$run_strace" ]; then
+    grep --color=always "$1" <(set -x &> /dev/null; eval "$cmd" 2>&1)
+  else
+    ds:nset 'strace' || ds:fail 'strace command not found! Run ds:trace without strace args.'
+    local tmp=$(ds:tmp 'ds_trace') strace_args=("$DS_LOC" ${@:3})
+    echo '#!/bin/bash' > $tmp
+    echo 'source "$1/commands.sh"' >> $tmp
+    echo "$cmd" >> $tmp
+    grep --color=always "$search" <(strace -f $strace_args "$tmp")
+    rm $tmp; fi
 }
 
 ds:git_cross_view() { # Display table of git repos vs branches (alias ds:gcv): ds:gcv [:ab:Dfhmo:sv]
@@ -318,9 +396,6 @@ ds:git_squash() { # Squash last n commits (alias ds:gsq): ds:gsq [n_commits=1]
   local extent="${1:-1}"
   ! ds:is_int "$extent" && echo 'Squash commits to arg must be an integer' && ds:help ds:git_squash && return 1
   local conf="$(ds:readp "Are you sure you want to squash the last $extent commits on current branch?
-
-    The new commit messages will be:
-      $(git log --format=%B --reverse HEAD..HEAD@{1})
 
     Please confirm (y/n)")"
   [ ! "$conf" = y ] && echo 'No change made' && return 1
@@ -599,8 +674,8 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file1 [
   ds:pipe_clean $f2; if [ "$pf1" ]; then rm $pf1 $pf2; fi
 }
 
-ds:print_matches() { # ** Get match lines in two datasets (alias ds:pm): ds:pm file [file] [awkargs]
-  ds:file_check "$1"
+ds:print_matches() { # ** Get match lines from two datasets (alias ds:pm): ds:pm file [file] [awkargs]
+  ds:file_check "$1" # TODO delete this command?
   local f1="$(ds:fd_check "$1")"; shift
   if ds:pipe_open; then
     local f2=$(ds:tmp 'ds_matches') piped=1
@@ -623,8 +698,8 @@ ds:print_matches() { # ** Get match lines in two datasets (alias ds:pm): ds:pm f
 }
 alias ds:pm="ds:print_matches"
 
-ds:print_comps() { # ** Print non-matching lines on keys given (alias ds:pc): ds:pc file [file] [awkargs]
-  ds:file_check "$1"
+ds:print_comps() { # ** Get non-matching lines from two datasets (alias ds:pc): ds:pc file [file] [awkargs]
+  ds:file_check "$1" # TODO delete this command?
   local f1="$(ds:fd_check "$1")"; shift
   if ds:pipe_open; then
     local f2=$(ds:tmp 'ds_comps') piped=1
@@ -696,7 +771,7 @@ ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [c
       -v custom="$custom" "$file" 2> /dev/null; fi
 }
 
-ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*] [prefield=t] [awkargs]
+ds:fit() { # ** Fit fielded data in columns with dynamic width (alias ds:f): ds:fit [-h|file*] [prefield=t] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_fit') piped=0 hc=f
     cat /dev/stdin > $file
@@ -731,6 +806,7 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
     rm $prefield; fi
   ds:pipe_clean $file
 }
+alias ds:f="ds:fit"
 
 ds:stag() { # ** Print tabular data in staggered rows: ds:stag [file] [stag_size]
   ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/stagger.awk" \
@@ -899,7 +975,7 @@ ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file] [
 }
 alias ds:t="ds:transpose"
 
-ds:pow() { # ** Print the frequency distribution of fielded data: ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
+ds:pow() { # ** Combinatorial frequency of data field values: ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_pow') piped=0
     cat /dev/stdin > $file
@@ -1136,7 +1212,7 @@ ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [recurse=r
 
   local dirname="${dirname:-$PWD}" recurse="$2" hidden="$3" datefilter
   ds:nset 'fd' && local FD=1
-  [ "$recurse" ] && ds:test '(r(ecurse)?|t(rue)?)' || unset recurse
+  [ "$recurse" ] && ds:test '(r(ecurse)?|t(rue)?)' "$recurse" || unset recurse
 
   [ "$(ls --time-style=%D 2>/dev/null)" ] || local bsd=1
   local prg='{for(f=1;f<NF;f++){printf "%s ", $f;if($f~"^[0-3][0-9]/[0-3][0-9]/[0-9][0-9]$")printf "\""};print $NF "\""}'
