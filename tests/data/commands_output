@@ -16,8 +16,8 @@
 @@@ds:enti@@@@@@Print text entities separated by pattern@@@ds:enti [file] [sep= ] [min=1] [order=a]
 @@@ds:fail@@@@@@Safe failure, kills parent but returns to prompt@@@ds:fail [error_message]
 **@@@ds:fieldcounts@@@ds:fc@@@Print value counts@@@ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
-@@@ds:filename_str@@@@@@Add string to beginning or end of a filename@@@ds:filename_str file str [prepend|append]
-**@@@ds:fit@@@@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file*] [prefield=t] [awkargs]
+@@@ds:filename_str@@@@@@Add string to filename, preserving path@@@ds:filename_str file str [prepend|append]
+**@@@ds:fit@@@ds:f@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file*] [prefield=t] [awkargs]
 @@@ds:fsrc@@@@@@Show the source of a shell function@@@ds:fsrc func
 @@@ds:gexec@@@@@@Generate a script from pieces of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
 @@@ds:git_add_com_push@@@ds:gacp@@@Add, commit with message, push@@@ds:gacp commit_message
@@ -34,7 +34,7 @@
 @@@ds:git_time_stat@@@ds:gts@@@Last local pull+change+commit times@@@cd repo; ds:gts
 @@@ds:goog@@@@@@Search Google@@@ds:goog [search query]
 **@@@ds:graph@@@@@@Extract graph relationships from DAG base data@@@ds:graph [file]
-@@@ds:gvi@@@@@@Grep and open vim on the first match@@@ds:gvi search [file|dir]
+@@@ds:gvi@@@@@@Grep and open vim on match@@@ds:gvi search [file|dir] [edit_all_match=f]
 @@@ds:gwdf@@@@@@Git word diff shortcut@@@ds:gwdf [git_diff_args]
 @@@ds:help@@@@@@Print help for a given command@@@ds:help ds_command
 **@@@ds:hist@@@@@@Print histograms for all number fields in data@@@ds:hist [file] [n_bins] [bar_len] [awkargs]
@@ -43,7 +43,7 @@
 @@@ds:inferh@@@@@@Infer if headers present in a file@@@ds:inferh file [awkargs]
 **@@@ds:inferk@@@@@@Infer join fields in two text data files@@@ds:inferk file [file] [awkargs]
 **@@@ds:insert@@@@@@Redirect input into a file at lineno or pattern@@@ds:insert file [lineno|pattern] [srcfile]
-@@@ds:iter@@@@@@Repeat a string some number of times@@@ds:iter str [n=1] [fs]
+@@@ds:iter@@@@@@Repeat a string@@@ds:iter str [n=1] [fs]
 @@@ds:jira@@@@@@Opens Jira at specified workspace and issue@@@ds:jira workspace_subdomain [issue]
 **@@@ds:jn@@@@@@Join two files or a file and STDIN with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
 **@@@ds:join_by@@@@@@Join a shell array by given delimiter@@@ds:join_by delimiter [join_array]
@@ -55,9 +55,9 @@
 @@@ds:ntype@@@@@@Get name type - function, alias, variable@@@ds:ntype name
 @@@ds:path_elements@@@@@@Returns dirname/filename/extension from filepath@@@ds:path_elements file
 **@@@ds:pipe_check@@@@@@Detect if pipe has data or over [n_lines]@@@data | ds:pipe_check [n_lines]
-**@@@ds:pow@@@@@@Print the frequency distribution of fielded data@@@ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
-**@@@ds:print_comps@@@ds:pc@@@Print non-matching lines on keys given@@@ds:pc file [file] [awkargs]
-**@@@ds:print_matches@@@ds:pm@@@Get match lines in two datasets@@@ds:pm file [file] [awkargs]
+**@@@ds:pow@@@@@@Combinatorial frequency of data field values@@@ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
+**@@@ds:print_comps@@@ds:pc@@@Get non-matching lines from two datasets@@@ds:pc file [file] [awkargs]
+**@@@ds:print_matches@@@ds:pm@@@Get match lines from two datasets@@@ds:pm file [file] [awkargs]
 **@@@ds:pvt@@@@@@Pivot tabular data@@@ds:pv [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
 @@@ds:recent@@@@@@List files modified in last 7 days@@@ds:recent [dir=.] [recurse=r] [hidden=h]
 **@@@ds:reo@@@@@@Reorder/repeat/slice data by rows and cols@@@ds:reo [-h|file*] [rows] [cols] [prefield=t] [awkargs]
@@ -78,10 +78,10 @@
 **@@@ds:test@@@@@@Test input quietly with extended regex@@@ds:test regex [str|file] [test_file=f]
 @@@ds:tmp@@@@@@Shortcut for quiet mktemp@@@ds:tmp filename
 @@@ds:todo@@@@@@List todo items found in paths@@@ds:todo [searchpaths=.]
-@@@ds:trace@@@@@@Search shell trace for a pattern@@@ds:trace [command] [search]
+@@@ds:trace@@@@@@Search shell trace for a pattern@@@ds:trace [command] [search] [strace] [strace_args]
 **@@@ds:transpose@@@ds:t@@@Transpose field values@@@ds:transpose [file] [awkargs]
 **@@@ds:unicode@@@@@@Get UTF-8 unicode for a character sequence@@@ds:unicode [str]
-@@@ds:vi@@@@@@Search for file and open it in vim@@@ds:vi search [dir]
+@@@ds:vi@@@@@@Search for file and open it in vim@@@ds:vi search [dir] [edit_all_match=f]
 @@@ds:websel@@@@@@Download and extract inner html by regex@@@ds:websel url [tag_re] [attrs_re]
 @@@@@@@@@@@@
 @@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
