@@ -1,5 +1,4 @@
 #!/bin/bash
-# TODO: portable readlink
 # TODO: commands tests for these
 
 DS_SEP=$'@@@'
@@ -13,8 +12,8 @@ ds:file_check() { # Test for file validity and fail if invalid: ds:file_check te
     if [[ -e "$tf" && ! -d "$tf" ]]; then
       echo -n "$tf"
     else
-      local f=$(ds:nset 'fd' && fd -t f "utils" -x grep -Il '.' {} \; | head -n1 \
-        || find . -type f -name "*$tf*" -not -path '*/\.*' -exec grep -Il '.' {} \; | head -n1)
+      local f=$(ds:nset 'fd' && fd -t f "$tf" -x grep -Il '.' {} \; | head -n1 \
+          || find . -type f -name "*$tf*" -not -path '*/\.*' -exec grep -Il '.' {} \; | head -n1)
       [[ -z "$f" || ! -f "$f" ]] && ds:fail 'File not provided or invalid!'
       local conf=$(ds:readp "Arg is not a file - run on closest match ${f}? (y/n)")
       [ "$conf" = "y" ] && echo -n "$f" || ds:fail 'File not provided or invalid!'
@@ -31,6 +30,19 @@ ds:fd_check() { # Convert fds into files: ds:fd_check testfile
     cat "$1" > "$ds_fd"
     echo -n "$ds_fd"
   else echo -n "$1"; fi
+}
+
+ds:readlink() { # Portable readlink
+  local OLD_PWD="$(pwd)"
+  cd "$(dirname "$1")" &>/dev/null 3>/dev/null 4>/dev/null 5>/dev/null 6>/dev/null
+  local target="$(basename "$1")"
+  while [ -L "$target" ]; do
+    local target="$(readlink "$target")"
+    cd "$(dirname "$target")" &>/dev/null 3>/dev/null 4>/dev/null 5>/dev/null 6>/dev/null
+    local target="$(basename "$target")"
+  done
+  echo "$(pwd -P)/$target"
+  cd "$OLD_PWD" &>/dev/null 3>/dev/null 4>/dev/null 5>/dev/null 6>/dev/null
 }
 
 ds:extractfs() { # Infer or extract single awk FS from args: ds:extractfs
@@ -198,26 +210,6 @@ ds:readp() { # Portable read prompt: ds:readp [message]
   else
     ds:fail 'This shell unsupported at this time'; fi
   ds:case $readvar down; unset readvar
-}
-
-# TODO: Remove these unnecessary git methods
-ds:git_push_cur() { # git push origin for current branch
-  ds:not_git && return 1
-  local current_branch=$(git rev-parse --abbrev-ref HEAD)
-  git push origin "$current_branch"
-};
-
-ds:git_add_all() { # Add all untracked git files
-  ds:not_git && return 1
-  git add .
-}
-
-ds:gcam() { # Git commit add message
-  ds:not_git && return 1
-  if [ "$1" ]; then
-    git commit -am "$1"
-  else
-    git commit; fi
 }
 
 ds:is_int() { # Tests if arg is an integer: ds:is_int arg

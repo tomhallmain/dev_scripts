@@ -2,11 +2,10 @@
 
 echo 'Setting up...'
 
-readlink_f() {
+readlink_dir() {
   local target_f="$1"
-  cd "$(dirname $target_f)"
+  cd "$(dirname "$target_f")"
   echo "$(pwd -P)"
-  echo "$dir"
 }
 
 ds:verify() {
@@ -38,7 +37,7 @@ error_exit() {
 
 if [ -n "$($SHELL -c 'echo $ZSH_VERSION')" ]; then
   zzsh=0
-  DS_LOC="$(readlink_f "$0")"
+  DS_LOC="$(readlink_dir "$0")"
   [ -f ~/.zshrc ] && grep -q "dev_scripts/commands.sh" ~/.zshrc && zshrc_set=0
   if [ "$zshrc_set" ]; then
     zshrc_preset=0
@@ -47,7 +46,7 @@ if [ -n "$($SHELL -c 'echo $ZSH_VERSION')" ]; then
     echo 'source "$DS_LOC/commands.sh"' >> ~/.zshrc
   fi
 elif [ -n "$($SHELL -c 'echo $BASH_VERSION')" ]; then
-  DS_LOC="$(readlink_f "$BASH_SOURCE")"
+  DS_LOC="$(readlink_dir "$BASH_SOURCE")"
 else
   echo 'Unhandled shell detected! Only bash and zsh are supported at this time.'
   echo 'Please run this script using zsh or bash, or refer to README for install instructions.'
