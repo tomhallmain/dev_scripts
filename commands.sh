@@ -584,8 +584,7 @@ ds:shape() { # ** Print data shape by length or FS: ds:shape [file] [FS] [chart_
   ds:pipe_clean $file
 }
 
-ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
-  # TODO: n-source joins
+ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
   if ds:pipe_open; then
     local f2=$(ds:tmp 'ds_jn') piped=1
     cat /dev/stdin > $f2
@@ -598,6 +597,14 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file1 [
     local f1="$(ds:fd_check "$1")"; shift
     ds:file_check "$1"
     local f2="$(ds:fd_check "$1")"; shift; fi
+  
+  local arr_base=$(ds:arr_base)
+
+  if [ -f "$1" ]; then
+    local ext_tmp=$(ds:tmp 'ds_jn_ext') ext_jnf=("$f1" "$f2")
+    while [ -f "$1" ]; do
+      local ext_jnf=(${ext_jnf[@]} "$1"); shift; done
+    let local ext_f=${#ext_jnf[@]}-1+$arr_base; fi
 
   if [ "$1" ]; then
     ds:test '^d' "$1" && local type='diff'
@@ -654,16 +661,43 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file1 [
         [ "$fs2v_idx" ] && unset "args[$fs2v_idx]"; fi; fi; fi
   [ ! "$fs2" ] && local fs2="$fs1"
 
-  if ds:test 't(rue)?' "$args[$(ds:arr_base)]"; then
+  if ds:test 't(rue)?' "$args[$arr_base]"; then
     local pf1=$(ds:tmp "ds_jn_prefield1") pf2=$(ds:tmp "ds_jn_prefield2")
     ds:prefield "$f1" "$fs1" > $pf1; ds:prefield "$f2" "$fs2" > $pf2
-    awk -v FS="$DS_SEP" -v OFS="$fs1" -v left_label="$f1" -v right_label="$f2" \
-      -v piped=$piped ${args[@]} -f "$DS_SCRIPT/join.awk" $pf1 $pf2 2> /dev/null \
-      | ds:ttyf "$fs1"
+
+    if [ "$ext_f" ]; then
+      let local file_anc=$arr_base+1
+      while [ "$ext_f" -ge "$file_anc" ]; do
+        let local file_anc+=1
+        awk -v FS="$DS_SEP" -v OFS="$fs1" ${args[@]} -f "$DS_SCRIPT/join.awk" \
+          $pf1 $pf2 2>/dev/null > $ext_tmp
+        ds:prefield "$ext_tmp" "$fs1" > $pf1
+        ds:prefield "${ext_jnf[$file_anc]}" "$fs1" > $pf2
+      done
+      cat $ext_tmp | ds:ttyf "$fs1"; rm $ext_tmp
+    else
+      awk -v FS="$DS_SEP" -v OFS="$fs1" -v left_label="$f1" -v right_label="$f2" \
+        -v piped=$piped ${args[@]} -f "$DS_SCRIPT/join.awk" $pf1 $pf2 2> /dev/null \
+        | ds:ttyf "$fs1"
+    fi
   else
-    ! ds:test '(-|=)' "${args[$(ds:arr_base)]}" && local args=("${args[@]:1}")
-    awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" -v piped=$piped ${args[@]} \
-      -f "$DS_SCRIPT/join.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"; fi
+    ! ds:test '(-|=)' "${args[$arr_base]}" && local args=("${args[@]:1}")
+    if [ "$ext_f" ]; then
+      let local file_anc=$arr_base+1
+      local ext_tmp1=$(ds:tmp 'ds_jn_ext1')
+      awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" ${args[@]} -f "$DS_SCRIPT/join.awk" \
+        "$f1" "$f2" 2>/dev/null > $ext_tmp1
+      while [ "$ext_f" -gt "$file_anc" ]; do
+        let local file_anc+=1
+        awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" ${args[@]} -f "$DS_SCRIPT/join.awk" \
+          $ext_tmp1 "${ext_jnf[$file_anc]}" 2>/dev/null > $ext_tmp
+        cat $ext_tmp > $ext_tmp1
+      done
+      cat $ext_tmp | ds:ttyf "$fs1"; rm $ext_tmp $ext_tmp1
+    else
+      awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" -v piped=$piped ${args[@]} \
+        -f "$DS_SCRIPT/join.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"
+    fi; fi
 
   ds:pipe_clean $f2; if [ "$pf1" ]; then rm $pf1 $pf2; fi
 }

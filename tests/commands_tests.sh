@@ -128,6 +128,57 @@ cmp --silent $tmp $jnrjn1                                   || ds:fail 'ds:jn fa
 ds:jn "$jnr3" "$jnr4" o merge -v merge_verbose=1 > $tmp
 cmp --silent $tmp $jnrjn2                                   || ds:fail 'ds:jn failed repeats merge case'
 
+echo -e "a b d f\nd c e f" > /tmp/ds_jn_test1
+echo -e "a b d f\nd c e f\ne r t a\nt o y l" > /tmp/ds_jn_test2
+echo -e "a b l f\nd p e f\ne o t a\nt p y 6" > /tmp/ds_jn_test3
+
+jn_expected='a b d f a d f a l f'
+jn_actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 i 2)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed 2-join inner case'
+
+jn_expected='a b l f
+d p e f
+e o t a
+t p y 6
+a b d f
+d c e f
+t o y l
+e r t a'
+jn_actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o merge)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed 2-join merge case'
+
+jn_expected='a <NULL> l <NULL> <NULL> <NULL> b f
+d c e f c f p f
+e <NULL> t <NULL> r a o a
+t <NULL> y <NULL> o l p 6
+a b d f b f <NULL> <NULL>'
+jn_actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o 1,3)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed 2-join multikey case 1'
+
+jn_expected='a b d f b d b l
+d c e f c e p e
+e <NULL> <NULL> a r t o t
+t <NULL> <NULL> 6 <NULL> <NULL> p y
+t <NULL> <NULL> l o y <NULL> <NULL>'
+jn_actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o 4,1)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed 2-join multikey case 2'
+
+echo -e "a b d 3\nd c e f" > /tmp/ds_jn_test4
+
+jn_expected='a b d f b d f b l f b d 3
+d c e f c e f p e f c e f'
+jn_actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4 i 1)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed 3-join inner case'
+
+jn_expected='a b d f b f <NULL> <NULL> b 3
+d c e f c f p f c f
+t <NULL> y <NULL> o l p 6 <NULL> <NULL>
+e <NULL> t <NULL> r a o a <NULL> <NULL>
+a <NULL> l <NULL> <NULL> <NULL> b f <NULL> <NULL>'
+jn_actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4 o 1,3)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed 3-join outer case'
+
+rm /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4
 
 cat "$jnf1" > $tmp
 [ $(ds:print_comps $jnf1 $tmp | grep -c "") -eq 7 ]         || ds:fail 'print_comps failed no complement case'
@@ -275,7 +326,7 @@ reo_actual="$(echo "$reo_input" | ds:reo rev rev -v idx=1)"
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed rev idx case'
 
 reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>130' off)"
-reo_expected='**@@@ds:jn@@@@@@Join two files or a file and STDIN with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=f] [awkargs]'
+reo_expected='**@@@ds:jn@@@@@@Join two files or a file and STDIN with any keyset@@@ds:jn file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]'
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed full row len case'
 
 reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>48' 2)"

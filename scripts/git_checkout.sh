@@ -12,8 +12,6 @@ if [[ ! ( -d .git || $(git rev-parse --is-inside-work-tree 2> /dev/null) ) ]]; t
   exit 1
 fi
 
-git fetch &>/dev/null || exit 1
-
 LOCAL_BRANCHES=($(git for-each-ref --format='%(refname:short)' refs/heads 2> /dev/null | sort))
 
 if [ "$1" ]; then
@@ -26,6 +24,7 @@ if [[ -z $n_matches || $n_matches -lt 1 ]]; then
   read -p $'\e[37;1m No local branches found for search pattern on current repo. Search remote? (y/n): \e[0m' remote
   remote=$(echo "${remote}" | tr "[:upper:]" "[:lower:]")
   [ "$remote" = "y" ] || exit 1
+  git fetch &>/dev/null || exit 1
   REMOTE_BRANCHES=($(git for-each-ref --format="%(refname:short)" refs/remotes 2> /dev/null \
       | sed 's:^origin/::g' | grep -Ev -e HEAD -e "^[0-9]+$"))
   REMOTE_BRANCHES=($(awk 'FNR==NR{_[$0]=1} FNR<NR{if(!($0 in _))print}' \

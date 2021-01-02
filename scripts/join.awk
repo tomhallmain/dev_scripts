@@ -5,7 +5,7 @@
 #       ds:jn, join.awk
 #
 # SYNOPSIS
-#       ds:jn [-h|--help|file1] [file2] [jointype=outer] [k|merge] [k2] [prefield=t] [awkargs]
+#       ds:jn [-h|--help|file] [file*] [jointype=outer] [k|merge] [k2] [prefield=t] [awkargs]
 #
 # DESCRIPTION
 #       join.awk is a script to run a join of two files or data streams with variant 
@@ -21,7 +21,12 @@
 #
 #       When running with piped data, args are shifted:
 #
-#          $ file2_data | ds:reo file1 [prefield=true] [awkargs]
+#          $ file2_data | ds:jn file1
+#
+#       ds:jn can be run with multiple files beyond the second, using the same arguments
+#       as the initial join, with limited extended functionality:
+#
+#          % ds:jn file1 file2 file3 file4 ... [jointype] ...
 #
 # FIELD CONSIDERATIONS
 #       When running ds:jn, an attempt is made to infer field separators of up to
@@ -62,6 +67,9 @@
 #          r[ight]
 #          d[iff]
 #
+#       Certain jointypes will not function well when joining more than two files: left,
+#       right, diff
+#
 #       If there is one field number to join on, assign it to var k at runtime:
 #
 #          $ ds:jn file1 file2 o 1
@@ -85,25 +93,27 @@
 #
 #          $ ds:jn file1 file2 right merge -v mf_max=9
 #
-#       If headers are present, set the header variable to any value to ensure
+#   **  If headers are present, set the header variable to any value to ensure
 #       consistent header positioning:
 #
 #          -v headers=1
 #
-#       Add an index to output:
+#   **  Add an index to output:
 #
 #          -v ind=1
 #
-#       Merge with an extra column of output indicating files involved:
+#   **  Merge with an extra column of output indicating files involved:
 #
 #          -v merge_verbose=1
 #
-#       Merge with custom labels:
+#   **  Merge with custom labels:
 #
 #          -v left_label="Stuff"
 #          -v right_label="Other stuff"
 #          -v inner_label="BOTH stuff"
 #
+#
+#   ** - Works only on two-file joins
 #
 
 BEGIN {
