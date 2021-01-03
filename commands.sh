@@ -584,8 +584,7 @@ ds:shape() { # ** Print data shape by length or FS: ds:shape [file] [FS] [chart_
   ds:pipe_clean $file
 }
 
-ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
-  # TODO: n-source joins
+ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
   if ds:pipe_open; then
     local f2=$(ds:tmp 'ds_jn') piped=1
     cat /dev/stdin > $f2
@@ -598,6 +597,14 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file1 [
     local f1="$(ds:fd_check "$1")"; shift
     ds:file_check "$1"
     local f2="$(ds:fd_check "$1")"; shift; fi
+  
+  local arr_base=$(ds:arr_base)
+
+  if [ -f "$1" ]; then
+    local ext_tmp=$(ds:tmp 'ds_jn_ext') ext_jnf=("$f1" "$f2")
+    while [ -f "$1" ]; do
+      local ext_jnf=(${ext_jnf[@]} "$1"); shift; done
+    let local ext_f=${#ext_jnf[@]}-1+$arr_base; fi
 
   if [ "$1" ]; then
     ds:test '^d' "$1" && local type='diff'
@@ -654,16 +661,43 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file1 [
         [ "$fs2v_idx" ] && unset "args[$fs2v_idx]"; fi; fi; fi
   [ ! "$fs2" ] && local fs2="$fs1"
 
-  if ds:test 't(rue)?' "$args[$(ds:arr_base)]"; then
+  if ds:test 't(rue)?' "$args[$arr_base]"; then
     local pf1=$(ds:tmp "ds_jn_prefield1") pf2=$(ds:tmp "ds_jn_prefield2")
     ds:prefield "$f1" "$fs1" > $pf1; ds:prefield "$f2" "$fs2" > $pf2
-    awk -v FS="$DS_SEP" -v OFS="$fs1" -v left_label="$f1" -v right_label="$f2" \
-      -v piped=$piped ${args[@]} -f "$DS_SCRIPT/join.awk" $pf1 $pf2 2> /dev/null \
-      | ds:ttyf "$fs1"
+
+    if [ "$ext_f" ]; then
+      let local file_anc=$arr_base+1
+      while [ "$ext_f" -ge "$file_anc" ]; do
+        let local file_anc+=1
+        awk -v FS="$DS_SEP" -v OFS="$fs1" ${args[@]} -f "$DS_SCRIPT/join.awk" \
+          $pf1 $pf2 2>/dev/null > $ext_tmp
+        ds:prefield "$ext_tmp" "$fs1" > $pf1
+        ds:prefield "${ext_jnf[$file_anc]}" "$fs1" > $pf2
+      done
+      cat $ext_tmp | ds:ttyf "$fs1"; rm $ext_tmp
+    else
+      awk -v FS="$DS_SEP" -v OFS="$fs1" -v left_label="$f1" -v right_label="$f2" \
+        -v piped=$piped ${args[@]} -f "$DS_SCRIPT/join.awk" $pf1 $pf2 2> /dev/null \
+        | ds:ttyf "$fs1"
+    fi
   else
-    ! ds:test '(-|=)' "${args[$(ds:arr_base)]}" && local args=("${args[@]:1}")
-    awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" -v piped=$piped ${args[@]} \
-      -f "$DS_SCRIPT/join.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"; fi
+    ! ds:test '(-|=)' "${args[$arr_base]}" && local args=("${args[@]:1}")
+    if [ "$ext_f" ]; then
+      let local file_anc=$arr_base+1
+      local ext_tmp1=$(ds:tmp 'ds_jn_ext1')
+      awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" ${args[@]} -f "$DS_SCRIPT/join.awk" \
+        "$f1" "$f2" 2>/dev/null > $ext_tmp1
+      while [ "$ext_f" -gt "$file_anc" ]; do
+        let local file_anc+=1
+        awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" ${args[@]} -f "$DS_SCRIPT/join.awk" \
+          $ext_tmp1 "${ext_jnf[$file_anc]}" 2>/dev/null > $ext_tmp
+        cat $ext_tmp > $ext_tmp1
+      done
+      cat $ext_tmp | ds:ttyf "$fs1"; rm $ext_tmp $ext_tmp1
+    else
+      awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" -v piped=$piped ${args[@]} \
+        -f "$DS_SCRIPT/join.awk" "$f1" "$f2" 2> /dev/null | ds:ttyf "$fs1"
+    fi; fi
 
   ds:pipe_clean $f2; if [ "$pf1" ]; then rm $pf1 $pf2; fi
 }
@@ -950,20 +984,30 @@ ds:decap() { # ** Remove up to n_lines from the start of a file: ds:decap [file]
   ds:pipe_clean $file
 }
 
-ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file] [awkargs]
+ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file] [prefield=t] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_transpose') piped=0
     cat /dev/stdin > $file
   else
     ds:file_check "$1"
     local file="$(ds:fd_check "$1")"; shift; fi
-  local args=( "$@" ) prefield=$(ds:tmp "ds_transpose_prefield") fstmp=$(ds:tmp 'ds_extractfs')
+  if [ "$1" ] && ! grep -Eq '^-' <(echo "$1"); then
+    local pf="${1:t}"; shift
+    ds:test 't(rue)?' "$pf" || local pf=""; fi
+  local args=( "$@" ) fstmp=$(ds:tmp 'ds_extractfs')
   ds:extractfs > $fstmp
   local fs="$(cat $fstmp; rm $fstmp)"
-  ds:prefield "$file" "$fs" 1 > $prefield
-  awk -v FS="$DS_SEP" -v OFS="$fs" -v VAR_OFS=1 ${args[@]} \
-    -f "$DS_SCRIPT/transpose.awk" $prefield 2> /dev/null | ds:ttyf "$fs"
-  ds:pipe_clean $file; rm $prefield
+  if [ "$pf" ]; then
+    local prefield=$(ds:tmp "ds_transpose_prefield")
+    ds:prefield "$file" "$fs" 1 > $prefield
+    awk -v FS="$DS_SEP" -v OFS="$fs" -v VAR_OFS=1 ${args[@]} \
+      -f "$DS_SCRIPT/transpose.awk" $prefield 2> /dev/null | ds:ttyf "$fs"
+    rm $prefield
+  else
+    awk -v FS="$fs" -v OFS="$fs" -v VAR_OFS=1 ${args[@]} \
+      -f "$DS_SCRIPT/transpose.awk" "$file" 2> /dev/null | ds:ttyf "$fs"
+  fi
+  ds:pipe_clean $file
 }
 alias ds:t="ds:transpose"
 
@@ -1277,16 +1321,24 @@ ds:sedi() { # Run global in place substitutions: ds:sedi file|dir search [replac
     done < <(grep -r --files-with-match "$search" "$dir"); fi
 }
 
-ds:dff() { # Diff shortcut for more relevant changes: ds:dff file1 file2 [suppress_common] [color=t]
-  local tty_size=$(tput cols) color="${4:-t}"
+ds:dff() { # ** Diff shortcut for an easier to read view: ds:dff file1 [file2] [suppress_common] [color=t]
+  if ds:pipe_open; then
+    local file1=$(ds:tmp 'ds_dff') piped=0
+    cat /dev/stdin > $file1
+  else
+    ds:file_check "$1"
+    local file1="$(ds:fd_check "$1")"; shift; fi
+  ds:file_check "$1"
+  local file2="$(ds:fd_check "$1")"
+  [ "$2" ] && local sup=--suppress-common-lines
+  local tty_size=$(tput cols) color="${3:-t}"
   let local tty_half=$tty_size/2
-  [ "$3" ] && local sup=--suppress-common-lines && set -- "${@:1:2}"
   if ds:test 't(rue)?' "$color"; then
-    diff -b -y -W $tty_size $sup ${@} | expand | awk -v tty_half=$tty_half \
+    diff -b -y -W $tty_size $sup "$file1" "$file2" | expand | awk -v tty_half=$tty_half \
     -f "$DS_SCRIPT/diff_color.awk" | less
   else
-    diff -b -y -W $tty_size $sup ${@} | expand | less
-  fi
+    diff -b -y -W $tty_size $sup "$file1" "$file2" | expand | less; fi
+#  ds:pipe_clean $file1
 }
 
 ds:gwdf() { # Git word diff shortcut: ds:gwdf [git_diff_args]

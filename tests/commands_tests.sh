@@ -128,6 +128,57 @@ cmp --silent $tmp $jnrjn1                                   || ds:fail 'ds:jn fa
 ds:jn "$jnr3" "$jnr4" o merge -v merge_verbose=1 > $tmp
 cmp --silent $tmp $jnrjn2                                   || ds:fail 'ds:jn failed repeats merge case'
 
+echo -e "a b d f\nd c e f" > /tmp/ds_jn_test1
+echo -e "a b d f\nd c e f\ne r t a\nt o y l" > /tmp/ds_jn_test2
+echo -e "a b l f\nd p e f\ne o t a\nt p y 6" > /tmp/ds_jn_test3
+
+jn_expected='a b d f a d f a l f'
+jn_actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 i 2)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed 2-join inner case'
+
+jn_expected='a b l f
+d p e f
+e o t a
+t p y 6
+a b d f
+d c e f
+t o y l
+e r t a'
+jn_actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o merge)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed 2-join merge case'
+
+jn_expected='a <NULL> l <NULL> <NULL> <NULL> b f
+d c e f c f p f
+e <NULL> t <NULL> r a o a
+t <NULL> y <NULL> o l p 6
+a b d f b f <NULL> <NULL>'
+jn_actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o 1,3)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed 2-join multikey case 1'
+
+jn_expected='a b d f b d b l
+d c e f c e p e
+e <NULL> <NULL> a r t o t
+t <NULL> <NULL> 6 <NULL> <NULL> p y
+t <NULL> <NULL> l o y <NULL> <NULL>'
+jn_actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o 4,1)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed 2-join multikey case 2'
+
+echo -e "a b d 3\nd c e f" > /tmp/ds_jn_test4
+
+jn_expected='a b d f b d f b l f b d 3
+d c e f c e f p e f c e f'
+jn_actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4 i 1)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed 3-join inner case'
+
+jn_expected='a b d f b f <NULL> <NULL> b 3
+d c e f c f p f c f
+t <NULL> y <NULL> o l p 6 <NULL> <NULL>
+e <NULL> t <NULL> r a o a <NULL> <NULL>
+a <NULL> l <NULL> <NULL> <NULL> b f <NULL> <NULL>'
+jn_actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4 o 1,3)"
+[ "$jn_actual" = "$jn_expected" ]                           || ds:fail 'ds:jn failed 3-join outer case'
+
+rm /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4
 
 cat "$jnf1" > $tmp
 [ $(ds:print_comps $jnf1 $tmp | grep -c "") -eq 7 ]         || ds:fail 'print_comps failed no complement case'
@@ -275,7 +326,7 @@ reo_actual="$(echo "$reo_input" | ds:reo rev rev -v idx=1)"
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed rev idx case'
 
 reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>130' off)"
-reo_expected='**@@@ds:jn@@@@@@Join two files or a file and STDIN with any keyset@@@ds:jn file1 [file2] [jointype] [k|merge] [k2] [prefield=f] [awkargs]'
+reo_expected='**@@@ds:jn@@@@@@Join two files or a file and STDIN with any keyset@@@ds:jn file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]'
 [ "$reo_actual" = "$reo_expected" ] || ds:fail 'reo failed full row len case'
 
 reo_actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>48' 2)"
@@ -760,7 +811,130 @@ agg_expected='one:two:three:four:+|$4>3||$4<2
 3:2:4:1:8'
 [ "$(ds:agg $tmp '+|$4>3||$4<2')" ] || ds:fail 'agg failed conditional R agg case'
 
+agg_expected='USER
+user 2059788916
+root 557934576
+_driverkit 57665820
+_spotlight 13249992
+_fpsd 13221780
+_gamecontrollerd 4395696
+_ctkd 4387972
+_applepay 13206848
+_datadetectors 4388328
+_assetcache 8857156
+_nsurlstoraged 4357112
+_locationd 26462608
+_windowserver 18898844
+_netbios 4397460
+_appleevents 4425400
+_captiveagent 4397764
+_coreaudiod 13179300
+_atsserver 4426392
+_softwareupdate 8938436
+_cmiodalassistants 4459716
+_nsurlsessiond 4436820
+_networkd 4436988
+_mdnsresponder 4426516
+_analyticsd 4431416
+_distnote 4396688
+_hidd 4428040
+_displaypolicyd 4398396
+_usbmuxd 4423984
+_timed 4423572
+_iconservices 4397076'
+agg_actual="$(ds:agg tests/data/ps_aux 0 5 | ds:decap 1 | sed -E 's/[[:space:]]+$//g')"
+[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg failed cross agg simple field case'
 
+ds:transpose tests/data/ps_aux > $tmp
+agg_actual="$(ds:agg $tmp 5 | ds:decap 1 | sed -E 's/[[:space:]]+$//g')"
+[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg failed cross agg simple row case'
+
+agg_expected='USER::STARTED
+user::4:56PM 66904232
+user::4:29PM 17910632
+root::Thu11PM 479285720
+user::11:22PM 51518368
+user::Thu11PM 835332556
+user::1:04PM 8958804
+user::12:56PM 8963396
+root::12:49PM 4431616
+user::12:09PM 4365536
+user::11:27AM 4357336
+root::11:27AM 4345892
+_driverkit::11:26AM 28829064
+root::4:47AM 4295916
+user::2:47AM 4458792
+user::1:46AM 8658308
+root::1:46AM 4345892
+user::1:30AM 94777988
+user::12:52AM 4372696
+root::12:52AM 4362276
+user::11:26PM 4658916
+user::11:25PM 4823592
+user::11:24PM 13622944
+user::11:23PM 14674620
+root::11:22PM 4322148
+root::10:31PM 4382212
+root::8:34PM 4423564
+user::6:17PM 4985040
+root::6:17PM 4530472
+user::6:15PM 9975064
+root::6:15PM 4341920
+user::6:14PM 4867292
+user::5:54PM 4884860
+user::5:20PM 4430752
+user::5:01PM 9026804
+user::4:30PM 76183564
+user::Fri01PM 142261376
+user::Fri12PM 8898132
+user::Fri11AM 32800340
+root::Fri11AM 4314416
+user::Fri10AM 17531488
+user::Fri09AM 4985392
+user::Fri01AM 134776268
+user::Fri12AM 203251976
+root::Fri12AM 21920112
+_spotlight::Fri12AM 4425740
+_fpsd::Fri12AM 4398440
+_spotlight::Thu11PM 8824252
+_gamecontrollerd::Thu11PM 4395696
+_ctkd::Thu11PM 4387972
+_applepay::Thu11PM 13206848
+_datadetectors::Thu11PM 4388328
+_fpsd::Thu11PM 8823340
+_assetcache::Thu11PM 8857156
+_nsurlstoraged::Thu11PM 4357112
+_locationd::Thu11PM 26462608
+_windowserver::Thu11PM 18898844
+_netbios::Thu11PM 4397460
+_appleevents::Thu11PM 4425400
+_captiveagent::Thu11PM 4397764
+_driverkit::Thu11PM 28836756
+_coreaudiod::Thu11PM 13179300
+_atsserver::Thu11PM 4426392
+_softwareupdate::Thu11PM 8938436
+_cmiodalassistants::Thu11PM 4459716
+_nsurlsessiond::Thu11PM 4436820
+_networkd::Thu11PM 4436988
+_mdnsresponder::Thu11PM 4426516
+_analyticsd::Thu11PM 4431416
+_distnote::Thu11PM 4396688
+_hidd::Thu11PM 4428040
+_displaypolicyd::Thu11PM 4398396
+_usbmuxd::Thu11PM 4423984
+_timed::Thu11PM 4423572
+_iconservices::Thu11PM 4397076
+user::3:10PM 12939632
+root::3:10PM 4299084
+user::3:08PM 4358940
+root::3:08PM 4333336
+user::2:58PM 4308104
+user::1:40PM 8919832
+user::1:33PM 222045344'
+agg_actual="$(ds:agg tests/data/ps_aux 0 '+|5|1..2' | ds:decap 1 | sed -E 's/[[:space:]]+$//g' | awk '{gsub("\034","");print}')"
+[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg failed cross agg range field case'
+agg_actual="$(ds:agg $tmp '+|5|1..2' | ds:decap 1 | sed -E 's/[[:space:]]+$//g' | awk '{gsub("\034","");print}')"
+[ "$agg_actual" = "$agg_expected" ] || ds:fail 'agg failed cross agg range row case'
 
 # CASE TESTS
 
