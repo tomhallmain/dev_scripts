@@ -8,7 +8,7 @@
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [file] [n_lines=1]
 @@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=(FUNC|ALIAS)] [caller] [ndata]
-@@@ds:dff@@@@@@Diff shortcut for more relevant changes@@@ds:dff file1 file2 [suppress_common] [color=t]
+**@@@ds:dff@@@@@@Diff shortcut for an easier to read view@@@ds:dff file1 [file2] [suppress_common] [color=t]
 **@@@ds:dostounix@@@@@@Remove ^M / CR characters in place@@@ds:dostounix [file]
 **@@@ds:dup_input@@@@@@Duplicate standard input in aggregate@@@data | ds:dup_input
 @@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir]
@@ -79,7 +79,7 @@
 @@@ds:tmp@@@@@@Shortcut for quiet mktemp@@@ds:tmp filename
 @@@ds:todo@@@@@@List todo items found in paths@@@ds:todo [searchpaths=.]
 @@@ds:trace@@@@@@Search shell trace for a pattern@@@ds:trace [command] [search] [strace] [strace_args]
-**@@@ds:transpose@@@ds:t@@@Transpose field values@@@ds:transpose [file] [awkargs]
+**@@@ds:transpose@@@ds:t@@@Transpose field values@@@ds:transpose [file] [prefield=t] [awkargs]
 **@@@ds:unicode@@@@@@Get UTF-8 unicode for a character sequence@@@ds:unicode [str]
 @@@ds:vi@@@@@@Search for file and open it in vim@@@ds:vi search [dir] [edit_all_match=f]
 @@@ds:websel@@@@@@Download and extract inner html by regex@@@ds:websel url [tag_re] [attrs_re]

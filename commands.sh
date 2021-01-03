@@ -984,20 +984,30 @@ ds:decap() { # ** Remove up to n_lines from the start of a file: ds:decap [file]
   ds:pipe_clean $file
 }
 
-ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file] [awkargs]
+ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file] [prefield=t] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_transpose') piped=0
     cat /dev/stdin > $file
   else
     ds:file_check "$1"
     local file="$(ds:fd_check "$1")"; shift; fi
-  local args=( "$@" ) prefield=$(ds:tmp "ds_transpose_prefield") fstmp=$(ds:tmp 'ds_extractfs')
+  if [ "$1" ] && ! grep -Eq '^-' <(echo "$1"); then
+    local pf="${1:t}"; shift
+    ds:test 't(rue)?' "$pf" || local pf=""; fi
+  local args=( "$@" ) fstmp=$(ds:tmp 'ds_extractfs')
   ds:extractfs > $fstmp
   local fs="$(cat $fstmp; rm $fstmp)"
-  ds:prefield "$file" "$fs" 1 > $prefield
-  awk -v FS="$DS_SEP" -v OFS="$fs" -v VAR_OFS=1 ${args[@]} \
-    -f "$DS_SCRIPT/transpose.awk" $prefield 2> /dev/null | ds:ttyf "$fs"
-  ds:pipe_clean $file; rm $prefield
+  if [ "$pf" ]; then
+    local prefield=$(ds:tmp "ds_transpose_prefield")
+    ds:prefield "$file" "$fs" 1 > $prefield
+    awk -v FS="$DS_SEP" -v OFS="$fs" -v VAR_OFS=1 ${args[@]} \
+      -f "$DS_SCRIPT/transpose.awk" $prefield 2> /dev/null | ds:ttyf "$fs"
+    rm $prefield
+  else
+    awk -v FS="$fs" -v OFS="$fs" -v VAR_OFS=1 ${args[@]} \
+      -f "$DS_SCRIPT/transpose.awk" "$file" 2> /dev/null | ds:ttyf "$fs"
+  fi
+  ds:pipe_clean $file
 }
 alias ds:t="ds:transpose"
 
@@ -1311,16 +1321,24 @@ ds:sedi() { # Run global in place substitutions: ds:sedi file|dir search [replac
     done < <(grep -r --files-with-match "$search" "$dir"); fi
 }
 
-ds:dff() { # Diff shortcut for more relevant changes: ds:dff file1 file2 [suppress_common] [color=t]
-  local tty_size=$(tput cols) color="${4:-t}"
+ds:dff() { # ** Diff shortcut for an easier to read view: ds:dff file1 [file2] [suppress_common] [color=t]
+  if ds:pipe_open; then
+    local file1=$(ds:tmp 'ds_dff') piped=0
+    cat /dev/stdin > $file1
+  else
+    ds:file_check "$1"
+    local file1="$(ds:fd_check "$1")"; shift; fi
+  ds:file_check "$1"
+  local file2="$(ds:fd_check "$1")"
+  [ "$2" ] && local sup=--suppress-common-lines
+  local tty_size=$(tput cols) color="${3:-t}"
   let local tty_half=$tty_size/2
-  [ "$3" ] && local sup=--suppress-common-lines && set -- "${@:1:2}"
   if ds:test 't(rue)?' "$color"; then
-    diff -b -y -W $tty_size $sup ${@} | expand | awk -v tty_half=$tty_half \
+    diff -b -y -W $tty_size $sup "$file1" "$file2" | expand | awk -v tty_half=$tty_half \
     -f "$DS_SCRIPT/diff_color.awk" | less
   else
-    diff -b -y -W $tty_size $sup ${@} | expand | less
-  fi
+    diff -b -y -W $tty_size $sup "$file1" "$file2" | expand | less; fi
+#  ds:pipe_clean $file1
 }
 
 ds:gwdf() { # Git word diff shortcut: ds:gwdf [git_diff_args]

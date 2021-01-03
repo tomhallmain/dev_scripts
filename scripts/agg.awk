@@ -14,7 +14,7 @@
 #       To run the script, ensure AWK is installed and in your path (on most Unix-based
 #       systems it should be), and call it on a file using aggregation expression:
 #
-#          > awk -f agg.awk -v r_aggs=+ -v c_aggs=+ file
+#         > awk -f agg.awk -v r_aggs=+ -v c_aggs=+ file
 #
 #       ds:agg is the caller function for the agg.awk script. To run any of the examples 
 #       below, map AWK args as given in SYNOPSIS.
@@ -59,7 +59,7 @@
 #
 #      All row and column agg args take multiple aggregation expression types:
 #
-#        All:       [agg_operator=+]|[index_scope]
+#        Range:       [agg_operator=+]|[index_scope]
 #
 #          +         -- sum all number field values over all cross indices
 #          +|all     -- same as above
@@ -67,34 +67,34 @@
 #
 #        Specific:  [agg_operator]|[field_or_numberval][agg_operator][field_or_numberval]..
 #
-#          $1+3      -- sum number value at cross index two and 3 (literal)
+#          $1+3      -- sum number values at cross index two and 3 (literal)
 #          $1+$3     -- sum number values at cross indices two and three
 #          pork+bean -- sum number values at cross indices with header matching "pork"
 #                         and cross indices with header matching "bean"
 #
 #        Search:    [agg_operator=count]|[cross_index]~search_pattern
 #
-#           ~test    -- count all incidences of test in every index
-#           +|~test  -- sum all number field values where cross index matches "test"
-#           *|2~test -- return the product of all number field values from cross 
-#                         index where the second cross index matches "test"
+#          ~test    -- count all incidences of test in every index
+#          +|~test  -- sum all number field values where cross index matches "test"
+#          *|2~test -- return the product of all number field values from cross 
+#                        index where the second cross index matches "test"
 #
 #        Compare:    [agg_operator=count]|[cross_index][comparison_operator]val
 #
-#           >4       -- count all fields where the field value is greater than 4
-#           +|>4     -- sum all number field values on indices with a field
-#                         value greater than 4
-#           *|$2>4   -- return the product of all number field values from cross 
-#                         index where the second cross index has a field value
-#                         greater than 4
+#          >4       -- count all fields where the field value is greater than 4
+#          +|>4     -- sum all number field values on indices with a field
+#                        value greater than 4
+#          *|$2>4   -- return the product of all number field values from cross 
+#                        index where the second cross index has a field value
+#                        greater than 4
 #
 #           The following comparison operators are supported: =, <, >
 #
 #        Cross:     [agg_operator=+]|agg_field|[group_fields=all-agg_field]
 #
 #          $3        -- return the sum of the field values in index 3 grouped
-#                         by the unique values from all other fields
-#          +|$3      -- return the sum of the field values in index 3 grouped
+#                         by the unique values from index 1 (header)
+#          +|$3      -- same as above
 #          +|$3|$4   -- return the sum of the field values in index 3 grouped
 #                         by the unique values from index 4
 #          +|$3|4..5 -- return the sum of the field values in index 3 grouped
@@ -116,8 +116,7 @@
 #
 #        -v og_off=1
 #
-## TODO: R Xaggs
-## TODO: XAgg and compare agg test variants
+#
 ## TODO: Header/key Caggs improvements - agg more than just the first instance of match
 ## TODO: Central tendency agg operators
 
@@ -220,18 +219,24 @@ x {
     x_agg_i = CompoundKey[2]
     split(agg_expr, AggExprParts, /\|/)
     agg_op = AggExprParts[1]
-    agg_field = AggExprParts[2]
+    agg_index = AggExprParts[2]
+    split(AggExprParts[3], AnchorFields, /\.\./)
+
+    start = AnchorFields[1]
+    end = AnchorFields[2] ? AnchorFields[2] : start
+    if (end < start) { tmp = end; end = start; start = tmp }
+
     if (call) {
-      todo = 1
+      agg_row = (NR == agg_index)
+      if ((NR < start || NR > end) && !agg_row)
+        continue
+
+      if (!r_c_base) _[NR] = $0
     }
     else {
-      split(AggExprParts[3], AnchorFields, /\.\./)
-
-      start = AnchorFields[1]
-      end = AnchorFields[2] ? AnchorFields[2] : start
       x_key = $start
       for (xf_i = start + 1; xf_i <= end; xf_i++) {
-        if (agg_field == xf_i) continue
+        if (agg_index == xf_i) continue
         x_key = x_key SUBSEP "::" $xf_i }
 
       if (!XAggKeySave[x_agg_i, x_key]) {
@@ -239,9 +244,8 @@ x {
         XAggKeySave[x_agg_i, x_key] = XAggLength[x_agg_i]
         XAggKey[x_agg_i, XAggLength[x_agg_i]] = x_key }
 
-      val = $agg_field
-      if (val == "")
-        continue
+      val = $agg_index
+      if (val == "") continue
       extract_val = GetOrSetExtractVal(val)
       if (!extract_val && extract_val != 0)
         continue
@@ -311,10 +315,20 @@ END {
     if (!x_only) print ""
     for (compound_i in XA) {
       agg = XA[compound_i]
+      agg_expr = XAggExpr[compound_i]
+      split(agg_expr, AggExprParts, /\|/)
+      agg_op = AggExprParts[1]
+      agg_index = AggExprParts[2]
+      agg_group_scope = AggExprParts[3]
       call = GetCompoundKeyPart(compound_i, 1)
       x_agg_i = CompoundKey[2]
       rel_len = XAggLength[x_agg_i]
-      print "Cross Aggregation: "XAggs[compound_i]
+
+      if (call)
+        print "Cross Aggregation: "agg_op" on row "agg_index" grouped by row "agg_group_scope
+      else
+        print "Cross Aggregation: "agg_op" on field "agg_index" grouped by field "agg_group_scope
+
       for (j = 1; j <= rel_len; j++) {
         print XAggKey[x_agg_i, j], XAggResult[x_agg_i, j] }
       if (n_x > 1) print "" }}
@@ -362,11 +376,6 @@ function AggExpr(agg_expr, call, call_idx) {
       agg_expr = agg_expr op "$" AggAnchor[2] }
     
     else if (agg_expr ~ /^[\+\-\*\/]\|(\$)?[0-9]+(\|(\$)?[0-9]+(\.\.(\$)?[0-9]+)?)?$/) {
-      if (call) {
-        print "Bad agg expression arg for row aggs: "agg_expr
-        print "This utility still under construction - only column cross aggs are functional at this time"
-        err = 1
-        exit err }
       gsub(/\$/, "", agg_expr)
       XAggs[call, ++x_agg_i] = orig_agg_expr
       XA[call, x_agg_i] = agg_expr
@@ -685,20 +694,67 @@ function StandardizeXAggExpr(XA, XAForm, XAggExpr, max_rows, max_cols) {
     agg = XA[compound_i]
     max = call ? max_rows : max_cols
     if (XAForm[compound_i] < 2)
-      XAggExpr[compound_i] = "+|"agg"|1.."max
+      XAggExpr[compound_i] = "+|"agg"|1"
     else if (XAForm[i] < 3)
       XAggExpr[compound_i] = agg"|1.."max
     else if (XAForm[i] < 4)
       XAggExpr[compound_i] = agg }
 }
 
-function GenXExpr() {
-  expr = ""
-  return expr
-}
-
 function ResolveRXAggs() {
-  todo = 1
+  for (compound_i in XA) {
+    call = GetCompoundKeyPart(compound_i, 1)
+    if (!call) continue
+
+    agg = XA[compound_i]
+    agg_expr = XAggExpr[compound_i]
+    x_agg_i = CompoundKey[2]
+
+    split(agg_expr, AggExprParts, /\|/)
+    agg_op = AggExprParts[1]
+    agg_index = AggExprParts[2]
+    split(AggExprParts[3], AnchorFields, /\.\./)
+
+    start = AnchorFields[1]
+    end = AnchorFields[2] ? AnchorFields[2] : start
+    if (end < start) { tmp = end; end = start; start = tmp }
+
+    agg_row = (NR == agg_index)
+    for (xf_i = start; xf_i <= end; xf_i++) {
+      if (agg_index == xf_i) continue
+      split(_[xf_i], Row, FS)
+      for (f = 1; f <= fixed_nf; f++) {
+        if (xf_i == start)
+          XKey[f] = Row[f]
+        else {
+          tmp = XKey[f]
+          delete XAggKey[x_agg_i, XAggKeySave[x_agg_i, tmp]]
+          delete XAggKeySave[x_agg_i, tmp]
+          XKey[f] = tmp SUBSEP "::" Row[f] }}}
+
+    for (f = 1; f <= fixed_nf; f++) {
+      if (!XAggKeySave[x_agg_i, XKey[f]]) {
+        XAggLength[x_agg_i]++
+        XAggKeySave[x_agg_i, XKey[f]] = XAggLength[x_agg_i]
+        XAggKey[x_agg_i, XAggLength[x_agg_i]] = XKey[f] }}
+
+    split(_[agg_index], AggRow, FS)
+    agg_row_len = length(AggRow)
+
+    for (f = 1; f <= agg_row_len; f++) {
+      val = AggRow[f]
+      if (val == "") continue
+      extract_val = GetOrSetExtractVal(val)
+      if (!extract_val && extract_val != 0)
+        continue
+      trunc_val = GetOrSetTruncVal(extract_val)
+      key_id = XAggKeySave[x_agg_i, XKey[f]]
+
+      if (XAggResult[x_agg_i, key_id])
+        XAggResult[x_agg_i, key_id] = EvalExpr(XAggResult[x_agg_i, key_id] agg_op trunc_val)
+      else
+        XAggResult[x_agg_i, key_id] = trunc_val }
+  }
 }
 
 function EvalExpr(expr) {

@@ -231,10 +231,10 @@ NR == FNR { # First pass, gather field info
   for (i = 1; i <= NF; i++) {
     if (endfit_col) {
       if (i == 1) res_line = $0
-      match(res_line, FS)
-      res_line = substr(res_line, RSTART+RLENGTH, length(res_line))
-      if (i < endfit_col)
+      if (i < endfit_col) {
         init_f = $i
+        match(res_line, FS)
+        res_line = substr(res_line, RSTART+RLENGTH, length(res_line)) }
       else {
         gsub(FS, OFS, res_line)
         ResLine[NR] = res_line
