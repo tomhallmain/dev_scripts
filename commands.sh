@@ -37,11 +37,11 @@ ds:vi() { # Search for file and open it in vim: ds:vi search [dir] [edit_all_mat
   local search="${1}" dir="${2:-.}" all="${3:-f}"
   ds:test 't(rue)?' "$all" || local singlefile=0
   if fd --version &>/dev/null; then
-    local fl="$(fd -t f "$search" "$dir" | head -n100 | sed -E 's#^\./##g')"
+    local fl="$(fd -t f "$search" "$dir" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
   elif fd-find --version &>/dev/null; then
-    local fl="$(fd-find -t f "$search" "$dir" | head -n100 | sed -E 's#^\./##g')"
+    local fl="$(fd-find -t f "$search" "$dir" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
   else
-    local fl="$(find "$dir" -type f -name "*$search*" -maxdepth 10 | head -n100 | sed -E 's#^\./##g')"; fi
+    local fl="$(find "$dir" -type f -name "*$search*" -maxdepth 10 2>/dev/null | head -n100 | sed -E 's#^\./##g')"; fi
   local matchcount="$(echo -e "$fl" | wc -l | xargs)"
   ! ds:is_int "$matchcount" && ds:fail 'Unable to find a match with current args'
   if [ "$matchcount" -gt 1 ]; then
@@ -59,6 +59,8 @@ ds:vi() { # Search for file and open it in vim: ds:vi search [dir] [edit_all_mat
     if [ -f "$fl" ]; then
       [ -f ".$file.swp" ] && ds:fail "File $file already open"
       vi "$fl"
+    elif [[ -f "$search" || -d "$search" ]]; then
+      vi "$search"
     else ds:fail 'Failed to load file'; fi
   else
     echo 'Editing files:'; echo -e "$fl"
@@ -121,10 +123,13 @@ ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_matc
       local file="${fileline%:*}" line=${fileline##*:}
     fi
     rm $tmp
-    if [ "$singlefile" ]; then
-      [ -f "$file" ] || ds:fail 'No match found'; fi; fi
+    if [[ "$singlefile" && ! -f "$file" ]]; then 
+      if [ -f "$search" ]; then vi "$search" && return
+      else ds:fail 'No match found'; fi; fi; fi
   if [[ "$singlefile" || "$filematchcount" -lt 2 ]]; then
-    ds:is_int "$line" || ds:fail 'No match found'
+    if ! ds:is_int "$line"; then
+      if [ -f "$search" ]; then vi "$search" && return
+      else ds:fail 'No match found'; fi; fi
     vi +$line "$file" || return 1
   else
     echo 'Running vim on all file matches. To move to the next file quit the current one.'
@@ -141,7 +146,7 @@ ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_matc
     IFS="$OLD_IFS"; fi
 }
 
-ds:searchn() { # Searches current environment names: ds:searchn name
+ds:searchn() { # Search shell environment names: ds:searchn name
   ds:ndata | awk -v s="$1" '$2~s{print}'
 }
 
@@ -274,8 +279,8 @@ ds:filename_str() { # Add string to filename, preserving path: ds:filename_str f
   printf "${dirpath}${filename}"
 }
 
-ds:path_elements() { # Returns dirname/filename/extension from filepath: ds:path_elements file
-  ds:file_check "$1"
+ds:path_elements() { # Return dirname/filename/extension from filepath: ds:path_elements file
+  ds:file_check "$1" f t
   local filepath="$1" dirpath=$(dirname "$1") filename=$(basename "$1")
   local extension=$([[ "$filename" = *.* ]] && echo ".${filename##*.}" || echo '')
   local filename="${filename%.*}"
@@ -283,7 +288,7 @@ ds:path_elements() { # Returns dirname/filename/extension from filepath: ds:path
   printf '%s\t' "${out[@]}"
 }
 
-ds:src() { # Source a piece of file: ds:src file ["searchx" pattern] || [start end] || [search linesafter]
+ds:src() { # Source a piece of shell code: ds:src file ["searchx" pattern] || [start end] || [search linesafter]
   local tmp=$(ds:tmp 'ds_src')
   ds:file_check "$1"; local file="$(ds:fd_check "$1")"
   if [ "$2" = "searchx" ]; then
@@ -383,6 +388,7 @@ ds:git_checkout() { # Checkout branch matching pattern (alias ds:gco): ds:gco [p
 alias ds:gco="ds:git_checkout"
 
 ds:git_squash() { # Squash last n commits (alias ds:gsq): ds:gsq [n_commits=1]
+  ds:not_git && return 1
   local extent="${1:-1}"
   ! ds:is_int "$extent" && echo 'Squash commits to arg must be an integer' && ds:help ds:git_squash && return 1
   local conf="$(ds:readp "Are you sure you want to squash the last $extent commits on current branch?
@@ -566,13 +572,14 @@ ds:insert() { # ** Redirect input into a file at lineno or pattern: ds:insert fi
   rm $source $tmp
 }
 
-ds:shape() { # ** Print data shape by length or FS: ds:shape [file] [FS] [chart_size=15ln] [chart_off=f]
+ds:shape() { # ** Print data shape by length or pattern: ds:shape [file] [str|pattern] [chart_size=15ln] [chart_off=f]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_shape') piped=0
     cat /dev/stdin > $file
   else
-    ds:file_check "$1"
-    local file="$(ds:fd_check "$1")"; shift; fi
+    local tmp=$(ds:tmp 'ds_shape')
+    ds:file_check "$1" f f t > $tmp
+    local file="$(ds:fd_check "$(cat $tmp; rm $tmp)")"; shift; fi
 
   local lines=$(cat "$file" | wc -l | awk '{print $0+0}')
   [ $lines = 0 ] && return 1
@@ -894,7 +901,7 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [r
       return $?
     else
       local tmp=$(ds:tmp "ds_reo")
-      ds:file_check "$1" f t > $tmp
+      ds:file_check "$1" f f t > $tmp
       local file="$(ds:fd_check "$(cat $tmp; rm $tmp)")" rows="${2:-a}" cols="${3:-a}" base=4
     fi; fi
   local arr_base=$(ds:arr_base) args=("${@:$base}") fstmp=$(ds:tmp 'ds_extractfs')
@@ -1032,6 +1039,22 @@ ds:pow() { # ** Combinatorial frequency of data field values: ds:pow [file] [min
   ds:pipe_clean $file; rm $prefield
 }
 
+ds:prod() { # ** Return product multiset of filelines: ds:pow file [file*] [awkargs]
+  if ds:pipe_open; then
+    local file=$(ds:tmp 'ds_pow') piped=0
+    cat /dev/stdin > $file
+  else 
+    ds:file_check "$1"
+    local file="$(ds:fd_check "$1")"; shift; fi
+  local files=("$file")
+  while [[ -e "$1" && ! -d "$1" ]]; do
+    ! grep -Iq "" "$1" && ds:pipe_clean $file && ds:fail 'Binary files have been disallowed for this command!'
+    local files=(${files[@]} "$1"); shift
+  done
+  awk -f "$DS_SCRIPT/product.awk" $@ ${files[@]}
+  ds:pipe_clean $file
+}
+
 ds:fieldcounts() { # ** Print value counts (alias ds:fc): ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_fieldcounts') piped=0 
@@ -1061,7 +1084,7 @@ ds:fieldcounts() { # ** Print value counts (alias ds:fc): ds:fc [file] [fields=1
 }
 alias ds:fc="ds:fieldcounts"
 
-ds:newfs() { # ** Outputs a file with an updated field separator: ds:newfs [file] [newfs=,] [awkargs]
+ds:newfs() { # ** Convert field separators - i.e. tsv -> csv: ds:newfs [file] [newfs=,] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_newfs') piped=0
     cat /dev/stdin > $file
@@ -1082,9 +1105,10 @@ ds:hist() { # ** Print histograms for all number fields in data: ds:hist [file] 
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_hist') piped=0
     cat /dev/stdin > $file
-  else 
-    ds:file_check "$1"
-    local file="$(ds:fd_check "$1")"; shift; fi
+  else
+    local tmp=$(ds:tmp 'ds:hist')
+    ds:file_check "$1" f f t > $tmp
+    local file="$(ds:fd_check "$(cat $tmp; rm $tmp)")"; shift; fi
   ds:is_int "$1" && local n_bins="$1" && shift
   ds:is_int "$1" && local bar_len="$1" && shift
   local args=( "$@" ) prefield=$(ds:tmp "ds_tmp_prefield") fstmp=$(ds:tmp 'ds_extractfs')
@@ -1115,9 +1139,9 @@ ds:graph() { # ** Extract graph relationships from DAG base data: ds:graph [file
 ds:asgn() { # Print lines matching assignment pattern: ds:asgn file
   ds:file_check "$1"
   if ds:nset 'rg'; then
-    rg "[[:alnum:]_]+ *=[^=<>]" $1 
+    rg "[[:alnum:]_<>\[\]\-]+ *= *(\S)+" $1 
   else
-    egrep -n --color=always -e "[[:alnum:]_]+ *=[^=<>]" $1; fi
+    egrep -n --color=always -e "[[:alnum:]_<>\[\]\-]+ *= *(\S)+" $1; fi
   if [ ! $? ]; then echo 'No assignments found in file!'; fi
 }
 
@@ -1183,7 +1207,7 @@ ds:mini() { # ** Crude minify, remove whitespace and newlines: ds:mini [file] [n
   ds:pipe_clean $file
 }
 
-ds:sort() { # ** Sort with inferred field sep of exactly 1 char: ds:sort [unix_sort_args] [file]
+ds:sort() { # ** Sort with inferred field sep of 1 char: ds:sort [unix_sort_args] [file]
   local args=( "$@" )
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_sort') piped=0
@@ -1273,7 +1297,7 @@ ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [recurse=r
           -mtime -7d ${cmd_exec[@]} 2> /dev/null
       fi
     ) | sed "s:\\$(echo -n "$dirname")\/::" | awk "$prg" | sort -k$sortf \
-      | ds:fit -v FS=" " -v color=never | ds:pipe_check
+      | ds:fit -v FS=" +" -v color=never | ds:pipe_check
   else
     if [ "$(date -v -0d 2>/dev/null)" ]; then
       for i in {0..6}; do
@@ -1284,7 +1308,7 @@ ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [recurse=r
 
     ([ "$bsd" ] && stat -l -t "%D" "$dirname"/* \
       || ls -ghtG$hidden --time-style=+%D "$dirname" \
-    ) | grep -v '^d' | grep ${dates[@]} | awk "$prg" | ds:fit -v FS=" " -v color=never | ds:pipe_check
+    ) | grep -v '^d' | grep ${dates[@]} | awk "$prg" | ds:fit -v FS=" +" -v color=never | ds:pipe_check
   fi
   [ $? = 0 ] || (echo "$notfound" && return 1)
 }
@@ -1322,6 +1346,8 @@ ds:sedi() { # Run global in place substitutions: ds:sedi file|dir search [replac
 }
 
 ds:dff() { # ** Diff shortcut for an easier to read view: ds:dff file1 [file2] [suppress_common] [color=t]
+  # TODO: dynamic width if short lines on one or more files
+  # TODO: diff >2 files
   if ds:pipe_open; then
     local file1=$(ds:tmp 'ds_dff') piped=0
     cat /dev/stdin > $file1
@@ -1370,7 +1396,7 @@ ds:goog() { # Search Google: ds:goog [search query]
   open "$search_url"
 }
 
-ds:so() { # Search Stack Overflow: ds:so [search query]
+ds:so() { # Search Stack Overflow: ds:so [search_query]
   local search_args="$@"
   [ -z "$search_args" ] && ds:fail 'Arg required for search'
   local base_url="https://www.stackoverflow.com/search?q="
@@ -1380,10 +1406,14 @@ ds:so() { # Search Stack Overflow: ds:so [search query]
   open "$search_url"
 }
 
-ds:jira() { # Opens Jira at specified workspace and issue: ds:jira workspace_subdomain [issue]
+ds:jira() { # Open Jira at specified workspace issue / search: ds:jira workspace_subdomain [issue|query]
   [ -z "$1" ] && ds:help ds:jira && ds:fail 'Subdomain arg missing'
   local OS="$(ds:os)" j_url="https://$1.atlassian.net"
-  ds:test "[A-Z]+-[0-9]+" "$2" && local j_url="$j_url/browse/$2"
+  if ds:test "[A-Z]+-[0-9]+"; then
+    local j_url="$j_url/browse/$2"
+  else
+    local j_url="$j_url/search/$2"
+  fi
   [ "$OS" = "Linux" ] && xdg-open "$j_url" && return
   open "$j_url"
 }

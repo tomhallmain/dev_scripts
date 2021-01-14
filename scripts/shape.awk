@@ -1,7 +1,7 @@
 #!/usr/bin/awk
 #
 # Print the shape of text-based data
-
+## TODO: optional setting - multiple shape charts for each field
 
 BEGIN {
   if (!tty_size) tty_size = 100
@@ -14,7 +14,7 @@ BEGIN {
     else measure = 1
   }
   if (FS == " ") FS = "[[:space:]]"
-  measure_desc = measure ? "FS "FS : "length"
+  measure_desc = measure ? "\""FS"\"" : "length"
   if (pattern) {
     pat_len = length(pattern)
     pat_len_mod = pat_len > 1 ? tty_size / pat_len : tty_size
@@ -66,10 +66,9 @@ function SetMeasure(measure) {
   else if ("fields" ~ "^"measure) return 1
 }
 function Measure(measure) {
-  if (!measure) return length($0)
-  else {
-    if (measure == 1) return NF - 1
-    }
+  if (measure)
+    { if (measure == 1) return NF - 1 }
+  else return length($0)
 }
 function Max(a, b) {
   if (a > b) return a

@@ -3,24 +3,35 @@
 
 DS_SEP=$'@@@'
 
-ds:file_check() { # Test for file validity and fail if invalid: ds:file_check testfile [writable=f] [enable_search]
+ds:file_check() { # Test for file validity and fail if invalid: ds:file_check testfile [check_writable=f] [allow_binary=f] [enable_search]
   [ -z "$1" ] && ds:fail 'File not provided!'
-  local tf="$1"
-  if ds:test 't(rue)?' "$2"; then
+  local tf="$1" enable_search="$4"
+  [[ -e "$tf" && ! -d "$tf" ]] && local filelike=0
+  [ "$3" ] && ds:test 't(rue)?' "$3" && local allow_binary=0
+  if [ "$2" ] && ds:test 't(rue)?' "$2"; then
     [[ -w "$tf" && -f "$tf" ]] || ds:fail 'File is not writable!'
-  elif [ "$3" ]; then
-    if [[ -e "$tf" && ! -d "$tf" ]]; then
+  elif [ "$enable_search" ]; then
+    if [ "$filelike" ]; then
+      if [ ! "$allow_binary" ] && ! grep -Iq "" "$tf"; then
+        ds:fail 'Binary files have been disallowed for this command!'; fi
       echo -n "$tf"
     else
-      local f=$(ds:nset 'fd' && fd -t f "$tf" -x grep -Il '.' {} \; | head -n1 \
-          || find . -type f -name "*$tf*" -not -path '*/\.*' -exec grep -Il '.' {} \; | head -n1)
+      if [ "$allow_binary" ]; then
+        local f=$(ds:nset 'fd' && fd -t f "$tf" | head -n1 \
+            || find . -type f -name "*$tf*" -not -path '*/\.*' | head -n1)
+      else
+        local f=$(ds:nset 'fd' && fd -t f -x grep -Il '.' {} \; "$tf" | head -n1 \
+            || find . -type f -name "*$tf*" -not -path '*/\.*' -exec grep -Il '.' {} \; | head -n1)
+      fi
       [[ -z "$f" || ! -f "$f" ]] && ds:fail 'File not provided or invalid!'
       local conf=$(ds:readp "Arg is not a file - run on closest match ${f}? (y/n)")
       [ "$conf" = "y" ] && echo -n "$f" || ds:fail 'File not provided or invalid!'
     fi
-  elif [ ! -e "$tf" ] || [ -d "$tf" ] || ! grep -Iq "" "$tf"; then
-  # TODO: Bash -e test fails on fds
+    return; fi
+  if [ ! "$filelike" ]; then # TODO: Bash -e test fails on fds
     ds:fail 'File not provided or invalid!'; fi
+  if [ ! "$allow_binary" ] && ! grep -Iq "" "$tf"; then
+    ds:fail 'Binary files have been disallowed for this command!'; fi
 }
 
 ds:fd_check() { # Convert fds into files: ds:fd_check testfile

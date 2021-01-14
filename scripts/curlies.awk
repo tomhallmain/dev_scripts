@@ -12,13 +12,39 @@ BEGIN {
   curly = 1
   innerBrace = 1
   entityCounter = 1
+  OpenEntities[1] = 1
 }
 
 NR > 1 {
-  for (i = 1; !comment && i <= Curlies[entityCounter] + 1; i++) {
-    #print "building entity " entityCounter " curly " i
-    #print Entities[entityCounter, i]
-    Entities[entityCounter, i] = Entities[entityCounter, i] "\n" }
+  if (inMultilineComment) {
+    multilineJavaCommentClose = match($0, /(\*)?\*\//)
+    if (multilineJavaCommentClose)
+      inMultilineComment = 0
+    next }
+  else {
+    multilineJavaComment = match($0, /\/\*\*/)
+    if (multilineJavaComment) {
+      $0 = substr($0, 1, RSTART)
+      inMultilineComment = 1
+      if ($0 ~ /^[[:space:]]*$/)
+        next }}
+
+  for (i = 1; !prevLineBlank && !comment && i <= PositiveCurlies[entityCounter] + 1; i++) {
+    for (ec in OpenEntities) {
+      #print "building entity " ec " curly " i
+      #print Entities[ec, i]
+
+      if (ec == entityCounter && i < PositiveCurlies[entityCounter])
+        continue
+      else if (Entities[ec, i] ~ /^[[:space:]]*$/)
+        continue
+ 
+      if (closeLine && ec < entityCounter)
+        Entities[ec, i] = Entities[ec, i] "\n" closeLine
+
+      Entities[ec, i] = Entities[ec, i] "\n" }}
+
+  prevLineBlank = ($0 ~ /^[[:space:]]*$/)
 }
 
 {
@@ -27,6 +53,7 @@ NR > 1 {
   potentialComment = 0
   escaped = 0
   prevChar = ""
+  closeLine = ""
   split($0, Chars, "")
 
   for (i = 1; !comment && i <= length(Chars); i++) {
@@ -34,7 +61,10 @@ NR > 1 {
 
     if (OpenCurly(char)) {
       curly++
-      Curlies[entityCounter]++
+      for (ec in OpenEntities) {
+        Curlies[ec]++
+        PositiveCurlies[ec]++
+        if (Curlies[ec] > MaxLevel[ec]) MaxLevel[ec]++ }
       activeBrace = char }
     else if (InnerOpenBrace(char) && ! BraceMatch(char, activeInnerBrace[innerBrace])) {
       innerBrace++
@@ -60,12 +90,22 @@ NR > 1 {
         add = char }
 
       for (c = 1; notComment && c <= curly; c++) {
-        Entities[entityCounter, c] = Entities[entityCounter, c] add }
+        for (ec in OpenEntities) {
+      if (ec == entityCounter && c < PositiveCurlies[entityCounter])
+        continue
+          Entities[ec, c] = Entities[ec, c] add }}
 
-      if (curly > 1 && CloseCurly(char)) {
-        curly--
+      if (CloseCurly(char)) {
+        --curly
         entityCounter++
-        activeBrace = "" }}
+        OpenEntities[entityCounter] = 1
+        closeLine = $0
+        activeBrace = ""
+        for (ec in OpenEntities) {
+          --Curlies[ec]
+          if (!Curlies[ec]) {
+            delete OpenEntities[ec]
+            ClosedEntities[ec] = 1 }}}}
 
     if (debug && char != " ") DebugPrint(1)
     escaped = (char == "\\" && !(prevChar == "\\"))
@@ -76,14 +116,18 @@ NR > 1 {
 END {
   if (search) {
     for (i = 1; i <= entityCounter; i++) {
-      for (j = 1; j < Curlies[i]; j++) {
-        split(Entities[i, j], SelectedEntity, "\n")
+      for (j = 1; j < PositiveCurlies[i]; j++) {
+        split(Entities[i, j], SelectedEntity, /\n/)
         checkLine1 = SelectedEntity[1] # TODO make this into a loop over a customizable range
+        print i, j
+        print checkLine1
+        #print Entities[i, j]
         if (checkLine1 ~ search) {
           print checkLine1
           print Entities[i, j+1]
           break }
         checkLine2 = SelectedEntity[2]
+        print checkLine2
         if (checkLine2 ~ search) {
           print checkLine2
           print Entities[i, j+1]
@@ -94,7 +138,7 @@ END {
           print Entities[i, j+1] }}}}
   else {
     for (i = 1; i <= entityCounter; i++) {
-      for (j = 1; j <= Curlies[i]; j++) {
+      for (j = 1; j <= PositiveCurlies[i]; j++) {
         print "DEBUG: " i, j
         if (Entities[i, j]) {
           print Entities[i, j] }}}}

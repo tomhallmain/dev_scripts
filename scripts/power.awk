@@ -38,8 +38,6 @@ invert && NR == 1 && c_counts {
 }
 
 {  
-  if (debug && FNR < 3) DebugPrint(0)
-
   for (i = 1; i <= 2^NF-2; i++) {
     str = ""
     c_str = ""
@@ -48,12 +46,10 @@ invert && NR == 1 && c_counts {
       if (i%(2^j) < 2^(j-1)) {
         if ($j ~ "^[[:space:]]*$") continue
         str = str $j OFS
-        if (debug && FNR < 3) DebugPrint(1)
         c_str = c_str j OFS }
 
     RC[c_str]++
     if (str ~ "^[[:space:]]*$" || RC[c_str] > 1) continue
-    if (debug && FNR < 3) DebugPrint(0.5)
 
     if (c_counts) {
       c_str = substr(c_str, 1, length(c_str) - len_ofs)
@@ -84,7 +80,6 @@ END {
         if (!(i in CCount)) delete CHeaders[i] }}
 
   else {
-    if (debug) DebugPrint(1.5)
     for (i in C) {
       j = C[i]
       if (j < min) { 
@@ -92,8 +87,7 @@ END {
         continue }
       N[j]++
       metakey = j OFS N[j]
-      M[metakey] = i
-      if (debug) DebugPrint(2) }
+      M[metakey] = i }
 
     for (i in N) {
       n_n = N[i]
@@ -116,10 +110,8 @@ END {
           l2 = length(Tmp2)
           if (matchcount >= l1 || matchcount >= l2) {
             if (l1 > l2) {
-              if (debug) DebugPrint(4)
               delete C[t2] }
             else if (l2 > l1) {
-              if (debug) DebugPrint(5)
               delete C[t1]
             }}}}}}
 
