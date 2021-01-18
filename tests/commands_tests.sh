@@ -92,6 +92,8 @@ fi
 [ "$(ds:inferfs $jnf1)" = ',' ]                             || ds:fail 'inferfs failed extension case'
 [ "$(ds:inferfs $seps_base)" = '\&\%\#' ]                   || ds:fail 'inferfs failed custom separator case 1'
 [ "$(ds:inferfs $jnf3)" = '\;\;' ]                          || ds:fail 'inferfs failed custom separator case 2'
+echo -e "wefkwefwl=21\nkwejf ekej=qwkdj\nTEST 349=|" > $tmp
+[ "$(ds:inferfs $tmp)" = '\=' ]                             || ds:fail 'inferfs failed custom separator case 3'
 [ "$(ds:inferfs $ls_sq)" = '[[:space:]]+' ]                 || ds:fail 'inferfs failed quoted fields case'
 [ "$(ds:inferfs $complex_csv3)" = ',' ]                     || ds:fail 'inferfs failed quoted fields case'
 [ "$(ds:inferfs $inferfs_chunks)" = ',' ]                   || ds:fail 'inferfs failed simple chunks case'
@@ -1025,6 +1027,7 @@ mini_output="1;2;3;4;5;6;7;8;9;10"
 
 [ "$(ds:unicode "cats😼😻")" = '\U63\U61\U74\U73\U1F63C\U1F63B' ]        || ds:fail 'unicode command failed base case'
 [ "$(echo "cats😼😻" | ds:unicode)" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed pipe case'
+[ "$(ds:unicode "cats😼😻" hex)" = '%63%61%74%73%F09F98BC%F09F98BB' ]    || ds:fail 'unicode command failed hex case'
 
 todo_expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 [ "$(ds:todo tests/commands_tests.sh | head -n1)" = "$todo_expected" ] || ds:fail 'todo command failed'

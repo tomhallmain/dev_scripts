@@ -42,12 +42,6 @@ public class TestableValueImpl
     }
 
     @Override
-    public TestableValue asExtensionValue()
-    {
-        return this;
-    }
-
-    @Override
     public byte getType()
     {
         return type;
@@ -93,33 +87,5 @@ public class TestableValueImpl
             hash = 31 * hash + e;
         }
         return hash;
-    }
-
-    @Override
-    public String toJson()
-    {
-        StringBuilder sb = new StringBuilder();
-        sb.append('[');
-        sb.append(Byte.toString(type));
-        sb.append(",\"");
-        for (byte e : data) {
-            sb.append(Integer.toString((int) e, 16));
-        }
-        sb.append("\"]");
-        return sb.toString();
-    }
-
-    @Override
-    public String toString()
-    {
-        StringBuilder sb = new StringBuilder();
-        sb.append('(');
-        sb.append(Byte.toString(type));
-        sb.append(",0x");
-        for (byte e : data) {
-            sb.append(Integer.toString((int) e, 16));
-        }
-        sb.append(")");
-        return sb.toString();
     }
 }

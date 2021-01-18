@@ -30,7 +30,7 @@ ds:file_check() { # Test for file validity and fail if invalid: ds:file_check te
     return; fi
   if [ ! "$filelike" ]; then # TODO: Bash -e test fails on fds
     ds:fail 'File not provided or invalid!'; fi
-  if [ ! "$allow_binary" ] && ! grep -Iq "" "$tf"; then
+  if [[ ! "$allow_binary" && ! "$tf" =~ '/dev/fd/' ]] && ! grep -Iq "" "$tf"; then
     ds:fail 'Binary files have been disallowed for this command!'; fi
 }
 

@@ -7,12 +7,18 @@
 #
 ## TODO multiline and language-specific comment handling
 ## TODO maybe try simple shift of base level from 1 to 2 for java function/class searches
+## 1-base index (entityCounter)
+## 2-depth index (curly)
+## 3-atDepth index
 
 BEGIN {
-  curly = 1
+  curly = 0
   innerBrace = 1
-  entityCounter = 1
-  OpenEntities[1] = 1
+  entityCounter = 0
+  OpenEntities[0, 0] = 1
+  if (search) {
+    searching = 1
+    searchCase = 1 }
 }
 
 NR > 1 {
@@ -29,20 +35,14 @@ NR > 1 {
       if ($0 ~ /^[[:space:]]*$/)
         next }}
 
-  for (i = 1; !prevLineBlank && !comment && i <= PositiveCurlies[entityCounter] + 1; i++) {
-    for (ec in OpenEntities) {
-      #print "building entity " ec " curly " i
-      #print Entities[ec, i]
+  if (!prevLineBlank) {
+    for (ecCurly in OpenEntities) {
+      addr = ecCurly SUBSEP CurlyIdx[ecCurly]
 
-      if (ec == entityCounter && i < PositiveCurlies[entityCounter])
+      if (Entities[addr] ~ /^[[:space:]]*$/)
         continue
-      else if (Entities[ec, i] ~ /^[[:space:]]*$/)
-        continue
- 
-      if (closeLine && ec < entityCounter)
-        Entities[ec, i] = Entities[ec, i] "\n" closeLine
 
-      Entities[ec, i] = Entities[ec, i] "\n" }}
+      Entities[addr] = Entities[addr] "\n" }}
 
   prevLineBlank = ($0 ~ /^[[:space:]]*$/)
 }
@@ -53,27 +53,58 @@ NR > 1 {
   potentialComment = 0
   escaped = 0
   prevChar = ""
-  closeLine = ""
   split($0, Chars, "")
 
-  for (i = 1; !comment && i <= length(Chars); i++) {
-    char = Chars[i]
+  if (searching && $0 ~ search) {
+    searchMatch = 1
+    MatchLine[entityCounter, curly, CurlyIdx[entityCounter, curly]] = $0
+    searching = 0
+  }
+
+  for (char_i = 1; !comment && char_i <= length(Chars); char_i++) {
+    char = Chars[char_i]
+    closeCurly = 0
 
     if (OpenCurly(char)) {
+      previousAddr = entityCounter SUBSEP curly SUBSEP CurlyIdx[entityCounter, curly]
+
+      if (curly < 1) {
+        entityCounter++ }
+
       curly++
-      for (ec in OpenEntities) {
+      OpenEntities[entityCounter, curly]++
+      CurlyIdx[entityCounter, curly]++
+      currentAddr = entityCounter SUBSEP curly SUBSEP CurlyIdx[entityCounter, curly]
+
+      if (searchMatch) {
+        AddrJoin[currentAddr] = previousAddr
+        FoundEntities[currentAddr] = 1
+        searchMatch = 0
+        resolvingSearch = curly }
+
+      for (ecCurly in OpenEntities) {
+        split(ecCurly, ECCurly, SUBSEP)
+        ec = ECCurly[1]
+        c = ECCurly[2]
         Curlies[ec]++
         PositiveCurlies[ec]++
         if (Curlies[ec] > MaxLevel[ec]) MaxLevel[ec]++ }
+
       activeBrace = char }
+
     else if (InnerOpenBrace(char) && ! BraceMatch(char, activeInnerBrace[innerBrace])) {
       innerBrace++
       activeInnerBrace[innerBrace] = char }
+
     else if (innerBrace > 1 && InnerCloseBrace(char) && BraceMatch(char, activeInnerBrace[innerBrace])) {
       delete activeInnerBrace[innerBrace]
       innerBrace-- }
+
     else if (char == "/" && !(prevChar == "/")) {
-      potentialComment = 1 }
+      potentialComment = 1
+      prevChar = char
+      continue }
+
     else if (innerBrace == 1 && !quote && (char == "#" || char == "/")) {
       comment = 1 }
 
@@ -89,59 +120,46 @@ NR > 1 {
 
         add = char }
 
-      for (c = 1; notComment && c <= curly; c++) {
-        for (ec in OpenEntities) {
-      if (ec == entityCounter && c < PositiveCurlies[entityCounter])
-        continue
-          Entities[ec, c] = Entities[ec, c] add }}
+      closeCurly = CloseCurly(char)
 
-      if (CloseCurly(char)) {
+      for (ecCurly in OpenEntities) {
+        addr = ecCurly SUBSEP CurlyIdx[ecCurly]
+        Entities[addr] = Entities[addr] add }
+
+      if (closeCurly) {
+        if (resolvingSearch == curly && FoundEntities[currentAddr]) {
+          resolvingSearch = 0
+          exit # TODO: Make full scope search - awk keeps adding false positives on array test above -_-
+          break }
+        currentAddr = previousAddr
         --curly
-        entityCounter++
-        OpenEntities[entityCounter] = 1
-        closeLine = $0
+        --Curlies[entityCounter]
         activeBrace = ""
-        for (ec in OpenEntities) {
-          --Curlies[ec]
+        for (ecCurly in OpenEntities) {
+          split(ecCurly, ECCurly, SUBSEP)
+          ec = ECCurly[1]
+          c = ECCurly[2]
           if (!Curlies[ec]) {
-            delete OpenEntities[ec]
-            ClosedEntities[ec] = 1 }}}}
+            delete OpenEntities[ecCurly] }}}}
 
     if (debug && char != " ") DebugPrint(1)
-    escaped = (char == "\\" && !(prevChar == "\\"))
+    escaped = ((char == "\\" && !(prevChar == "\\")) || (char == "$" && !(prevChar == "$")))
     prevChar = char
     quote = (squote || dquote ? 1 : 0) }
 }
 
 END {
-  if (search) {
-    for (i = 1; i <= entityCounter; i++) {
-      for (j = 1; j < PositiveCurlies[i]; j++) {
-        split(Entities[i, j], SelectedEntity, /\n/)
-        checkLine1 = SelectedEntity[1] # TODO make this into a loop over a customizable range
-        print i, j
-        print checkLine1
-        #print Entities[i, j]
-        if (checkLine1 ~ search) {
-          print checkLine1
-          print Entities[i, j+1]
-          break }
-        checkLine2 = SelectedEntity[2]
-        print checkLine2
-        if (checkLine2 ~ search) {
-          print checkLine2
-          print Entities[i, j+1]
-          break }
-        checkLine3 = SelectedEntity[3]
-        if (checkLine3 ~ search) {
-          print checkLine3
-          print Entities[i, j+1] }}}}
+  if (searchCase) {
+    for (addr in FoundEntities) {
+      print MatchLine[AddrJoin[addr]]
+      print Entities[addr] }}
   else {
-    for (i = 1; i <= entityCounter; i++) {
-      for (j = 1; j <= PositiveCurlies[i]; j++) {
-        print "DEBUG: " i, j
-        if (Entities[i, j]) {
-          print Entities[i, j] }}}}
+    print Entities[ec, c, i]
+    for (ec = 1; ec <= entityCounter; ec++) {
+      for (c = 1; c <= PositiveCurlies[ec]; c++) {
+        for (i = 1; i <= CurlyIdx[ec, c]; i++) {
+          if (length(Entities[ec, c, i])) {
+            print Entities[ec, c, i] }}}}}
 }
 
 function BraceMatch(char, brace) {
