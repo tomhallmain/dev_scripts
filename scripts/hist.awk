@@ -3,6 +3,7 @@
 # Script to print a histogram in terminal based on columnar data
 #
 # > awk -f hist.awk file
+## TODO: floats
 
 BEGIN {
   if (!n_bins) n_bins = 10
@@ -29,7 +30,7 @@ BEGIN {
     gsub(",", "", fval)
     fval = fval * 1
 
-    Rec[f]++
+    if (!Counts[f, fval]) Rec[f]++
     Counts[f, fval]++
 
     if (fval < Min[f] || !Min[f]) Min[f] = fval

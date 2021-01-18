@@ -44,34 +44,35 @@
 **@@@ds:inferk@@@@@@Infer join fields in two text data files@@@ds:inferk file [file] [awkargs]
 **@@@ds:insert@@@@@@Redirect input into a file at lineno or pattern@@@ds:insert file [lineno|pattern] [srcfile]
 @@@ds:iter@@@@@@Repeat a string@@@ds:iter str [n=1] [fs]
-@@@ds:jira@@@@@@Opens Jira at specified workspace and issue@@@ds:jira workspace_subdomain [issue]
+@@@ds:jira@@@@@@Open Jira at specified workspace issue / search@@@ds:jira workspace_subdomain [issue|query]
 **@@@ds:jn@@@@@@Join two files or a file and STDIN with any keyset@@@ds:jn file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
 **@@@ds:join_by@@@@@@Join a shell array by given delimiter@@@ds:join_by delimiter [join_array]
 **@@@ds:line@@@@@@Execute commands on var line@@@ds:line [seed_cmds] line_cmds [IFS=\n]
 **@@@ds:mini@@@@@@Crude minify, remove whitespace and newlines@@@ds:mini [file] [newline_sep=;] [blank_only=f]
 @@@ds:new@@@@@@Refresh zsh or bash interactive session@@@ds:new
-**@@@ds:newfs@@@@@@Outputs a file with an updated field separator@@@ds:newfs [file] [newfs=,] [awkargs]
+**@@@ds:newfs@@@@@@Convert field separators - i.e. tsv -> csv@@@ds:newfs [file] [newfs=,] [awkargs]
 @@@ds:nset@@@@@@Test if name (function/alias/variable) is defined@@@ds:nset name [search_vars=f]
 @@@ds:ntype@@@@@@Get name type - function, alias, variable@@@ds:ntype name
-@@@ds:path_elements@@@@@@Returns dirname/filename/extension from filepath@@@ds:path_elements file
+@@@ds:path_elements@@@@@@Return dirname/filename/extension from filepath@@@ds:path_elements file
 **@@@ds:pipe_check@@@@@@Detect if pipe has data or over [n_lines]@@@data | ds:pipe_check [n_lines]
 **@@@ds:pow@@@@@@Combinatorial frequency of data field values@@@ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
 **@@@ds:print_comps@@@ds:pc@@@Get non-matching lines from two datasets@@@ds:pc file [file] [awkargs]
 **@@@ds:print_matches@@@ds:pm@@@Get match lines from two datasets@@@ds:pm file [file] [awkargs]
+**@@@ds:prod@@@@@@Return product multiset of filelines@@@ds:pow file [file*] [awkargs]
 **@@@ds:pvt@@@@@@Pivot tabular data@@@ds:pv [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
 @@@ds:recent@@@@@@List files modified in last 7 days@@@ds:recent [dir=.] [recurse=r] [hidden=h]
 **@@@ds:reo@@@@@@Reorder/repeat/slice data by rows and cols@@@ds:reo [-h|file*] [rows] [cols] [prefield=t] [awkargs]
 **@@@ds:rev@@@@@@Reverse lines from standard input@@@data | ds:rev
 **@@@ds:sbsp@@@@@@Extend fields by a common subseparator@@@ds:sbsp [file] subsep_pattern [nomatch_handler= ]
-@@@ds:searchn@@@@@@Searches current environment names@@@ds:searchn name
-@@@ds:searchx@@@@@@Search for a C-lang/curly-brace top-level object@@@ds:searchx file|dir [search] [q]
+@@@ds:searchn@@@@@@Search shell environment names@@@ds:searchn name
+@@@ds:searchx@@@@@@Search for a C-lang/curly-brace top-level object@@@ds:searchx file|dir [search] [q] [multilevel]
 @@@ds:sedi@@@@@@Run global in place substitutions@@@ds:sedi file|dir search [replace]
 **@@@ds:select@@@@@@Select code by regex anchors@@@ds:select file [startpattern endpattern]
-**@@@ds:shape@@@@@@Print data shape by length or FS@@@ds:shape [file] [FS] [chart_size=15ln] [chart_off=f]
-@@@ds:so@@@@@@Search Stack Overflow@@@ds:so [search query]
-**@@@ds:sort@@@@@@Sort with inferred field sep of exactly 1 char@@@ds:sort [unix_sort_args] [file]
+**@@@ds:shape@@@@@@Print data shape by length or pattern@@@ds:shape [file] [str|pattern] [chart_size=15ln] [chart_off=f]
+@@@ds:so@@@@@@Search Stack Overflow@@@ds:so [search_query]
+**@@@ds:sort@@@@@@Sort with inferred field sep of 1 char@@@ds:sort [unix_sort_args] [file]
 **@@@ds:sortm@@@ds:s@@@Sort with inferred field sep of >=1 char@@@ds:sortm [file] [keys] [order=a|d] [sort_type] [awkargs]
-@@@ds:src@@@@@@Source a piece of file@@@ds:src file ["searchx" pattern] || [start end] || [search linesafter]
+@@@ds:src@@@@@@Source a piece of shell code@@@ds:src file ["searchx" pattern] || [start end] || [search linesafter]
 @@@ds:srg@@@@@@Scope grep to files that contain a match@@@ds:srg scope_pattern search_pattern [dir] [invert=]
 **@@@ds:stag@@@@@@Print tabular data in staggered rows@@@ds:stag [file] [stag_size]
 **@@@ds:substr@@@@@@Extract a substring with regex@@@ds:substr str [leftanc] [rightanc]
@@ -80,7 +81,7 @@
 @@@ds:todo@@@@@@List todo items found in paths@@@ds:todo [searchpaths=.]
 @@@ds:trace@@@@@@Search shell trace for a pattern@@@ds:trace [command] [search] [strace] [strace_args]
 **@@@ds:transpose@@@ds:t@@@Transpose field values@@@ds:transpose [file] [prefield=t] [awkargs]
-**@@@ds:unicode@@@@@@Get UTF-8 unicode for a character sequence@@@ds:unicode [str]
+**@@@ds:unicode@@@@@@Get UTF-8 unicode for a character sequence@@@ds:unicode [str] [out=codepoint]
 @@@ds:vi@@@@@@Search for file and open it in vim@@@ds:vi search [dir] [edit_all_match=f]
 @@@ds:websel@@@@@@Download and extract inner html by regex@@@ds:websel url [tag_re] [attrs_re]
 @@@@@@@@@@@@

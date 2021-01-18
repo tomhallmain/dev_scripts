@@ -6,6 +6,7 @@ test_var=1
 tmp=/tmp/ds_commands_tests
 q=/dev/null
 shell="$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')"
+png='assets/gcv_ex.png'
 jnf1="tests/data/infer_join_fields_test1.csv"
 jnf2="tests/data/infer_join_fields_test2.csv"
 jnf3="tests/data/infer_join_fields_test3.scsv"
@@ -23,6 +24,7 @@ jnrjn2="tests/data/jn_repeats_jnd2"
 seps_base="tests/data/seps_test_base"
 seps_sorted="tests/data/seps_test_sorted" 
 simple_csv="tests/data/company_funding_data.csv"
+simple_csv2="tests/data/testcrimedata.csv"
 complex_csv1="tests/data/addresses.csv"
 complex_csv3="tests/data/addresses_reordered"
 complex_csv2="tests/data/Sample100.csv"
@@ -61,6 +63,8 @@ ch="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
 ds:commands > $tmp
 cmp --silent $cmds $tmp && grep -q "$ch" $tmp     || ds:fail 'commands listing failed'
 
+ds:file_check "$png" f t &> /dev/null             || ds:fail 'file check disallowed binary files in allowed case'
+
 ds_help_output="COMMAND@@@DESCRIPTION@@@USAGE@@@
 ds:help@@@Print help for a given command@@@ds:help ds_command@@@"
 [ "$(ds:help 'ds:help')" = "$ds_help_output" ]    || ds:fail 'help command failed'
@@ -88,6 +92,8 @@ fi
 [ "$(ds:inferfs $jnf1)" = ',' ]                             || ds:fail 'inferfs failed extension case'
 [ "$(ds:inferfs $seps_base)" = '\&\%\#' ]                   || ds:fail 'inferfs failed custom separator case 1'
 [ "$(ds:inferfs $jnf3)" = '\;\;' ]                          || ds:fail 'inferfs failed custom separator case 2'
+echo -e "wefkwefwl=21\nkwejf ekej=qwkdj\nTEST 349=|" > $tmp
+[ "$(ds:inferfs $tmp)" = '\=' ]                             || ds:fail 'inferfs failed custom separator case 3'
 [ "$(ds:inferfs $ls_sq)" = '[[:space:]]+' ]                 || ds:fail 'inferfs failed quoted fields case'
 [ "$(ds:inferfs $complex_csv3)" = ',' ]                     || ds:fail 'inferfs failed quoted fields case'
 [ "$(ds:inferfs $inferfs_chunks)" = ',' ]                   || ds:fail 'inferfs failed simple chunks case'
@@ -1021,6 +1027,7 @@ mini_output="1;2;3;4;5;6;7;8;9;10"
 
 [ "$(ds:unicode "cats😼😻")" = '\U63\U61\U74\U73\U1F63C\U1F63B' ]        || ds:fail 'unicode command failed base case'
 [ "$(echo "cats😼😻" | ds:unicode)" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed pipe case'
+[ "$(ds:unicode "cats😼😻" hex)" = '%63%61%74%73%F09F98BC%F09F98BB' ]    || ds:fail 'unicode command failed hex case'
 
 todo_expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 [ "$(ds:todo tests/commands_tests.sh | head -n1)" = "$todo_expected" ] || ds:fail 'todo command failed'
@@ -1046,6 +1053,73 @@ ds:jn'
 [[ "$(ds:deps ds:help)" = "$help_deps" ]]                   || ds:fail 'deps failed'
 [ "$(ds:websel https://www.google.com title)" = Google ]    || ds:fail 'websel failed or internet is out'
 
+hist_expected='Hist: field 3 (district), cardinality 6
+               1-1.5 +
+               1.5-2 +
+               2-2.5
+               2.5-3 +
+               3-3.5
+               3.5-4 +
+               4-4.5
+               4.5-5 +
+               5-5.5
+               5.5-6 +
+
+Hist: field 5 (grid), cardinality 539
+           102-257.9 ++++++++
+         257.9-413.8 ++++++
+         413.8-569.7 ++++++++++++++
+         569.7-725.6 +++++++
+         725.6-881.5 +++++++++++++++
+        881.5-1037.4 ++++++++++++++
+       1037.4-1193.3 +++++++++
+       1193.3-1349.2 +++++++++++++
+       1349.2-1505.1 ++++++++++
+         1505.1-1661 ++++++
+
+Hist: field 7 (ucr_ncic_code), cardinality 88
+          909-1628.3 +++++++++++
+       1628.3-2347.6 ++++++++++++++
+       2347.6-3066.9 ++++++++++++++
+       3066.9-3786.2 ++++++++++++++
+       3786.2-4505.5 +++++
+       4505.5-5224.8 ++++++++++++++
+       5224.8-5944.1 +++++++++++
+       5944.1-6663.4
+       6663.4-7382.7 ++
+         7382.7-8102 +++
+
+Hist: field 8 (latitude), cardinality 1906
+      38.438-38.4626 +++++++
+     38.4626-38.4872 +++++++++++++
+     38.4872-38.5117 +++++++++++++
+     38.5117-38.5363 ++++++++++++++
+     38.5363-38.5609 ++++++++++++++
+     38.5609-38.5855 +++++++++++++++
+     38.5855-38.6101 +++++++++
+     38.6101-38.6346 ++++++++++++++
+     38.6346-38.6592 +++++++++++
+     38.6592-38.6838 ++++++'
+[ "$(ds:hist "$simple_csv2" | sed -E 's/[[:space:]]+$//g')" = "$hist_expected" ] || ds:fail 'hist command failed'
+
+shape_expected='lines: 7585
+lines with "AUBURN": 75
+fields: 3
+average fields: 1.01002
+approx field var: 3.96002
+lineno distribution of "AUBURN"
+   758 +++++++++++
+  1516 +++++++
+  2274 ++++++
+  3032 +++++++
+  3790 ++++++
+  4548 ++++++++
+  5306 ++++++++
+  6064 +++++++++
+  6822 ++++++++
+  7580 ++++++
+  8338'
+[ "$(ds:shape "$simple_csv2" AUBURN 10 | sed -E 's/[[:space:]]+$//g')" = "$shape_expected" ] || ds:fail 'shape command failed'
 
 # INTEGRATION TESTS
 

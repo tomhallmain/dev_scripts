@@ -56,7 +56,7 @@ custom && NR == 1 {
       char = "\\" Chars[j]
 
       # Exclude common fs Chars
-      if ( ! char ~ /[\s\|;:]/ ) {
+      if (!(char ~ /[\s\|;:,]/)) {
         char_nf = split($0, chartest, char)
         if (debug) DebugPrint(1)
         if (char_nf > 1) CharFSCount[char] = char_nf }
