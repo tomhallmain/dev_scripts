@@ -33,6 +33,7 @@ ds:help() { # Print help for a given command: ds:help ds_command
 }
 
 ds:vi() { # Search for file and open it in vim: ds:vi search [dir] [edit_all_match=f]
+  # TODO: if no match found, ask if user meant ds:gvi
   [ ! "$1" ] && echo 'Filename search pattern missing!' && ds:help ds:vi && return 1
   local search="${1}" dir="${2:-.}" all="${3:-f}"
   ds:test 't(rue)?' "$all" || local singlefile=0
@@ -68,6 +69,7 @@ ds:vi() { # Search for file and open it in vim: ds:vi search [dir] [edit_all_mat
 }
 
 ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_match=f]
+  # TODO: if no match found, ask if user meant ds:vi
   local search="$1" all="${3:-f}"
   if [ -f "$2" ]; then local file="$2"
     if ds:nset 'rg'; then
@@ -106,6 +108,7 @@ ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_matc
     if [ "$singlefile" ]; then
       if [ "$matchcount" -gt 1 ]; then
         if [ "$filematchcount" -gt 1 ]; then
+          # TODO: Allow pattern match to found file
           echo 'Multiple matches found - select a file:'
           echo -e "$fileset" | ds:idx 1 -F: | ds:fit -v FS=: -v color=never
           while [ ! "$confirmed" ]; do
@@ -144,6 +147,43 @@ ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_matc
       [ -f ".$file.swp" ] && echo "File $file already open - can't open matchline $line" && continue 
       sleep 1; vi +$line "$file"; done
     IFS="$OLD_IFS"; fi
+}
+
+ds:cd() { # cd to higher or lower level dirs: ds:cd [search]
+  [ ! "$1" ] && cd "$HOME" && return
+  local search="$1"
+  [ -d "$search" ] && cd "$search" && return
+  if fd --version &>/dev/null; then
+    local dirs="$(fd -t d "$search" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
+  elif fd-find --version &>/dev/null; then
+    local dirs="$(fd-find -t d "$search" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
+  else
+    local dirs="$(find "$dir" -type d -name "$search" -maxdepth 10 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
+  fi
+  local matchcount="$(echo -e "$dirs" | wc -l | xargs)"
+  if [ "$dirs" ] && ds:is_int "$matchcount"; then
+    if [ "$matchcount" -gt 1 ]; then
+      # TODO: Allow pattern match to found dirs
+      echo 'Multiple matches found - select a directory:'
+      echo -e "$dirs" | ds:idx 1 -F: | ds:fit -v FS=: -v color=never
+      while [ ! "$confirmed" ]; do
+        local choice="$(ds:readp 'Enter a number from the set of directories:')"
+        if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
+          local confirmed=0
+        else
+          echo "Unable to read selection, try again."; fi; done
+        local dirchoice="$(echo -e "$fileset" | ds:reo $choice off)"
+        [ -d "$dirchoice" ] && cd "$dirchoice" && return
+    else
+      [ -d "$dirs" ] && cd "$dirs" && return; fi
+  else
+    local testdir=".." counter=1
+    while [[ $counter -lt 7 && -d "$testdir" ]]; do
+      local dirmatch="$(find "$testdir" -type d -not -path '*/\.*' -maxdepth 1 -name "*$search*" | head -n1)"
+      [[ "$dirmatch" && -d "$dirmatch" ]] && cd "$dirmatch" && return
+      local testdir="../$testdir"
+      let local counter+=1; done
+    ds:fail 'Unable to find a match with current args'; fi
 }
 
 ds:searchn() { # Search shell environment names: ds:searchn name

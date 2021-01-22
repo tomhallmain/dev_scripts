@@ -55,11 +55,14 @@
 #       Run with float output on decimal/number-valued fields:
 #    -v d=-1
 #
+#       Run without decimal or scientific notation transformations:
+#    -v no_tf_num=1
+#
+#       Turn off default behavior of setting zeros in decimal columns to "-":
+#    -v no_zero_blank=1
+#
 #       Run with no color or warning:
 #    -v color=never
-#
-#       Run without decimal transformations:
-#    -v dec_off=1
 #
 #       Fit all rows except where matching pattern:
 #    -v nofit=pattern
@@ -84,9 +87,9 @@
 ## TODO: Fit newlines in fields
 ## TODO: Fix rounding in some cases (see test reo output fit)
 ## TODO: Pagination
-## TODO: dec_off > no_tf_num
 ## TODO: Variant float output for normal sized nums
 ## TODO: SetType function checking field against relevant re one time at start
+## TODO: GetOrSets
 
 BEGIN {
   WCW_FS = " "
@@ -112,8 +115,11 @@ BEGIN {
     sn = -d
     d = "z" }
   
-  if (d)
+  if (d) {
     fix_dec = d == "z" ? 0 : d
+  }
+
+  zero_blank = !no_zero_blank
 
   sn0_len = 1 + 4 # e.g. 0e+00
   
@@ -328,7 +334,7 @@ NR == FNR { # First pass, gather field info
 
     if (NSet[i] && !NOverset[i] && !LargeVals[i] && (f+0 > 9999)) LargeVals[i] = 1
 
-    if (!dec_off && !DSet[i] && ComplexFmtNum(f)) {
+    if (!no_tf_num && !DSet[i] && ComplexFmtNum(f)) {
       DSet[i] = 1
 
       float = f ~ float_re
@@ -383,7 +389,7 @@ NR == FNR { # First pass, gather field info
 
       if (debug) DebugPrint(2) }
 
-    else if (!dec_off && DSet[i] && AnyFmtNum(f)) {
+    else if (!no_tf_num && DSet[i] && AnyFmtNum(f)) {
         float = f ~ float_re
         tval = TruncVal(f, 0, LargeVals[i])
 
@@ -488,7 +494,10 @@ NR > FNR { # Second pass, print formatted if applicable
         
         if (AnyFmtNum(f)) {
           if (DSet[i]) {
-            if (d == "z") {
+            if (zero_blank && f + 0 == 0) {
+              type_str = "s"
+              value = "-" }
+            else if (d == "z") {
               type_str = (sn ? ".0e" : "s")
               value = int(f) }
             else {
@@ -573,7 +582,7 @@ function CutStringByVisibleLen(str, red_len) {
       rem_str = substr(rem_str, index(rem_str, p_cur) + length(p_cur) + 1)
 
       next_color = p == p_len ? rem_str : substr(rem_str, 1, index(rem_str, PrintStr[p+1]))
- 
+
       red_str = red_str add next_color
       red_str_len += length(add)
     }

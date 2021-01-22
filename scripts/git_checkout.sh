@@ -7,6 +7,25 @@ WHITE="\033[1;37m"
 NC="\033[0m" # No Color
 int_re='^[0-9]+$'
 
+test_int() {
+  unset confirmed selections_confirmed
+  local to_ck="$1" n_matches="$2"
+  while [ ! $selections_confirmed ]; do
+    while [[ -z "$to_ck" ]]; do
+      echo -e "\n${ORANGE} No value found, please try again or quit by Ctrl+C${NC}\n"
+      read -p $'\e[37;1m Enter branch number to check out: \e[0m' to_ck
+    done
+
+    if [[ -z "$to_ck" || ! "$to_ck" =~ $int_re || "$to_ck" -lt 1  || $to_ck -gt $n_matches ]]; then
+      echo -e "\n${ORANGE} Only input indices of the set provided - to quit enter Ctrl+C${NC}\n"
+      break 1
+    fi
+    selections_confirmed=true
+    confirmed=true
+  done
+
+}
+
 if [[ ! ( -d .git || $(git rev-parse --is-inside-work-tree 2> /dev/null) ) ]]; then
   echo 'Current location is not a git directory'
   exit 1
@@ -16,6 +35,13 @@ LOCAL_BRANCHES=($(git for-each-ref --format='%(refname:short)' refs/heads 2> /de
 
 if [ "$1" ]; then
   MATCH_BRANCHES=($(printf "%s\n" "${LOCAL_BRANCHES[@]}" | awk -v search="$1" '$0 ~ search {print}'))
+else
+  printf "%s\n" "${LOCAL_BRANCHES[@]}" | awk '{printf "%5s  %s\n", NR, $0}'
+  echo
+  read -p $'\e[37;1m Enter branch number to check out: \e[0m' to_ck
+  test_int "$to_ck" "${#LOCAL_BRANCHES[@]}"
+  let to_ck--; branch="${LOCAL_BRANCHES[$to_ck]}"
+  git checkout "$branch" && exit
 fi
 
 let n_matches=${#MATCH_BRANCHES[@]}
@@ -42,25 +68,11 @@ elif [ $n_matches -eq 1 ]; then
   git checkout "$branch" && exit
 else
   while [ ! $confirmed ]; do
-    unset selections_confirmed
     echo 'Multiple branches found matching search:'
     printf "%s\n" "${MATCH_BRANCHES[@]}" | awk '{printf "%5s  %s\n", NR, $0}'
     echo
     read -p $'\e[37;1m Enter branch number to check out: \e[0m' to_ck
-
-    while [ ! $selections_confirmed ]; do
-      while [[ -z "$to_ck" ]]; do
-        echo -e "\n${ORANGE} No value found, please try again or quit by Ctrl+C${NC}\n"
-        read -p $'\e[37;1m Enter branch number to check out: \e[0m' to_ck
-      done
-
-      if [[ -z "$to_ck" || ! "$to_ck" =~ $int_re || "$to_ck" -lt 1  || $to_ck -gt $n_matches ]]; then
-        echo -e "\n${ORANGE} Only input indices of the set provided - to quit enter Ctrl+C${NC}\n"
-        break 1
-      fi
-      selections_confirmed=true
-      confirmed=true
-    done
+    test_int "$to_ck" $n_matches
   done
   let to_ck--; branch="${MATCH_BRANCHES[$to_ck]}"
   git checkout "$branch" && exit
