@@ -4,6 +4,7 @@
 **@@@ds:agg@@@@@@Aggregate by index/pattern@@@ds:agg [-h|file] [r_aggs] [c_aggs]
 @@@ds:asgn@@@@@@Print lines matching assignment pattern@@@ds:asgn file
 **@@@ds:case@@@@@@Recase text data globally or in part@@@ds:case [string] [tocase=proper] [filter]
+@@@ds:cd@@@@@@cd to higher or lower level dirs@@@ds:cd [search]
 @@@ds:commands@@@@@@List dev_scripts commands@@@ds:commands [bufferchar] [utils]
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [file] [n_lines=1]

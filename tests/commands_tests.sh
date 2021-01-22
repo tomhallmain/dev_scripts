@@ -493,13 +493,13 @@ fit_expected='-rw-r--r--  1  tomhall   4330  Oct  12  11:55  emoji
 -rw-r--r--  1  tomhall   6043  Oct   3  17:30  infer_join_fields_test2.csv'
 [ "$(ds:fit $ls_sq -v color=never)" = "$fit_expected" ] || ds:fail 'fit failed ls sq case'
 
-ds:fit $jnd1 -v bufferchar="|" > $tmp
+ds:fit $jnd1 -v bufferchar="|" -v no_zero_blank=1 > $tmp
 cmp --silent $jnd2 $tmp || ds:fail 'fit failed bufferchar/decimal case'
-ds:fit $jnd1 -v bufferchar="|" -v d=z > $tmp
+ds:fit $jnd1 -v bufferchar="|" -v d=z -v no_zero_blank=1 > $tmp
 cmp --silent $jnd3 $tmp || ds:fail 'fit failed const decimal case'
-ds:fit $jnd1 -v bufferchar="|" -v d=-2 > $tmp
+ds:fit $jnd1 -v bufferchar="|" -v d=-2 -v no_zero_blank=1 > $tmp
 cmp --silent $jnd4 $tmp || ds:fail 'fit failed scientific notation / float output case'
-ds:fit $jnd1 -v bufferchar="|" -v d=2 > $tmp
+ds:fit $jnd1 -v bufferchar="|" -v d=2 -v no_zero_blank=1 > $tmp
 cmp --silent $jnd5 $tmp || ds:fail 'fit failed fixed 2-place decimal case'
 
 #add dec_off check
@@ -595,13 +595,13 @@ c   3   6   2.5   4    0.0500   15.5000   180   -15.5000
 /   0   1   4.8   1    0.0000    0.7742     0    -0.7742
 *   0  36  30.0  16    0.0000  186.0000     0  -186.0000
 +   4   1   9.5   9    0.0083   23.5000   156   -23.5000'
-fit_actual="$(echo -e "$fit_input" | ds:fit -v color=never | sed -E 's/[[:space:]]+$//g')"
+fit_actual="$(echo -e "$fit_input" | ds:fit -v color=never -v no_zero_blank=1 | sed -E 's/[[:space:]]+$//g')"
 [ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed negative decimal case 2'
 
 fit_expected='Ints     2020    2021   2022  2023.000000       2024  2025.000000  2026.000000  2027.000000  2028.000000  2029.000000  2030.00000  2031.00000  2032.000000
 Nums       70      71    -72    73.000000        -74    75.000000    76.000000    77.000000    78.000000    79.000000    80.00000    81.00000    82.000000
 Floats  10550  -11130  11742    -0.000124  -13069600     0.000001    -0.000145     0.000153     0.000162     0.000171     0.00018     0.00019     0.000201'
-fit_actual="$(ds:fit $floats -v color=never | sed -E 's/[[:space:]]+$//g')"
+fit_actual="$(ds:fit $floats -v color=never -v no_zero_blank=1 | sed -E 's/[[:space:]]+$//g')"
 [ "$fit_expected" = "$fit_actual" ] || ds:fail 'fit failed float ingestion case'
 
 ps aux | ds:fit -F'[[:space:]]+' -v color=never -v endfit_col=10 | awk '{print length($0)}' > $tmp
