@@ -32,8 +32,7 @@ ds:help() { # Print help for a given command: ds:help ds_command
   ds:commands "" t | ds:reo "2, 2~$1 || 3~$1" "2[$1~. || 3[$1~."
 }
 
-ds:vi() { # Search for file and open it in vim: ds:vi search [dir] [edit_all_match=f]
-  # TODO: if no match found, ask if user meant ds:gvi
+ds:vi() { # Search for files and open in vim: ds:vi search [dir] [edit_all_match=f]
   [ ! "$1" ] && echo 'Filename search pattern missing!' && ds:help ds:vi && return 1
   local search="${1}" dir="${2:-.}" all="${3:-f}"
   ds:test 't(rue)?' "$all" || local singlefile=0
@@ -50,26 +49,32 @@ ds:vi() { # Search for file and open it in vim: ds:vi search [dir] [edit_all_mat
       echo 'Multiple matches found - select a file:'
       echo -e "$fl" | ds:idx 1 -v FS=$DS_SEP | ds:fit -v FS=$DS_SEP
       while [ ! $confirmed ]; do
-        local choice="$(ds:readp 'Enter a number from the set of files:')"
+        local choice="$(ds:readp 'Enter a number from the set of files or a pattern:')"
         if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
-          local confirmed=0
+          local confirmed=0 _patt_=""
+        elif echo -e "$fileset" | grep -q "$choice"; then
+          local confirmed=0 _patt_='~'
         else
           echo "Unable to read selection, try again."; fi; done
-      local fl="$(echo -e "$fl" | ds:reo $choice off | head -n1)"; fi; fi
+        local fl="$(echo -e "$fl" | ds:reo "${_patt_}${choice}" off | head -n1)"; fi; fi
   if [ "$singlefile" ]; then
     if [ -f "$fl" ]; then
-      [ -f ".$file.swp" ] && ds:fail "File $file already open"
+      [ -f ".$fl.swp" ] && ds:fail "File $fl already open"
       vi "$fl"
     elif [[ -f "$search" || -d "$search" ]]; then
       vi "$search"
-    else ds:fail 'Failed to load file'; fi
+    else
+      if [ ! "$try_vi" ]; then
+        local try_gvi="$(ds:readp 'No match found - Did you mean to search with ds:gvi? (y/n)')"; fi
+      if [ "$try_gvi" = y ]; then
+        ds:gvi $@; return $?
+      else return 1; fi; fi
   else
     echo 'Editing files:'; echo -e "$fl"
     vi $(echo -e "$fl"); fi
 }
 
 ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_match=f]
-  # TODO: if no match found, ask if user meant ds:vi
   local search="$1" all="${3:-f}"
   if [ -f "$2" ]; then local file="$2"
     if ds:nset 'rg'; then
@@ -84,22 +89,16 @@ ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_matc
     if [ -z $dir ]; then
       local dir="." basedir_f=($(find . -maxdepth 0 -type f | grep -v ":"))
       [ ! "$2" = "" ] && local filesearch="1~$2" || local filesearch=a
-      if ds:nset 'rg'; then
-        rg -Hno --no-heading --hidden --color=never -g '!*:*' -g '!.git' \
-          "$search" ${basedir_f[@]} "$dir" > $tmp
-      else
-        grep -HInors --color=never --exclude ':' --excludedir '.git' \
-          "$search" ${basedir_f[@]} "$dir" > $tmp; fi
     else
       local basedir_f=($(find "$dir" -maxdepth 0 -type f | grep -v ":"))
-      if ds:nset 'rg'; then
-        rg -Hno --no-heading --hidden --color=never -g '!*:*' -g '!.git' \
-          "$search" ${basedir_f[@]} "$dir" | head -n100 > $tmp
-      else
-        grep -HInors --color=never --exclude ':' --excludedir '.git' \
-          "$search" ${basedir_f[@]} "$dir" | head -n100 > $tmp; fi
     fi
-    local fileline="$(ds:reo $tmp "$filesearch" 1,2 -F: -v q=1 | head -n100 | sed -E 's#^\./##g')"
+    if ds:nset 'rg'; then
+      rg -Hno --no-heading --hidden --color=never -g '!*:*' -g '!.git' \
+        "$search" ${basedir_f[@]} "$dir" | head -n1000 > $tmp
+    else
+      grep -HInors --color=never --exclude ':' --excludedir '.git' \
+        "$search" ${basedir_f[@]} "$dir" | head -n1000 > $tmp; fi
+    local fileline="$(ds:reo $tmp "$filesearch" 1,2 -F: -v q=1 | head -n500 | sed -E 's#^\./##g')"
     local matchcount="$(echo -e "$fileline" | wc -l | xargs)"
     local fileset="$(echo -e "$fileline" | ds:fc 1 1 -v FS=: | ds:reo a 2 -F:)"
     local filematchcount="$(echo -e "$fileset" | wc -l | xargs)"
@@ -108,17 +107,17 @@ ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_matc
     if [ "$singlefile" ]; then
       if [ "$matchcount" -gt 1 ]; then
         if [ "$filematchcount" -gt 1 ]; then
-          # TODO: Allow pattern match to found file
           echo 'Multiple matches found - select a file:'
           echo -e "$fileset" | ds:idx 1 -F: | ds:fit -v FS=: -v color=never
           while [ ! "$confirmed" ]; do
-            local choice="$(ds:readp 'Enter a number from the set of files:')"
+            local choice="$(ds:readp 'Enter a number from the set of files or a pattern:')"
             if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
-              local confirmed=0
-            else
-              echo "Unable to read selection, try again."; fi; done
-          local filechoice="$(echo -e "$fileset" | ds:reo $choice off)"
-          local fileline="$(echo -e "$fileline" | ds:reo "1~$filechoice" a -F:| head -n1)"
+              local confirmed=0 _patt_=""
+            elif echo -e "$fileset" | grep -q "$choice"; then
+              local confirmed=0 _patt_='~'
+            else echo "Unable to read selection, try again."; fi; done
+          local filechoice="$(echo -e "$fileset" | ds:reo "${_patt_}${choice}" off | head -n1)"
+          local fileline="$(echo -e "$fileline" | ds:reo "1~$filechoice" a -F: | head -n1)"
         else
           local fileline="$(echo -e "$fileline" | head -n1)"
         fi
@@ -128,11 +127,20 @@ ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_matc
     rm $tmp
     if [[ "$singlefile" && ! -f "$file" ]]; then 
       if [ -f "$search" ]; then vi "$search" && return
-      else ds:fail 'No match found'; fi; fi; fi
+      else
+        if [ ! "$try_gvi" ]; then
+          local try_vi="$(ds:readp 'No match found - Did you mean to search with ds:vi? (y/n)')"; fi
+        if [ "$try_vi" = y ]; then ds:vi $@; return $?
+        else return 1; fi; fi; fi; fi
   if [[ "$singlefile" || "$filematchcount" -lt 2 ]]; then
     if ! ds:is_int "$line"; then
-      if [ -f "$search" ]; then vi "$search" && return
-      else ds:fail 'No match found'; fi; fi
+      if [ -f "$search" ]; then
+        [ -f ".$file.swp" ] && echo "File $file already open - can't open matchline $line" && return 1
+        vi "$search" && return
+      else
+        local try_vi="$(ds:readp 'No match found - Did you mean to search with ds:vi? (y/n)')"
+        if [ "$try_vi" = y ]; then ds:vi $@; return $?
+        else return 1; fi; fi; fi
     vi +$line "$file" || return 1
   else
     echo 'Running vim on all file matches. To move to the next file quit the current one.'
@@ -154,9 +162,9 @@ ds:cd() { # cd to higher or lower level dirs: ds:cd [search]
   local search="$1"
   [ -d "$search" ] && cd "$search" && return
   if fd --version &>/dev/null; then
-    local dirs="$(fd -t d "$search" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
+    local _FD=0; dirs="$(fd -t d "$search" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
   elif fd-find --version &>/dev/null; then
-    local dirs="$(fd-find -t d "$search" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
+    local _FDF=0; dirs="$(fd-find -t d "$search" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
   else
     local dirs="$(find "$dir" -type d -name "$search" -maxdepth 10 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
   fi
@@ -179,7 +187,11 @@ ds:cd() { # cd to higher or lower level dirs: ds:cd [search]
   else
     local testdir=".." counter=1
     while [[ $counter -lt 7 && -d "$testdir" ]]; do
-      local dirmatch="$(find "$testdir" -type d -not -path '*/\.*' -maxdepth 1 -name "*$search*" | head -n1)"
+      if [ "$_FD" ]; then    local dirmatch="$(fd --max-depth 1 -t d "$search" "$testdir" | head -n1)"
+      elif [ "$_FDF" ]; then local dirmatch="$(fd-find --max-depth 1 -t d "$search" "$testdir" | head -n1)"
+      else
+        local dirmatch="$(find "$testdir" -type d -maxdepth 1 -not -path './.*' -name "*$search*" 2>/dev/null | head -n1)"
+      fi
       [[ "$dirmatch" && -d "$dirmatch" ]] && cd "$dirmatch" && return
       local testdir="../$testdir"
       let local counter+=1; done
@@ -470,14 +482,21 @@ ds:git_branch() { # Run git branch for all repos (alias ds:gb): ds:gb
 }
 alias ds:gb="ds:git_branch"
 
-ds:git_add_com_push() { # Add, commit with message, push (alias ds:gacp): ds:gacp commit_message
+ds:git_add_com_push() { # Add, commit with message, push (alias ds:gacp): ds:gacp commit_message [prompt=t]
   ds:not_git && return 1
-  git add .
-  local commit_msg="$1"
+  local commit_msg="$1" prompt="${2:-t}"
+  if ds:test '^t$' "$prompt"; then
+    git status; echo
+    local confirm="$(ds:readp 'Do you wish to proceed with add+commit+push? (y/n)')"
+    [ "$confirm" = y ] || return 1; fi
+  git add "$(git rev-parse --show-toplevel)"
   if [ "$commit_msg" ]; then
     git commit -am "$commit_msg"
   else git commit; fi
-  git push
+  if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null; then
+    git push --set-upstream origin "$(git rev-parse --abbrev-ref HEAD)"
+    echo -e "\nSet a new upstream branch for current branch."
+  else git push; fi
 }
 alias ds:gacp="ds:git_add_com_push"
 

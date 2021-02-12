@@ -21,7 +21,7 @@
 **@@@ds:fit@@@ds:f@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file*] [prefield=t] [awkargs]
 @@@ds:fsrc@@@@@@Show the source of a shell function@@@ds:fsrc func
 @@@ds:gexec@@@@@@Generate a script from pieces of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
-@@@ds:git_add_com_push@@@ds:gacp@@@Add, commit with message, push@@@ds:gacp commit_message
+@@@ds:git_add_com_push@@@ds:gacp@@@Add, commit with message, push@@@ds:gacp commit_message [prompt=t]
 @@@ds:git_branch@@@ds:gb@@@Run git branch for all repos@@@ds:gb
 @@@ds:git_checkout@@@ds:gco@@@Checkout branch matching pattern@@@ds:gco [pattern]
 @@@ds:git_cross_view@@@ds:gcv@@@Display table of git repos vs branches@@@ds:gcv [:ab:Dfhmo:sv]
@@ -83,7 +83,7 @@
 @@@ds:trace@@@@@@Search shell trace for a pattern@@@ds:trace [command] [search] [strace] [strace_args]
 **@@@ds:transpose@@@ds:t@@@Transpose field values@@@ds:transpose [file] [prefield=t] [awkargs]
 **@@@ds:unicode@@@@@@Get UTF-8 unicode for a character sequence@@@ds:unicode [str] [out=codepoint]
-@@@ds:vi@@@@@@Search for file and open it in vim@@@ds:vi search [dir] [edit_all_match=f]
+@@@ds:vi@@@@@@Search for files and open in vim@@@ds:vi search [dir] [edit_all_match=f]
 @@@ds:websel@@@@@@Download and extract inner html by regex@@@ds:websel url [tag_re] [attrs_re]
 @@@@@@@@@@@@
 @@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
