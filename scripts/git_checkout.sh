@@ -65,6 +65,7 @@ if [[ -z $n_matches || $n_matches -lt 1 ]]; then
   echo -e "${ORANGE} No remote branches found for search pattern on current repo\n" && exit 1
 elif [ $n_matches -eq 1 ]; then
   branch="$MATCH_BRANCHES"
+  # TODO IF IS CURRENT BRANCH ASK IF USER WANTS TO OVERWRITE LOCAL CHANGES
   git checkout "$branch" && exit
 else
   while [ ! $confirmed ]; do

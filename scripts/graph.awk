@@ -12,10 +12,17 @@
 #     4 extends 1
 #
 # Resulting graph output:
-# 1
-# 1 2
-# 1 2 3
-# 1 4
+#            1 2 3
+#            1 4
+#
+# AWKARG OPTS
+#       -v print_bases
+#           With this option set, resulting graph output includes bases:
+#             1
+#             1 2
+#             1 2 3
+#             1 4
+# 
 #
 
 BEGIN {
@@ -30,12 +37,13 @@ BEGIN {
 }
 
 END {
-  for (base in Bases){
-    if (!(base in Shoots))
-      print base }
+  if (print_bases) {
+    for (base in Bases){
+      if (!(base in Shoots))
+        print base }}
 
   for (shoot in Shoots) {
-    if (Shoots[shoot]) {
+    if (Shoots[shoot] && (print_bases || !Bases[shoot])) {
       if (shoot == Shoots[shoot]) {
         Cycles[shoot] = 1
         continue }

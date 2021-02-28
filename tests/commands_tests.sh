@@ -667,6 +667,56 @@ pow_expected="0.22,3,5
 pow_actual="$(ds:pow $complex_csv2 20 t | cat)"
 [ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow failed combin counts case'
 
+pow_expected='1 q b
+1 e a
+1 q d
+1 a b
+1 e d
+2 a d
+2 b d'
+pow_actual="$(echo -e "a b d\ne a d\nq b d" | ds:pow 1 f f -v choose=2)"
+[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow failed choose 2 3-base case'
+
+pow_expected='1 q a
+1 c d
+1 e a
+1 q b
+1 e b
+1 b c
+1 e d
+1 q d
+1 a b
+1 a c
+2 b a
+3 a d
+3 b d'
+pow_actual="$(echo -e "a b c d\ne b a d\nq b a d" | ds:pow 1 f f -v choose=2)"
+[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow failed choose 2 4-base case'
+
+pow_expected='1 1 2
+1 1 3
+1 1 4
+1 1 5
+1 1 6
+1 1 7
+1 2 3
+1 2 4
+1 2 5
+1 2 6
+1 2 7
+1 3 4
+1 3 5
+1 3 6
+1 3 7
+1 4 5
+1 4 6
+1 4 7
+1 5 6
+1 5 7
+1 6 7'
+pow_actual="$(echo 1 2 3 4 5 6 7 | ds:pow 1 f f -v choose=2 | sort -n)"
+[ "$pow_expected" = "$pow_actual" ] || ds:fail 'pow failed choose 2 4-base case'
+
 # PVT TESTS
 
 pvt_input='1 2 3 4
@@ -971,19 +1021,22 @@ case_actual="$(ds:case "$case_input" ocase)"
 # GRAPH TESTS
 
 graph_input="1:2\n2:3\n3:4"
+graph_expected='4:3:2:1'
+graph_actual="$(echo -e "$graph_input" | ds:graph -v FS=:)"
+[ "$graph_actual" = "$graph_expected" ] || ds:fail 'graph failed base case (non bases)'
 graph_expected='4
 4:3
 4:3:2
 4:3:2:1'
-graph_actual="$(echo -e "$graph_input" | ds:graph -v FS=:)"
-[ "$graph_actual" = "$graph_expected" ] || ds:fail 'graph failed'
+graph_actual="$(echo -e "$graph_input" | ds:graph -v FS=: -v print_bases=1)"
+[ "$graph_actual" = "$graph_expected" ] || ds:fail 'graph failed print_bases case 1'
 graph_input="2:1\n3:2\n4:3"
 graph_expected='1
 1:2
 1:2:3
 1:2:3:4'
-graph_actual="$(echo -e "$graph_input" | ds:graph)"
-[ "$graph_actual" = "$graph_expected" ] || ds:fail 'graph failed'
+graph_actual="$(echo -e "$graph_input" | ds:graph -v print_bases=1)"
+[ "$graph_actual" = "$graph_expected" ] || ds:fail 'graph failed print_bases case 2'
 
 
 # ASSORTED COMMANDS TESTS
@@ -1010,7 +1063,7 @@ idx_expected='1 5
 5 1'
 [ "$idx_actual" = "$idx_expected" ] || ds:fail 'idx failed'
 
-[ "$(ds:filename_str $jnf1 '-1')" = 'tests/data/infer_join_fields_test1-1.csv' ] \
+[ "$(ds:filename_str $jnf1 '-1' "" t)" = 'tests/data/infer_join_fields_test1-1.csv' ] \
   || ds:fail 'filename_str command failed'
 
 [ "$(ds:iter "a" 3)" = 'a a a' ] || ds:fail 'iter failed'
