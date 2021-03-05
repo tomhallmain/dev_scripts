@@ -17,7 +17,8 @@ BEGIN {
 
   else if (FS == "@@@") {
     simple_replace = 1
-    replace_fs = retain_outer_quotes ? OFS : "(\"?" OFS "\"?|'?" OFS "'?)" }
+    replace_fs = retain_outer_quotes ? OFS : "(\"?" OFS "\"?|'?" OFS "'?)"
+  }
 
   else {
     if (FS == " ") FS = "[[:space:]]+"
@@ -26,14 +27,17 @@ BEGIN {
 
     if (!("          " ~ "^"FS"$")) {
       sp = "[[:space:]]*"
-      init_sp = "^" sp }
+      init_sp = "^" sp
+    }
+
     dqre = "(^|[^"dq"]*[^"FS"]*[^"dq"]+"FS")"sp dq
     sqre = "(^|[^"sq"]*[^"FS"]*[^"sq"]+"FS")"sp sq
 
     q_cut_len = retain_outer_quotes ? 0 : 2
     mod_f_len1 = retain_outer_quotes ? 1 : 2
     mod_f_len0 = retain_outer_quotes ? 0 : 1
-    if (debug) DebugPrint(0) }
+    if (debug) DebugPrint(0)
+  }
 }
 
 na || (!q_rebal && !($0 ~ FS)) {
@@ -56,17 +60,22 @@ q_rebal && !($0 ~ QRe["e"]) {
   diff = 0; iq_imbal_s = 0; iq_imbal_e = 0; close_multiline_field = 0
   if (!dqset) {
     dqset = ($0 ~ dqre)
-    if (dqset) { q = dq; qre = dqre; init_q = 1 }}
+    if (dqset) { q = dq; qre = dqre; init_q = 1 }
+  }
   if (!dqset && !sqset) {
     sqset = ($0 ~ sqre)
-    if (sqset) { q = sq; qre = sqre; init_q = 1 }}
+    if (sqset) { q = sq; qre = sqre; init_q = 1 }
+  }
   if (init_q) {
     init_q = 0
     run_prefield = 1
     qq = q q
-    qfs = q sp FS; qqfs = qq sp FS; fsq = FS sp q
+    qfs = q sp FS
+    qqfs = qq sp FS
+    fsq = FS sp q
     BuildRe(QRe, FS, q, sp)
-    qq_replace = retain_outer_quotes ? qq : q }
+    qq_replace = retain_outer_quotes ? qq : q
+  }
 
   if (debug) DebugPrint(3)
 
@@ -78,15 +87,20 @@ q_rebal && !($0 ~ QRe["e"]) {
     if (debug && save_bal != balance_os)
       DebugPrint(5)
     if (diff && balance_os == 0) {
-      q_rebal = 0; close_multiline_field = 1 }}
+      q_rebal = 0
+      close_multiline_field = 1
+    }
+  }
   else if (run_prefield) {
     balance_os = QBalance($0, QRe)
-    save_i = 1 }
+    save_i = 1
+  }
 
   if (debug && q_rebal) print "carried q"
   if (balance_os) {
     if (debug) print "Unbalanced"
-    q_rebal = 1 }
+    q_rebal = 1
+  }
 
   if (run_prefield && (q_rebal || $0 ~ q)) {
     i_seed = diff && save_i ? save_i : 1
@@ -98,12 +112,14 @@ q_rebal && !($0 ~ QRe["e"]) {
       match($0, qfs); iqfs = RSTART; len_iqfs = RLENGTH
       while (substr($0, iqfs-1, 1) == q && substr($0, iqfs-2, 1) != q) {
         match(substr($0, iqfse, len0), qfs)
-        iqfs = RSTART; len_iqfs = RLENGTH }
+        iqfs = RSTART; len_iqfs = RLENGTH
+      }
 
       if (close_multiline_field) {
         match($0, QRe["e_imbal"])
         startf = 1; endf = RLENGTH - mod_f_len0
-        q_cut = mod_f_len0 }
+        q_cut = mod_f_len0
+      }
       else {
         match($0, fsq); ifsq = RSTART; len_ifsq = RLENGTH
         match($0, FS); ifs = RSTART; lenfs = Max(RLENGTH, 1)
@@ -111,14 +127,16 @@ q_rebal && !($0 ~ QRe["e"]) {
         iqq = index($0, "_qqqq_")
         if (balance_os) {
           match($0, QRe["s_imbal"]); iq_imbal_s = RSTART
-          match($0, QRe["sep_exc"]); inqfs = RSTART }
+          match($0, QRe["sep_exc"]); inqfs = RSTART
+        }
         if (iq == 1 && !(iqq == 1)) qset = 1
         q_cut = 0
 
         if (debug) {
           previ = i - 1
           if (_[previ]) pi = _[previ]
-          DebugPrint(1) }
+          DebugPrint(1)
+        }
 
         if (qset) {
           qset = 0; q_cut = q_cut_len
@@ -126,57 +144,82 @@ q_rebal && !($0 ~ QRe["e"]) {
           endf = iqfs - q_cut_len
           if (endf < 1) {
             if (iq != 1 && !balance_os) startf++
-            endf = len0 - q_cut_len }}
+            endf = len0 - q_cut_len
+          }
+        }
         else {
           if (iq == 0 && ifs == 0) {
-            startf = 1; endf = len0 }
+            startf = 1; endf = len0
+          }
           else if (iq_imbal_s > 0 && iq_imbal_s <= inqfs \
                   && iq_imbal_s < iq && iq_imbal_s < ifs) {
             if (retain_outer_quotes) {
-              startf = iq_bal; endf = len0 }
+              startf = iq_bal; endf = len0
+            }
             else {
-              startf = iq_bal + 1; endf = len0 - 1 }}
+              startf = iq_bal + 1; endf = len0 - 1
+            }
+          }
           else if (iq == iqq && (iqfs - 1 == iq || ifs == 0)) {
             if (retain_outer_quotes) {
-              startf = iq; endf = iq + 2 }
+              startf = iq; endf = iq + 2
+            }
             else {
-              startf = iq + 1; endf = iq + 1 }}
+              startf = iq + 1; endf = iq + 1
+            }
+          }
           else if ((iqfs > 0 || substr($0,len0) == q) && ifsq == ifs) {
             startf = 1; endf = ifsq - 1
-            qset = 1 }
+            qset = 1
+          }
           else if (ifs == 0) {
-            startf = lenfs + 1; endf = len0 - 1 }
+            startf = lenfs + 1; endf = len0 - 1
+          }
           else if (iq - ifs == 1) {
             if (iqfs || index(substr($0,2),q) == len0) {
               qset = 1
-              startf = 1; endf = ifs - mod_f_len1 }
+              startf = 1; endf = ifs - mod_f_len1
+            }
             else {
-              startf = lenfs; endf = ifs - mod_f_len0 }}
+              startf = lenfs; endf = ifs - mod_f_len0
+            }
+          }
           else if (iq == 0) {
-            startf = 1; endf = ifs - 1 }
+            startf = 1; endf = ifs - 1
+          }
           else if (iq - ifs > 1 || ifs - iq > 1) {
-            startf = 1; endf = ifs - 1 }
+            startf = 1; endf = ifs - 1
+          }
           else {
-            startf = 1; endf = ifs - 1 }}}
+            startf = 1; endf = ifs - 1
+          }
+        }
+      }
 
       f_part = substr($0, startf, endf)
       _[i] = close_multiline_field ? _[i] f_part : f_part
       gsub("_qqqq_", qq_replace, _[i])
       $0 = substr($0, endf + lenfs + q_cut + 1)
       if (debug) DebugPrint(2)
-      close_multiline_field = 0 }}
+      close_multiline_field = 0
+    }
+  }
   else {
-    for (i = 1; i <= NF; i++) _[i] = $i }
+    for (i = 1; i <= NF; i++)
+      _[i] = $i
+  }
 
   if (balance_os) {
     q_rebal = 1
     save_i = i - 1
-    next }
+    next
+  }
 
   len_ = length(_)
   for (i = 1; i < len_; i++) {
     printf "%s", _[i] OFS
-    delete _[i] }
+    delete _[i]
+  }
 
   print _[len_]; delete _[len_]; delete prev_i
 }
@@ -201,11 +244,6 @@ function QBalance(line, QRe, qset) {
   base_diff = n_starts - n_ends
   bal = n_starts > 0 ? base_diff - qset : base_diff
   return bal
-}
-function Max(a, b) {
-  if (a > b) return a
-  else if (a < b) return b
-  else return a
 }
 function DebugPrint(case) {
   if (case == 0) {

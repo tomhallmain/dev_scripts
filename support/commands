@@ -1,11 +1,10 @@
-
 @@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
 @@@@@@@@@@@@
 **@@@ds:agg@@@@@@Aggregate by index/pattern@@@ds:agg [-h|file] [r_aggs] [c_aggs]
 @@@ds:asgn@@@@@@Print lines matching assignment pattern@@@ds:asgn file
 **@@@ds:case@@@@@@Recase text data globally or in part@@@ds:case [string] [tocase=proper] [filter]
 @@@ds:cd@@@@@@cd to higher or lower level dirs@@@ds:cd [search]
-@@@ds:commands@@@@@@List dev_scripts commands@@@ds:commands [bufferchar] [utils]
+@@@ds:commands@@@@@@List dev_scripts commands@@@ds:commands [bufferchar] [utils] [re_source]
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [file] [n_lines=1]
 @@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=(FUNC|ALIAS)] [caller] [ndata]
@@ -82,11 +81,9 @@
 @@@ds:todo@@@@@@List todo items found in paths@@@ds:todo [searchpaths=.]
 @@@ds:trace@@@@@@Search shell trace for a pattern@@@ds:trace [command] [search] [strace] [strace_args]
 **@@@ds:transpose@@@ds:t@@@Transpose field values@@@ds:transpose [file] [prefield=t] [awkargs]
-**@@@ds:unicode@@@@@@Get UTF-8 unicode for a character sequence@@@ds:unicode [str] [out=codepoint]
+**@@@ds:unicode@@@@@@Get UTF-8 unicode for a character sequence@@@ds:unicode [str] [out=codepoint|hex|octet]
 @@@ds:vi@@@@@@Search for files and open in vim@@@ds:vi search [dir] [edit_all_match=f]
 @@@ds:websel@@@@@@Download and extract inner html by regex@@@ds:websel url [tag_re] [attrs_re]
 @@@@@@@@@@@@
 @@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
-
-** - function supports receiving piped data
-
+@@@@@@@@@@@@

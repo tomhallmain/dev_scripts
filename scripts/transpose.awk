@@ -29,11 +29,3 @@ END {
     printf "%s\n", _[i, j] }
 }
 
-function UnescapeOFS() {
-  split(FS, FSTokens, "\\")
-  OFS = ""
-  for (i = 1; i <= length(FSTokens); i++)
-    OFS = OFS FSTokens[i]
-
-  return OFS
-}

@@ -13,9 +13,9 @@ ds:verify() {
   tmp="tests/data/ds_setup_tmp"
   echo > $tmp
   if [ "$1" = zsh ]; then
-    zsh -ic 'ds:commands' 2>/dev/null > $tmp
+    zsh -ic 'ds:commands "" "" 0' 2>/dev/null > $tmp
   else
-    bash -ic 'ds:commands' 2>/dev/null > $tmp
+    bash -ic 'ds:commands "" "" 0' 2>/dev/null > $tmp
   fi
   wait
   grep -q "$cmds_heads" $tmp

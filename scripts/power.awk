@@ -12,18 +12,22 @@
 # low-variance fields as these do not add more info - this would have to be
 # done BEFORE or WHILE permorming exclusions relating to contained fields
 # TODO: Output single fields based on their interaction characteristic value
+# TODO: Set combinations once as a list then iterate over the list
 
 BEGIN {
   if (!min) min = 10
   min_floor = min - 1
-  OFS = UnescapeOFS()
-  if (OFS ~ "\\\\") OFS = UnescapeOFS()
-  if (OFS ~ "\\[:space:\\]\{") OFS = "  "
-  else if (OFS ~ "\\[:space:\\]\+") OFS = " "
+
+  OFS = SetOFS()
   len_ofs = length(OFS)
+
   if (choose) {
     if (choose < 1) {
-      print "Choose cannot be less than 1"
+      print "choose cannot be less than 1"
+      exit 1
+    }
+    else if (choose != int(choose)) {
+      print "choose must be an integer"
       exit 1
     }
     choose_fact = Fact(choose)
@@ -125,7 +129,7 @@ END {
       combin_count_count = CombinCounts[combin_count]
       for (j = 1; j <= combin_count_count; j++) {
         for (k = 1; k <= combin_count_count; k++) {
-          if (j == k) continue
+          if (k <= j) continue
 
           metakey1 = combin_count SUBSEP j
           metakey2 = combin_count SUBSEP k
@@ -155,18 +159,16 @@ END {
   if (c_counts) {
     if (invert) {
       if (length(CombinHeaders)) {
-        for (h in CombinHeaders) {
+        for (h in CombinHeaders)
           print CCount[h]/NR, CombinHeaders[h]
-        }
       }
       else
         print "No combinations identified with current parameters"
     }
     else {
       if (length(CCount)) {
-        for (c in CCount) {
+        for (c in CCount)
           print CCount[c]/NR, c
-        }
       }
       else
         print "No combinations identified with current parameters"
@@ -177,7 +179,7 @@ END {
       for (combin in Combins)  {
         if (Combins[combin])
           print Combins[combin], combin
-       }
+      }
     }
     else
       print "No combinations identified with current parameters"
@@ -192,13 +194,11 @@ function GetOrSetIMax(nf, choose) {
       i_max = 0
     else if (choose == nf)
       i_max = 1
-    else {
+    else
       i_max = Fact(nf) / (choose_fact * Fact(nf - choose))
-    }
   }
-  else {
+  else
     i_max = 2^nf - 2
-  }
 
   IMax[nf] = i_max
   return i_max
@@ -297,14 +297,6 @@ function RevTri(base, n,   t) {
   return t
 }
 
-function UnescapeOFS() {
-  split(OFS, OFSTokens, "\\")
-  OFS = ""
-  for (i = 1; i <= length(OFSTokens); i++)
-    OFS = OFS OFSTokens[i]
-
-  return OFS
-}
 function DebugPrint(case) {
   if (case == 0) {
     print "----------- NEW RECORD ------------"

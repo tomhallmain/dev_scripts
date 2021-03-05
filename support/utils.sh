@@ -35,12 +35,37 @@ ds:file_check() { # Test for file validity and fail if invalid: ds:file_check te
 }
 
 ds:fd_check() { # Convert fds into files: ds:fd_check testfile
-  [ -z "$1" ] && ds:fail 'File not provided!'
   if [[ "$1" =~ '/dev/fd/' ]]; then
     local ds_fd="$(ds:tmp 'ds_fd')"
     cat "$1" > "$ds_fd"
     echo -n "$ds_fd"
   else echo -n "$1"; fi
+}
+
+ds:awk() { # Run an awk script with utils: ds:awk [script] [files...] varargs...
+  if ds:pipe_open; then
+    local file=$(ds:tmp 'ds_awk') piped=0
+    cat /dev/stdin > $file
+  fi
+  local _SCRIPT_="$(ds:fd_check "$1")"
+  local _FILES_=() _counter_=0
+  while [[ "$2" && $_counter_ -lt 20 ]] && [[ "$2" =~ '/dev/fd/' || -f "$2" ]]; do
+    local _FILES_=( "${_FILES_[@]}" "$(ds:fd_check "$2")" )
+    let local _counter_+=1
+    shift
+  done
+  local _VARARGS_=() _counter_=0
+  while [[ "$2" && $_counter_ -lt 50 ]]; do
+    local _VARARGS_=( "${_VARARGS_[@]}" -v "$2" )
+    let local _counter_+=1
+    shift
+  done
+
+  if [ "$_SCRIPT_" ]; then
+    awk -f "$DS_SUPPORT/utils.awk" -f "$_SCRIPT_" $_VARARGS_ $_FILES_
+  else
+    awk -f "$DS_SUPPORT/utils.awk" $_VARARGS_ $_FILES_
+  fi
 }
 
 ds:readlink() { # Portable readlink
@@ -86,10 +111,10 @@ ds:prefield() { # Infer and transform FS for complex field patterns: ds:prefield
   [[ "$file" =~ "^/tmp" ]] && ds:dostounix "$file"
   if [[ ! "${@:4}" =~ "-v OFS" && ! "${@:4}" =~ "-v ofs" ]]; then
     awk -v OFS="$DS_SEP" -v FS="$fs" -v retain_outer_quotes="$dequote" ${@:4} \
-      -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null
+      -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/quoted_fields.awk" "$file" 2>/dev/null
   else
-    awk -v FS="$fs" -v retain_outer_quotes="$dequote" ${@:4} \
-      -f $DS_SCRIPT/quoted_fields.awk "$file" 2>/dev/null; fi
+    awk -v FS="$fs" -v retain_outer_quotes="$dequote" ${@:4} -f "$DS_SUPPORT/utils.awk" \
+      -f "$DS_SCRIPT/quoted_fields.awk" "$file" 2>/dev/null; fi
 }
 
 ds:arr_idx() { # Extract first shell array element position matching pattern: ds:arr_idx pattern ${arr[@]}

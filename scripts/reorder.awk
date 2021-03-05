@@ -249,7 +249,8 @@ BEGIN {
     base_r = SetupVars["base_status"]
     rev_r = SetupVars["rev"]
     oth_r = SetupVars["oth"];
-    delete ReoR[0] }
+    delete ReoR[0]
+  }
   else { pass_r = 1 }
   if (!reo_r_count) pass_r = 1
 
@@ -262,7 +263,8 @@ BEGIN {
     base_c = SetupVars["base_status"]
     rev_c = SetupVars["rev"]
     oth_c = SetupVars["oth"] 
-    delete ReoC[0] }
+    delete ReoC[0]
+  }
   else { pass_c = 1; if (c == "off") c_off = 1 }
   if (!reo_c_count) pass_c = 1
 
@@ -286,45 +288,61 @@ BEGIN {
     if (base_range || base_reo)
       FieldsIndexPrint(ReoC, reo_c_len)
     else
-      FieldsIndexPrint(COrder, c_len) }
+      FieldsIndexPrint(COrder, c_len)
+  }
 }
 
 
 
 ## SIMPLE PROCESSING/DATA GATHERING
 
-indx { if (NR == r) {
+indx {
+  if (NR == r) {
     if (idx) printf "%s", NR OFS
-    print $c; exit }
-  next }
+    print $c
+    exit
+  }
+  next
+}
 
-base { if (pass_r || NR in R) {
+base {
+  if (pass_r || NR in R) {
     if (idx) printf "%s", NR OFS
-    FieldsPrint(COrder, c_len, 1) }
-  next }
+    FieldsPrint(COrder, c_len, 1)
+  }
+  next
+}
 
-base_range { if (pass_r || NR in R) {
+base_range {
+  if (pass_r || NR in R) {
     if (idx) printf "%s", NR OFS
-    FieldsPrint(ReoC, reo_c_len, 1) }
-  next }
+    FieldsPrint(ReoC, reo_c_len, 1)
+  }
+  next
+}
 
 reo {
   if (pass_r) {
     if (base_reo) {
       if (idx) printf "%s", NR OFS
-      FieldsPrint(ReoC, reo_c_len, 1) }
+      FieldsPrint(ReoC, reo_c_len, 1)
+    }
     else {
       StoreRow(_)
-      StoreFieldRefs() }}
+      StoreFieldRefs()
+    }
+  }
   else {
     if (base_reo && NR in R) {
       StoreRow(_)
       if (NF > max_nf) max_nf = NF
-      next }
+      next
+    }
 
     StoreRow(_)
     if (!base_c) StoreFieldRefs()
-    if (!base_r) StoreRowRefs() }
+    if (!base_r) StoreRowRefs()
+  }
 
   if (NF > max_nf) max_nf = NF
 
@@ -334,8 +352,10 @@ reo {
 pass { 
   if (idx) { 
     if (NR == 1) FieldsIndexPrint(Empty, NF)
-    printf "%s", NR OFS }
-  FieldsPrint($0, 0, 1) }
+    printf "%s", NR OFS
+  }
+  FieldsPrint($0, 0, 1)
+}
 
 
 
@@ -344,26 +364,30 @@ pass {
 END {
   if (debug) DebugPrint(4)
   if (err || !reo || (base_reo && pass_r)) exit err
-  if (c_nidx) {
-    SetNegativeIndexFieldOrder(0, CNidx, max_nf) }
-  if (c_nidx_rng) {
-    SetNegativeIndexFieldOrder(1, CNidxRanges, max_nf) }
+
+  if (c_nidx)
+    SetNegativeIndexFieldOrder(0, CNidx, max_nf)
+  if (c_nidx_rng)
+    SetNegativeIndexFieldOrder(1, CNidxRanges, max_nf)
   if (anc) {
     FillAnchorRange(1, RAnchors, AnchorRO)
-    FillAnchorRange(0, CAnchors, AnchorFO) }
+    FillAnchorRange(0, CAnchors, AnchorFO)
+  }
   if (oth) {
     if (debug) DebugPrint(10)
     if (oth_r) remaining_ro = GenRemainder(1, ReoR, NR)
-    if (oth_c) remaining_fo = GenRemainder(0, ReoC, max_nf) }
+    if (oth_c) remaining_fo = GenRemainder(0, ReoC, max_nf)
+  }
   if (ext) {
     ResolveFilterExtensions(1, RExtensions, ReoR, ExtRO, NR)
     ResolveFilterExtensions(0, CExtensions, ReoC, ExtFO, max_nf)
-    if (debug) DebugPrint(12) }
+    if (debug) DebugPrint(12)
+  }
   if (uniq) {
     if(!base_r) EnforceUnique(1, ReoR, reo_r_len)
-    if(!base_c) EnforceUnique(0, ReoC, reo_c_len) }
-  if (debug) {
-    if (!pass_c) DebugPrint(6); DebugPrint(8) }
+    if(!base_c) EnforceUnique(0, ReoC, reo_c_len)
+  }
+  if (debug) { if (!pass_c) DebugPrint(6); DebugPrint(8) }
 
   if (!pass_c && !q && !rev_c && !oth_c && !c_anc_found && max_nf < min_guar_print_nf)
     MatchCheck(ExprFO, SearchFO, AnchorFO, CNidx, CNidxRanges)
@@ -374,7 +398,8 @@ END {
     if (reo_c_len)
       FieldsIndexPrint(ReoC, reo_c_len)
     else
-      FieldsIndexPrint(Empty, max_nf) }
+      FieldsIndexPrint(Empty, max_nf)
+  }
 
   if (pass_r) {
     for (rr = 1; rr <= NR; rr++) {
@@ -388,9 +413,13 @@ END {
           PrintField(Row[c_key], rc, reo_c_len)
         else {
           Reo(c_key, Row, 0)
-          if (rc!=reo_c_len) printf "%s", OFS }}
-      print "" }
-    exit }
+          if (rc!=reo_c_len) printf "%s", OFS
+        }
+      }
+      print ""
+    }
+    exit
+  }
 
   for (rr = 1; rr <= reo_r_len; rr++) {
     r_key = ReoR[rr]
@@ -410,10 +439,17 @@ END {
               PrintField(Row[c_key], rc, reo_c_len)
             else {
               Reo(c_key, Row, 0)
-              if (rc!=reo_c_len) printf "%s", OFS }}
+              if (rc!=reo_c_len) printf "%s", OFS
+            }
+          }
 
-          print "" }}
-      else Reo(r_key, _, 1) }}
+          print ""
+        }
+      }
+
+      else Reo(r_key, _, 1)
+    }
+  }
 }
 
 
@@ -421,9 +457,11 @@ END {
 ## FUNCTIONS
 
 function Reo(key, CrossSpan, row_call) {
-  if (row_call) { rows = GetOrder(1, key)
+  if (row_call) {
+    rows = GetOrder(1, key)
     split(rows, PrintRows, ",")
     len_printr = length(PrintRows) - 1
+
     for (pr = 1; pr <= len_printr; pr++) {
       pr_key = PrintRows[pr]
       if (idx) printf "%s", pr_key OFS
@@ -438,14 +476,22 @@ function Reo(key, CrossSpan, row_call) {
             PrintField(Row[c_key], rc, reo_c_len)
           else {
             Reo(c_key, Row, 0)
-            if (rc!=reo_c_len) printf "%s", OFS }}
-        print "" }}}
+            if (rc!=reo_c_len) printf "%s", OFS
+          }
+        }
+        print ""
+      }
+    }
+  }
 
-  else { fields = GetOrder(0, key)
+  else {
+    fields = GetOrder(0, key)
     split(fields, PrintFields, ",")
     len_printf = length(PrintFields) - 1
+
     for (f = 1; f <= len_printf; f++)
-      PrintField(CrossSpan[PrintFields[f]], f, len_printf) }
+      PrintField(CrossSpan[PrintFields[f]], f, len_printf)
+  }
 }
 
 function FieldsPrint(Order, ord_len, run_call) {
@@ -454,22 +500,26 @@ function FieldsPrint(Order, ord_len, run_call) {
       if (run_call)
         print $0
       else
-        print Order }
+        print Order
+    }
     else if (run_call) {
       for (pf = 1; pf < NF; pf++)
         printf "%s", $pf OFS
-      print $NF }
+      print $NF
+    }
     else {
       split(Order, PrintFields, FS)
       len_printf = length(PrintFields)
       for (pf = 1; pf < len_printf; pf++)
         printf "%s", PrintFields[pf] OFS
       print PrintFields[len_printf]
-    }}
+    }
+  }
   else {
     for (pf = 1; pf < ord_len; pf++)
       printf "%s", $Order[pf] OFS
-    print $Order[ord_len] }
+    print $Order[ord_len]
+  }
 }
 
 function FieldsIndexPrint(Order, ord_len) {
@@ -485,16 +535,21 @@ function FieldsIndexPrint(Order, ord_len) {
         split(fields, PrintFields, ",")
         len_printf = length(PrintFields) - 1
         for (f = 1; f <= len_printf; f++)
-          PrintField(PrintFields[f], f, len_printf) }}
-    print "" }
+          PrintField(PrintFields[f], f, len_printf)
+      }
+    }
+    print ""
+  }
   else if (length(Order)) {
     for (idx_pf = 1; idx_pf < ord_len; idx_pf++)
       printf "%s", Order[idx_pf] OFS
-    print Order[ord_len] }
+    print Order[ord_len]
+  }
   else {
     for (f = 1; f < ord_len; f++)
       printf "%s", f OFS
-    print ord_len }
+    print ord_len
+  }
 }
 
 function FillRange(row_call, range_arg, RangeArr, reo_count, ReoArr) {
@@ -505,12 +560,15 @@ function FillRange(row_call, range_arg, RangeArr, reo_count, ReoArr) {
     if (end ~ /^-/) end = max_nr + end + 1 }
   if (debug) DebugPrint(2)
 
-  if (start > end) { reo = 1
+  if (start > end) {
+    reo = 1
     for (k = start; k >= end; k--)
-      reo_count = FillReoArr(row_call, k, RangeArr, reo_count, ReoArr) }
+      reo_count = FillReoArr(row_call, k, RangeArr, reo_count, ReoArr)
+  }
   else {
     for (k = start; k <= end; k++)
-      reo_count = FillReoArr(row_call, k, RangeArr, reo_count, ReoArr) }
+      reo_count = FillReoArr(row_call, k, RangeArr, reo_count, ReoArr)
+  }
 
   return reo_count
 }
@@ -524,12 +582,14 @@ function FillReoArr(row_call, val, KeyArr, count, ReoArr, type) {
   else if (row_call) {
     R[val] = 1
     if (val < min_guar_print_nr)
-      min_guar_print_nr = val }
+      min_guar_print_nr = val
+  }
   else {
     C[val] = 1
     if (val > 0 && val < min_guar_print_nf)
-      min_guar_print_nf = val }
- 
+      min_guar_print_nf = val
+  }
+
   return count
 }
 
@@ -551,7 +611,9 @@ function StoreFieldRefs() {
       if (ignore_case) base_search = tolower(base_search)
       for (f = 1; f <= NF; f++) {
         field = ignore_case ? tolower($f) : $f
-        if (field ~ base_search) SearchFO[search] = SearchFO[search] f"," }}
+        if (field ~ base_search) SearchFO[search] = SearchFO[search] f","
+      }
+    }
 
     for (search in RCSearches) {
       ignore_case = (ignore_case_global || IgnoreCase[search])
@@ -566,9 +628,12 @@ function StoreFieldRefs() {
         frame_re = ignore_case ? tolower(Fr[2]) : Fr[2]
         if (!(field ~ frame_re)) continue
         else if (!Indexed(SearchFO[search], test_field)) {
-          SearchFO[search] = SearchFO[search] test_field"," }}
+          SearchFO[search] = SearchFO[search] test_field","
+        }
+      }
       else if (Tmp[1] ~ Re["num"]) { 
-        if (NR != Tmp[1]) continue }
+        if (NR != Tmp[1]) continue
+      }
 
       for (f = 1; f <= NF; f++) {
         if (Indexed(SearchFO[search], f)) continue
@@ -578,7 +643,8 @@ function StoreFieldRefs() {
           if (ExcludeField[search, f]) continue
           if (field ~ base_search) ExcludeField[search, f] = 1
           if (NR == max_nr)
-            SearchFO[search] = SearchFO[search] f"," }
+            SearchFO[search] = SearchFO[search] f","
+        }
         else {
           if (field ~ base_search)
             SearchFO[search] = SearchFO[search] f"," }}}}
@@ -598,7 +664,8 @@ function StoreFieldRefs() {
         frame_re = ignore_case ? tolower(Fr[2]) : Fr[2]
         if (!(field ~ frame_re)) continue
         if (!Indexed(ExprFO[expr], test_field)) {
-          ExprFO[expr] = ExprFO[expr] test_field"," } 
+          ExprFO[expr] = ExprFO[expr] test_field","
+        }
         base_expr = substr(expr, length(Tmp[1])+1)
         anchor_row = max_nr }
       else if (SpecExpr[expr]) {
@@ -623,21 +690,29 @@ function StoreFieldRefs() {
       
       for (f = 1; f <= NF; f++) {
         if (Indexed(ExprFO[expr], f)) continue
-        if (settable) anchor = f
-        else if (len_expr) {
-          anchor = length($f) }
+
+        if (settable)
+          anchor = f
+        else if (len_expr)
+          anchor = length($f)
         else if ($f ~ Re["decnum"] || $f ~ Re["float"]) {
-          anchor = $f; gsub("[\$,\"]", "", anchor); anchor += 0
-          if (anchor ~ Re["float"]) anchor = int(anchor) }
-        else if (comp == "!=") anchor = ""
+          anchor = $f; gsub("[\$,\"]", "", anchor)
+          anchor += 0
+          if (anchor ~ Re["float"]) anchor = int(anchor)
+        }
+        else if (comp == "!=")
+          anchor = ""
         else continue
+
         eval = EvalExpr(anchor base_expr)
         if (debug) DebugPrint(5)
         if (comp == "!=") {
           if (!ExcludeCol[expr, f]) {
             if (eval == compval) ExcludeCol[expr, f] = 1
-            else if (NR == anchor_row) ExprFO[expr] = ExprFO[expr] f"," }
-          continue }
+            else if (NR == anchor_row) ExprFO[expr] = ExprFO[expr] f","
+          }
+          continue
+        }
         if (EvalCompExpr(eval, compval, comp))
             ExprFO[expr] = ExprFO[expr] f"," }}}
 
@@ -650,14 +725,18 @@ function StoreFieldRefs() {
         field = ignore_case ? tolower($f) : $f
         if (Anchors[1] && !CAnchorStart[anchor] && field ~ Anchors[1]) {
           CAnchorStart[anchor] = f
-          if (!CAnchorEnd[anchor]) continue }
+          if (!CAnchorEnd[anchor]) continue
+        }
         if (Anchors[2] && !CAnchorEnd[anchor] && field ~ Anchors[2])
           CAnchorEnd[anchor] = f 
         if (CAnchorStart[anchor] && CAnchorEnd[anchor])
-          CAnchorSet[anchor] = 1 }
-      if (CAnchorSet[anchor]) c_ancs++ }
+          CAnchorSet[anchor] = 1
+      }
+      if (CAnchorSet[anchor]) c_ancs++
+    }
     if (c_ancs == length(CAnchors))
-      c_anc_found = 1 }
+      c_anc_found = 1
+  }
 
   if (rev_c)
     for (f = max_nf + 1; f <= NF; f++) rev_fo = f"," rev_fo
@@ -674,7 +753,8 @@ function StoreRowRefs() {
       ignore_case = (ignore_case_global || IgnoreCase[search])
       field = ignore_case ? tolower($test_field) : $test_field
       if (!(field ~ Fr[2])) continue
-      SearchRO[search] = SearchRO[search] NR"," }}
+      SearchRO[search] = SearchRO[search] NR","
+    }
 
     for (search in RRSearches) {
       fr_search = 0; exclude = 0
@@ -687,15 +767,27 @@ function StoreRowRefs() {
         start = 1; end = NF; fr_search = 1
         split(Tmp[1], Fr, "(\\[|!$)")
         test_row = (fr_ext && Fr[1]) ? Fr[1] : 1
-        frame_re = Fr[2] }
-      else if (c_off) { start = 0; end = 0 }
-      else if (Tmp[1] ~ Re["int"]) { start = Tmp[1]; end = start }
-      else { start = 1; end = NF }
+        frame_re = Fr[2]
+      }
+      else if (c_off) {
+        start = 0
+        end = 0
+      }
+      else if (Tmp[1] ~ Re["int"]) {
+        start = Tmp[1]
+        end = start
+      }
+      else {
+        start = 1
+        end = NF
+      }
 
       for (f = start; f <= end; f++) {
         if (fr_search) {
           if (FrameSet[search]) {
-            if (!Indexed(FrameFields[search], f)) continue }
+            if (!Indexed(FrameFields[search], f))
+              continue
+          }
           else if (NR == test_row) {
             field = ignore_case ? tolower($f) : $f
             if (!Indexed(SearchRO[search], NR) && field ~ frame_re)
@@ -703,17 +795,22 @@ function StoreRowRefs() {
             if (f == end) {
               if (FrameFields[search]) # TODO: Should this be a flag setting or default behavior?
                 SearchRO[search] = SearchRO[search] NR","
-              MaxFrameField[search] = ResolveRowFilterFrame(search) }
-              continue }
+              MaxFrameField[search] = ResolveRowFilterFrame(search)
+            }
+            continue
+          }
           else {
             field = ignore_case ? tolower($f) : $f
             rel_match = field ~ base_search
             if (ExcludeRe[search]) {
               if (!rel_match)
-                FrameRowFields[search] = FrameRowFields[search] NR":"f"," }
+                FrameRowFields[search] = FrameRowFields[search] NR":"f","
+            }
             else if (rel_match)
               FrameRowFields[search] = FrameRowFields[search] NR":"f","
-            continue }}
+            continue
+          }
+        }
         if (Indexed(SearchRO[search], NR)) continue
         field = ignore_case ? tolower($f) : $f
         if (debug) DebugPrint(9)
@@ -721,15 +818,17 @@ function StoreRowRefs() {
           if (field ~ base_search) exclude = 1
           last_f = fr_search ? MaxFrameField[search] : end
           if (f == last_f && !exclude)
-            SearchRO[search] = SearchRO[search] NR"," }
+            SearchRO[search] = SearchRO[search] NR","
+        }
         else if (!exclude) {
           if (field ~ base_search)
-            SearchRO[search] = SearchRO[search] NR"," }}}
+            SearchRO[search] = SearchRO[search] NR"," }}}}
 
   if (mat) {
     for (expr in RRExprs) {
       compval = 0; comp = "="; position_test = 0; len_expr = LenExpr[expr]
       fr_expr = 0; exclude = 0; frame_set = 0; open_frame = 0
+
       if (expr in RRFrames) {
         if (ExcludeFrame[expr]) continue
         ignore_case = (ignore_case_global || IgnoreCase[expr])
@@ -737,33 +836,60 @@ function StoreRowRefs() {
         split(Tmp[1], Fr, "[")
         test_row = (fr_ext && Fr[1]) ? Fr[1] : 1
         base_expr = substr(expr, length(Tmp[1])+1)
-        start = 1; end = NF; fr_expr = 1
-        frame_re = Fr[2] }
+        start = 1
+        end = NF
+        fr_expr = 1
+        frame_re = Fr[2]
+      }
       else if (SpecExpr[expr]) {
         split(expr, Tmp, Re["nan"])
         if (Tmp[1]) {
-          start = Tmp[1]; end = start }
-        else { start = 1; end = NF }
+          start = Tmp[1]
+          end = start
+        }
+        else {
+          start = 1
+          end = NF
+        }
         base_expr = substr(expr, length(Tmp[1])+1) }
       else if (len_expr) {
         split(len_expr, Tmp, Re["nan"])
-        if (c_off) { start = 1; end = 1 }
-        else if (Tmp[1]) { start = Tmp[1]; end = start }
-        else { start = 1; end = NF }
-        base_expr = substr(len_expr, length(Tmp[1])+1) }
+        if (c_off) {
+          start = 1
+          end = 1
+        }
+        else if (Tmp[1]) {
+          start = Tmp[1]
+          end = start
+        }
+        else {
+          start = 1
+          end = NF
+        }
+        base_expr = substr(len_expr, length(Tmp[1])+1)
+      }
       else {
-        base_expr = expr; position_test = 1 
-        start = 1; end = NF }
+        base_expr = expr
+        position_test = 1 
+        start = 1
+        end = NF
+      }
 
-      if (base_expr ~ Re["comp"]) { GetComp(base_expr)
-        comp = Tmp[0]; base_expr = Tmp[1]; compval = Tmp[2] }
+      if (base_expr ~ Re["comp"]) { 
+        GetComp(base_expr)
+        comp = Tmp[0]
+        base_expr = Tmp[1]
+        compval = Tmp[2]
+      }
 
       for (f = start; f <= end; f++) {
         if (fr_expr) {
           frame_set = FrameSet[expr]
           open_frame = !frame_set
           if (frame_set) {
-            if (!Indexed(FrameFields[expr], f)) continue }
+            if (!Indexed(FrameFields[expr], f))
+              continue
+          }
           else if (NR == test_row) {
             field = ignore_case ? tolower($f) : $f
             if (field ~ frame_re) {
@@ -772,29 +898,48 @@ function StoreRowRefs() {
             if (f == end) {
               if (FrameFields[expr]) # TODO: Should this be a flag setting or default behavior?
                 ExprRO[expr] = ExprRO[expr] NR","
-              MaxFrameField[expr] = ResolveRowFilterFrame(expr) }
-            continue }}
+              MaxFrameField[expr] = ResolveRowFilterFrame(expr)
+            }
+            continue
+          }
+        }
+
         if (Indexed(ExprRO[expr], NR)) continue
         if (exclude && !open_frame) continue
-        if (position_test) { if (f > 1) break; else anchor = NR }
+
+        if (position_test) {
+          if (f > 1) break
+          else anchor = NR
+        }
         else if (len_expr)
           anchor = c_off ? length($0) : length($f)
         else if ($f ~ Re["decnum"] || $f ~ Re["float"]) {
-          anchor = $f; gsub("[\$,\"]", "", anchor); anchor += 0
+          anchor = $f; gsub("[\$,\"]", "", anchor)
+          anchor += 0
           if (anchor ~ Re["float"]) anchor = int(anchor) }
-        else if (comp == "!=") anchor = ""
+        else if (comp == "!=")
+          anchor = ""
         else continue
+        
         eval = EvalExpr(anchor base_expr)
+        
         if (debug) DebugPrint(5)
+        
         if (comp == "!=") {
-          if (!exclude) exclude = eval == compval
+          if (!exclude)
+            exclude = eval == compval
+          
           last_f = frame_set ? MaxFrameField[expr] : end
+          
           if (!exclude) {
             if (open_frame) {
-              FrameRowFields[expr] = FrameRowFields[expr] NR":"f"," }
+              FrameRowFields[expr] = FrameRowFields[expr] NR":"f","
+            }
             else if (f == last_f)
-              ExprRO[expr] = ExprRO[expr] NR"," }
-          continue }
+              ExprRO[expr] = ExprRO[expr] NR","
+          }
+          continue
+        }
         if (EvalCompExpr(eval, compval, comp)) {
           if (fr_expr && !frame_set)
             FrameRowFields[expr] = FrameRowFields[expr] NR":"f","
@@ -803,21 +948,28 @@ function StoreRowRefs() {
 
   if (anc && !r_anc_found) {
     for (anchor in RAnchors) {
-      if (RAnchorSet[anchor]) continue
+      if (RAnchorSet[anchor])
+        continue
+
       split(anchor, Anchors, TkMap["anc"])
       ignore_case = (ignore_case_global || IgnoreCase[anchor])
       row_test = ignore_case ? tolower($0) : $0
+
       if (debug) print anchor", "Anchors[1]", "Anchors[2]", "RAnchorStart[anchor]", "RAnchorEnd[anchor]" "r_ancs
+
       if (Anchors[1] && !RAnchorStart[anchor] && row_test ~ Anchors[1]) {
         RAnchorStart[anchor] = NR
-        if (!RAnchorEnd[anchor]) continue }
+        if (!RAnchorEnd[anchor]) continue
+      }
       if (Anchors[2] && !RAnchorEnd[anchor] && row_test ~ Anchors[2])
         RAnchorEnd[anchor] = NR
       if (RAnchorStart[anchor] && RAnchorEnd[anchor])
         RAnchorSet[anchor] = 1
-      if (RAnchorSet[anchor]) r_ancs++ }
+      if (RAnchorSet[anchor]) r_ancs++
+    }
     if (r_ancs == length(RAnchors))
-      r_anc_found = 1 }
+      r_anc_found = 1
+  }
 
   if (rev_r) rev_ro = NR"," rev_ro
 }
@@ -852,8 +1004,10 @@ function ResolveFilterExtensions(row_call, Extensions, ReoArr, OrdArr, max_val) 
       split(Extensions[ext_i], DeleteKeys, ",")
       OrdArr[ext_i] = ResolveMultisetLogic(row_call, ext_i, max_val)
       ReoArr[DeleteKeys[1]] = ext_i; TypeMap[ext_i] = "ext"; delete DeleteKeys[1]
-      for (del_key_i in DeleteKeys) {
-        delete ReoArr[DeleteKeys[del_key_i]] }}}
+      for (del_key_i in DeleteKeys)
+        delete ReoArr[DeleteKeys[del_key_i]]
+    }
+  }
 }
 
 function ResolveMultisetLogic(row_call, key, max_val) {
@@ -864,25 +1018,33 @@ function ResolveMultisetLogic(row_call, key, max_val) {
     split(Ands[and_i], Ors, "\\|\\|")
     for (ors_i in Ors)
       ors_idx = ors_idx GetOrder(row_call, Ors[ors_i])
-    AndOrder[and_i] = ors_idx }
+    AndOrder[and_i] = ors_idx
+  }
 
   for (i = 1; i <= max_val; i++) {
     continue2 = 0
     for (and_i in Ands) {
       if (AndOrder[and_i] == "") {
-        break2 = 1; break }
+        break2 = 1
+        break
+      }
       if (!Indexed(AndOrder[and_i], i)) {
-        continue2 = 1; break }}
+        continue2 = 1
+        break
+      }
+    }
     if (continue2) continue
     if (break2) break
-    combin_idx = combin_idx i"," }
+    combin_idx = combin_idx i","
+  }
   return combin_idx
 }
 
 function SetNegativeIndexFieldOrder(range_call, ArgArr, max_val) {
   if (!max_val) {
     for (arg in ArgArr) delete ArgArr[arg]
-    return }
+    return
+  }
   if (range_call) {
     for (range_arg in ArgArr) {
       ord = ""
@@ -900,12 +1062,16 @@ function SetNegativeIndexFieldOrder(range_call, ArgArr, max_val) {
       else
         for (k = start; k <= end; k++)
           ord = ord k","
-      ArgArr[range_arg] = ord }}
+      ArgArr[range_arg] = ord
+    }
+  }
   else {
     for (arg in ArgArr) {
       val = max_val + arg + 1
       if (val < 1) delete ArgArr[arg]
-      else ArgArr[arg] = val"," }}
+      else ArgArr[arg] = val","
+    }
+  }
 }
 
 function FillAnchorRange(row_call, AncArr, AncOrder) {
@@ -925,7 +1091,8 @@ function FillAnchorRange(row_call, AncArr, AncOrder) {
     else
       for (a_f = start; a_f <= end; a_f++)
         anc_order = anc_order a_f","
-    AncOrder[anchor] = anc_order }   
+    AncOrder[anchor] = anc_order
+  }
 }
 
 function GenRemainder(row_call, ReoArr, max_val) {
@@ -946,35 +1113,51 @@ function EnforceUnique(row_call, Order, ord_len) {
     o_key = Order[o_i]
     if (o_key ~ Re["int"]) {
       #if (Indexed(uniq_o, o_key)) { uniq_override = 1; continue }
-      uniq_o = uniq_o o_i","; continue }
+      uniq_o = uniq_o o_i","
+      continue
+    }
     order = GetOrder(row_call, o_key)
     if (!order) continue
     key_o_len = split(order, KeyOrder, ",")
+
     for (ko_i = 1; ko_i < key_o_len; ko_i++) {
       _o = KeyOrder[ko_i]
-      if (Indexed(uniq_o, _o)) { uniq_override = 1; continue }
-      uniq_o = uniq_o _o"," }}
+      if (Indexed(uniq_o, _o)) {
+        uniq_override = 1
+        continue
+      }
+      uniq_o = uniq_o _o","
+    }
+  }
 
   if (uniq_override) {
     TypeMap["oth"] = "oth"
     if (row_call) {
       for (rr in ReoR) delete ReoR[rr]
-      remaining_ro = uniq_o; ReoR[1] = "oth" }
+      remaining_ro = uniq_o
+      ReoR[1] = "oth"
+    }
     else {
       for (rc in ReoC) delete ReoC[rc]
-      remaining_fo = uniq_o; ReoC[1] = "oth" }}
+      remaining_fo = uniq_o
+      ReoC[1] = "oth"
+    }
+  }
 }
 
 function GetOrder(row_call, key) {
   if (key ~ Re["int"]) return key","
+
   type = TypeMap[key]
+
   if (row_call) {
     if (type == "rev") return rev_ro
     else if (type == "oth") return remaining_ro
     else if (type == "re") return SearchRO[key]
     else if (type == "mat") return ExprRO[key]
     else if (type == "anc") return AnchorRO[key]
-    else if (type == "ext") return ExtRO[key] }
+    else if (type == "ext") return ExtRO[key]
+  }
   else {
     if (type == "rev") return rev_fo
     else if (type == "oth") return remaining_fo
@@ -983,7 +1166,8 @@ function GetOrder(row_call, key) {
     else if (type == "mat") return ExprFO[key]
     else if (type == "anc") return AnchorFO[key]
     else if (type == "ext") return ExtFO[key]
-    else if (type == "nidx_rng") return CNidxRanges[key] }
+    else if (type == "nidx_rng") return CNidxRanges[key]
+  }
 }
 
 function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, rev_o, oth_o, ExprArr, SearchArr, IdxSearchArr, FramesArr, AncArr, ExtArr) {
@@ -994,8 +1178,14 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
   for (i = 1; i <= o_len; i++) {
     base_i = Order[i]
     gsub("\\?ECSOCMAMPA\\?", ",", base_i)
-    if (!base_i) { delete Order[i]; continue }
-    if (base_i ~ Re["ext"]) { ExtArr[base_i] = 1; ext = 1 }
+    if (!base_i) {
+      delete Order[i]
+      continue
+    }
+    if (base_i ~ Re["ext"]) {
+      ExtArr[base_i] = 1
+      ext = 1
+    }
     split(base_i, ExtOrder, Re["ext"])
     split(base_i, Operators, Re["extcomp"])
     ext_len = length(ExtOrder)
@@ -1003,6 +1193,7 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
       o_i = ExtOrder[j]
 
       token = o_i ~ Re["alltokens"] ? TokenPrecedence(o_i) : ""
+
       if (debug) { row_call ? DebugPrint(1) : DebugPrint(1.5) }
 
       if (o_i ~ Re["int"] || token == "nidx") {
@@ -1012,28 +1203,40 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
           else {
             reo = 1; c_nidx = 1
             reo_count = FillReoArr(0, o_i, CNidx, reo_count, ReoArr, token)
-            continue }}
+            continue
+          }
+        }
         reo_count = FillReoArr(row_call, o_i, RangeArr, reo_count, ReoArr)
         if (!reo && o_i > max_o_i)
           max_o_i = o_i
         else {
-          reo = 1; base_o = 0 }}
+          reo = 1
+          base_o = 0
+        }
+      }
       else if (!token) {
         if ("reverse" ~ "^"tolower(o_i)) {
           o_i = "rev"; base_o = 0; reo = 1; rev = 1; rev_o = 1
           reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, "rev")
-          continue }
+          continue
+        }
         else if ("others" ~ "^"tolower(o_i)) {
           o_i = "oth"; base_o = 0; reo = 1; oth = 1; oth_o = 1
           reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, "oth")
-          continue }}
+          continue
+        }
+      }
       else {
         if (!row_call) delete Order[i]
         max_o_i = TestArg(o_i, max_o_i, token)
         base_o = 0
         if (IgnoreCase[o_i]) {
-          o_i = tolower(o_i); gsub("/[Ii]$", "", o_i); gsub("/[Ii]~", "~", o_i)
-          IgnoreCase[o_i] = 1; ExtOrder[j] = o_i }
+          o_i = tolower(o_i)
+          gsub("/[Ii]$", "", o_i)
+          gsub("/[Ii]~", "~", o_i)
+          IgnoreCase[o_i] = 1
+          ExtOrder[j] = o_i
+        }
 
         if (token == "rng" || (token == "nidx_rng" && row_call))
           reo_count = FillRange(row_call, o_i, OArr, reo_count, ReoArr)
@@ -1047,8 +1250,10 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
           if (token == "anc_re") {
             split(o_i, Anchors, TkMap["anc_re"])
             gsub(/(^\/|\/$)/, "", Anchors[1]); gsub(/(^\/|\/$)/, "", Anchors[2])
-            o_i = Anchors[1] "##" Anchors[2]; ExtOrder[j] = o_i }
-          reo_count = FillReoArr(row_call, o_i, AncArr, reo_count, ReoArr, "anc") }
+            o_i = Anchors[1] "##" Anchors[2]; ExtOrder[j] = o_i
+          }
+          reo_count = FillReoArr(row_call, o_i, AncArr, reo_count, ReoArr, "anc")
+        }
         else if (token == "fr") {
           FramesArr[o_i] = 1
           if (fr == "mat")
@@ -1056,23 +1261,37 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
           else if (fr == "re" && fr_idx)
             reo_count = FillReoArr(row_call, o_i, IdxSearchArr, reo_count, ReoArr, fr)
           else if (fr == "re")
-            reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, fr) }}}
+            reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, fr)
+        }
+      }
+    }
 
-      if (ExtArr[base_i]) {
-        delete ExtArr[base_i]; base_i = ""
-        for (k = 1; k <= length(ExtOrder); k++) {
-          base_i = base_i ExtOrder[k] Operators[k+1] }
-        for (l = prior_count+1; l <= reo_count; l++)
-          ExtArr[base_i] = ExtArr[base_i] l","
-        delete ExtOrder; delete Operators }
-      prior_count = reo_count }
+    if (ExtArr[base_i]) {
+      delete ExtArr[base_i]
+      base_i = ""
+
+      for (k = 1; k <= length(ExtOrder); k++)
+        base_i = base_i ExtOrder[k] Operators[k+1]
+
+      for (l = prior_count+1; l <= reo_count; l++)
+        ExtArr[base_i] = ExtArr[base_i] l","
+
+      delete ExtOrder
+      delete Operators
+    }
+    
+    prior_count = reo_count
+  }
 
   if (row_call) {
     for (ord in Order) ROrder[ord] = Order[ord] 
-    for (ord in ExtOrder) RExtOrder[ord] = ExtOrder[ord] }
+    for (ord in ExtOrder) RExtOrder[ord] = ExtOrder[ord]
+  }
   else {
     for (ord in Order) COrder[ord] = Order[ord]
-    for (ord in ExtOrder) RExtOrder[ord] = ExtOrder[ord] }
+    for (ord in ExtOrder) RExtOrder[ord] = ExtOrder[ord]
+  }
+
   SetupVars["len"] = o_len
   SetupVars["count"] = reo_count
   SetupVars["base_status"] = base_o
@@ -1097,7 +1316,10 @@ function TokenPrecedence(arg) {
     if (tk_loc && tk_loc < loc_min) {
       loc_min = tk_loc
       found_token = Tk[tk]
-      if (tk_loc == 1) break }}
+      if (tk_loc == 1) break
+    }
+  }
+
   return found_token
 }
 
@@ -1111,12 +1333,16 @@ function TestArg(arg, max_i, type, row_call) {
       print "Invalid range order arg "arg" - range formats include:"
       print "1..9 600..1"
       exit 1
+    }
     if (reo || sa1 >= sa2 || sa1 <= max_i)
       reo = 1
     else
-      max_i = sa2 }}
+      max_i = sa2
+  }
 
-  else if (type == "nidx_rng") { range = 1; nidx_rng = 1
+  else if (type == "nidx_rng") {
+    range = 1
+    nidx_rng = 1
     if (!row_call) c_nidx_rng = 1
     if (len_sargv != 2 || !(sa1 ~ Re["n_int"]) || !(sa2 ~ Re["n_int"])) {
       print "Invalid negative index range order arg "arg" - negative index range formats include:"
@@ -1127,52 +1353,82 @@ function TestArg(arg, max_i, type, row_call) {
     if (reo || !row_call || sa1 >= sa2 || sa1 <= max_i)
       reo = 1
     else
-      max_i = sa2 }
+      max_i = sa2
+  }
 
-  else if (type == "mat") { reo = 1; mat = 1
+  else if (type == "mat") {
+    reo = 1
+    mat = 1
     if (arg ~ Re["len"]) { len = 1
       len_arg = arg
       gsub(Re["len"], "", len_arg); sub("\\)", "", len_arg)
-      LenExpr[arg] = len_arg }
+      LenExpr[arg] = len_arg
+    }
     if (substr(arg, 1, 1) ~ Re["intmat"]) SpecExpr[arg] = 1
     if (!(arg ~ Re["matarg1"] || arg ~ Re["matarg2"])) {
       print "Invalid expression order arg "arg" - expression format examples include:"
       print "NR%2  2%3=5  NF!=4  *6/8%2=1  length(6)>20"
-      exit 1 }}
+      exit 1
+    }
+  }
 
-  else if (type == "re") { reo = 1; re = 1
+  else if (type == "re") {
+    reo = 1
+    re = 1
     if (arg ~ "!~") ExcludeRe[arg] = 1
     if (ignore_case_global || arg ~ "\/[Ii](~|$)") IgnoreCase[arg] = 1
     re_test = substr(arg, length(sa1)+2, length(arg))
     if ("" ~ re_test) {
       print "Invalid search order arg "arg" - search arg format examples include:"
       print "~search  2~pattern/i  4!~[0-9]+"
-      exit 1 }}
+      exit 1
+    }
+  }
 
-  else if (type == "anc" || type == "anc_re") { anc = 1; reo = 1
+  else if (type == "anc" || type == "anc_re") {
+    anc = 1
+    reo = 1
     if (!(sa1 || sa2)) {
       print "Invalid anchor order arg "arg" - anchor arg formats include:"
-      print "start_anchor##  start##end  ##end_anchor  /start/../end/" }
+      print "start_anchor##  start##end  ##end_anchor  /start/../end/"
+    }
     if (ignore_case_global || arg ~ "\/[Ii](~|$)") IgnoreCase[arg] = 1
     if (type == "anc_re") {
-      gsub(/(^\/|\/$)/, "", sa1); gsub(/(^\/|\/$)/, "", sa2) }
-    "" ~ sa1; "" ~ sa2 }
+      gsub(/(^\/|\/$)/, "", sa1); gsub(/(^\/|\/$)/, "", sa2)
+    }
+    "" ~ sa1; "" ~ sa2
+  }
 
-  else if (type == "fr") { reo = 1; fr_idx = 0
+  else if (type == "fr") {
+    reo = 1
+    fr_idx = 0
     if (c == "off") {
-      print "Frame args cannot be used without column traversal"; exit 1 }
+      print "Frame args cannot be used without column traversal"
+      exit 1
+    }
     if (sa1) fr_ext = 1
     if (ignore_case_global || arg ~ "\/[iI]") IgnoreCase[arg] = 1
     if (arg ~ Re["frmat"]) {
-      fr = "mat"; mat = 1 }
-    else if (arg ~ Re["frre"]) { fr = "re"; re = 1
-      if (arg ~ "!~") ExcludeRe[arg] = 1 }
+      fr = "mat"
+      mat = 1
+    }
+    else if (arg ~ Re["frre"]) {
+      fr = "re"
+      re = 1
+      if (arg ~ "!~") ExcludeRe[arg] = 1
+    }
     else if (sa2) {
-      fr = "re"; re = 1; fr_idx = 1; FrIdx[arg] = 1 }
+      fr = "re"
+      re = 1
+      fr_idx = 1
+      FrIdx[arg] = 1
+    }
     else {
       print "Invalid frame order arg "arg" - frame arg format examples include: "
       print "[RowHeaderPattern  5[Index5Pattern~search  [HeaderPattern!=30"
-      exit 1 }}
+      exit 1
+    }
+  }
 
   return max_i
 }
@@ -1248,40 +1504,6 @@ function BuildTokens(Tk) {
   Tk["^"] = "mat"
 }
 
-function EvalExpr(expr) {
-  res = 0
-  nm = gsub(/\*-/, "*", expr)
-  nm += gsub(/\/-/, "/", expr)
-  gsub(/--/, "+", expr)
-  # TODO: Add gsub for fields comparison here
-  split(expr, a, "+")
-  for(a_i in a){
-    split(a[a_i], s, "-")
-    for(s_i in s){
-      split(s[s_i], m, "*")
-      for(m_i in m){
-        split(m[m_i], d, "/")
-        for(d_i in d){
-          split(d[d_i], u, "%")
-          for(u_i in u){
-            split(u[u_i], e, "(\\^|\\*\\*)")
-            for(e_i in e){
-              if (e_i > 1) e[1] = e[1] ** e[e_i] }
-            u[u_i] = e[1]; delete e
-            if (u_i > 1) u[1] = u[1] % u[u_i] }
-          d[d_i] = u[1]; delete u
-          if (d_i > 1) d[1] /= d[d_i] }
-        m[m_i] = d[1]; delete d
-        if (m_i > 1) m[1] *= m[m_i] }
-      s[s_i] = m[1]; delete m
-      if (s_i > 1) s[1] -= s[s_i] }
-    a[a_i] = s[1]; delete s }
-
-  for (a_i in a)
-    res += a[a_i]
-  return nm % 2 ? -res : res
-}
-
 function EvalCompExpr(left, right, comp) {
   return (comp == "=" && left == right) ||
          (comp == ">" && left > right) ||
@@ -1296,15 +1518,6 @@ function GetComp(string) {
 
   split(string, Tmp, comp)
   Tmp[0] = comp
-}
-
-function UnescapeOFS() {
-  split(OFS, OFSTokens, "\\")
-  OFS = ""
-  for (i = 1; i <= length(OFSTokens); i++)
-    OFS = OFS OFSTokens[i]
-
-  return OFS
 }
 
 function PrintField(field_val, field_no, end_field_no) {

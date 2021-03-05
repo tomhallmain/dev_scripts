@@ -123,19 +123,23 @@
 BEGIN {
   if (r_aggs && !("off" == r_aggs)) {
     r = 1
-    ra_count = split(r_aggs, RAggs, /,/) }
+    ra_count = split(r_aggs, RAggs, /,/)
+  }
   if (c_aggs) {
     c = 1
-    ca_count = split(c_aggs, CAggs, /,/) }
+    ca_count = split(c_aggs, CAggs, /,/)
+  }
 
   for (i in RAggs) {
     RA[i] = AggExpr(RAggs[i], 1, i)
     RAI[RA[i]] = i
-    RAggExpr[i] = RA[i] }
+    RAggExpr[i] = RA[i]
+  }
   for (i in CAggs) {
     CA[i] = AggExpr(CAggs[i], 0, i)
     CAI[CA[i]] = i
-    CAggAmort[i] = CA[i] }
+    CAggAmort[i] = CA[i]
+  }
 
   if (length(XAggs)) {
     x = 1
@@ -147,15 +151,20 @@ BEGIN {
         delete RAggs[j]
         delete RAI[RA[j]]
         delete RA[j]
-        delete RAggExpr[j] }}
+        delete RAggExpr[j]
+      }
+    }
     for (j = 1; j <= ca_count; j++) {
       if (XAShift[0, j]) {
         delete CAggs[j]
         delete CAI[CA[j]]
         delete CA[j]
-        delete CAggAmort[j] }}
+        delete CAggAmort[j]
+      }
+    }
     if (!(length(RAggs) || length(CAggs)))
-      x_only = 1 }
+      x_only = 1
+  }
 
   if (r || c || x)
     r_c_base = 1
@@ -171,10 +180,8 @@ BEGIN {
   "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0
   if (gen)
     GenAllAggExpr(max_nr, 0)
-
-  if (OFS ~ "\\[:space:\\]\{") OFS = "  "
-  else if (OFS ~ "\\[:space:\\]\+") OFS = " "
-  if (OFS ~ "\\\\") OFS = UnescapeOFS()
+  
+  OFS = SetOFS()
 }
 
 NR < 2 {
@@ -183,7 +190,9 @@ NR < 2 {
   if (gen) GenAllAggExpr(fixed_nf, 1)
   if (r) {
     for (i in RA) {
-      if (KeyAgg[1, i]) SetRAggKeyFields(i, RA[i]) }}
+      if (KeyAgg[1, i]) SetRAggKeyFields(i, RA[i])
+    }
+  }
   if (x)
     StandardizeXAggExpr(XA, XAForm, XAggExpr, max_nr, fixed_nf)
 }
@@ -199,7 +208,9 @@ r_c_base {
     agg = RA[i]
     if (!RAggResult[agg, NR]) {
       r_expr = GenRExpr(agg)
-      if (r_expr) RAggResult[agg, NR] = EvalExpr(r_expr) }}
+      if (r_expr) RAggResult[agg, NR] = EvalExpr(r_expr)
+    }
+  }
 
   for (i in CA) {
     agg = CA[i]
@@ -208,7 +219,8 @@ r_c_base {
       continue
     else if (!KeyAgg[0, i] && !SearchAgg[agg_amort] && !Indexed(agg_amort, NR))
       continue
-    CAggResult[i] = AdvCarryVec(i, NF, agg_amort, CAggResult[i]) }
+    CAggResult[i] = AdvCarryVec(i, NF, agg_amort, CAggResult[i])
+  }
 }
 
 x {
@@ -237,12 +249,14 @@ x {
       x_key = $start
       for (xf_i = start + 1; xf_i <= end; xf_i++) {
         if (agg_index == xf_i) continue
-        x_key = x_key SUBSEP "::" $xf_i }
+        x_key = x_key SUBSEP "::" $xf_i
+      }
 
       if (!XAggKeySave[x_agg_i, x_key]) {
         XAggLength[x_agg_i]++
         XAggKeySave[x_agg_i, x_key] = XAggLength[x_agg_i]
-        XAggKey[x_agg_i, XAggLength[x_agg_i]] = x_key }
+        XAggKey[x_agg_i, XAggLength[x_agg_i]] = x_key
+      }
 
       val = $agg_index
       if (val == "") continue
@@ -255,17 +269,19 @@ x {
       if (XAggResult[x_agg_i, key_id])
         XAggResult[x_agg_i, key_id] = EvalExpr(XAggResult[x_agg_i, key_id] agg_op trunc_val)
       else
-        XAggResult[x_agg_i, key_id] = trunc_val }}
+        XAggResult[x_agg_i, key_id] = trunc_val
+    }
+  }
 }
 
 
 END {
   if (err) exit err
 
-  if (r_conditional_aggs) {
-    ResolveConditionalRAggs() }
-  if (r_x_aggs) {
-    ResolveRXAggs() }
+  if (r_conditional_aggs)
+    ResolveConditionalRAggs()
+  if (r_x_aggs)
+    ResolveRXAggs()
 
   totals = length(Totals)
 
@@ -277,9 +293,12 @@ END {
         for (j = 1; j <= fixed_nf; j++) {
           printf "%s", Row[j]
           if (j < fixed_nf || ra_count)
-            printf "%s", OFS }}
+            printf "%s", OFS
+        }
+      }
       else if (i == 1 && header) {
-        printf "%s", RHeader[i] OFS }
+        printf "%s", RHeader[i] OFS
+      }
       for (j = 1; j <= ra_count; j++) {
         agg = RA[j]
         if (!agg) continue
@@ -287,8 +306,11 @@ END {
         print_str = print_header ? RAggs[j] : RAggResult[agg, i]
         printf "%s", print_str
         if (j < ra_count)
-          printf "%s", OFS }
-      print "" }
+          printf "%s", OFS
+      }
+
+      print ""
+    }
 
     for (i = 1; i <= ca_count; i++) {
       if (!CAggs[i]) continue
@@ -301,14 +323,20 @@ END {
       for (j = start; j <= fixed_nf; j++) {
         if (CAggVec[j]) printf "%s", EvalExpr(CAggVec[j])
         if (j < fixed_nf)
-          printf "%s", OFS }
+          printf "%s", OFS
+      }
       if (totals) {
         printf "%s", OFS
         for (j = 1; j <= ra_count; j++) {
           printf "%s", Totals[i, j]
           if (j < ra_count)
-            printf "%s", OFS }}
-      print "" }}
+            printf "%s", OFS
+        }
+      }
+      
+      print ""
+    }
+  }
 
   n_x = length(XA)
   if (n_x) {
@@ -331,7 +359,9 @@ END {
 
       for (j = 1; j <= rel_len; j++) {
         print XAggKey[x_agg_i, j], XAggResult[x_agg_i, j] }
-      if (n_x > 1) print "" }}
+      if (n_x > 1) print ""
+    }
+  }
 
   if (debug) {
     for (i in RA) {
@@ -339,13 +369,16 @@ END {
       print "KeyAgg? "KeyAgg[1, i]
       print "SearchAgg? "SearchAgg[RA[i]]
       print "ConditionalAgg? "ConditionalAgg[RA[i]]
-      print "AllAgg? "AllAgg[RA[i]] }
+      print "AllAgg? "AllAgg[RA[i]]
+    }
     for (i in CA) {
       print i" "CAggs[i]" "CA[i]
       print "KeyAgg? "KeyAgg[0, i]
       print "SearchAgg? "SearchAgg[CA[i]]
       print "ConditionalAgg? "ConditionalAgg[CA[i]]
-      print "AllAgg? "AllAgg[CA[i]] }}
+      print "AllAgg? "AllAgg[CA[i]]
+    }
+  }
 }
 
 function AggExpr(agg_expr, call, call_idx) {
@@ -360,7 +393,8 @@ function AggExpr(agg_expr, call, call_idx) {
       if (!(agg_expr ~ /\|all$/))
         agg_expr = agg_expr "|all"
       all_agg = 1
-      AllAgg[agg_expr] = 1 }
+      AllAgg[agg_expr] = 1
+    }
 
     else if (agg_expr ~ /^[\+\-\*\/]\|(\$)?[0-9]+\.\.(\$)?[0-9]+/) {
       split(agg_expr, AggBase, /\|/)
@@ -373,8 +407,9 @@ function AggExpr(agg_expr, call, call_idx) {
       agg_expr = op "$" AggAnchor[1]
       for (j = AggAnchor[1] + 1; j < AggAnchor[2]; j++)
         agg_expr = agg_expr op "$" j
-      agg_expr = agg_expr op "$" AggAnchor[2] }
-    
+      agg_expr = agg_expr op "$" AggAnchor[2]
+    }
+
     else if (agg_expr ~ /^[\+\-\*\/]\|(\$)?[0-9]+(\|(\$)?[0-9]+(\.\.(\$)?[0-9]+)?)?$/) {
       gsub(/\$/, "", agg_expr)
       XAggs[call, ++x_agg_i] = orig_agg_expr
@@ -390,28 +425,31 @@ function AggExpr(agg_expr, call, call_idx) {
         XAForm[call, x_agg_i] = 4
 
       XAShift[call, call_idx] = x_agg_i
-      return "" }
+      return ""
+    }
 
     else if (agg_expr ~ /^[\+\-\*\/]|((\$)?[0-9]+)?([<>=][0-9]+|[~])/) {
       gsub(/\|\|/, "___OR___", agg_expr)
       ConditionalAgg[agg_expr] = SetConditionalAgg(agg_expr)
       AllAgg[agg_expr] = 1
       conditional_agg = 1
-      if (call) r_conditional_aggs = 1 }
+      if (call) r_conditional_aggs = 1
+    }
 
     else {
       print "Unable to parse aggregation expression " agg_expr
-      exit 1 }
+      exit 1
+    }
   }
 
-  else if (agg_expr ~ /^~/ && !(agg_expr ~ /[^\|]+\|[^\|]+/)) {
-    SearchAgg[agg_expr] = substr(agg_expr, 2, length(agg_expr)) }
+  else if (agg_expr ~ /^~/ && !(agg_expr ~ /[^\|]+\|[^\|]+/))
+    SearchAgg[agg_expr] = substr(agg_expr, 2, length(agg_expr))
 
-  else if (agg_expr ~ /[A-z]/) {
-    KeyAgg[call, call_idx] = 1 }
+  else if (agg_expr ~ /[A-z]/)
+    KeyAgg[call, call_idx] = 1
 
-  else if (agg_expr ~ /^(\$)?[0-9]+([\+\-\*\/][\+\-\*\/]?(\$)?[0-9]+)+$/) {
-    spec_agg = 1 }
+  else if (agg_expr ~ /^(\$)?[0-9]+([\+\-\*\/][\+\-\*\/]?(\$)?[0-9]+)+$/)
+    spec_agg = 1
 
   else if (agg_expr ~ /^(\$)?[0-9]+$/) {
     gsub(/\$/, "", agg_expr)
@@ -421,11 +459,13 @@ function AggExpr(agg_expr, call, call_idx) {
     XAggExpr[call, x_agg_i] = agg_expr
     XAForm[call, x_agg_i] = 1
     XAShift[call, call_idx] = x_agg_i
-    return "" }
+    return ""
+  }
 
   else {
     print "Unable to parse aggregation expression " agg_expr
-    exit 1 }
+    exit 1
+  }
 
   if (!(all_agg || conditional_agg || SearchAgg[agg_expr])) {
     match(agg_expr, /^[\+\-\*\/]/)
@@ -434,7 +474,8 @@ function AggExpr(agg_expr, call, call_idx) {
     else if (agg_expr ~ /^[\-]/)
       agg_expr = "0-" substr(agg_expr, RLENGTH + 1, length(agg_expr))
     else if (agg_expr ~ /^[\*\/]/)
-      agg_expr = "1*" substr(agg_expr, RLENGTH + 1, length(agg_expr)) }
+      agg_expr = "1*" substr(agg_expr, RLENGTH + 1, length(agg_expr))
+  }
 
   return agg_expr
 }
@@ -456,7 +497,8 @@ function GenHeaderCAggExpr(HeaderAggs) { # TODO remove
     if (agg in CAI)
       CA[CAI[agg]] = AggExpr(Agg[1]"|1.."max, 0)
     if (agg in XAI)
-      XA[XAI[agg]] = AggExpr(Agg[1]"|1.."max, -1) }
+      XA[XAI[agg]] = AggExpr(Agg[1]"|1.."max, -1)
+  }
 }
 
 function GenAllAggExpr(max, call) {
@@ -466,7 +508,8 @@ function GenAllAggExpr(max, call) {
     if (call > 0 && agg in RAI)
       RAggExpr[RAI[agg]] = AggExpr(temp_agg, 1)
     else if (!call && agg in CAI)
-      CAggAmort[CAI[agg]] = AggExpr(temp_agg, 0) }
+      CAggAmort[CAI[agg]] = AggExpr(temp_agg, 0)
+  }
 }
 
 function SetRAggKeyFields(r_agg_i, agg_expr) {
@@ -479,7 +522,8 @@ function SetRAggKeyFields(r_agg_i, agg_expr) {
   for (k = 1; k <= length(Keys); k++) {
     for (f = 1; f <= NF; f++)
       if ($f ~ Keys[k])
-        gsub("(____)?"Keys[k]"(____)?", "$"f, agg_expr) }
+        gsub("(____)?"Keys[k]"(____)?", "$"f, agg_expr)
+  }
   gsub(/[^\+\*\-\/0-9\$]/, "", agg_expr)
   RA[r_agg_i] = agg_expr
   KeySwap(RAI, initial_agg_expr, agg_expr)
@@ -510,16 +554,24 @@ function GetOrSetIndexNA(agg, idx, call) {
           for (r_i = start; r_i <= end; r_i++) {
             if (_[r_i, idx] ~ condition_search) {
               col_confirmed = 1
-              break }}
-          if (!col_confirmed) and_conditions_met = 0 }
+              break
+            }
+          }
+          if (!col_confirmed) and_conditions_met = 0
+        }
         else {
           if (spec_search) {
             if (!($condition_search_scope ~ condition_search)) {
               and_conditions_met = 0
-              break }}
+              break
+            }
+          }
           else if (!($0 ~ condition_search)) {
             and_conditions_met = 0
-            break }}}
+            break
+          }
+        }
+      }
 
       else { # Compare case
         eval_expr = ""
@@ -539,10 +591,14 @@ function GetOrSetIndexNA(agg, idx, call) {
 
             if (EvalCompExpr(GetOrSetTruncVal(extract_val), comp_val, comp)) {
               row_confirmed = 1
-              break }}
+              break
+            }
+          }
           if (!row_confirmed) {
             and_conditions_met = 0
-            break }}
+            break
+          }
+        }
         else {
           fs = split(test_expr, Fs, /[\+\*\-\/%]/)
           ops = split(test_expr, Ops, /[^\+\*\-\/%]+/)
@@ -552,7 +608,8 @@ function GetOrSetIndexNA(agg, idx, call) {
             if (f ~ /\$[0-9]+/) {
               gsub(/(\$|[[:space:]]+)/, "", f)
               val = f ? (call ? _[f, idx] : $f) : ""
-              gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val) }
+              gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
+            }
             else
               val = f # Expects a static number value
 
@@ -561,15 +618,22 @@ function GetOrSetIndexNA(agg, idx, call) {
             if (!extract_val && extract_val != 0) continue
             if (debug) print and_condition " :: COMP: " eval_expr val op
 
-            eval_expr = eval_expr GetOrSetTruncVal(extract_val) op }
+            eval_expr = eval_expr GetOrSetTruncVal(extract_val) op
+          }
 
           if (!EvalCompExpr(EvalExpr(eval_expr), comp_val, comp)) {
             and_conditions_met = 0
-            break }}}}
+            break
+          }
+        }
+      }
+    }
 
     if (and_conditions_met) {
       idx_na = 0
-      break }}
+      break
+    }
+  }
 
   IndexNA[agg, idx, call] = idx_na
   return idx_na
@@ -588,7 +652,10 @@ function ResolveConditionalRAggs() {
           if (GetOrSetIndexNA(agg, k, 1))
             continue
           if (f_val) {
-            expr = expr cond_op f_val }}
+            expr = expr cond_op f_val
+          }
+        }
+ 
         RAggResult[agg, j] = EvalExpr(expr) }}}
 }
 
@@ -600,13 +667,16 @@ function GenRExpr(agg) {
     agg_search = SearchAgg[agg]
     for (f = 1; f <= fixed_nf; f++)
       if ($f ~ agg_search) expr = expr "1+"
-    if (!expr) expr = "0" }
+    if (!expr) expr = "0"
+  }
 
   else if (ConditionalAgg[agg]) {
     for (f = 1; f <= fixed_nf; f++) {
       if (RowSet[NR]) break
-      _[NR, f] = $f }
-      RowSet[NR] = 1 }
+      _[NR, f] = $f
+    }
+    RowSet[NR] = 1
+  }
 
   else {
     fs = split(agg_expr, Fs, /[\+\*\-\/]/)
@@ -616,7 +686,8 @@ function GenRExpr(agg) {
       if (f ~ /\$[0-9]+/) {
         gsub(/(\$|[[:space:]]+)/, "", f)
         val = f ? $f : ""
-        gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val) }
+        gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
+      }
       else
         val = f # Expects a static number value
 
@@ -626,7 +697,9 @@ function GenRExpr(agg) {
       extract_val = GetOrSetExtractVal(val)
       if (!extract_val && !(extract_val == 0)) continue
 
-      expr = expr GetOrSetTruncVal(extract_val) op }}
+      expr = expr GetOrSetTruncVal(extract_val) op
+    }
+  }
 
   return expr
 }
@@ -637,7 +710,8 @@ function AdvCarryVec(c_agg_i, nf, agg_amort, carry) { # TODO: This is wildly ine
   active_key = ""
   search = 0
   if (SearchAgg[agg_amort]) {
-    search = SearchAgg[agg_amort] }
+    search = SearchAgg[agg_amort]
+  }
   else {
     if (!agg_amort) return carry
     match(agg_amort, /[^\+\*\-\/]+/)
@@ -649,7 +723,8 @@ function AdvCarryVec(c_agg_i, nf, agg_amort, carry) { # TODO: This is wildly ine
     right = substr(agg_amort, RSTART + RLENGTH, length(agg_amort))
     CAggAmort[c_agg_i] = right
     match(agg_amort, /[\+\*\-\/]+/)
-    margin_op = substr(agg_amort, RSTART, RLENGTH) }
+    margin_op = substr(agg_amort, RSTART, RLENGTH)
+  }
 
   if (debug) print c_agg_i, agg_amort, carry
 
@@ -659,12 +734,14 @@ function AdvCarryVec(c_agg_i, nf, agg_amort, carry) { # TODO: This is wildly ine
     if (search) { 
       if (!CarryVec[f]) CarryVec[f] = "0"
       margin_op = val ~ search ? "+1" : "" 
-      t_carry = t_carry sep CarryVec[f] margin_op }
+      t_carry = t_carry sep CarryVec[f] margin_op
+    }
     else {
       gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
       extract_val = GetOrSetExtractVal(val)
       if (!extract_val && extract_val != 0) {
-        t_carry = t_carry sep CarryVec[f] }
+        t_carry = t_carry sep CarryVec[f]
+      }
       else {
         if (!CarryVec[f]) {
           if (margin_op == "*")
@@ -673,9 +750,15 @@ function AdvCarryVec(c_agg_i, nf, agg_amort, carry) { # TODO: This is wildly ine
             margin_op = ""
           else {
             CarryVec[f] = "0"
-            if (active_key && margin_op == "-") margin_op = "+" }}
-        t_carry = t_carry sep CarryVec[f] margin_op GetOrSetTruncVal(extract_val) }}
-    if (debug2) print CA[c_agg_i]" :: ADVCARRYVEC: " t_carry sep CarryVec[f] margin_op val }
+            if (active_key && margin_op == "-") margin_op = "+"
+          }
+        }
+        t_carry = t_carry sep CarryVec[f] margin_op GetOrSetTruncVal(extract_val)
+      }
+    }
+
+    if (debug2) print CA[c_agg_i]" :: ADVCARRYVEC: " t_carry sep CarryVec[f] margin_op val
+  }
 
   if (!search && (!header || NR > 1)) {
     for (j = 1; j <= ra_count; j++) {
@@ -683,7 +766,9 @@ function AdvCarryVec(c_agg_i, nf, agg_amort, carry) { # TODO: This is wildly ine
       if (margin_op == "*" && Totals[c_agg_i, j] == "") Totals[c_agg_i, j] = 1
       if (debug2)
         print NR" TOTALADV: RA "RA[j]", CA "CA[c_agg_i]" -- "Totals[c_agg_i, j] margin_op RAggResult[RA[j], NR]
-      Totals[c_agg_i, j] = EvalExpr(Totals[c_agg_i, j] margin_op RAggResult[RA[j], NR]) }}
+      Totals[c_agg_i, j] = EvalExpr(Totals[c_agg_i, j] margin_op RAggResult[RA[j], NR])
+    }
+  }
 
   return t_carry
 }
@@ -730,13 +815,18 @@ function ResolveRXAggs() {
           tmp = XKey[f]
           delete XAggKey[x_agg_i, XAggKeySave[x_agg_i, tmp]]
           delete XAggKeySave[x_agg_i, tmp]
-          XKey[f] = tmp SUBSEP "::" Row[f] }}}
+          XKey[f] = tmp SUBSEP "::" Row[f]
+        }
+      }
+    }
 
     for (f = 1; f <= fixed_nf; f++) {
       if (!XAggKeySave[x_agg_i, XKey[f]]) {
         XAggLength[x_agg_i]++
         XAggKeySave[x_agg_i, XKey[f]] = XAggLength[x_agg_i]
-        XAggKey[x_agg_i, XAggLength[x_agg_i]] = XKey[f] }}
+        XAggKey[x_agg_i, XAggLength[x_agg_i]] = XKey[f]
+      }
+    }
 
     split(_[agg_index], AggRow, FS)
     agg_row_len = length(AggRow)
@@ -753,41 +843,9 @@ function ResolveRXAggs() {
       if (XAggResult[x_agg_i, key_id])
         XAggResult[x_agg_i, key_id] = EvalExpr(XAggResult[x_agg_i, key_id] agg_op trunc_val)
       else
-        XAggResult[x_agg_i, key_id] = trunc_val }
+        XAggResult[x_agg_i, key_id] = trunc_val
+    }
   }
-}
-
-function EvalExpr(expr) {
-  res = 0
-  nm = gsub(/\*-/, "*", expr)
-  nm += gsub(/\/-/, "/", expr)
-  gsub(/--/, "+", expr)
-  split(expr, a, "+")
-  for(a_i in a){
-    split(a[a_i], s, "-")
-    for(s_i in s){
-      split(s[s_i], m, "*")
-      for(m_i in m){
-        split(m[m_i], d, "/")
-        for(d_i in d){
-          split(d[d_i], u, "%")
-          for(u_i in u){
-            split(u[u_i], e, "(\\^|\\*\\*)")
-            for(e_i in e){
-              if (e_i > 1) e[1] = e[1] ** e[e_i] }
-            u[u_i] = e[1]; delete e
-            if (u_i > 1) u[1] = u[1] % u[u_i] }
-          d[d_i] = u[1]; delete u
-          if (d_i > 1 && d[d_i] != 0) d[1] /= d[d_i] }
-        m[m_i] = d[1]; delete d
-        if (m_i > 1) m[1] *= m[m_i] }
-      s[s_i] = m[1]; delete m
-      if (s_i > 1) s[1] -= s[s_i] }
-    a[a_i] = s[1]; delete s }
-
-  for (a_i in a)
-    res += a[a_i]
-  return nm % 2 ? -res : res
 }
 
 function GetComp(string) {
@@ -803,18 +861,6 @@ function EvalCompExpr(left, right, comp) {
   return (comp == "=" && left == right) ||
          (comp == ">" && left > right) ||
          (comp == "<" && left < right)
-}
-
-function Max(a, b) {
-  if (a > b) return a
-  else if (a < b) return b
-  else return a
-}
-
-function Min(a, b) {
-  if (a > b) return b
-  else if (a < b) return a
-  else return a
 }
 
 function Indexed(expr, test_idx) {
@@ -845,31 +891,26 @@ function GetOrSetExtractVal(val) {
       extract_val = substr(val, RSTART, RSTART+RLENGTH)
     else if (RSTART > 1 || RLENGTH < length(val)) {
       NoVal[val] = 1
-      return "" }
+      return ""
+    }
     else
-      extract_val = val }
-   else {
-     NoVal[val] = 1
-     return "" }
+      extract_val = val
+    }
+  else {
+    NoVal[val] = 1
+    return ""
+  }
 
   extract_val += 0  
   ExtractVal[val] = extract_val
   return extract_val
 }
 
-function UnescapeOFS() {
-  split(OFS, OFSTokens, "\\")
-  OFS = ""
-  for (i = 1; i <= length(OFSTokens); i++)
-    OFS = OFS OFSTokens[i]
-
-  return OFS
-}
-
 function KeySwap(Arr, orig_key, new_key) {
   if (!Arr[orig_key]) return
   if (Arr[new_key] && Arr[orig_key] != Arr[new_key]) {
-    print "WARNING: Array value at key "new_key"="Arr[new_key]" overwritten with new value "Arr[orig_key] }
+    print "WARNING: Array value at key "new_key"="Arr[new_key]" overwritten with new value "Arr[orig_key]
+  }
   Arr[new_key] = Arr[orig_key]
   delete Arr[orig_key]
 }

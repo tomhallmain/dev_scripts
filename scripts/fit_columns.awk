@@ -89,7 +89,6 @@
 ## TODO: Pagination
 ## TODO: Variant float output for normal sized nums
 ## TODO: SetType function checking field against relevant re one time at start
-## TODO: GetOrSets
 
 BEGIN {
   WCW_FS = " "
@@ -97,29 +96,31 @@ BEGIN {
 
   if (file && !nofit && !onlyfit && !startfit && !endfit && !startrow && !endrow) {
     if (file ~ /\.(properties|csv|tsv)$/)
-      nofit = "^#" }
+      nofit = "^#"
+  }
   else if (nofit || onlyfit || startfit || endfit) {
     gsub(/__FS__/, FS, nofit)
     gsub(/__FS__/, FS, onlyfit)
     gsub(/__FS__/, FS, startfit)
-    gsub(/__FS__/, FS, endfit) }
+    gsub(/__FS__/, FS, endfit)
+  }
 
   partial_fit = nofit || onlyfit || startfit || endfit || startrow || endrow
   prefield = FS == "@@@"
-  if (OFS ~ "\\[:space:\\]\\{") OFS = "  "
-  else if (OFS ~ "\\[:space:\\]") OFS = " "
+  OFS = SetOFS()
 
   if (d != "z" && !(d ~ /-?[0-9]+/)) {
-    d = 0 }
-  else if (d < 0) {
+    d = 0
+  } else if (d < 0) {
     sn = -d
-    d = "z" }
-  
+    d = "z"
+  }
+
   if (d) {
     fix_dec = d == "z" ? 0 : d
   }
 
-  zero_blank = !no_zero_blank
+  zero_blank = !no_zero_blank || zero_blank
 
   sn0_len = 1 + 4 # e.g. 0e+00
   
@@ -127,11 +128,14 @@ BEGIN {
     if (d == "z")
       sn_len = sn0_len
     else
-      sn_len = 2 + d + 4 } # e.g. 0.00e+00
+      sn_len = 2 + d + 4 # e.g. 0.00e+00
+  }
 
   if (!buffer) buffer = 2
   if (!(color == "never")) {
-    color_on = 1; color_pending = 1 }
+    color_on = 1
+    color_pending = 1
+  }
 
   if (!(color == "never")) {
     hl = "\033[1;36m"
@@ -162,7 +166,10 @@ FNR < 2 && NR > FNR { # Reconcile lengths with term width after first pass
       if (FMax[i] / total_f_len > 0.4 ) { 
         GMax[i] = FMax[i] + buffer
         g_max_len += GMax[i]
-        g_count++ }}}
+        g_count++
+      }
+    }
+  }
 
   shrink = tty_size && total_f_len > tty_size
 
@@ -179,7 +186,10 @@ FNR < 2 && NR > FNR { # Reconcile lengths with term width after first pass
           g_max_len -= cut_len
           ShrinkF[i] = 1
           MaxFLen[i] = FMax[i]
-          if (debug) DebugPrint(9) }}}
+          if (debug) DebugPrint(9)
+        }
+      }
+    }
 
     reduction_scaler = 14
     
@@ -199,20 +209,27 @@ FNR < 2 && NR > FNR { # Reconcile lengths with term width after first pass
           total_f_len -= cut_len
           ShrinkF[i] = 1
           MaxFLen[i] = FMax[i]
-          if (debug) DebugPrint(5) }}
+          if (debug) DebugPrint(5)
+        }
+      }
 
-      reduction_scaler-- }}
+      reduction_scaler--
+    }
+  }
 }
 
 partial_fit {
   if (FNR < 2) {
     fit_complete = 0
-    in_fit = 0 }
+    in_fit = 0
+  }
   if (in_fit) {
     if ((endfit && $0 ~ endfit) \
       || (endrow && FNR == endrow)) {
       in_fit = 0
-      fit_complete = 1 }}
+      fit_complete = 1
+    }
+  }
   else {
     if (fit_complete \
       || (nofit && $0 ~ nofit) \
@@ -223,12 +240,16 @@ partial_fit {
         next
       else {
         if (prefield) gsub(FS, OFS) # Need to add to prefield too to ensure this isn't lossy
-        print; next }}
+        print
+        next
+      }
+    }
     else if ((startfit && $0 ~ startfit) \
       || (startrow && FNR == startrow) \
       || (!startfit && endfit) \
       || (!startrow && endrow))
-      in_fit = 1 }
+      in_fit = 1
+  }
 }
 
 NR == FNR { # First pass, gather field info
@@ -240,7 +261,8 @@ NR == FNR { # First pass, gather field info
       if (i < endfit_col) {
         init_f = $i
         match(res_line, FS)
-        res_line = substr(res_line, RSTART+RLENGTH, length(res_line)) }
+        res_line = substr(res_line, RSTART+RLENGTH, length(res_line))
+      }
       else {
         gsub(FS, OFS, res_line)
         ResLine[NR] = res_line
@@ -312,7 +334,8 @@ NR == FNR { # First pass, gather field info
     if (f ~ num_re) {
       if (fitrows < 30) {
         if (debug && !NSet[i]) DebugPrint(7)
-        NSet[i] = 1 }
+        NSet[i] = 1
+      }
 
       if (NSet[i] && !NOverset[i]) {
         if (f ~ int_re) {
@@ -326,7 +349,8 @@ NR == FNR { # First pass, gather field info
           if (f ~ /\.[0-9]+0+/)
             sub(/0*$/, "", f) # Remove trailing zeros in decimal part
 
-          len = length(f); l_diff = len - orig_max
+          len = length(f)
+          l_diff = len - orig_max
         }
         if (len > NMax[i]) NMax[i] = len 
       }
@@ -387,70 +411,71 @@ NR == FNR { # First pass, gather field info
         }
       }
 
-      if (debug) DebugPrint(2) }
+      if (debug) DebugPrint(2)
+    }
 
     else if (!no_tf_num && DSet[i] && AnyFmtNum(f)) {
-        float = f ~ float_re
-        tval = TruncVal(f, 0, LargeVals[i])
+      float = f ~ float_re
+      tval = TruncVal(f, 0, LargeVals[i])
 
-        if (tval ~ /\.[0-9]+0+/)
-          sub(/0*$/, "", tval) # Remove trailing zeros in decimal part
-        sub(/\.0*$/, "", tval) # Remove decimal part if equal to zero
+      if (tval ~ /\.[0-9]+0+/)
+        sub(/0*$/, "", tval) # Remove trailing zeros in decimal part
+      sub(/\.0*$/, "", tval) # Remove decimal part if equal to zero
 
-        t_len = length(tval)
-        t_diff = float ? 0 : Max(len - t_len, 0)
-        l_diff = t_len - orig_max
+      t_len = length(tval)
+      t_diff = float ? 0 : Max(len - t_len, 0)
+      l_diff = t_len - orig_max
 
-        split(tval, NParts, /\./)
-        d_len = length(NParts[2])
+      split(tval, NParts, /\./)
+      d_len = length(NParts[2])
 
-        if (d_len > DMax[i]) {
-          dmax_diff = float ? d_len - DMax[i] : 0
-          DMax[i] = d_len
-        }
+      if (d_len > DMax[i]) {
+        dmax_diff = float ? d_len - DMax[i] : 0
+        DMax[i] = d_len
+      }
 
-        apply_decimal = (d != "z" && (d || DMax[i]))
+      apply_decimal = (d != "z" && (d || DMax[i]))
 
-        if (sn) {
-          if (!d) sn_len = 2 + DMax[i] + 4
-          sn_diff = sn_len - orig_max
-          f_diff = Max(sn_diff, 0)
-        }
-        else {
-          gsub(/[^0-9\-]/, "", NParts[1])
-          int_len = length(int(NParts[1]))
-          if (int_len > 4) LargeVals[i] = 1
+      if (sn) {
+        if (!d) sn_len = 2 + DMax[i] + 4
+        sn_diff = sn_len - orig_max
+        f_diff = Max(sn_diff, 0)
+      }
+      else {
+        gsub(/[^0-9\-]/, "", NParts[1])
+        int_len = length(int(NParts[1]))
+        if (int_len > 4) LargeVals[i] = 1
 
-          if (orig_max) {
-            if (DecPush[i] && !(NParts[1] ~ /^($|-)/)) {
-              int_len = Max(DecPush[i], int_len)
-              dec_push = 1
-              delete DecPush[i]
-            }
-            if (int_len > NMax[i]) NMax[i] = int_len
-            int_diff = len - t_len
-
-            if (int_len > IMax[i])
-              IMax[i] = int_len
-            else if (!float)
-              int_diff += IMax[i] - int_len
-
-            if (apply_decimal) {
-              dot = 1
-              dec = (d ? fix_dec : DMax[i])
-              d_diff = (float || !d_len ? dot : 0) + dec - d_len
-              f_diff = Max(l_diff + int_diff + d_diff + dmax_diff - t_diff, 0)
-            }
-            else {
-              f_diff = Max(l_diff + int_diff + d_diff + dmax_diff - t_diff, 0)
-            }
+        if (orig_max) {
+          if (DecPush[i] && !(NParts[1] ~ /^($|-)/)) {
+            int_len = Max(DecPush[i], int_len)
+            dec_push = 1
+            delete DecPush[i]
           }
+          if (int_len > NMax[i]) NMax[i] = int_len
+          int_diff = len - t_len
 
+          if (int_len > IMax[i])
+            IMax[i] = int_len
+          else if (!float)
+            int_diff += IMax[i] - int_len
+
+          if (apply_decimal) {
+            dot = 1
+            dec = (d ? fix_dec : DMax[i])
+            d_diff = (float || !d_len ? dot : 0) + dec - d_len
+            f_diff = Max(l_diff + int_diff + d_diff + dmax_diff - t_diff, 0)
+          }
           else {
-            if (int_len > NMax[i]) NMax[i] = int_len
-            f_diff = l_diff
+            f_diff = Max(l_diff + int_diff + d_diff + dmax_diff - t_diff, 0)
           }
         }
+
+        else {
+          if (int_len > NMax[i]) NMax[i] = int_len
+          f_diff = l_diff
+        }
+      }
 
       if (debug && f_diff) DebugPrint(3)
     }
@@ -489,30 +514,37 @@ NR > FNR { # Second pass, print formatted if applicable
   for (i = 1; i <= max_nf; i++) {
     not_last_f = i < max_nf
     f = endfit_col && i == endfit_col ? ResLine[FNR] : $i
+
     if (FMax[i]) {
       if (DSet[i] || (NSet[i] && ! NOverset[i])) {
-        
+
         if (AnyFmtNum(f)) {
           if (DSet[i]) {
             if (zero_blank && f + 0 == 0) {
               type_str = "s"
-              value = "-" }
+              value = "-"
+            }
             else if (d == "z") {
               type_str = (sn ? ".0e" : "s")
-              value = int(f) }
+              value = int(f)
+            }
             else {
               dec = (d ? fix_dec : DMax[i])
               type_str = (sn ? "." dec "e" : "." dec "f")
-              value = TruncVal(f, dec, LargeVals[i]) }}
+              value = GetOrSetTruncVal(f, dec, LargeVals[i])
+            }
+          }
           else {
             type_str = (sn ? ".0e" : "s")
-            value = f }}
-        else { type_str = "s"; value = f }
+            value = f
+          }
+        }
+        else {
+          type_str = "s"
+          value = f
+        }
 
-        #if (not_last_f)
         print_len = FMax[i] + COLOR_DIFF[FNR, I] + WCWIDTH_DIFF[FNR, i]
-        #else print_len = length(value)
-
         justify_str = "%" # Right-align
         fmt_str = justify_str print_len type_str
 
@@ -525,13 +557,18 @@ NR > FNR { # Second pass, print formatted if applicable
       else {
         if (ShrinkF[i]) {
           if (color_on) {
-            a_color = hl; color_off = no_color }
-          value = CutStringByVisibleLen(f, MaxFLen[i] + WCWIDTH_DIFF[FNR, i]) }
+            a_color = hl
+            color_off = no_color
+          }
+          value = GetOrSetCutStringByVisibleLen(f, MaxFLen[i] + WCWIDTH_DIFF[FNR, i])
+        }
         else {
           if (color_on) {
             a_color = color_pending ? white : ""
-            color_off = color_pending ? no_color : "" }
-          value = f }
+            color_off = color_pending ? no_color : ""
+          }
+          value = f
+        }
 
         if (not_last_f)
           print_len = MaxFLen[i] + COLOR_DIFF[FNR, i] + WCWIDTH_DIFF[FNR, i]
@@ -545,7 +582,8 @@ NR > FNR { # Second pass, print formatted if applicable
         if (not_last_f) PrintBuffer(buffer)
       }
     }
-    if (debug && FNR < 2) DebugPrint(6) }
+    if (debug && FNR < 2) DebugPrint(6)
+  }
 
   print ""
 
@@ -557,16 +595,21 @@ function StripTrailingColors(str) {
   gsub(trailing_color_re, "", str) # Remove ANSI color codes
   return str
 }
+
 function StripColors(str) {
   gsub(color_re, "", str) # Remove ANSI color codes
   return str
 }
+
 function StripBasicASCII(str) {
   # TODO: Strengthen cases where not multibyte-safe
   gsub(/[ -~ -¬®-˿Ͱ-ͷͺ-Ϳ΄-ΊΌΎ-ΡΣ-҂Ҋ-ԯԱ-Ֆՙ-՟ա-և։֊־׀׃׆א-תװ-״]+/, "", str)
   return str
 }
-function CutStringByVisibleLen(str, red_len) {
+
+function GetOrSetCutStringByVisibleLen(str, red_len) {
+  if (CutString[str]) return CutString[str]
+
   if (str ~ trailing_color_re) {
     rem_str = str; red_str = ""; red_str_len = 0; next_color = ""
 
@@ -591,8 +634,17 @@ function CutStringByVisibleLen(str, red_len) {
     red_str = substr(str, 1, red_len)
   }
 
+  CutString[str] = red_str
   return red_str
 }
+
+function GetOrSetTruncVal(val, dec, large_vals) {
+  if (TVal[val]) return TVal[val]
+  trunc_val = TruncVal(val, dec, larg_vals)
+  TVal[val] = trunc_val
+  return trunc_val
+}
+
 function TruncVal(val, dec, large_vals) {
   if (large_vals || (val+0 > 9999) || val ~ /-?[0-9]\.[0-9]+(E|e\+)([4-9]|[1-9][0-9]+)$/) {
     dec_f = d ? fix_dec : Max(dec, 0)
@@ -610,31 +662,26 @@ function TruncVal(val, dec, large_vals) {
   else
     return sprintf("%f", val) # Small floats flow through this logic
 }
+
 function AnyFmtNum(str) {
   return (str ~ num_re || str ~ decimal_re || str ~ float_re)
 }
+
 function ComplexFmtNum(str) {
   return (str ~ decimal_re || str ~ float_re)
 }
-function Max(a, b) {
-  if (a > b) return a
-  else if (a < b) return b
-  else return a
-}
-function Min(a, b) {
-  if (a > b) return b
-  else if (a < b) return a
-  else return a
-}
+
 function PrintWarning() {
   print orange "WARNING: Total max field lengths larger than display width!" no_color
   if (!color_detected) print "Columns cut printed in " hl "HIGHLIGHT" no_color
   print ""
 }
+
 function PrintBuffer(buffer) {
   space_str = bufferchar "                                                               "
   printf "%.*s", buffer, space_str
 }
+
 function DebugPrint(case) {
   # Switch statement not supported in all Awk implementations
   if (debug_col && i != debug_col) return

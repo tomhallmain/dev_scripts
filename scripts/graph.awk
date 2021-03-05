@@ -26,9 +26,7 @@
 #
 
 BEGIN {
-  if (OFS ~ "\\\\") OFS = UnescapeOFS()
-  if (OFS ~ "\\[:space:\\]\{") OFS = "  "
-  else if (OFS ~ "\\[:space:\\]\+") OFS = " "
+  OFS = SetOFS()
 }
 
 {
@@ -61,13 +59,5 @@ function Backtrace(start, test_base) {
 }
 function Extend(branch, offshoot) {
   return branch OFS offshoot
-}
-function UnescapeOFS() {
-  split(OFS, OFSTokens, "\\")
-  OFS = ""
-  for (i = 1; i <= length(OFSTokens); i++)
-    OFS = OFS OFSTokens[i]
-
-  return OFS
 }
 

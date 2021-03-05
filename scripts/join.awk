@@ -122,6 +122,7 @@ BEGIN {
   if (!fs1) fs1 = FS
   if (!fs2) fs2 = FS
   FS = fs1
+  OFS = SetOFS()
   if (OFS ~ /\[\:.+\:\]\{2,\}/)
     OFS = "  "
   else if (OFS ~ /\[\:.+\:\]/)
@@ -139,9 +140,12 @@ BEGIN {
         inner_label = "BOTH"
       left_label = left_label OFS
       right_label = piped ? "PIPEDDATA" OFS : right_label OFS
-      inner_label = inner_label OFS }
+      inner_label = inner_label OFS
+    }
     else {
-      left_label = ""; right_label = ""; inner_label = "" }}
+      left_label = ""; right_label = ""; inner_label = ""
+    }
+  }
   else {
     left_label = ""; right_label = ""; inner_label = ""
     if (k) { k1 = k; k2 = k; equal_keys = 1 }
@@ -154,13 +158,16 @@ BEGIN {
       print "Keysets must be equal in length"; exit 1 }
     for (i = 1; i <= len_k1; i++) {
       key = Keys1[i]
-      if (!(key ~ /^[0-9]+$/)) { print "Keys must be integers"; exit 1 }}
+      if (!(key ~ /^[0-9]+$/)) { print "Keys must be integers"; exit 1 }
+    }
     for (i = 1; i <= len_k2; i++) {
       key = Keys2[i]
       joint_key = Keys1[i]
       if (!(key ~ /^[0-9]+$/)) { print "Keys must be integers"; exit 1 }
       K2[key] = joint_key
-      K1[joint_key] = key }}
+      K1[joint_key] = key
+    }
+  }
 
   if (join == "left") left = 1
   else if (join == "right") right = 1
@@ -196,7 +203,8 @@ NR == FNR {
 
   while (key in S1) {
     keycount++
-    key = keybase _ keycount }
+    key = keybase _ keycount
+  }
 
   SK1[key]++
   S1[key, SK1[key]] = $0
@@ -226,10 +234,13 @@ NR > FNR {
       if (run_inner) {
         record_count++
         if (ind) printf "%s", record_count OFS
-        print GenInnerOutputString(S1[key, sk2_keycount], $0, K2, max_nf1, max_nf2, fs1) }
+        print GenInnerOutputString(S1[key, sk2_keycount], $0, K2, max_nf1, max_nf2, fs1)
+      }
       delete S1[key, sk2_keycount]
       keycount++
-      key = keybase _ keycount }}
+      key = keybase _ keycount
+    }
+  }
   else {
     S2[key] = $0
 
@@ -239,7 +250,9 @@ NR > FNR {
         if (ind) printf "%s", record_count OFS
         print GenRightOutputString(S2[key], K1, K2, max_nf1, max_nf2, fs2) }
       keycount++
-      key = keybase _ keycount }}
+      key = keybase _ keycount
+    }
+  }
 }
 
 END {
@@ -250,18 +263,15 @@ END {
   for (compound_key in S1) {
     record_count++
     if (ind) printf "%s", record_count OFS
-    print GenLeftOutputString(S1[compound_key], K1, max_nf1, max_nf2, fs1) }
+    print GenLeftOutputString(S1[compound_key], K1, max_nf1, max_nf2, fs1)
+  }
 }
 
 function GenMergeKeys(nf, K1, K2) {
   for (f = 1; f <= nf; f++) {
     K1[f] = f; K2[f] = f
-    Keys1[f] = f; Keys2[f] = f}
-}
-function Max(a, b) {
-  if (a > b) return a
-  else if (a < b) return b
-  else return a
+    Keys1[f] = f; Keys2[f] = f
+  }
 }
 function GenKeyString(Keys) {
   str = ""
@@ -269,7 +279,8 @@ function GenKeyString(Keys) {
     k = Keys[i]
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", $k)
     if (length($k) == 0) $k = "<NULL>"
-    str = str $k _ }
+    str = str $k _
+  }
   return str
 }
 function GenInnerOutputString(line1, line2, K2, nf1, nf2, fs1) {
@@ -279,7 +290,8 @@ function GenInnerOutputString(line1, line2, K2, nf1, nf2, fs1) {
     jn = jn OFS
   for (f = 1; f <= nf2; f++) {
     if (f in K2) continue
-    jn = jn OFS $f }
+    jn = jn OFS $f
+  }
   return jn
 }
 function GenRightOutputString(line2, K1, K2, nf1, nf2, fs2) {
@@ -289,10 +301,12 @@ function GenRightOutputString(line2, K1, K2, nf1, nf2, fs2) {
       jn = jn $K1[f]
     else
       jn = jn "<NULL>"
-    if (f < nf1) jn = jn OFS }
+    if (f < nf1) jn = jn OFS
+  }
   for (f = 1; f <= nf2; f++) {
     if (f in K2) continue
-    jn = jn OFS $f }
+    jn = jn OFS $f
+  }
   return jn
 }
 function GenLeftOutputString(line1, K1, nf1, nf2, fs1) {
@@ -302,6 +316,7 @@ function GenLeftOutputString(line1, K1, nf1, nf2, fs1) {
     jn = jn OFS
   for (f = 1; f <= nf2; f++) {
     if (f in K2) continue
-    jn = jn OFS "<NULL>" }
+    jn = jn OFS "<NULL>"
+  }
   return jn
 }

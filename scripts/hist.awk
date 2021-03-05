@@ -20,8 +20,10 @@ BEGIN {
       if (NR == 1) {
         gsub("[[:space:]]+", "", fval)
         gsub(",", "", fval)
-        Headers[f] = fval }
-      continue }
+        Headers[f] = fval
+      }
+      continue
+    }
 
     gsub("[[:space:]]+", "", fval)
     gsub("\\(", "-", fval)
@@ -34,7 +36,8 @@ BEGIN {
     Counts[f, fval]++
 
     if (fval < Min[f] || !Min[f]) Min[f] = fval
-    else if (fval > Max[f]) Max[f] = fval }
+    else if (fval > Max[f]) Max[f] = fval
+  }
 }
 
 END {
@@ -42,7 +45,8 @@ END {
     if (!Max[f]) continue
     if (length(Max[f]) > max_len) max_len = length(Max[f])
     if (length(Min[f]) > max_len) max_len = length(Min[f])
-    BuildBins(f, Bins, Max[f], Min[f], n_bins) }
+    BuildBins(f, Bins, Max[f], Min[f], n_bins)
+  }
 
   for (c in Counts) {
     split(c, CountDesc, SUBSEP)
@@ -53,7 +57,9 @@ END {
       if (val <= FBins[b]) {
         Bin[f, b]++
         if (Bin[f, b] > MaxBin[f]) MaxBin[f] = Bin[f, b]
-        break }}
+        break
+      }
+    }
 
   edges_len = max_len * 2 + 6
   PrintBins(Rec, Bin, Bins, MaxBin, Min, n_bins, bar)
@@ -63,7 +69,8 @@ function BuildBins(f, Bins, max, min, n_bins) {
   bin_size = (max - min) / n_bins
   for (b = 1; b <= n_bins; b++) {
     bin_edge = min + b * bin_size
-    Bins[f] = Bins[f] bin_edge"," }
+    Bins[f] = Bins[f] bin_edge","
+  }
 }
 
 function PrintBins(Rec, Bin, Bins, MaxBin, Min, n_bins, bar) {
