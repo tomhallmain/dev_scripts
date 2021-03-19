@@ -235,13 +235,17 @@ BEGIN {
   BuildRe(Re); BuildTokens(Tk); BuildTokenMap(TkMap)
   assume_constant_fields = 0; base_r = 1; base_c = 1
   min_guar_print_nf = 1000; min_guar_print_nr = 100000000
+  comma_escape_string = "#_ECSOCMAMPA_#"
   if (!cased) ignore_case_global = 1
-  if (ARGV[1]) { # TODO: Handle unsupported cases if file arg not present
-    "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0 }
+  if (ARGV[1]) {
+    # TODO: Handle unsupported cases if file arg not present
+    "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0
+  }
 
   if (debug) DebugPrint(-1)
+  
   if (r) {
-    gsub("\\\\,", "?ECSOCMAMPA?", r) # Unescape comma searches
+    gsub("\\\\,", comma_escape_string, r) # Unescape comma searches
     ReoR[0] = 1
     Setup(1, r, reo_r_count, R, RangeR, ReoR, base_r, rev_r, oth_r, RRExprs, RRSearches, RRIdxSearches, RRFrames, RAnchors, RExtensions)
     r_len = SetupVars["len"]
@@ -251,11 +255,11 @@ BEGIN {
     oth_r = SetupVars["oth"];
     delete ReoR[0]
   }
-  else { pass_r = 1 }
   if (!reo_r_count) pass_r = 1
 
-  if (c && !(c == "off")) {
-    gsub("\\\\,", "?ECSOCMAMPA?", c) # Unescape comma searches
+  if (c == "off") c_off = 1
+  else if (c) {
+    gsub("\\\\,", comma_escape_string, c) # Unescape comma searches
     ReoC[0] = 1
     Setup(0, c, reo_c_count, C, RangeC, ReoC, base_c, rev_c, oth_c, RCExprs, RCSearches, RCIdxSearches, RCFrames, CAnchors, CExtensions)
     c_len = SetupVars["len"]
@@ -265,7 +269,6 @@ BEGIN {
     oth_c = SetupVars["oth"] 
     delete ReoC[0]
   }
-  else { pass_c = 1; if (c == "off") c_off = 1 }
   if (!reo_c_count) pass_c = 1
 
   if (pass_r && pass_c) pass = 1
@@ -278,12 +281,15 @@ BEGIN {
   else if (reo && !mat && !re && !anc && !rev && !oth && !c_nidx && !c_nidx_rng)
     base_reo = 1
 
-  if (OFS ~ "\\\\") OFS = UnescapeOFS()
+  if (OFS ~ "\\\\") OFS = Unescape(OFS)
   if (OFS ~ "\\[:space:\\]\{") OFS = "  "
   else if (OFS ~ "\\[:space:\\]\+") OFS = " "
+  
   reo_r_len = length(ReoR)
   reo_c_len = length(ReoC)
+  
   if (debug) { DebugPrint(0); DebugPrint(7) }
+  
   if (idx && !pass && (!reo || base_reo && pass_r)) {
     if (base_range || base_reo)
       FieldsIndexPrint(ReoC, reo_c_len)
@@ -336,12 +342,12 @@ reo {
     if (base_reo && NR in R) {
       StoreRow(_)
       if (NF > max_nf) max_nf = NF
-      next
     }
-
-    StoreRow(_)
-    if (!base_c) StoreFieldRefs()
-    if (!base_r) StoreRowRefs()
+    else {
+      StoreRow(_)
+      if (!base_c) StoreFieldRefs()
+      if (!base_r) StoreRowRefs()
+    }
   }
 
   if (NF > max_nf) max_nf = NF
@@ -433,8 +439,10 @@ END {
           for (rc = 1; rc <= reo_c_len; rc++) {
             c_key = ReoC[rc]
             if (!c_key) continue
+            
             row = _[r_key]
             split(row, Row, FS)
+            
             if (c_key ~ Re["int"])
               PrintField(Row[c_key], rc, reo_c_len)
             else {
@@ -647,7 +655,11 @@ function StoreFieldRefs() {
         }
         else {
           if (field ~ base_search)
-            SearchFO[search] = SearchFO[search] f"," }}}}
+            SearchFO[search] = SearchFO[search] f"," 
+        }
+      }
+    }
+  }
 
   if (mat) {
     for (expr in RCExprs) {
@@ -714,7 +726,10 @@ function StoreFieldRefs() {
           continue
         }
         if (EvalCompExpr(eval, compval, comp))
-            ExprFO[expr] = ExprFO[expr] f"," }}}
+            ExprFO[expr] = ExprFO[expr] f","
+      }
+    }
+  }
 
   if (anc && !c_anc_found && NF > 1) {
     for (anchor in CAnchors) {
@@ -822,7 +837,11 @@ function StoreRowRefs() {
         }
         else if (!exclude) {
           if (field ~ base_search)
-            SearchRO[search] = SearchRO[search] NR"," }}}}
+            SearchRO[search] = SearchRO[search] NR","
+        }
+      }
+    }
+  }
 
   if (mat) {
     for (expr in RRExprs) {
@@ -944,7 +963,11 @@ function StoreRowRefs() {
           if (fr_expr && !frame_set)
             FrameRowFields[expr] = FrameRowFields[expr] NR":"f","
           else
-            ExprRO[expr] = ExprRO[expr] NR"," }}}}
+            ExprRO[expr] = ExprRO[expr] NR","
+        }
+      }
+    }
+  }
 
   if (anc && !r_anc_found) {
     for (anchor in RAnchors) {
@@ -977,13 +1000,17 @@ function StoreRowRefs() {
 function ResolveRowFilterFrame(frame) {
   fr_type = TypeMap[frame]
   if (debug) DebugPrint(13)
+  
   if (!FrameFields[frame]) {
     ExcludeFrame[frame] = 1
     if (fr_type == "re") SearchRO[frame] = ""
     else if (fr_type == "mat") ExprRO[frame] = ""
-    return }
+    return
+  }
+
   FrameFieldsTest = FrameFields[frame]
   split(FrameRowFields[frame], FrameRowsTest, ",")
+
   for (rf_i in FrameRowsTest) {
     split(FrameRowsTest[rf_i], RowField, ":")
     row = RowField[1]
@@ -992,7 +1019,10 @@ function ResolveRowFilterFrame(frame) {
     if (Indexed(FrameFieldsTest, field)) {
       if (field > max_frame_f) max_frame_f = field
       if (fr_type == "re") SearchRO[frame] = SearchRO[frame] row","
-      else if (fr_type == "mat" ) ExprRO[frame] = ExprRO[frame] row"," }}
+      else if (fr_type == "mat" ) ExprRO[frame] = ExprRO[frame] row","
+    }
+  }
+
   FrameSet[frame] = 1
   return max_frame_f
 }
@@ -1016,8 +1046,10 @@ function ResolveMultisetLogic(row_call, key, max_val) {
   for (and_i in Ands) {
     ors_idx = ""
     split(Ands[and_i], Ors, "\\|\\|")
+    
     for (ors_i in Ors)
       ors_idx = ors_idx GetOrder(row_call, Ors[ors_i])
+    
     AndOrder[and_i] = ors_idx
   }
 
@@ -1028,7 +1060,7 @@ function ResolveMultisetLogic(row_call, key, max_val) {
         break2 = 1
         break
       }
-      if (!Indexed(AndOrder[and_i], i)) {
+      else if (!Indexed(AndOrder[and_i], i)) {
         continue2 = 1
         break
       }
@@ -1177,7 +1209,7 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
 
   for (i = 1; i <= o_len; i++) {
     base_i = Order[i]
-    gsub("\\?ECSOCMAMPA\\?", ",", base_i)
+    gsub(comma_escape_string, ",", base_i) # Replace commas
     if (!base_i) {
       delete Order[i]
       continue
@@ -1436,17 +1468,20 @@ function TestArg(arg, max_i, type, row_call) {
 function MatchCheck(ExprOrder, SearchOrder, AncOrder, CNidx, CNidxRanges) {
   will_print = 0
   for (cnidx in CNidx)
-    if (CNidx[cnidx]) { will_print = 1; break }
+    if (CNidx[cnidx]) { will_print = 1; return }
   for (cnidxrng in CNidxRanges)
-    if (CNidxRanges[cnidxrng]) { will_print = 1; break }
+    if (CNidxRanges[cnidxrng]) { will_print = 1; return }
   for (expr in ExprOrder)
-    if (ExprOrder[expr]) { will_print = 1; break }
+    if (ExprOrder[expr]) { will_print = 1; return }
   for (search in SearchOrder)
-    if (SearchOrder[search]) { will_print = 1; break }
+    if (SearchOrder[search]) { will_print = 1; return }
   for (anchor in AncOrder) 
-    if (AncOrder[anchor]) { will_print = 1; break }
+    if (AncOrder[anchor]) { will_print = 1; return }
+  
   if (!will_print) {
-    print "No matches found"; exit 1 }
+    print "No matches found"
+    exit 1
+  }
 }
 
 function Indexed(idx_ord, test_idx) {
@@ -1570,15 +1605,18 @@ function DebugPrint(case, arg) {
     if (pass_r) print "all"
     else {
       for (i = 1; i < reo_r_len; i++) printf "%s", ReoR[i] ","
-      print ReoR[reo_r_count] }
+      print ReoR[reo_r_count]
+    }
     print_reo_c_count = pass_c ? "all/undefined" : reo_c_count
     print "Reorder count (col): " print_reo_c_count
     printf "Reorder vals (col):  "
     if (pass_c) print "all"
-    else { for (i = 1; i < reo_c_len; i++) printf "%s", ReoC[i] ","
-      print ReoC[reo_c_count] }
-    if (max_nr) print "max_nr: " max_nr }
-
+    else {
+      for (i = 1; i < reo_c_len; i++) printf "%s", ReoC[i] ","
+      print ReoC[reo_c_count]
+    }
+    if (max_nr) print "max_nr: " max_nr
+  }
   else if (case == 1) {
     print "i: "i ", r_i: "o_i ", r_len: "len ", token: "token }
   else if (case == 1.5) {
@@ -1629,7 +1667,8 @@ function DebugPrint(case, arg) {
     if (length(RCSearches)) { print "------------- RCSearches -------------"
       for (se in RCSearches) print se " " SearchFO[se] }
     if (length(RCFrames)) { print "------------- RCFrames ---------------"
-      for (fr in RCFrames) print fr }}
+      for (fr in RCFrames) print fr }
+  }
   else if (case == 7) {
     print "------ EVALS OR BASIC OUTPUT -------" }
   else if (case == 8) {

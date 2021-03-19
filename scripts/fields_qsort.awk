@@ -21,15 +21,16 @@ BEGIN {
   if (type && "numeric" ~ "^"type) {
     n = 1
     n_re = "^[[:space:]]*\\$?[[:space:]]?-?\\$?([0-9]{,3},)*[0-9]*\\.?[0-9]+"
-    f_re = "^[[:space:]]*-?[0-9]\.[0-9]+(E|e)(\\+|-)?[0-9]+[[:space:]]*$" }
+    f_re = "^[[:space:]]*-?[0-9]\.[0-9]+(E|e)(\\+|-)?[0-9]+[[:space:]]*$"
+  }
 }
 
 {
   for (i = 1; i <= n_keys; i++) {
     kf = Keys[i]
     if (kf == "NF") kf = NF
-    if (i == 1) { sort_key = $kf }
-    else { sort_key = sort_key FS $kf }}
+    sort_key = i == 1 ? sort_key = $kf : sort_key FS $kf
+  }
 
   A[NR] = sort_key
   _[NR] = $0
@@ -38,10 +39,12 @@ BEGIN {
 END {
   if (n) {
     if (desc) QSDN(A, 1, NR)
-    else      QSAN(A, 1, NR) }
+    else      QSAN(A, 1, NR)
+  }
   else {
     if (desc) QSD(A, 1, NR)
-    else      QSA(A, 1, NR) }
+    else      QSA(A, 1, NR)
+  }
 
   for (i = 1; i <= NR; i++)
     print _[i]
@@ -87,7 +90,8 @@ function QSAN(A,left,right,    i,last) {
     if (GetN(A[i]) < GetN(A[left]))
       S(A, ++last, i)
     else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]])
-      S(A, ++last, i) }
+      S(A, ++last, i)
+  }
 
   S(A, left, last)
   QSAN(A, left, last-1)
@@ -104,7 +108,8 @@ function QSDN(A,left,right,    i,last) {
     if (GetN(A[i]) > GetN(A[left]))
       S(A, ++last, i)
     else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]])
-      S(A, ++last, i) }
+      S(A, ++last, i)
+  }
 
   S(A, left, last)
   QSDN(A, left, last-1)
@@ -122,14 +127,18 @@ function GetN(str) {
   else if (match(str, n_re)) {
     n_end = RSTART + RLENGTH
     n_str = substr(str, RSTART, n_end)
+
     if (n_str != str) {
-      NExt[str] = substr(str, n_end+1, length(str)) }
+      NExt[str] = substr(str, n_end+1, length(str))
+    }
+
     n_str = sprintf("%f", n_str)
     gsub(/[^0-9\.Ee\+\-]+/, "", n_str)
     gsub(/^0*/, "", n_str)
     n_str = n_str + 0
     NS[str] = n_str
-    return n_str }
+    return n_str
+  }
   else
     return str
 }

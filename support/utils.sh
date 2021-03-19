@@ -8,6 +8,7 @@ ds:file_check() { # Test for file validity and fail if invalid: ds:file_check te
   local tf="$1" enable_search="$4"
   [[ -e "$tf" && ! -d "$tf" ]] && local filelike=0
   [ "$3" ] && ds:test 't(rue)?' "$3" && local allow_binary=0
+  
   if [ "$2" ] && ds:test 't(rue)?' "$2"; then
     [[ -w "$tf" && -f "$tf" ]] || ds:fail 'File is not writable!'
   elif [ "$enable_search" ]; then
@@ -27,7 +28,9 @@ ds:file_check() { # Test for file validity and fail if invalid: ds:file_check te
       local conf=$(ds:readp "Arg is not a file - run on closest match ${f}? (y/n)")
       [ "$conf" = "y" ] && echo -n "$f" || ds:fail 'File not provided or invalid!'
     fi
-    return; fi
+    return
+  fi
+  
   if [ ! "$filelike" ]; then # TODO: Bash -e test fails on fds
     ds:fail 'File not provided or invalid!'; fi
   if [[ ! "$allow_binary" && ! "$tf" =~ '/dev/fd/' ]] && ! grep -Iq "" "$tf"; then
@@ -68,7 +71,7 @@ ds:awk() { # Run an awk script with utils: ds:awk [script] [files...] varargs...
   fi
 }
 
-ds:readlink() { # Portable readlink
+ds:readlink() { # Portable readlink: ds:readlink [file|dir]
   local OLD_PWD="$(pwd)"
   cd "$(dirname "$1")" &>/dev/null 3>/dev/null 4>/dev/null 5>/dev/null 6>/dev/null
   local target="$(basename "$1")"
@@ -92,8 +95,10 @@ ds:extractfs() { # Infer or extract single awk FS from args: ds:extractfs
     else
       local fs="$(echo ${args[$fs_idx]} | tr -d 'FS=')"
       let local fsv_idx=$fs_idx-1
-      unset "args[$fsv_idx]"; fi
-    unset "args[$fs_idx]"; fi
+      unset "args[$fsv_idx]"
+    fi
+    unset "args[$fs_idx]"
+  fi
   echo -n "$fs"
 }
 
@@ -130,7 +135,7 @@ ds:die() { # Output to STDERR and exit with error: ds:die
   if ds:sub_sh || ds:nested; then kill $$; fi
 }
 
-ds:pipe_open() { # ** Detect if pipe is open
+ds:pipe_open() { # ** Detect if pipe is open: if ds:pipe_open; then [...]
   [ -p /dev/stdin ]
 }
 

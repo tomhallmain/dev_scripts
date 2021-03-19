@@ -16,7 +16,7 @@
 
   if (!VAR_OFS && !(FS ~ "\[.+\]")) {
     if (FS ~ "\\\\") 
-      FS = UnescapeOFS() 
+      FS = Unescape(OFS) 
     else
       OFS = FS }
 }

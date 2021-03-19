@@ -37,21 +37,29 @@ genAllowedVarName() {
 
   printf '%s\n' "${var}"
 }
-
+isInt() {
+  local test="$1"
+  local n_re="^[0-9]$"
+  [[ "$test" =~ $n_re ]]
+}
 assoc() {
   # Bash 3 doesn't support hashes
   local key="${1}"
   local addvals="${@:2}"
   printf -v "${key}" %s " ${!key} ${addvals[@]} "
 }
-
 genFilterString() {
   local matches=(" ${@} ")
-  let length=${#matches[@]}
-  last_match=${matches[length-1]}
-  for match in ${matches[@]} ; do
-    str="${str}(NR==${match})"
-    if [ ! $match -eq $last_match ]; then str="${str} || "; fi
+  let local length=${#matches[@]}
+  let local last_match=length-1
+  for ((i=0; i<$length; i++)) ; do
+    local match="$(echo "${matches[$i]}" | awk '{gsub(/^[[:space:]]+|[[:space:]]+$/, ""); print}')"
+    if isInt "$match"; then
+      str="${str}(NR==${match})"
+    else
+      str="${str}(\$0~/${match}/)"
+    fi
+    if [ $i -lt $last_match ]; then str="${str} || "; fi
   done
   printf '%s\n' "${str}"
 }
@@ -69,6 +77,13 @@ REPOS=( ${ALL_REPOS[@]} )
 for repo in ${ALL_REPOS[@]}; do
   cd "$BASE_DIR"
   cd "$repo"
+  
+  if [ $(git status --porcelain | wc -c | xargs) -gt 0 ]; then
+    echo -e "${ORANGE} Excluding repo with untracked changes: $repo ${NC}"
+    ALL_REPOS=( ${ALL_REPOS[@]/%"${repo}"/} )
+    REPOS=( ${REPOS[@]/%"${repo}"/} )
+    continue
+  fi
 
   # Note common master branches removed to disallow their deletion
   BRANCHES=($(git for-each-ref --format='%(refname:lstrip=2)' refs/heads/ | grep -Ev "$master"))
@@ -103,33 +118,34 @@ while [ ! $confirmed ]; do
   unset selections_confirmed
   to_purge=()
   echo -e "\n${WHITE} Purgeable branches are listed below - you will be asked to confirm selection${NC}\n"
-  printf '%s\n' "${UNIQ_BRANCHES[@]}" | awk '{print " " int((NR)) " " $1}'
-  echo ''
-  read -p $'\e[37m Enter branch numbers to purge separated by spaces: \e[0m' to_purge
+  printf '%s\n' "${UNIQ_BRANCHES[@]}" | awk '{printf "%5s  %s\n", NR, $0}'
+  echo
+  read -p $'\e[37m Enter branch numbers or search patterns to purge separated by spaces: \e[0m' to_purge
 
   to_purge=( $(printf '%s\n' "${to_purge[@]}") )
 
   while [ ! $selections_confirmed ]; do
     while [[ -z "${to_purge[@]// }" ]]; do
       echo -e "\n${ORANGE} No value found, please try again. To quit the script, press Ctrl+C${NC}\n"
-      read -p $'\e[37m Enter branch numbers to purge separated by spaces: \e[0m' to_purge
+      read -p $'\e[37m Enter branch numbers or search patterns to purge separated by spaces: \e[0m' to_purge
     done
 
     for i in ${to_purge[@]}; do
-      re='^[0-9]+$'
-      while [[ -z $i || $i -lt 1 || ! $i =~ $re || $i -gt $BRANCH_COUNT ]]; do
-        to_purge=()
-        echo -e "\n${ORANGE} Only input indices of the set provided. To quit the script, press Ctrl+C${NC}\n"
-        read -p $'\e[37m Enter branch numbers to purge separated by spaces: \e[0m' to_purge
-        to_purge=( $(printf '%s\n' "${to_purge[@]}") )
-        break 2
-      done
+      if isInt $i; then
+        while [[ $i -lt 1 || $i -gt $BRANCH_COUNT ]]; do
+          to_purge=()
+          echo -e "\n${ORANGE} Only input indices of the set provided. To quit the script, press Ctrl+C${NC}\n"
+          read -p $'\e[37m Enter branch numbers or search patterns to purge separated by spaces: \e[0m' to_purge
+          to_purge=( $(printf '%s\n' "${to_purge[@]}") )
+          break 2
+        done
+      fi
       selections_confirmed=true
     done
   done
 
   conditional=$(genFilterString ${to_purge[@]})
-  filter="{ if(${conditional}) { print } }"
+  filter="{ if(${conditional}) print }"
   PURGE_BRANCHES=($(printf '%s\n' "${UNIQ_BRANCHES[@]}" | awk "$filter"))
 
   echo -e "\n${ORANGE} Confirm branch purge selection below - BE CAREFUL, confirmation will attempt local deletion in all repos!${NC}\n"

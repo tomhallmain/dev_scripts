@@ -1,21 +1,73 @@
 #!/usr/bin/awk
+# DS:POW
 #
-# Script to print characteristic combinations of values in
-# field-separated data
+# NAME
+#       ds:pow, power.awk
 #
-# > awk -f power.awk file
+# SYNOPSIS
+#       ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
 #
-# TODO: Link between fields and combination sets
-# TODO: Refactor as set, not as left->right ordered combination (may not be
-# feasible performance wise
-# TODO: Add functionality to remove combinations intersecting with
-# low-variance fields as these do not add more info - this would have to be
-# done BEFORE or WHILE permorming exclusions relating to contained fields
-# TODO: Output single fields based on their interaction characteristic value
-# TODO: Set combinations once as a list then iterate over the list
+# DESCRIPTION
+#       power.awk is a script to print characteristic combinations of values in 
+#       field-separated data. By default it will find all possible combinations
+#       without regard for 
+#
+#
+#       To run the script, ensure AWK is installed and in your path (on most Unix-based 
+#       systems it should be), and call it on a file:
+#
+#          > awk -f power.awk file
+#
+#       ds:pow is the caller function for the power.awk script. To run any of the examples 
+#       below, map AWK args as given in SYNOPSIS.
+#
+#       When running with piped data, args are shifted:
+#
+#          $ data_in | ds:pow [min] [return_fields=f] [invert=f] [awkargs]
+#
+# FIELD CONSIDERATIONS
+#       When running ds:pow, an attempt is made to infer field separators of up to
+#       three characters. If none found, FS will be set to default value, a single
+#       space = " ". To override FS, add as a trailing awkarg. If the two files have
+#       different FS, assign to vars fs1 and fs2. Be sure to escape and quote if needed. 
+#       AWK's extended regex can be used as FS:
+#
+#          $ ds:pow file -v fs1=',' -v fs2=':'
+#
+#          $ ds:pow file -v FS=" {2,}"
+#
+#          $ ds:pow file -F'\\\|'
+#
+#       If FS is set to an empty string, all characters will be separated.
+#
+#          $ ds:pow file -v FS=""
+#
+# USAGE
+#       ds:pow has a standard minimum combinations
+#
+# AWKARG OPTS
+#       Set number of combinations per record instead of all possible combinations:
+#
+#          -v choose=2
+#
+#
+#
+## TODO: Link between fields and combination sets
+## TODO: Refactor as set, not as left->right ordered combination (may not be
+## feasible performance wise
+## TODO: Add functionality to remove combinations intersecting with
+## low-variance fields as these do not add more info - this would have to be
+## done BEFORE or WHILE permorming exclusions relating to contained fields
+## TODO: Output single fields based on their interaction characteristic value
+## TODO: Set combinations once as a list then iterate over the list
 
 BEGIN {
-  if (!min) min = 10
+
+  if (!min) {
+    "wc -l < \""ARGV[1]"\"" | getline fnr; fnr+=0 # Get number of data rows
+    min = int(log(fnr)/log(1.6))
+  }
+
   min_floor = min - 1
 
   OFS = SetOFS()
@@ -194,6 +246,8 @@ function GetOrSetIMax(nf, choose) {
       i_max = 0
     else if (choose == nf)
       i_max = 1
+    else if (choose == 1)
+      i_max = nf
     else
       i_max = Fact(nf) / (choose_fact * Fact(nf - choose))
   }
@@ -202,34 +256,6 @@ function GetOrSetIMax(nf, choose) {
 
   IMax[nf] = i_max
   return i_max
-}
-
-function Fact(n,   f) {
-  if (F[n]) return F[n]
-
-  f = n
-
-  for (i = n - 1; i > 1; i--)
-    f *= i
-
-  F[n] = f
-  return f
-}
-
-function Tri(n,   t) {
-  if (T[n]) return T[n]
-
-  t = SumRange(0, n)
-
-  T[n] = t
-  return t
-}
-
-function SumRange(start, end) {
-  for (a = start + 1; a < end; a++)
-    start += a
-
-  return start + end
 }
 
 function GetOrSetCombinationDiscriminant(i, j, choose, nf) {
@@ -241,10 +267,12 @@ function GetOrSetCombinationDiscriminant(i, j, choose, nf) {
   if (choose) {
     if (choose == nf)
       discriminant = 1
+    else if (choose == 1)
+      discriminant = (i == j)
     else if (choose == 2)
       discriminant = GetChooseTwoState(nf, i, j)
     else
-      discriminant = 0
+      discriminant = GetChooseState(nf, i, j)
   }
   else {
     discriminant = i % (2^j) < 2^(j - 1)
@@ -283,6 +311,55 @@ function GetChooseTwoState(nf, i_idx, j_idx) {
 
     return 0
   }
+}
+
+function GetChooseState(nf, i_idx, j_idx) {
+  if (!ChooseState[i_idx]) {
+    build_combin = ""
+    if (i_idx == 1) {
+      for (i_i = 1; i_i <= nf; i_i++) {
+        state_part = i_i <= choose
+        build_combin = build_combin i_i <= choose  
+        if (i_i < nf)
+          build_combin = build_combin ","
+      }
+    }
+    else {
+      for (i_i = i_idx - 1; i_i > 0; i_i--) {
+      }
+    }
+  }
+
+  split(ChooseState[i_idx],Tmp,",")
+  return Tmp[j_idx]
+}
+
+function Fact(n,   f) {
+  if (F[n]) return F[n]
+
+  f = n
+
+  for (i = n - 1; i > 1; i--)
+    f *= i
+
+  F[n] = f
+  return f
+}
+
+function Tri(n,   t) {
+  if (T[n]) return T[n]
+
+  t = SumRange(0, n)
+
+  T[n] = t
+  return t
+}
+
+function SumRange(start, end) {
+  for (a = start + 1; a < end; a++)
+    start += a
+
+  return start + end
 }
 
 function RevTri(base, n,   t) {

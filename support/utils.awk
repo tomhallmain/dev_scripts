@@ -10,23 +10,32 @@ function Min(a, b) {
   else if (a < b) return a
   else return a
 }
+function Trim(string) {
+  gsub(/^[[:space:]]+|[[:space:]]+$/, "", string)
+  return string
+}
 function SetOFS(leave_escapes) {
   if (OFS ~ /\[\:.+\:\]\{/)
     OFS = "  "
   else if (OFS ~ /\[\:.+\:\]/)
     OFS = " "
   else if (!leave_escapes && OFS ~ "\\\\")
-    OFS = UnescapeOFS()
+    OFS = Unescape(OFS)
 
   return OFS
 }
-function UnescapeOFS(   i) {
-  split(OFS, OFSTokens, "\\")
-  OFS = ""
-  for (i = 1; i <= length(OFSTokens); i++)
-    OFS = OFS OFSTokens[i]
+function Escape(_string) {
+  gsub(/[\\.^$(){}\[\]|*+?]/, "\\\\&", _string)
+  return _string
+}
+function Unescape(_string,   i) {
+  split(_string, StringTokens, "\\")
+  _string = ""
+  
+  for (i = 1; i <= length(StringTokens); i++)
+    _string = _string StringTokens[i]
 
-  return OFS
+  return _string
 }
 function EvalExpr(expr,   res,nm,a,s,m,d,u,e) {
   res = 0
@@ -34,6 +43,7 @@ function EvalExpr(expr,   res,nm,a,s,m,d,u,e) {
   nm += gsub(/\/-/, "/", expr)
   gsub(/--/, "+", expr)
   split(expr, a, "+")
+  
   for(_a_i in a){
     split(a[_a_i], s, "-")
     for(_s_i in s){
@@ -58,5 +68,6 @@ function EvalExpr(expr,   res,nm,a,s,m,d,u,e) {
 
   for (_a_i in a)
     res += a[_a_i]
+  
   return nm % 2 ? -res : res
 }

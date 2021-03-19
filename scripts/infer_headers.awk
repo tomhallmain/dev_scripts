@@ -55,7 +55,8 @@ NR == 1 {
   # Evaluate first row field values
   for (i = 1; i <= NF; i++) {
     field = TrimField($i)
-    BuildFirstRowScore(field, i) }
+    BuildFirstRowScore(field, i)
+  }
 
   next
 }
@@ -63,17 +64,20 @@ NR == 1 {
 NR <= max_rows {
   for (i = 1; i <= NF; i++) {
     field = TrimField($i)
-    BuildControlRowScore(field, i) }
+    BuildControlRowScore(field, i)
+  }
 }
 
 END {
   if (NR < max_rows) {
     max_rows = NR
-    control_rows = max_rows - potential_header_rows }
+    control_rows = max_rows - potential_header_rows
+  }
 
   CalcSims(FirstRow, ControlRows)
   
   if (debug) print headerScore
+  
   if (headerScore > 0)
     exit 0
   else
@@ -86,28 +90,41 @@ function TrimField(field) {
 }
 function BuildFirstRowScore(field, position) {
   FirstRow[position, "len"] = length(field)
+  
   for (m in Re) {
     re = Re[m]
     if (field ~ re) {
       FirstRow[position, m] = 1
       if (NonHeaderRe ~ " " m " ") headerScore -= 100
       if (HeaderRe ~ " " m " ") headerScore += 30
-      if (debug && NR < 3) print NR, position, m, field, headerScore }}
+      
+      if (debug && NR < 3) print NR, position, m, field, headerScore
+    }
+  }
 }
 function BuildControlRowScore(field, position) {
   headerScore += sqrt((FirstRow[position, "len"] - length(field))**2) / control_rows
+  
   for (m in Re) {
     if (field ~ Re[m]) {
       ControlRow[position, m] += 1
-      if (debug && NR < 3) print NR, position, m, field, headerScore }}
+      
+      if (debug && NR < 3) print NR, position, m, field, headerScore
+    }
+  }
 }
 function CalcSims(first, control) {
   if (debug) print "--- start calc sim ---"
+  
   for (i = 1; i <= NF; i++) {
     for (m in Re) {
       first_score = first[i, m]
       ctrl_score = control[i, m]
       headerScore += sqrt((first_score - ctrl_score / control_rows)**2)
-      if (debug) print i, m, first_score, ctrl_score/control_rows, headerScore }}
+      
+      if (debug) print i, m, first_score, ctrl_score/control_rows, headerScore
+    }
+  }
+  
   if (debug) print "--- end calc sim ---"
 }

@@ -132,12 +132,14 @@ BEGIN {
     if (merge_verbose) {
       merge_verbose = 1
       file_labels = (ARGV[1] && ARGV[2] && ARGV[1] != ARGV[2])
+      
       if (!left_label)
         left_label = (file_labels ? ARGV[1] : "FILE1")
       if (!right_label)
         right_label = (file_labels ? ARGV[2] : "FILE2")
       if (!inner_label)
         inner_label = "BOTH"
+      
       left_label = left_label OFS
       right_label = piped ? "PIPEDDATA" OFS : right_label OFS
       inner_label = inner_label OFS
@@ -148,22 +150,43 @@ BEGIN {
   }
   else {
     left_label = ""; right_label = ""; inner_label = ""
-    if (k) { k1 = k; k2 = k; equal_keys = 1 }
+    
+    if (k) {
+      k1 = k
+      k2 = k
+      equal_keys = 1
+    }
     else if (!k1 || !k2) {
-      print "Missing key"; exit 1 }
+      print "Missing key"
+      exit 1
+    }
 
     len_k1 = split(k1, Keys1, /[[:punct:]]+/)
     len_k2 = split(k2, Keys2, /[[:punct:]]+/)
+    
     if (len_k1 != len_k2) {
-      print "Keysets must be equal in length"; exit 1 }
+      print "Keysets must be equal in length"
+      exit 1
+    }
+    
     for (i = 1; i <= len_k1; i++) {
       key = Keys1[i]
-      if (!(key ~ /^[0-9]+$/)) { print "Keys must be integers"; exit 1 }
+      
+      if (!(key ~ /^[0-9]+$/)) {
+        print "Keys must be integers"
+        exit 1
+      }
     }
+
     for (i = 1; i <= len_k2; i++) {
       key = Keys2[i]
       joint_key = Keys1[i]
-      if (!(key ~ /^[0-9]+$/)) { print "Keys must be integers"; exit 1 }
+      
+      if (!(key ~ /^[0-9]+$/)) {
+        print "Keys must be integers"
+        exit 1
+      }
+
       K2[key] = joint_key
       K1[joint_key] = key
     }
@@ -182,13 +205,18 @@ BEGIN {
 }
 
 debug {
-  if (NR == 1) {
+  if (NR < 2) {
     for (i in Keys1) print i, Keys1[i]
-    for (i in Keys2) print i, Keys2[i] }
-  print NR, FNR, keycount, key, FS }
+    for (i in Keys2) print i, Keys2[i]
+  }
+  print NR, FNR, keycount, key, FS
+}
+
 keycount = 0
 
-merge && FNR == 1 { GenMergeKeys(mf_max ? mf_max : NF, K1, K2) }
+merge && FNR < 2 {
+  GenMergeKeys(mf_max ? mf_max : NF, K1, K2)
+}
 
 ## Save first stream
 NR == FNR {
@@ -196,7 +224,10 @@ NR == FNR {
 
   if (NF > max_nf1) max_nf1 = NF
 
-  if (header && FNR == 1) { header1 = $0; next }
+  if (header && FNR < 2) {
+    header1 = $0
+    next
+  }
 
   keybase = GenKeyString(Keys1)
   key = keybase _ keycount
@@ -222,20 +253,26 @@ NR > FNR {
   if (header && FNR == 1) { 
     if (ind) printf "%s", OFS
     print GenInnerOutputString(header1, $0, K2, max_nf1, max_nf2, fs1)
-    next }
+    next
+  }
 
   keybase = GenKeyString(Keys2)
   key = keybase _ keycount
 
+  # Print right joins and inner joins
+
   if (key in SK1) {
     SK2[key]++
+    
     while (key _ SK2[key] in S1) {
       sk2_keycount = SK2[key]
+      
       if (run_inner) {
         record_count++
         if (ind) printf "%s", record_count OFS
         print GenInnerOutputString(S1[key, sk2_keycount], $0, K2, max_nf1, max_nf2, fs1)
       }
+      
       delete S1[key, sk2_keycount]
       keycount++
       key = keybase _ keycount
@@ -246,9 +283,12 @@ NR > FNR {
 
     while (key in S2) {
       record_count++
+      
       if (run_right) {
         if (ind) printf "%s", record_count OFS
-        print GenRightOutputString(S2[key], K1, K2, max_nf1, max_nf2, fs2) }
+        print GenRightOutputString(S2[key], K1, K2, max_nf1, max_nf2, fs2)
+      }
+      
       keycount++
       key = keybase _ keycount
     }
@@ -260,6 +300,7 @@ END {
   if (skip_left) exit
 
   # Print first file unmatched rows
+  
   for (compound_key in S1) {
     record_count++
     if (ind) printf "%s", record_count OFS
@@ -269,33 +310,44 @@ END {
 
 function GenMergeKeys(nf, K1, K2) {
   for (f = 1; f <= nf; f++) {
-    K1[f] = f; K2[f] = f
-    Keys1[f] = f; Keys2[f] = f
+    K1[f] = f
+    K2[f] = f
+    Keys1[f] = f
+    Keys2[f] = f
   }
 }
+
 function GenKeyString(Keys) {
   str = ""
+  
   for (i in Keys) {
     k = Keys[i]
     gsub(/^[[:space:]]+|[[:space:]]+$/, "", $k)
     if (length($k) == 0) $k = "<NULL>"
     str = str $k _
   }
+  
   return str
 }
+
 function GenInnerOutputString(line1, line2, K2, nf1, nf2, fs1) {
   nf_pad = Max(nf1 - gsub(fs1, OFS, line1), 0)
   jn = inner_label line1
+  
   for (f = nf_pad; f > 1; f--)
     jn = jn OFS
+  
   for (f = 1; f <= nf2; f++) {
     if (f in K2) continue
     jn = jn OFS $f
   }
+  
   return jn
 }
+
 function GenRightOutputString(line2, K1, K2, nf1, nf2, fs2) {
   jn = right_label
+  
   for (f = 1; f <= nf1; f++) {
     if (f in K1)
       jn = jn $K1[f]
@@ -303,20 +355,26 @@ function GenRightOutputString(line2, K1, K2, nf1, nf2, fs2) {
       jn = jn "<NULL>"
     if (f < nf1) jn = jn OFS
   }
+  
   for (f = 1; f <= nf2; f++) {
     if (f in K2) continue
     jn = jn OFS $f
   }
+  
   return jn
 }
+
 function GenLeftOutputString(line1, K1, nf1, nf2, fs1) {
   nf_pad = Max(nf1 - gsub(fs1, OFS, line1), 0)
   jn = left_label line1
+  
   for (f = nf_pad; f > 1; f--)
     jn = jn OFS
+  
   for (f = 1; f <= nf2; f++) {
     if (f in K2) continue
     jn = jn OFS "<NULL>"
   }
+  
   return jn
 }

@@ -22,7 +22,7 @@
 @@@ds:gexec@@@@@@Generate a script from pieces of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
 @@@ds:git_add_com_push@@@ds:gacp@@@Add, commit with message, push@@@ds:gacp commit_message [prompt=t]
 @@@ds:git_branch@@@ds:gb@@@Run git branch for all repos@@@ds:gb
-@@@ds:git_checkout@@@ds:gco@@@Checkout branch matching pattern@@@ds:gco [pattern]
+@@@ds:git_checkout@@@ds:gco@@@Checkout branch matching pattern@@@ds:gco [branch_pattern] [new_branch=f]
 @@@ds:git_cross_view@@@ds:gcv@@@Display table of git repos vs branches@@@ds:gcv [:ab:Dfhmo:sv]
 @@@ds:git_graph@@@ds:gg@@@Print colorful git history graph@@@ds:gg
 @@@ds:git_purge_local@@@ds:gpl@@@Purge branches from local git repos@@@ds:gpl [repos_dir=~]
@@ -60,7 +60,7 @@
 **@@@ds:print_matches@@@ds:pm@@@Get match lines from two datasets@@@ds:pm file [file] [awkargs]
 **@@@ds:prod@@@@@@Return product multiset of filelines@@@ds:pow file [file*] [awkargs]
 **@@@ds:pvt@@@@@@Pivot tabular data@@@ds:pv [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
-@@@ds:recent@@@@@@List files modified in last 7 days@@@ds:recent [dir=.] [recurse=r] [hidden=h]
+@@@ds:recent@@@@@@List files modified in last 7 days@@@ds:recent [dir=.] [days=7] [recurse=r] [hidden=h]
 **@@@ds:reo@@@@@@Reorder/repeat/slice data by rows and cols@@@ds:reo [-h|file*] [rows] [cols] [prefield=t] [awkargs]
 **@@@ds:rev@@@@@@Reverse lines from standard input@@@data | ds:rev
 **@@@ds:sbsp@@@@@@Extend fields by a common subseparator@@@ds:sbsp [file] subsep_pattern [nomatch_handler= ]

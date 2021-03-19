@@ -10,11 +10,15 @@ f == 1 {
   for (i in L) {
     e = L[i]
     if (!(e ~ filter)) next
-    if (e) Deps[e] = 1 }
+    if (e) Deps[e] = 1
+  }
 
-  next }
+  next
+}
 
-f == 2 { NData[$0] = 1 }
+f == 2 {
+  NData[$0] = 1
+}
 
 END {
   for (e in Deps) {

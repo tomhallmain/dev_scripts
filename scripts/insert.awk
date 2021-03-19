@@ -20,10 +20,12 @@ END {
       mtch = 1
       ins = 0
       for (j = 1; j <= length(__); j++) 
-        print __[j] }
+        print __[j]
+    }
 
-    if (!mtch && (i == lineno || line ~ pattern)) { ins = 1 }
+    ins = (!mtch && (i == lineno || line ~ pattern))
 
-    print line }
+    print line
+  }
 }
 

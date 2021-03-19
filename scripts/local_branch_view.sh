@@ -80,13 +80,13 @@ done
 
 if [ $VERBOSE ]; then
   [ $RUN_ALL_REPOS ] && echo "All opt set: Running for all git repos found"
-  [ $BASE_DIR ] && echo "Base dir opt set: Running with a base dir of ${OPTARG}"
+  [ $BASE_DIR ] && echo "Base dir opt set: Running with base directory ${OPTARG}"
   if [[ $DEEP && $BASE_DIR_CASE ]]; then
     echo "Deep search opt set: Running for all repos found in base directory"
   fi
   [ $OVERRIDE_REPOS ] && echo "Override repos opt set: All filepaths provided must be valid repos"
   [ $DISPLAY_STATUS ] && echo "Status opt set: Branches with untracked changes will be marked in red"
-  [ $INCLUDE_MASTER_ONLYS ] && echo "Master opt set: Repos with only master branch will be included"
+  [ $INCLUDE_MASTER_ONLYS ] && echo "Master opt set: Repos with only master/main branch will be included"
 fi
 
 # Initialize variables
@@ -240,14 +240,14 @@ for repo in ${ALL_REPOS[@]} ; do
     # Despite having a .git folder, a directory may not be a valid git repo
     eval "$(git for-each-ref --shell \
       --format='BRANCHES+=(%(refname:lstrip=2))' refs/heads/)"
-    [[ $DISPLAY_STATUS && $(git status --porcelain | wc -c) -gt 0 ]] && untracked=1
+    [[ $DISPLAY_STATUS && $(git status --porcelain | wc -c | xargs) -gt 0 ]] && untracked=1
   fi
 
   let branch_count=${#BRANCHES[@]}
 
   # Exclude repos that are only master with no untracked changes
   if [[ $branch_count -eq 0 || ! $INCLUDE_MASTER_ONLYS && ! $untracked \
-        && -z ${BRANCHES[2]} && "${BRANCHES[@]}" = 'master' ]]
+        && -z ${BRANCHES[2]} && ("${BRANCHES[@]}" = 'master' || "${BRANCHES[@]}" = 'main') ]]
   then
     REPOS=( ${REPOS[@]/%"${repo}"/} )
   else

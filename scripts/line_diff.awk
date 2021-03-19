@@ -33,58 +33,80 @@ END{
       if (lchars[i] == rchars[j]) {
         if (coloron) {
           coloron = 0
-          printf coloroff }
-        j++ }
-
+          printf coloroff
+        }
+        j++
+      }
       else {
         tmp_j = j
+
         for (k = j; k <= l_len; k++) { #TODO: May want to refactor using substr
           mtch = lchars[i] == rchars[k]
           mtch1 = lchars[i+1] == rchars[k+1]
           mtch2 = lchars[i+2] == rchars[k+2]
           mtch3 = lchars[i+3] == rchars[k+3]
+
           if (mtch && mtch1 && mtch2 && mtch3) {
             recap = 1
             j = k
             coloron = 0
             printf coloroff
-            break }
-          j = tmp_j }
+            break
+          }
+
+          j = tmp_j
+        }
+
         if (!recap && !coloron) {
           printf cyan
-          coloron = 1 }}
-      printf "%s", lchars[i] }
+          coloron = 1
+        }
+      }
+
+      printf "%s", lchars[i]
+    }
 
     print ""
 
     j = 1
     recap = 0
+
     for (i=1; i <= r_len; i++) {
       if (rchars[i] == lchars[j]) {
         if (coloron) {
           coloron = 0
-          printf coloroff }
-        j++ }
-
+          printf coloroff
+        }
+        j++
+      }
       else {
         tmp_j = j
+
         for (k = j; k <= r_len; k++) {
           mtch = rchars[i] == lchars[k]
           mtch1 = rchars[i+1] == lchars[k+1]
           mtch2 = rchars[i+2] == lchars[k+2]
           mtch3 = rchars[i+3] == lchars[k+3]
+
           if (mtch && mtch1 && mtch2 && mtch3) {
             recap = 1
             j = k
             coloron = 0
             printf coloroff
-            break }
-          j = tmp_j }
+            break
+          }
+
+          j = tmp_j
+        }
 
         if (!recap && !coloron) {
           coloron = 1
-          printf red }}
-      printf "%s", rchars[i] }
+          printf red
+        }
+      }
+
+      printf "%s", rchars[i]
+    }
 
     print ""
 }

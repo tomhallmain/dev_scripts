@@ -19,6 +19,7 @@ tempdata=$(mktemp -q /tmp/filedata.XXXXX || echo '/tmp/filedata.XXXXX')
 
 echo -e "\n Gathering checksum data... \n"
 if [ $PV ]; then
+  # pv provides a way to view the completion status of processes
   if [ $FD ]; then
     fd . "$source_folder" -H --type f --exec md5sum "{}" \; \
       | pv -l -s $(fd . "$source_folder" -H --type f | wc -l)> $tempdata
@@ -33,10 +34,9 @@ else
     find "$source_folder" -type f -exec md5sum "{}" \; > $tempdata
   fi
 fi
-# pv provides a way to view the completion status of processes
 
 files=$(cat "$tempdata" | awk '{print substr($0,length($1)+3)}')
-count_files=$(cat "$tempdata" | wc -l)
+count_files=$(cat "$tempdata" | wc -l | xargs)
 assured=$(cat "$tempdata" | awk '
   {
     if (NR == 1) {printf "%-100s|||%-100s\n", "DUPLICATE", "COMPDUPLICATE"}
@@ -45,7 +45,7 @@ assured=$(cat "$tempdata" | awk '
     if (md5s[$1] > 1)  {printf "%-100s|||%-100s\n", substr($0,length($1)+3), filename[$1]}
   }
 ')
-let md5dup_count=$(echo "$assured" | wc -l)-1
+let md5dup_count=$(echo "$assured" | wc -l | xargs)-1
 
 if [ $md5dup_count -gt 1 ]; then
   echo -e "\n Assured duplicates in md5 checksums: \n"
@@ -72,15 +72,15 @@ echo -e "\n ++++++++++++++++++++++++++++ \n"
 
 # If no other directory levels exist past the source, all files can be assumed
 # to have unique names, so looking for possible duplicates using name is a waste.
-dir_count=$(find "$source_folder" -maxdepth 1 -type d | wc -l)
+dir_count=$(find "$source_folder" -maxdepth 1 -type d | wc -l | xargs)
 if [ $dir_count -gt 1 ]; then 
   echo -e " Gathering filename data... \n"
   filenames=$(printf "%s\n" "${files[@]}" | sed -e "s/'/\\\\'/g" | xargs -I % basename -a "%" )
   filedata=$(paste <(echo "${filenames[@]}") <(echo "${files[@]}"))
   dup_filenames=$(echo "${filedata[@]}" | awk -F"\t" '{_[$1]++; if(_[$1] == 2) {print $1}}') # only returns second duplicate
-  dup_name_count=$(echo "$dup_filenames" | wc -l)
-  empty=$([[ $dup_name_count == 1 && ($dup_filenames == "\n" || $dup_filenames == '') ]] && echo true ||  echo false)
-  if [[ $empty == 'false' && $dup_name_count -gt 0 ]]; then
+  dup_name_count=$(echo "$dup_filenames" | wc -l | xargs)
+  has_dups=$([[ $dup_name_count == 1 && ($dup_filenames == "\n" || $dup_filenames == '') ]] || echo 0)
+  if [[ $has_dups && $dup_name_count -gt 0 ]]; then
     echo -e " Duplicate filenames found: \n"
     echo "$dup_filenames"
   else

@@ -8,13 +8,17 @@ BEGIN {
   lineno_size = Max(length(lines), 5)
   output_space = tty_size - lineno_size - 2
   if (!span) span = 15
-  if (measure) measure = SetMeasure(measure)
+  
+  if (measure)
+    measure = SetMeasure(measure)
   else {
     if (FS == " ") measure = 0
     else measure = 1
   }
+  
   if (FS == " ") FS = "[[:space:]]"
   measure_desc = measure ? "\""FS"\"" : "length"
+  
   if (pattern) {
     pat_len = length(pattern)
     pat_len_mod = pat_len > 1 ? tty_size / pat_len : tty_size
@@ -33,6 +37,7 @@ BEGIN {
   m = Max(Measure(measure), 0)
   j += m
   if (m) match_lines++
+  
   if (i == 0) {
     if (j > max_j) max_j = j
     _[NR/span] = j
@@ -73,8 +78,10 @@ function SetMeasure(measure) {
   if ("length" ~ "^"measure) return 0
   else if ("fields" ~ "^"measure) return 1
 }
+
 function Measure(measure) {
-  if (measure)
-    { if (measure == 1) return NF - 1 }
+  if (measure) {
+    if (measure == 1) return NF - 1
+  }
   else return length($0)
 }

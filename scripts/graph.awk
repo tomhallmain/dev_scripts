@@ -38,20 +38,29 @@ END {
   if (print_bases) {
     for (base in Bases){
       if (!(base in Shoots))
-        print base }}
+        print base
+    }
+  }
 
   for (shoot in Shoots) {
     if (Shoots[shoot] && (print_bases || !Bases[shoot])) {
       if (shoot == Shoots[shoot]) {
         Cycles[shoot] = 1
-        continue }
-      print Backtrace(shoot, Shoots[shoot]) }}
+        continue
+      }
+
+      print Backtrace(shoot, Shoots[shoot])
+    }
+  }
 
   if (length(Cycles)) {
     print "WARNING: "length(Cycles)" cycles found!"
+
     for (cycle in Cycles)
       print "CYCLENODE__" cycle
-    exit 1 }
+
+    exit 1
+  }
 }
 
 function Backtrace(start, test_base) {

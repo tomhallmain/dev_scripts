@@ -1,10 +1,13 @@
 @@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
 @@@@@@@@@@@@
+@@@@@@@@@local _FILES_=() _counter_=0@@@
+@@@@@@@@@local _VARARGS_=() _counter_=0@@@
 **@@@ds:agg@@@@@@Aggregate by index/pattern@@@ds:agg [-h|file] [r_aggs] [c_aggs]
 @@@ds:arr_base@@@@@@Return first array index for shell@@@ds:arr_base
 @@@ds:arr_idx@@@@@@Extract first shell array element position matching pattern@@@ds:arr_idx pattern ${arr[@]}
 @@@ds:ascii@@@@@@List characters in ASCII code point range@@@ds:ascii start_index end_index
 @@@ds:asgn@@@@@@Print lines matching assignment pattern@@@ds:asgn file
+@@@ds:awk@@@@@@Run an awk script with utils@@@ds:awk [script] [files...] varargs...
 @@@ds:awksafe@@@@@@Test whether AWK is configured for multibyte regex@@@ds:awksafe
 **@@@ds:case@@@@@@Recase text data globally or in part@@@ds:case [string] [tocase=proper] [filter]
 @@@ds:cd@@@@@@cd to higher or lower level dirs@@@ds:cd [search]
@@ -75,14 +78,14 @@
 @@@ds:path_elements@@@@@@Return dirname/filename/extension from filepath@@@ds:path_elements file
 **@@@ds:pipe_check@@@@@@Detect if pipe has data or over [n_lines]@@@data | ds:pipe_check [n_lines]
 @@@ds:pipe_clean@@@@@@Remove tmpfile created via STDIN if piping detected@@@piped=0; tmp=$(mktemp tmp); ds:pipe_clean $tmp
-**@@@ds:pipe_open@@@@@@Detect if pipe is open@@@
+**@@@ds:pipe_open@@@@@@Detect if pipe is open@@@if ds:pipe_open; then [...]
 **@@@ds:pow@@@@@@Combinatorial frequency of data field values@@@ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
 @@@ds:prefield@@@@@@Infer and transform FS for complex field patterns@@@ds:prefield file fs [dequote] [awkOFSargs]
 **@@@ds:print_comps@@@ds:pc@@@Get non-matching lines from two datasets@@@ds:pc file [file] [awkargs]
 **@@@ds:print_matches@@@ds:pm@@@Get match lines from two datasets@@@ds:pm file [file] [awkargs]
 **@@@ds:prod@@@@@@Return product multiset of filelines@@@ds:pow file [file*] [awkargs]
 **@@@ds:pvt@@@@@@Pivot tabular data@@@ds:pv [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
-@@@ds:readlink@@@@@@Portable readlink@@@
+@@@ds:readlink@@@@@@Portable readlink@@@ds:readlink [file|dir]
 @@@ds:readp@@@@@@Portable read prompt@@@ds:readp [message]
 @@@ds:recent@@@@@@List files modified in last 7 days@@@ds:recent [dir=.] [recurse=r] [hidden=h]
 **@@@ds:reo@@@@@@Reorder/repeat/slice data by rows and cols@@@ds:reo [-h|file*] [rows] [cols] [prefield=t] [awkargs]

@@ -64,7 +64,7 @@ pass { print; next }
 
 pc {
   for (i = 1; i < n_wds; i++)
-    printf "%s", GenPC(Words[i]) " "
+    printf "%s", GenPC(Words[i], i) " "
   print GenPC(Words[n_wds]); next
 }
 
@@ -95,25 +95,37 @@ oc {
 function U(s) { return toupper(s) }
 function L(s) { return tolower(s) }
 function SS(str, start, end) { return substr(str, start, end) }
+
 function PrepareLine(line) {
   gsub(/_/, " ", line)
   gsub(/\./, " ", line)
   gsub(/ +/, " ", line) # tentative
   return SpaceCasevars(line)
 }
+
 function SpaceCasevars(s) {
   while (match(s, /[a-z][A-Z]/)) {
-    s = SS(s, 1, RSTART) " " SS(s, RSTART + 1, length(s) - RSTART) }
+    s = SS(s, 1, RSTART) " " SS(s, RSTART + 1, length(s) - RSTART)
+  }
+  
   return s
 }
-function GenPC(word) {
-  return U(SS(word, 1, 1)) L(SS(word, 2, length(word))) 
+
+function GenPC(word, idx) {
+  if (idx < 2)
+    return U(SS(word, 1, 1)) L(SS(word, 2, length(word)))
+  else if (word ~ /^(and|as|but|for|if|nor|or|so|yet|a|an|the|upon|from|as|at|by|for|in|of|off|on|per|to|up|via)$/)
+    return word
+  else
+    return U(SS(word, 1, 1)) L(SS(word, 2, length(word))) 
 }
+
 function GenCC(word, idx) {
   if (idx == 1)
     start_char = L(SS(word, 1, 1))
   else
     start_char = U(SS(word, 1, 1))
+  
   return start_char L(SS(word, 2, length(word)))
 }
 

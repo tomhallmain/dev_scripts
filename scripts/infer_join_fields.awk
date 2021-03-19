@@ -51,7 +51,7 @@ NR == FNR && FNR <= max_rows {
     headers = $0
     next
   }
- 
+
   s1[$0] = 1
   rcount1++
   next
@@ -60,63 +60,88 @@ NR == FNR && FNR <= max_rows {
 
 NR > FNR && FNR <= max_rows { 
   if (trim) $0 = TrimField($0)
+
   if ( header && FNR == 1 ) {
+
     split(headers, headers1, fs1)
     split($0, headers2, fs2)
+
     for (i in headers1) {
       for (j in headers2) {
         h1 = headers1[i]
         h2 = headers2[j]
         if (trim) {
           h1 = TrimField(h1) 
-          h2 = TrimField(h2) }
+          h2 = TrimField(h2)
+        }
         if (h1 == h2) {
           if (i == j) print i
           else print i, j
           keys_found = 1
-          exit }
+          exit
+        }
         if ((h1 ~ h2) < 1) { # Is one header contained within another?
           k1[i, j] += 5000 * rcount1
-          k2[j, i] += 5000 * rcount1 }
+          k2[j, i] += 5000 * rcount1
+        }
         if ((h1 ~ Re["id"]) < 1 && (h2 ~ Re["id"]) < 1) { # ID headers should have advantage
           k1[i, j] += 1000 * rcount1
-          k2[j, i] += 1000 * rcount1 }}}
-    next }
+          k2[j, i] += 1000 * rcount1
+        }
+      }
+    }
+
+    next
+  }
 
   nf2 = split($0, fr2, fs2)
-  
+
   for (fr in s1) {
     nf1 = split(fr, fr1, fs1)
-    
+
     for (i in fr1) {
       f1 = fr1[i]
       if (trim) f1 = TrimField(f1)
+
       if ((header && FNR == 2) || (!header && FNR == 1)) {
-        k1[i, "dlt"] = f1 }
+        k1[i, "dlt"] = f1
+      }
+
       BuildFieldScore(f1, i, k1)
+
       if (debug) DebugPrint("endbfsf1")
-      
+
       for (j in fr2) {
         f2 = fr2[j]
         if (trim) f2 = TrimField(f2)
+
         if ((header && FNR == 2) || (!header && FNR == 1)) {
-          k2[i, "dlt"] = f2 }
+          k2[i, "dlt"] = f2
+        }
+
         BuildFieldScore(f2, j, k2)
+
         if (debug) DebugPrint("endbfsf2")
-        
+
         if (f1 != f2) {
           k1[i, j] += 100
-          k2[j, i] += 100 }
+          k2[j, i] += 100
+        }
         if ((f1 ~ Re["d"]) > 0 || (f2 ~ Re["d"]) > 0) {
           k1[i, j] += 1000 * rcount1
-          k2[j, i] += 1000 * rcount1 }
+          k2[j, i] += 1000 * rcount1
+        }
         if ((f1 ~ Re["j"]) > 0 || (f2 ~ Re["j"]) > 0) {
           k1[i, j] += 1000 * rcount1
-          k2[j, i] += 1000 * rcount1 }
+          k2[j, i] += 1000 * rcount1
+        }
         if ((f1 ~ Re["h"]) > 0 || (f2 ~ Re["h"]) > 0) {
           k1[i, j] += 1000 * rcount1
-          k2[j, i] += 1000 * rcount1 }
-      }}}
+          k2[j, i] += 1000 * rcount1
+        }
+      }
+    }
+  }
 
   if (nf1 > max_nf1) max_nf1 = nf1
   if (nf2 > max_nf2) max_nf2 = nf2
@@ -129,15 +154,20 @@ END {
 
   CalcSims(k1, k2)
 
-  jf1 = 999 # Seeding with high values unlikely to be reached
+  # Seeding with high values unlikely to be reached
+  jf1 = 999 
   jf2 = 999
   scores[jf1, jf2] = 100000000000000000000000000
 
   for (i = 1; i <= max_nf1; i++) {
     for (j = 1; j <= max_nf2; j++) {
       if (scores[i, j] < scores[jf1, jf2]) {
-        jf1 = i; jf2 = j }
-      if (debug) DebugPrint(7) }}
+        jf1 = i; jf2 = j
+      }
+
+      if (debug) DebugPrint(7)
+    }
+  }
 
   # Return possible join fields with lowest score
   if (jf1 == jf2) print jf1
@@ -151,13 +181,19 @@ function TrimField(field) {
 }
 function BuildFieldScore(field, position, Keys) {
   if (Keys[position, "dlt"] && field != Keys[position, "dlt"]) {
-    delete Keys[position, "dlt"] }
+    delete Keys[position, "dlt"]
+  }
+
   Keys[position, "len"] += length(field)
+
   for (m in Re) {
     re = Re[m]
     matches = field ~ re
     if (matches > 0) {
-      Keys[position, m] += 1; matchcount++ }}
+      Keys[position, m] += 1; matchcount++
+    }
+  }
+
   if (debug) DebugPrint(2)
 }
 function CalcSims(Keys1, Keys2) {
@@ -166,20 +202,25 @@ function CalcSims(Keys1, Keys2) {
       kscore1 = Keys1[k, l]
       kscore2 = Keys2[l, k]
       scores[k, l] += ((kscore1 + kscore2) / (rcount1 + rcount2)) ** 2
-      
+
       if (Keys1[k, "dlt"] || Keys2[l, "dlt"]) scores[k, l] += 1000 * (rcount1+rcount2)
 
       klen1 = Keys1[k, "len"]
       klen2 = Keys2[l, "len"]
       scores[k, l] += (klen1 / rcount1 - klen2 / rcount2) ** 2
-      
+
       for (m in Re) {
         kscore1 = Keys1[k, m]
         kscore2 = Keys2[l, m]
         scores[k, l] += (kscore1 / rcount1 - kscore2 / rcount2) ** 2
-        if (debug) DebugPrint(3) }
 
-      if (debug) DebugPrint(4) }}
+        if (debug) DebugPrint(3)
+      }
+
+      if (debug) DebugPrint(4)
+    }
+  }
+
   if (debug) print "--- end calc sim ---"
 }
 function DebugPrint(case) {
