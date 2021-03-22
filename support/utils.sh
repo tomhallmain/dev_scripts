@@ -51,13 +51,13 @@ ds:awk() { # Run an awk script with utils: ds:awk [script] [files...] varargs...
     cat /dev/stdin > $file
   fi
   local _SCRIPT_="$(ds:fd_check "$1")"
-  local _FILES_=() _counter_=0
+  local _FILES_=( ) _counter_=0
   while [[ "$2" && $_counter_ -lt 20 ]] && [[ "$2" =~ '/dev/fd/' || -f "$2" ]]; do
     local _FILES_=( "${_FILES_[@]}" "$(ds:fd_check "$2")" )
     let local _counter_+=1
     shift
   done
-  local _VARARGS_=() _counter_=0
+  local _VARARGS_=( ) _counter_=0
   while [[ "$2" && $_counter_ -lt 50 ]]; do
     local _VARARGS_=( "${_VARARGS_[@]}" -v "$2" )
     let local _counter_+=1
@@ -338,6 +338,10 @@ ds:termcolors() { # Check terminal colors: ds:termcolors
 }
 
 ds:ascii() { # List characters in ASCII code point range: ds:ascii start_index end_index
-  ds:is_int "$1" && ds:is_int "$2" || ds:fail 'Code point endpoint args must be integers'
-  for i in $(seq $1 $2); do printf "%s " $i; printf -v n "%x" $i; echo "\U$n"; done
+  if [[ "$(ds:sh)" =~ zsh ]]; then
+    ds:is_int "$1" && ds:is_int "$2" || ds:fail 'Code point endpoint args must be integers'
+    for i in $(seq $1 $2); do printf "%s " $i; printf -v n "%x" $i; echo -e "\U$n"; done
+  else
+    echo "Your shell does not currently support this function"
+  fi
 }

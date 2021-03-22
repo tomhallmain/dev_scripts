@@ -15,12 +15,16 @@
 BEGIN {
   f1 = ARGV[1]
   f2 = ARGV[2]
-  #piped = (substr(f2, 1, 4) == "/tmp" || substr(f2, 1, 4) == "/dev")
+  
+  if (!piped) {
+    piped = (substr(f2, 1, 4) == "/tmp" || substr(f2, 1, 4) == "/dev")
+  }
+
   f2_print = (piped ? "piped data" : f2)
 
   if (fs) { fs1 = fs; fs2 = fs }
   else {
-    if (!fs1) { # TODO: Script is currently failing on this line
+    if (!fs1) {
       cmd = "awk -f ~/dev_scripts/scripts/infer_field_separator.awk " f1 
       cmd | getline fs1
       close(cmd)
@@ -37,7 +41,8 @@ BEGIN {
     if (!k1) k1 = k2
     if (!k2) k2 = k1
   } else { 
-    k1 = 0; k2 = 0
+    k1 = 0
+    k2 = 0
   }
 
   FS = fs1
@@ -51,9 +56,11 @@ NR == FNR {
 
 NR > FNR {
   if (FNR == 1) {
-    print ""
-    print "Records found in " f2_print " not present in " f1 ":"
-    
+    if (verbose) {
+      print ""
+      print "Records found in " f2_print " not present in " f1 ":"
+    }
+
     if (k2) { split($0, row, fs2); key = row[k2] }
     else { key = $0 }
 
@@ -76,16 +83,18 @@ NR > FNR {
 }
 
 END {
-  if (!f2_count) print "NONE"
+  if (verbose) {
+    if (!f2_count) print "NONE"
 
-  print ""
-  print "Records found in " f1 " not present in " f2_print ":"
-  
+    print ""
+    print "Records found in " f1 " not present in " f2_print ":"
+  }
+
   if (length(first) > 0) {
     for (r in first)
       print first[r]
-  } else {
+  } else if (verbose) {
     print "NONE"
+    print ""
   }
-  print ""
 }

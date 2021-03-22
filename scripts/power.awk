@@ -9,9 +9,7 @@
 #
 # DESCRIPTION
 #       power.awk is a script to print characteristic combinations of values in 
-#       field-separated data. By default it will find all possible combinations
-#       without regard for 
-#
+#       field-separated data. 
 #
 #       To run the script, ensure AWK is installed and in your path (on most Unix-based 
 #       systems it should be), and call it on a file:
@@ -32,25 +30,109 @@
 #       different FS, assign to vars fs1 and fs2. Be sure to escape and quote if needed. 
 #       AWK's extended regex can be used as FS:
 #
-#          $ ds:pow file -v fs1=',' -v fs2=':'
+#          $ ds:pow file 20 f f -v fs1=',' -v fs2=':'
 #
-#          $ ds:pow file -v FS=" {2,}"
+#          $ ds:pow file 5 t f -v FS=" {2,}"
 #
-#          $ ds:pow file -F'\\\|'
+#          $ ds:pow file 100 t t -F'\\\|'
 #
 #       If FS is set to an empty string, all characters will be separated.
 #
-#          $ ds:pow file -v FS=""
+#          $ ds:pow file 20 f f -v FS=""
 #
 # USAGE
-#       ds:pow has a standard minimum combinations
+#       By default ds:pow will find all possible combinations from a given field set.
+#       From this set it will output only the most characteristic combinations. For 
+#       example, assume a file with the following data:
+#
+#          $ cat test.txt
+#          A B C
+#          A B D
+#          X B D
+#
+#       Running ds:pow on this file produces the following output:
+#
+#          $ ds:pow test.txt
+#          1 X B D
+#          1 A B D
+#          1 A B C
+#          2 B D
+#          2 A B
+#          3 B
+#
+#       The number at left indicates the total number of occurrences of the
+#       combination. By default if a combination is included within another and both
+#       combinations have the same number of occurrences, the smaller combination is 
+#       discarded.
+#
+#       To filter output by a custom minimum number of occurrences, set param [min] to
+#       the desired minimum. To turn off all co-occurrence filtering set [min] = 0.
+#
+#         $ ds:pow test.txt 3
+#         3 B
+#
+#         $ ds:pow test.txt 0
+#         1 A C
+#         1 A B C
+#         1 A B D
+#         1 X
+#         1 X B
+#         1 X D
+#         1 X B D
+#         1 B C
+#         1 A D
+#         1 C
+#         2 B D
+#         2 A
+#         2 D
+#         2 A B
+#         3 B
+#
+#       Note that as the number of fields and variance in the data grows,
+#       the processing required to filter the output to the most unique combinations
+#       per occurrence increases exponentially, so by default low-occurrence 
+#       combinations are thrown away for larger files.
+#
+#       To output the strength of field combinations generally instead of field values, set
+#       [return_fields] = t|true.
+#
+#         $ ds:pow test.txt 2 t
+#         0.666667 1
+#         0.666667 1 2
+#         0.666667 2 3
+#         0.666667 3
+#         1 2
+#       
+#       When this option is set, the leftmost number indicates the proportion of the 
+#       total amount of lines that the given underlying combination represents. For
+#       this example we can see that the second field has a static value, and fields 
+#       1 and 3, and combinations of 1-2, 2-3 have close to static values.
+#
+#       To invert the filtering on the output (return all combinations less than 
+#       defined by [min]) set [invert] = t|true.
+#
 #
 # AWKARG OPTS
 #       Set number of combinations per record instead of all possible combinations:
 #
 #          -v choose=2
 #
+#       Running with this option on the example file produces the following output:
 #
+#         $ ds:pow test.txt 1 f f -v choose=2
+#         1 B C
+#         1 X B
+#         1 X D
+#         1 A D
+#         1 A C
+#         2 A B
+#         2 B D
+#
+# VERSION
+#      0.4
+#
+# AUTHORS
+#      Tom Hall (tomhall.main@gmail.com)
 #
 ## TODO: Link between fields and combination sets
 ## TODO: Refactor as set, not as left->right ordered combination (may not be
@@ -63,12 +145,14 @@
 
 BEGIN {
 
-  if (!min) {
+  if (min == "") {
     "wc -l < \""ARGV[1]"\"" | getline fnr; fnr+=0 # Get number of data rows
     min = int(log(fnr)/log(1.6))
   }
 
-  min_floor = min - 1
+  if (min > 0) {
+    min_floor = min - 1  
+  }
 
   OFS = SetOFS()
   len_ofs = length(OFS)
@@ -86,8 +170,9 @@ BEGIN {
   }
 }
 
-invert && NR== 1 && c_counts {
-  i_max = GetOrSetIMax(NF, choose);
+invert && NR == 1 && c_counts {
+  i_max = GetOrSetIMax(NF, choose)
+  
   for (i = 1; i <= i_max; i++) {
     header_str = ""
     count_str = ""
@@ -102,12 +187,13 @@ invert && NR== 1 && c_counts {
     header_str = substr(header_str, 1, length(header_str) - len_ofs)
     count_str = substr(count_str, 1, length(count_str) - len_ofs)
     CombinPatterns[count_str] = 1
-    CombinHeaders[count_str] = h_str
+    CombinHeaders[count_str] = header_str
   }
 }
 
 {
-  i_max = GetOrSetIMax(NF, choose);
+  i_max = GetOrSetIMax(NF, choose)
+  
   for (i = 1; i <= i_max; i++) {
     combin_str = ""
     count_str = ""
@@ -177,36 +263,37 @@ END {
       M[metakey] = combin
     }
 
-    for (combin_count in CombinCounts) {
-      combin_count_count = CombinCounts[combin_count]
-      for (j = 1; j <= combin_count_count; j++) {
-        for (k = 1; k <= combin_count_count; k++) {
-          if (k <= j) continue
+    if (min) {
+      for (combin_count in CombinCounts) {
+        combin_count_count = CombinCounts[combin_count]
+        for (j = 1; j <= combin_count_count; j++) {
+          for (k = 1; k <= combin_count_count; k++) {
+            if (k <= j) continue
 
-          metakey1 = combin_count SUBSEP j
-          metakey2 = combin_count SUBSEP k
-          t1 = M[metakey1]
-          t2 = M[metakey2]
+            metakey1 = combin_count SUBSEP j
+            metakey2 = combin_count SUBSEP k
+            t1 = M[metakey1]
+            t2 = M[metakey2]
 
-          if (!(Combins[t1] && Combins[t2])) continue
+            if (!(Combins[t1] && Combins[t2])) continue
 
-          if (debug) DebugPrint(3)
-          split(t1, Tmp1, OFS)
-          split(t2, Tmp2, OFS)
-          matchcount = 0
+            if (debug) DebugPrint(3)
+            split(t1, Tmp1, OFS)
+            split(t2, Tmp2, OFS)
+            matchcount = 0
 
-          for (l in Tmp1)
-            for (m in Tmp2)
-              if (Tmp1[l] == Tmp2[m]) matchcount++
+            for (l in Tmp1)
+              for (m in Tmp2)
+                if (Tmp1[l] == Tmp2[m]) matchcount++
 
-          l1 = length(Tmp1)
-          l2 = length(Tmp2)
-          if (matchcount >= l1 || matchcount >= l2) {
-            if (l1 > l2)
-              delete Combins[t2]
-            else if (l2 > l1)
-                delete Combins[t1]
-          }}}}}
+            l1 = length(Tmp1)
+            l2 = length(Tmp2)
+            if (matchcount >= l1 || matchcount >= l2) {
+              if (l1 > l2)
+                delete Combins[t2]
+              else if (l2 > l1)
+                  delete Combins[t1]
+            }}}}}}
 
   if (c_counts) {
     if (invert) {

@@ -12,9 +12,8 @@
 # To infer a custom separator, set var `custom` to any value:
 # > awk -f infer_field_separator.awk -v custom=true "data_file"
 #
-## TODO: Handle escapes, null Chars, SUBSEP
-## TODO: Regex FS length handling
-## TODO: Infer absence of separator
+## TODO: Regex FS length handling in winner determination
+## TODO: Infer absence of separator (output low confidence true)
 
 BEGIN {
   CommonFSOrder[1] = "w"; CommonFS["s"] = " "; FixedStringFS["s"] = "\\"

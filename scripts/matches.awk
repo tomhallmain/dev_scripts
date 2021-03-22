@@ -11,17 +11,20 @@
 #
 # Field separator args (fs, fs1, fs2) are not required if they can be reasonably
 # inferred from the data.
-## TODO: Verbose
 
 BEGIN {
   f1 = ARGV[1]
   f2 = ARGV[2]
-  #piped = (substr(f2, 1, 4) == "/tmp" || substr(f2, 1, 4) == "/dev")
+  
+  if (!piped) {
+    piped = (substr(f2, 1, 4) == "/tmp" || substr(f2, 1, 4) == "/dev")
+  }
+
   f2_print = (piped ? "piped data" : f2)
 
   if (fs) { fs1 = fs; fs2 = fs }
   else {
-    if (!fs1) { # TODO: Script is currently failing on this line
+    if (!fs1) {
       cmd = "awk -f ~/dev_scripts/scripts/infer_field_separator.awk " f1 
       cmd | getline fs1
       close(cmd)
@@ -54,7 +57,10 @@ NR > FNR {
       split($0, row, fs2)
 
     if (_[row[k2]] == 1) {
-      #print "Records found in both " f1 " and " f2_print ":\n"
+      if (verbose) {
+        print "Records found in both " f1 " and " f2_print ":\n"
+      }
+
       if ($0 == __[row[k2]])
         print $0
       else
@@ -67,7 +73,10 @@ NR > FNR {
 
   if (_[$k2] == 1) {
     if (!match_found) {
-      #print "Records found in both " f1 " and " f2_print ":\n"
+      if (verbose) {
+        print "Records found in both " f1 " and " f2_print ":\n"
+      }
+
       match_found = 1
     }
     if ($0 == __[$k2])

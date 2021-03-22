@@ -19,18 +19,32 @@ BEGIN {
 }
 
 {
-  i = NR - start_mod
-  
-  if (space) {
-    len_max = max_nr ? length(max_nr) : 6
-    format_str = "%"len_max"s"
-    printf format_str, i
-    print FS $0
+  if (index_cols && NR < 2) {
+    PrintFormattedIndex("", space, max_nr)
+    
+    for (f_i = 1; f_i <= NF; f_i++)
+      printf "%s", FS f_i
+    
+    print ""
   }
-  else
-    print i FS $0
+
+  i = NR - start_mod
+  PrintFormattedIndex(i, space, max_nr)
+  print FS $0
 }
 
 END {
   if (!NR) exit 1
 }
+
+function PrintFormattedIndex(_index, space, max) {
+  if (space) {
+    len_max = max ? length(max) : 6
+    format_str = "%"len_max"s"
+    printf format_str, _index
+  }
+  else {
+    printf _index
+  }
+}
+

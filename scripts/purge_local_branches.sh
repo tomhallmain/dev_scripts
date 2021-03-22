@@ -14,6 +14,7 @@ BASE_DIRS=( $(ls -d */ | sed 's#/##') )
 ALL_REPOS=()
 ALL_BRANCHES=()
 UNIQ_BRANCHES=()
+PURGE_BRANCHES=()
 master='^(master|main|develop|dev|integrations?)$'
 
 # Methods
@@ -39,7 +40,7 @@ genAllowedVarName() {
 }
 isInt() {
   local test="$1"
-  local n_re="^[0-9]$"
+  local n_re="^[0-9]+$"
   [[ "$test" =~ $n_re ]]
 }
 assoc() {
@@ -175,7 +176,7 @@ for branch in ${PURGE_BRANCHES[@]}; do
   branch_key_base=$(genAllowedVarName "$branch")
   branch_key="${branch_key_base}_key"
   for repo in ${!branch_key}; do
-    echo -e "Deleting ${branch} from ${repo}"
+    echo -e "${WHITE}Deleting ${branch} from ${repo}${NC}"
     cd "$BASE_DIR"
     cd "$repo"
     repo_key="$(genAllowedVarName "$repo")"
@@ -191,13 +192,16 @@ for branch in ${PURGE_BRANCHES[@]}; do
     else
       git checkout master
     fi
-    git branch -D "$branch"
+    unset delete_issue
+    git branch -D "$branch" || delete_issue=0
+    [ "$delete_issue" ] && _delete_issue=0
+    [ "$delete_issue" ] && git show-ref "refs/heads/$branch" 2>/dev/null | grep -q "$branch" || unset delete_issue
+    [ "$delete_issue" ] && echo "${RED} Encountered an issue deleting branch $branch in repo $repo ${NC}"
   done
 done
 
-# TODO: Add check to be sure branch actually deleted
 
 # Report success
 
-echo -e "\n${GREEN} Successfully deleted selected local branches.${NC}\n"
+[ "$_delete_issue" ] || echo -e "\n${GREEN} Successfully deleted selected local branches.${NC}\n"
 

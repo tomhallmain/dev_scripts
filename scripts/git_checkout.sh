@@ -26,7 +26,7 @@ testInt() {
 }
 isInt() {
   local test="$1"
-  local n_re="^[0-9]$"
+  local n_re="^[0-9]+$"
   [[ "$test" =~ $n_re ]]
 }
 
@@ -36,8 +36,14 @@ if [[ ! ( -d .git || $(git rev-parse --is-inside-work-tree 2> /dev/null) ) ]]; t
 fi
 
 if [ $(git status --porcelain | wc -c | xargs) -gt 0 ]; then
-  echo 'Untracked changes found!'
-  exit 1
+  echo "${ORANGE}Untracked changes found!${NC}"
+  echo
+  read -p $'\e[37;1m To stash untracked changes on the current branch, enter "stash": \e[0m' confirm
+  if [ "$confirm" = 'stash' ]; then
+    git stash
+  else
+    exit 1
+  fi
 fi
 
 if [ "$2" ]; then
@@ -94,7 +100,6 @@ if [[ -z $n_matches || $n_matches -lt 1 ]]; then
   echo -e "${ORANGE} No remote branches found for search pattern on current repo\n" && exit 1
 elif [ $n_matches -eq 1 ]; then
   branch="$MATCH_BRANCHES"
-  # TODO IF IS CURRENT BRANCH ASK IF USER WANTS TO OVERWRITE LOCAL CHANGES
   git checkout "$branch" && exit
 else
   unset confirmed

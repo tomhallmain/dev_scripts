@@ -83,6 +83,12 @@
 #       Fit up to a certain number of columns, and squeeze the rest:
 #    -v endfit_col=10
 #
+# VERSION
+#       1.2
+#
+# AUTHORS
+#       Tom Hall (tomhallmain@gmail.com)
+#
 ## TODO: Resolve lossy multibyte char output
 ## TODO: Fit newlines in fields
 ## TODO: Fix rounding in some cases (see test reo output fit)
@@ -608,7 +614,7 @@ function StripBasicASCII(str) {
 }
 
 function GetOrSetCutStringByVisibleLen(str, red_len) {
-  if (CutString[str]) return CutString[str]
+  if (CutString[str, red_len]) return CutString[str, red_len]
 
   if (str ~ trailing_color_re) {
     rem_str = str; red_str = ""; red_str_len = 0; next_color = ""
@@ -634,7 +640,7 @@ function GetOrSetCutStringByVisibleLen(str, red_len) {
     red_str = substr(str, 1, red_len)
   }
 
-  CutString[str] = red_str
+  CutString[str, red_len] = red_str
   return red_str
 }
 

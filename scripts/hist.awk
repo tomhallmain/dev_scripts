@@ -3,20 +3,22 @@
 # Script to print a histogram in terminal based on columnar data
 #
 # > awk -f hist.awk file
-## TODO: floats
 
 BEGIN {
   if (!n_bins) n_bins = 10
   if (!max_bar_len) max_bar_len = 15
   for (i = 1; i <= max_bar_len; i++)
     bar = bar "+"
-  decnum_re = "^[[:space:]]*(\\-)?(\\()?(\\$)?[0-9,]+([\.][0-9]*)?(\\))?[[:space:]]*$"
+
+  num_re = "^[[:space:]]*\\$?-?\\$?[0-9]*\\.?[0-9]+[[:space:]]*$"
+  decimal_re = "^[[:space:]]*\\$?-?\\$?[0-9]*\\.[0-9]+[[:space:]]*$"
+  float_re = "^[[:space:]]*-?[0-9]\.[0-9]+(E|e)(\\+|-)?[0-9]+[[:space:]]*$"
 }
 
 {
   for (f = 1; f <= NF; f++) {
     fval = $f
-    if (!(fval ~ decnum_re)) {
+    if (!AnyFmtNum(fval)) {
       if (NR == 1) {
         gsub("[[:space:]]+", "", fval)
         gsub(",", "", fval)
@@ -30,7 +32,7 @@ BEGIN {
     gsub("\\)", "", fval)
     gsub("\\$", "", fval)
     gsub(",", "", fval)
-    fval = fval * 1
+    fval = GetOrSetTruncVal(fval)
 
     if (!Counts[f, fval]) Rec[f]++
     Counts[f, fval]++
@@ -85,3 +87,24 @@ function PrintBins(Rec, Bin, Bins, MaxBin, Min, n_bins, bar) {
       printf "%.*s\n", Bin[f, b] * len_mod, bar }
     print "" }
 }
+
+function AnyFmtNum(str) {
+  return (str ~ num_re || str ~ decimal_re || str ~ float_re)
+}
+
+function GetOrSetTruncVal(val) {
+  if (TruncVal[val]) return TruncVal[val]
+
+  large_val = val > 999
+  large_dec = val ~ /\.[0-9]{3,}/
+  
+  if ((large_val && large_dec) || val ~ /^-?[0-9]*\.?[0-9]+(E|e)\+?([4-9]|[1-9][0-9]+)$/)
+    trunc_val = int(val)
+  else
+    trunc_val = sprintf("%f", val) # Small floats flow through this logic
+
+  trunc_val += 0
+  TruncVal[val] = trunc_val
+  return trunc_val
+}
+

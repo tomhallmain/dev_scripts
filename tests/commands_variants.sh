@@ -22,23 +22,30 @@ fi
 
 tests="$1"
 
+test_base="##BASICS TESTS , "
+
 case "$tests" in
-  inferfs)  ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , IFS TESTS##JN TESTS"       ;;
-  jn)       ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , JN TESTS##SORT TESTS"      ;;
-  sort)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , SORT TESTS##PREFIELD"      ;;
-  prefield) ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , PREFIELD TESTS##REO TESTS" ;;
-  reo)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , REO TESTS##FIT TESTS"      ;;
-  fit)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , FIT TESTS##FC TESTS"       ;;
-  fc)       ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , FC TESTS##NEWFS TESTS"     ;;
-  newfs)    ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , NEWFS TESTS##SUBSEP TESTS" ;;
-  todo)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~todo"                     ;;
-  substr)   ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , ~substr"                   ;;
-  pow)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , POW TESTS##PVT TESTS"      ;;
-  pvt)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , PVT TESTS##AGG TESTS"      ;;
-  agg)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , AGG TESTS##CASE TESTS"     ;;
-  case)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , CASE TESTS##GRAPH"         ;;
-  graph)    ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , GRAPH TESTS##ASSORTED"     ;;
-  deps)     ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , help_deps##ds:deps"        ;;
-  int)      ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , INTEGRATION##MULTISORT"    ;;
-  exper)    ds:gexec true tests/commands_tests.sh tests "##BASICS TESTS , MULTISORT TESTS##"         ;;
+  inferfs)  test_context="IFS TESTS##JOIN TESTS"     ;;
+  join)     test_context="JOIN TESTS##SORT TESTS"    ;;
+  sort)     test_context="SORT TESTS##PREFIELD"      ;;
+  prefield) test_context="PREFIELD TESTS##REO TESTS" ;;
+  reo)      test_context="REO TESTS##FIT TESTS"      ;;
+  fit)      test_context="FIT TESTS##FC TESTS"       ;;
+  fc)       test_context="FC TESTS##NEWFS TESTS"     ;;
+  newfs)    test_context="NEWFS TESTS##SUBSEP TESTS" ;;
+  todo)     test_context="~todo"                     ;;
+  substr)   test_context="~substr"                   ;;
+  pow)      test_context="POW TESTS##PVT TESTS"      ;;
+  pivot)    test_context="PVT TESTS##AGG TESTS"      ;;
+  agg)      test_context="AGG TESTS##CASE TESTS"     ;;
+  case)     test_context="CASE TESTS##GRAPH"         ;;
+  graph)    test_context="GRAPH TESTS##SHAPE TESTS"  ;;
+  shape)    test_context="SHAPE TESTS##ASSORTED"     ;;
+  deps)     test_context="help_deps##ds:deps"        ;;
+  int)      test_context="INTEGRATION##MULTISORT"    ;;
+  exper)    test_context="MULTISORT TESTS##"         ;;
 esac
+
+if [ "$test_context" ]; then
+  ds:gexec true tests/commands_tests.sh tests "${test_base}${test_context}"
+fi

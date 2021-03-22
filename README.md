@@ -133,12 +133,12 @@ BOTH       a  b  c  d
 /tmp/jn_a  1  2  3  4
 ```
 
-#### `ds:pvt`
+#### `ds:pivot`
 
 Pivot tabular data. Runs ds:fit on output if to a terminal.
 
 ```bash
-$ ds:pvt /tmp/jn_a 1,2 4 3
+$ ds:pivot /tmp/jn_a 1,2 4 3
 PIVOT     d  4
     a  b  c
     1  2     3
@@ -189,7 +189,7 @@ $ ds:fieldcounts /tmp/fc_ex 2
 3  1
 ```
 
-#### `ds:sbsp`
+#### `ds:subsep`
 
 Split off new fields by a given field subseparator pattern.
 
@@ -201,13 +201,45 @@ cdatetime    address
 1/1/06 0:00  4 PALEN CT
 1/1/06 0:00  22 BECKFORD CT
 
-$ ds:sbsp tests/data/testcrimedata.csv '\\/' "" -v apply_to_fields=1 | ds:reo 1..5 1..4
+$ ds:subsep tests/data/testcrimedata.csv '\\/' "" -v apply_to_fields=1 | ds:reo 1..5 1..4
 cdatetime              address
         1  1  06 0:00  3108 OCCIDENTAL DR
         1  1  06 0:00  2082 EXPEDITION WAY
         1  1  06 0:00  4 PALEN CT
         1  1  06 0:00  22 BECKFORD CT
 ```
+
+#### `ds:vi` / `ds:grepvi`
+
+Jump directly into vim at a specified file and/or line based on a pattern.
+
+```bash
+$ ds:vi commands
+Multiple matches found - select a file:
+1  commands.sh
+2  support/commands
+3  support/commands_utils
+4  tests/commands_cov.sh
+5  tests/commands_tests.sh
+6  tests/commands_variants.sh
+7  tests/data/commands
+Enter a number from the set of files or a pattern: sh
+1  commands.sh
+2  tests/commands_cov.sh
+3  tests/commands_tests.sh
+4  tests/commands_variants.sh
+Enter a number from the set of files or a pattern: ^commands
+
+$ ds:vi 'function GetOrSet'
+No match found - Did you mean to search with ds:grepvi? (y/n) y
+Multiple matches found - select a file:
+1  scripts/agg.awk
+2  scripts/fit_columns.awk
+3  scripts/hist.awk
+4  scripts/power.awk
+Enter a number from the set of files or a pattern: 2
+```
+
 
 #### `ds:trace`
 

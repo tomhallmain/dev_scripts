@@ -6,6 +6,7 @@
 # Running:
 # > awk -f subseparator.awk -v subsep_pattern=" " file file
 ## TODO: Fix output of subseparated files with quoted fields
+## TODO: Manpage
 
 BEGIN {
   if (!subsep_pattern) {

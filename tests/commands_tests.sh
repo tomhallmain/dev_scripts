@@ -111,37 +111,37 @@ ds:inferh $complex_csv3 2>$q                                || ds:fail 'inferh f
 echo -e "a b c d\n1 2 3 4" > $tmp
 expected='a b c d b c
 1 2 3 4 3 2'
-actual="$(echo -e "a b c d\n1 3 2 4" | ds:jn $tmp inner 1,4)"
-[ "$actual" = "$expected" ]                                 || ds:fail 'ds:jn failed readme single keyset case'
+actual="$(echo -e "a b c d\n1 3 2 4" | ds:join $tmp inner 1,4)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed readme single keyset case'
 expected='a c b d
 1 2 3 4'
-actual="$(echo -e "a b c d\n1 3 2 4" | ds:jn $tmp right 1,2,3,4 1,3,2,4)"
-[ "$actual" = "$expected" ]                                 || ds:fail 'ds:jn failed readme multi-keyset case'
+actual="$(echo -e "a b c d\n1 3 2 4" | ds:join $tmp right 1,2,3,4 1,3,2,4)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed readme multi-keyset case'
 expected='a b c d
 1 3 2 4
 1 2 3 4'
-actual="$(echo -e "a b c d\n1 3 2 4" | ds:jn $tmp outer merge)"
-[ "$actual" = "$expected" ]                                 || ds:fail 'ds:jn failed readme merge case'
+actual="$(echo -e "a b c d\n1 3 2 4" | ds:join $tmp outer merge)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed readme merge case'
 
-[ $(ds:jn "$jnf1" "$jnf2" o 1 | grep -c "") -gt 15 ]        || ds:fail 'ds:jn failed one-arg shell case'
-[ $(ds:jn "$jnf1" "$jnf2" r -v ind=1 | grep -c "") -gt 15 ] || ds:fail 'ds:jn failed awkarg nonkey case'
-[ $(ds:jn "$jnf1" "$jnf2" l -v k=1 | grep -c "") -gt 15 ]   || ds:fail 'ds:jn failed awkarg key case'
-[ $(ds:jn "$jnf1" "$jnf2" i 1 | grep -c "") -gt 15 ]        || ds:fail 'ds:jn failed inner join case'
+[ $(ds:join "$jnf1" "$jnf2" o 1 | grep -c "") -gt 15 ]        || ds:fail 'ds:join failed one-arg shell case'
+[ $(ds:join "$jnf1" "$jnf2" r -v ind=1 | grep -c "") -gt 15 ] || ds:fail 'ds:join failed awkarg nonkey case'
+[ $(ds:join "$jnf1" "$jnf2" l -v k=1 | grep -c "") -gt 15 ]   || ds:fail 'ds:join failed awkarg key case'
+[ $(ds:join "$jnf1" "$jnf2" i 1 | grep -c "") -gt 15 ]        || ds:fail 'ds:join failed inner join case'
 
-ds:jn "$jnf1" "$jnf2" -v ind=1 > $tmp
-cmp --silent $tmp $jnd1                                     || ds:fail 'ds:jn failed base outer join case'
-ds:jn "$jnr1" "$jnr2" o 2,3,4,5 > $tmp
-cmp --silent $tmp $jnrjn1                                   || ds:fail 'ds:jn failed repeats partial keyset case'
-ds:jn "$jnr3" "$jnr4" o merge -v merge_verbose=1 > $tmp
-cmp --silent $tmp $jnrjn2                                   || ds:fail 'ds:jn failed repeats merge case'
+ds:join "$jnf1" "$jnf2" -v ind=1 > $tmp
+cmp --silent $tmp $jnd1                                     || ds:fail 'ds:join failed base outer join case'
+ds:join "$jnr1" "$jnr2" o 2,3,4,5 > $tmp
+cmp --silent $tmp $jnrjn1                                   || ds:fail 'ds:join failed repeats partial keyset case'
+ds:join "$jnr3" "$jnr4" o merge -v merge_verbose=1 > $tmp
+cmp --silent $tmp $jnrjn2                                   || ds:fail 'ds:join failed repeats merge case'
 
 echo -e "a b d f\nd c e f" > /tmp/ds_jn_test1
 echo -e "a b d f\nd c e f\ne r t a\nt o y l" > /tmp/ds_jn_test2
 echo -e "a b l f\nd p e f\ne o t a\nt p y 6" > /tmp/ds_jn_test3
 
 expected='a b d f a d f a l f'
-actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 i 2)"
-[ "$actual" = "$expected" ]                                 || ds:fail 'ds:jn failed 2-join inner case'
+actual="$(ds:join /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 i 2)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join inner case'
 
 expected='a b l f
 d p e f
@@ -151,52 +151,54 @@ a b d f
 d c e f
 t o y l
 e r t a'
-actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o merge)"
-[ "$actual" = "$expected" ]                                 || ds:fail 'ds:jn failed 2-join merge case'
+actual="$(ds:join /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o merge)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join merge case'
 
 expected='a <NULL> l <NULL> <NULL> <NULL> b f
 d c e f c f p f
 e <NULL> t <NULL> r a o a
 t <NULL> y <NULL> o l p 6
 a b d f b f <NULL> <NULL>'
-actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o 1,3)"
-[ "$actual" = "$expected" ]                                 || ds:fail 'ds:jn failed 2-join multikey case 1'
+actual="$(ds:join /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o 1,3)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join multikey case 1'
 
 expected='a b d f b d b l
 d c e f c e p e
 e <NULL> <NULL> a r t o t
 t <NULL> <NULL> 6 <NULL> <NULL> p y
 t <NULL> <NULL> l o y <NULL> <NULL>'
-actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o 4,1)"
-[ "$actual" = "$expected" ]                                 || ds:fail 'ds:jn failed 2-join multikey case 2'
+actual="$(ds:join /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o 4,1)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join multikey case 2'
 
 echo -e "a b d 3\nd c e f" > /tmp/ds_jn_test4
 
 expected='a b d f b d f b l f b d 3
 d c e f c e f p e f c e f'
-actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4 i 1)"
-[ "$actual" = "$expected" ]                                 || ds:fail 'ds:jn failed 3-join inner case'
+actual="$(ds:join /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4 i 1)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 3-join inner case'
 
 expected='a b d f b f <NULL> <NULL> b 3
 d c e f c f p f c f
 t <NULL> y <NULL> o l p 6 <NULL> <NULL>
 e <NULL> t <NULL> r a o a <NULL> <NULL>
 a <NULL> l <NULL> <NULL> <NULL> b f <NULL> <NULL>'
-actual="$(ds:jn /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4 o 1,3)"
-[ "$actual" = "$expected" ]                                 || ds:fail 'ds:jn failed 3-join outer case'
+actual="$(ds:join /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4 o 1,3)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 3-join outer case'
 
 rm /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4
 
 cat "$jnf1" > $tmp
-[ $(ds:print_comps $jnf1 $tmp | grep -c "") -eq 7 ]         || ds:fail 'print_comps failed no complement case'
-[ "$(ds:print_comps $jnf1{,})" = 'Files are the same!' ]    || ds:fail 'print_comps failed no complement samefile case'
-[ $(ds:print_comps $jnf1 $jnf2 -v k1=2 -v k2=3,4 | grep -c "") -eq 197 ] \
-                                                            || ds:fail 'print_comps failed complments case'
+ds:comps $jnf1 $tmp                                         || ds:fail 'comps failed no complement case'
+[ $(ds:comps $jnf1 $tmp -v verbose=1 | grep -c "") -eq 7 ]  || ds:fail 'comps failed no complement verbose case'
+[ "$(ds:comps $jnf1{,})" = 'Files are the same!' ]          || ds:fail 'comps failed no complement samefile case'
+[ $(ds:comps $jnf1 $jnf2 -v k1=2 -v k2=3,4 -v verbose=1 | grep -c "") -eq 196 ] \
+                                                            || ds:fail 'comps failed complments case'
 
-[ "$(ds:print_matches $jnf1 $jnf2 -v k1=2 -v k2=2)" = "NO MATCHES FOUND" ] \
-                                                            || ds:fail 'print_matches failed no matches case'
-[ $(ds:print_matches $jnf1 $jnf2 -v k=1 | grep -c "") = 167 ] \
-                                                            || ds:fail 'print_matches failed matches case'
+[ "$(ds:matches $jnf1 $jnf2 -v k1=2 -v k2=2)" = "NO MATCHES FOUND" ] \
+                                                            || ds:fail 'matches failed no matches case'
+[ $(ds:matches $jnf1 $jnf2 -v k=1 | grep -c "") = 167 ]     || ds:fail 'matches failed matches case'
+[ $(ds:matches $jnf1 $jnf2 -v k=1 -v verbose=1 | grep -c "") = 169 ] \
+                                                            || ds:fail 'matches failed matches case'
 
 
 # SORT TESTS
@@ -332,13 +334,12 @@ expected=':5:4:3:2:1
 actual="$(echo "$input" | ds:reo rev rev -v idx=1)"
 [ "$actual" = "$expected" ] || ds:fail 'reo failed rev idx case'
 
-actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>130' off)"
-expected='**@@@ds:jn@@@@@@Join two files or a file and STDIN with any keyset@@@ds:jn file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]'
+actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>128' off)"
+expected='@@@ds:gexec@@@@@@Generate a script from pieces of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]'
 [ "$actual" = "$expected" ] || ds:fail 'reo failed full row len case'
 
 actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>48' 2)"
-expected='ds:jn
-ds:nset'
+expected='ds:nset'
 [ "$actual" = "$expected" ] || ds:fail 'reo failed basic len case'
 
 actual="$(ds:commands | grep 'ds:' | ds:reo 'len(2)%11 || len(2)=13' 'length()<5 && len()>2')"
@@ -636,7 +637,7 @@ actual="$(ds:newfs $complex_csv1 :: | grep -h Joan)"
 
 # SUBSEP TESTS
 
-actual="$(ds:sbsp tests/data/subseps_test "SEP" | ds:reo 1,7 | cat)"
+actual="$(ds:subsep tests/data/subseps_test "SEP" | ds:reo 1,7 | cat)"
 expected='A;A;A;A
 G;G;G;G'
 [ "$expected" = "$actual" ] || ds:fail 'sbsp failed'
@@ -645,7 +646,7 @@ expected='cdatetime,,,address
 1,1,06 0:00,2082 EXPEDITION WAY
 1,1,06 0:00,4 PALEN CT
 1,1,06 0:00,22 BECKFORD CT'
-actual="$(ds:reo tests/data/testcrimedata.csv 1..5 1,2 | ds:sbsp '\\/' "" -F,)"
+actual="$(ds:reo tests/data/testcrimedata.csv 1..5 1,2 | ds:subsep '\\/' "" -F,)"
 [ "$expected" = "$actual" ] || ds:fail 'sbsp failed readme case'
 
 # POW TESTS
@@ -727,7 +728,7 @@ expected='1 a b d c
 actual="$(echo -e "a b c d\na b c d\na b d c\na d b c" | ds:pow)"
 [ "$expected" = "$actual" ] || ds:fail 'pow failed combinations discrimination case'
 
-# PVT TESTS
+# PIVOT TESTS
 
 input='1 2 3 4
 5 6 7 5
@@ -735,22 +736,22 @@ input='1 2 3 4
 expected='PIVOT@@@1@@@5@@@4@@@
 2@@@1@@@@@@@@@
 6@@@@@@1@@@1@@@'
-actual="$(echo "$input" | ds:pvt 2 1)"
+actual="$(echo "$input" | ds:pivot 2 1)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed count z case'
 expected='PIVOT@@@1@@@5@@@4@@@
 2@@@3::4@@@@@@@@@
 6@@@@@@7::5@@@5::8@@@'
-actual="$(echo "$input" | ds:pvt 2 1 0)"
+actual="$(echo "$input" | ds:pivot 2 1 0)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed gen z case'
 expected='PIVOT@@@1@@@5@@@4@@@
 2@@@3@@@@@@@@@
 6@@@@@@7@@@5@@@'
-actual="$(echo "$input" | ds:pvt 2 1 3)"
+actual="$(echo "$input" | ds:pivot 2 1 3)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed spec z case'
 expected='PIVOT@@@@@@d@@@4@@@
 a@@@b@@@c@@@@@@
 1@@@2@@@@@@3@@@'
-actual="$(echo -e "a b c d\n1 2 3 4" | ds:pvt 1,2 4 3)"
+actual="$(echo -e "a b c d\n1 2 3 4" | ds:pivot 1,2 4 3)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed readme multi-y case'
 
 
@@ -1048,11 +1049,73 @@ expected='1
 actual="$(echo -e "$input" | ds:graph -v print_bases=1)"
 [ "$actual" = "$expected" ] || ds:fail 'graph failed print_bases case 2'
 
+# SHAPE TESTS
+
+expected='       lines: 7585
+       lines with "AUBURN": 75
+       occurrence: 76
+       average: 0.0100198
+       approx var: 3.96002
+lineno distribution of "AUBURN"
+   758 +++++++++++
+  1516 +++++++
+  2274 ++++++
+  3032 +++++++
+  3790 ++++++
+  4548 ++++++++
+  5306 ++++++++
+  6064 +++++++++
+  6822 ++++++++
+  7580 ++++++
+  8338'
+[ "$(ds:shape "$simple_csv2" AUBURN 0 10 | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'shape command failed'
+[ "$(ds:shape "$simple_csv2" AUBURN wfwe 10 | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'shape command failed'
+
+expected='       lines: 7585
+       stats from field: $6
+       lines with "AUTO": 237                                   lines with "INDECE": 2                                   lines with "PUBLI": 31                                   lines with "BURGL": 986
+       occurrence: 237                                          occurrence: 2                                            occurrence: 31                                           occurrence: 986
+       average: 0.0312459                                       average: 0.000263678                                     average: 0.00408701                                      average: 0.129993
+       approx var: 0.938485                                     approx var: 0.999473                                     approx var: 0.991843                                     approx var: 0.756911
+lineno distribution of "AUTO"                                   distribution of "INDECE"                                 distribution of "PUBLI"                                  distribution of "BURGL"
+   252 +++                                                                                                               ++++                                                     +++++++++++++++++++++++++++++++++
+   504 ++++++++++++++++                                         +                                                        ++                                                       +++++++++++++++++++++++++++++++++++++
+   756 +++++++++++++                                                                                                     +                                                        +++++++++++++++++++++++++++++++++++++++++++++++
+  1008 +++++                                                                                                                                                                      ++++++++++++++++++++
+  1260 +++++                                                                                                             +                                                        ++++++++++++++++++++++++++++++++++++++++
+  1512 ++++                                                                                                              ++++                                                     ++++++++++++++++++++++++++++++++++++
+  1764 ++++++++                                                                                                                                                                   +++++++++++++++++++++++++++++++++++++++++++++++++
+  2016 +++++                                                                                                                                                                      ++++++++++++++++++++++++++++++
+  2268 ++++++++++                                                                                                                                                                 ++++++++++++++++++++++++++++++++++
+  2520 ++++++                                                                                                                                                                     +++++++++++++++++++++++++++++++++++++
+  2772 ++++++                                                                                                            +                                                        ++++++++++++++++++++++++++++++++++++
+  3024 +++++++                                                                                                           +                                                        +++++++++++++++++++++++++++++++++++
+  3276 ++                                                                                                                +                                                        ++++++++++++++++++++++++++++++++++++
+  3528 ++++                                                                                                                                                                       ++++++++++++++++++++++++++++++
+  3780 ++++++++                                                                                                                                                                   +++++++++++++++++++++++
+  4032 +++++++++                                                                                                                                                                  ++++++++++++++++++++++++++++++
+  4284 ++++++++++++++++                                                                                                                                                           ++++++++++++++++++++++++++++++++
+  4536 ++++++                                                                                                            ++                                                       +++++++++++++++++++++++++++++
+  4788 +++++++++                                                                                                                                                                  +++++++++++++++++++++++++++++++++++++++
+  5040 +++++                                                                                                             +++                                                      +++++++++++++++++++++++++++++++++++++++++
+  5292 +++++                                                                                                                                                                      ++++++++++++++++++++++++++++++
+  5544 +++++++++++++++                                                                                                   +++                                                      ++++++++++++++++++++++++++++
+  5796 ++++++++++                                                                                                                                                                 +++++++++++++++++++++++
+  6048 +++++++++                                                                                                         +                                                        +++++++++++++++++++++++++++++++++
+  6300 +++++++++                                                                                                                                                                  ++++++++++++++++++++++++++++++++++
+  6552 +++++++++++                                                                                                       ++                                                       ++++++++++++++++++++++++++++++++
+  6804 ++++++                                                                                                            +                                                        ++++++++++++++++++++++++++++++++
+  7056 +                                                        +                                                                                                                 ++++++++++++++++++++++++++++++++
+  7308 ++++++++++++++                                                                                                    +++                                                      +++++++++++++++++
+  7560 ++++++++++                                                                                                        +                                                        ++++++++++++++++++++++++++++
+  7812'
+actual="$(ds:shape "$simple_csv2" 'AUTO,INDECE,PUBLI,BURGL' 6 30 -v tty_size=238 | sed -E 's/[[:space:]]+$//g')"
+[ "$actual" = "$expected" ] || ds:fail 'shape command failed'
+
 
 # ASSORTED COMMANDS TESTS
 
 [ "$(echo 1 2 3 | ds:join_by ', ')" = "1, 2, 3" ] || ds:fail 'join_by failed on pipe case'
-
 [ "$(ds:join_by ', ' 1 2 3)" = "1, 2, 3" ]        || ds:fail 'join_by failed on pipe case'
 
 [ "$(ds:embrace 'test')" = '{test}' ]             || ds:fail 'embrace failed'
@@ -1065,7 +1128,7 @@ for el in $(IFS='\t' ds:path_elements $jnf1); do
   let count+=1
 done
 
-actual="$(echo -e "5\n2\n4\n3\n1" | ds:idx)"
+actual="$(echo -e "5\n2\n4\n3\n1" | ds:index)"
 expected='1 5
 2 2
 3 4
@@ -1100,19 +1163,26 @@ expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 actual="$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")"
 [ "$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")" = 4 ]           || ds:fail 'substr failed extended regex case'
 
-if [[ $shell =~ 'bash' ]]; then
-  expected='support/utils.sh'
-  [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$expected" ]]                || ds:fail 'fsrc failed'
+expected='support/utils.sh'
+[[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$expected" ]]                || ds:fail 'fsrc failed'
+
+if [[ $shell =~ 'zsh' ]]; then
+  expected="33 !;34 \";35 #;36 $;37 %;38 &;39 ';40 (;41 );42 *;43 +;44 ,;45 -;46 .;47 /;48 0;49 1;50 2;51 3;52 4;53 5;54 6;55 7;56 8;57 9;58 :;59 ;;60 <;61 =;62 >;63 ?;64 @;65 A;66 B;67 C;68 D;69 E;70 F;71 G;72 H;73 I;74 J;75 K;76 L;77 M;78 N;79 O;80 P;81 Q;82 R;83 S;84 T;85 U;86 V;87 W;88 X;89 Y;90 Z;91 [;92 \;93 ];94 ^;95 _;96 \`;97 a;98 b;99 c;100 d;101 e;102 f;103 g;104 h;105 i;106 j;107 k;108 l;109 m;110 n;111 o;112 p;113 q;114 r;115 s;116 t;117 u;118 v;119 w;120 x;121 y;122 z;123 {;124 |;125 };126 ~;"
+  [ "$(ds:ascii 33 126 | awk '{_=_$0";"}END{print _}')" = "$expected" ]    || ds:fail 'ascii failed base case'
+  expected="200 È;201 É;202 Ê;203 Ë;204 Ì;205 Í;206 Î;207 Ï;208 Ð;209 Ñ;210 Ò;211 Ó;212 Ô;213 Õ;214 Ö;215 ×;216 Ø;217 Ù;218 Ú;219 Û;220 Ü;221 Ý;222 Þ;223 ß;224 à;225 á;226 â;227 ã;228 ä;229 å;230 æ;231 ç;232 è;233 é;234 ê;235 ë;236 ì;237 í;238 î;239 ï;240 ð;241 ñ;242 ò;243 ó;244 ô;245 õ;246 ö;247 ÷;248 ø;249 ù;250 ú;"
+  [ "$(ds:ascii 200 250 | awk '{_=_$0";"}END{print _}')" = "$expected" ]   || ds:fail 'ascii failed accent case'
 fi
 
 help_deps='ds:agg
-ds:stag
 ds:fail
+ds:stagger
+ds:pow
 ds:fit
 ds:reo
 ds:nset
 ds:commands
-ds:jn'
+ds:shape
+ds:join'
 [[ "$(ds:deps ds:help)" = "$help_deps" ]]                                || ds:fail 'deps failed'
 [ "$(ds:websel https://www.google.com title)" = Google ]                 || ds:fail 'websel failed or internet is out'
 
@@ -1152,37 +1222,18 @@ Hist: field 7 (ucr_ncic_code), cardinality 88
        6663.4-7382.7 ++
          7382.7-8102 +++
 
-Hist: field 8 (latitude), cardinality 1906
+Hist: field 8 (latitude), cardinality 1905
       38.438-38.4626 +++++++
      38.4626-38.4872 +++++++++++++
      38.4872-38.5117 +++++++++++++
      38.5117-38.5363 ++++++++++++++
      38.5363-38.5609 ++++++++++++++
-     38.5609-38.5855 +++++++++++++++
+     38.5609-38.5855 ++++++++++++++
      38.5855-38.6101 +++++++++
      38.6101-38.6346 ++++++++++++++
      38.6346-38.6592 +++++++++++
      38.6592-38.6838 ++++++'
 [ "$(ds:hist "$simple_csv2" | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'hist command failed'
-
-expected='lines: 7585
-lines with "AUBURN": 75
-fields: 3
-average fields: 1.01002
-approx field var: 3.96002
-lineno distribution of "AUBURN"
-   758 +++++++++++
-  1516 +++++++
-  2274 ++++++
-  3032 +++++++
-  3790 ++++++
-  4548 ++++++++
-  5306 ++++++++
-  6064 +++++++++
-  6822 ++++++++
-  7580 ++++++
-  8338'
-[ "$(ds:shape "$simple_csv2" AUBURN 10 | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'shape command failed'
 
 # INTEGRATION TESTS
 
@@ -1193,9 +1244,9 @@ expected='@@@PIVOT@@@7@@@21@@@14@@@28@@@+|all@@@
 @@@TOWED/STORED VEH-14602.6@@@11@@@8@@@9@@@11@@@463@@@
 @@@10851(A)VC TAKE VEH W/O OWNER@@@21@@@24@@@15@@@23@@@653@@@
 +|all@@@@@@249@@@234@@@221@@@279@@@7585@@@'
-actual="$(ds:sbsp tests/data/testcrimedata.csv '\/' "" -v apply_to_fields=1 \
+actual="$(ds:subsep tests/data/testcrimedata.csv '\/' "" -v apply_to_fields=1 \
   | ds:reo a '2,NF>3' \
-  | ds:pvt 6 1 4 c \
+  | ds:pivot 6 1 4 c \
   | ds:agg '+|all' '+|all' -v header=1 \
   | ds:sortm NF n \
   | ds:reo '2~PIVOT, >300' '1,2[PIVOT%7,2[PIVOT~all' -v uniq=1 | cat)"

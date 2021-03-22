@@ -12,7 +12,7 @@ BEGIN {
   bdiff = " \\|( |$)"
   ldiff = " <$"
   rdiff = " > "
-  
+
   red = "\033[1;31m"
   cyan = "\033[1;36m"
   mag = "\033[1;35m"
@@ -35,7 +35,7 @@ BEGIN {
   } else if (diff ~ bdiff) {
 
     split(left, lchars, "")
-    split(substr(right, 2), rchars, "")
+    split(right, rchars, "")
     l_len = length(lchars)
     r_len = length(rchars)
 
@@ -48,7 +48,8 @@ BEGIN {
           printf coloroff
         }
         j++
-      } else {
+      }
+      else {
         tmp_j = j
         for (k = j; k <= l_len; k++) { #TODO: May want to refactor using substr
           mtch = lchars[i] == rchars[k]
@@ -71,8 +72,8 @@ BEGIN {
       }
       printf "%s", lchars[i]
     }
-    
-    printf mag diff coloroff " " # tab at start of rdiff
+
+    printf mag diff coloroff
 
     j = 1
     recap = 0
@@ -83,9 +84,8 @@ BEGIN {
           printf coloroff
         }
         j++
-
-      } else {
-
+      }
+      else {
         tmp_j = j
         for (k = j; k <= r_len; k++) {
           mtch = rchars[i] == lchars[k]
@@ -109,7 +109,7 @@ BEGIN {
       }
       printf "%s", rchars[i]
     }
-    
+
     print ""
 
   } else {

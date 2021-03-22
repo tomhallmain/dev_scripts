@@ -117,6 +117,12 @@
 #        -v og_off=1
 #
 #
+# VERSION
+#      1.2
+#
+# AUTHORS
+#      Tom Hall (tomhallmain@gmail.com)
+#
 ## TODO: Header/key Caggs improvements - agg more than just the first instance of match
 ## TODO: Central tendency agg operators
 
@@ -189,7 +195,6 @@ BEGIN {
 
 NR < 2 {
   if (!fixed_nf) fixed_nf = NF
-  if (header) GenHeaderCAggExpr(HeaderAggs)
   if (gen) GenAllAggExpr(fixed_nf, 1)
   
   if (r) {
@@ -524,16 +529,6 @@ function SetConditionalAgg(conditional_agg_expr) {
     Condition[conditional_agg_expr, o_i] = Ors[o_i]
 
   return n_ors
-}
-
-function GenHeaderCAggExpr(HeaderAggs) { # TODO remove
-  for (agg in HeaderAggs) {
-    split(agg, Agg, /\|/)
-    if (agg in CAI)
-      CA[CAI[agg]] = AggExpr(Agg[1]"|1.."max, 0)
-    if (agg in XAI)
-      XA[XAI[agg]] = AggExpr(Agg[1]"|1.."max, -1)
-  }
 }
 
 function GenAllAggExpr(max, call) {

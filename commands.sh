@@ -13,9 +13,9 @@ ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [r
   if [ "$re_source" ] || ! ds:test "@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE" "$DS_COMMANDS" t; then
     grep -h '[[:alnum:]_]*()' "$DS_LOC/commands.sh" "$utils" 2>/dev/null | grep -hv 'grep -h' | sort \
       | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
-      | ds:sbsp '\\\*\\\*' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" \
-      | ds:sbsp ":[[:space:]]" "888" -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" \
-      | ds:sbsp '\\\(alias ' '$' -v apply_to_fields=3 | sed 's/)@/@/' \
+      | ds:subsep '\\\*\\\*' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" \
+      | ds:subsep ":[[:space:]]" "888" -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" \
+      | ds:subsep '\\\(alias ' '$' -v apply_to_fields=3 | sed 's/)@/@/' \
       | awk -v FS="$DS_SEP" '
         BEGIN { print "COMMAND" FS FS "DESCRIPTION" FS "ALIAS" FS "USAGE\n" }
               { print }
@@ -33,9 +33,11 @@ ds:help() { # Print help for a given command: ds:help ds_command
   (ds:nset "$1" && [[ "$1" =~ "ds:" ]]) || ds:fail 'Command not found - to see all commands, run ds:commands'
   [[ "$1" =~ 'reo' ]] && ds:reo -h && return
   [[ "$1" =~ 'fit' ]] && ds:fit -h && return
-  [[ "$1" =~ 'jn' ]] && ds:jn -h && return
+  [[ "$1" =~ 'join' ]] && ds:join -h && return
   [[ "$1" =~ 'agg' ]] && ds:agg -h && return
-  [[ "$1" =~ 'stag' ]] && ds:stag -h && return
+  [[ "$1" =~ 'stagger' ]] && ds:stagger -h && return
+  [[ "$1" =~ 'pow' ]] && ds:pow -h && return
+  [[ "$1" =~ 'shape' ]] && ds:shape -h && return
   ds:commands "" t | ds:reo "2, 2~$1 || 3~$1" "2[$1~. || 3[$1~."
 }
 
@@ -57,7 +59,7 @@ ds:vi() { # Search for files and open in vim: ds:vi search [dir] [edit_all_match
     if [ "$singlefile" ]; then
       echo 'Multiple matches found - select a file:'
       while [ ! $confirmed ]; do
-        echo -e "$fileset" | ds:idx 1 -v FS=$DS_SEP | ds:fit -v FS=$DS_SEP
+        echo -e "$fileset" | ds:index 1 -v FS=$DS_SEP | ds:fit -v FS=$DS_SEP
         while [ ! "$_matched_" ]; do
           local choice="$(ds:readp 'Enter a number from the set of files or a pattern:')"
           if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
@@ -86,9 +88,9 @@ ds:vi() { # Search for files and open in vim: ds:vi search [dir] [edit_all_match
       vi "$search"
     else
       if [ ! "$try_vi" ]; then
-        local try_gvi="$(ds:readp 'No match found - Did you mean to search with ds:gvi? (y/n)')"; fi
+        local try_gvi="$(ds:readp 'No match found - Did you mean to search with ds:grepvi? (y/n)')"; fi
       if [ "$try_gvi" = y ]; then
-        ds:gvi $@; return $?
+        ds:grepvi $@; return $?
       else return 1; fi
     fi
   else
@@ -96,7 +98,7 @@ ds:vi() { # Search for files and open in vim: ds:vi search [dir] [edit_all_match
     vi $(echo -e "$fileset"); fi
 }
 
-ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_match=f]
+ds:grepvi() { # Grep and open vim on match (alias ds:gvi): ds:gvi search [file|dir] [edit_all_match=f]
   local search="$1" all="${3:-f}"
   if [ -f "$2" ]; then local file="$2"
     if ds:nset 'rg'; then
@@ -131,7 +133,7 @@ ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_matc
         if [ "$filematchcount" -gt 1 ]; then
           echo 'Multiple matches found - select a file:'
           while [ ! "$confirmed" ]; do
-            echo -e "$fileset" | ds:idx 1 -F: | ds:fit -v FS=: -v color=never
+            echo -e "$fileset" | ds:index 1 -F: | ds:fit -v FS=: -v color=never
             while [ ! "$_matched_" ]; do
               local choice="$(ds:readp 'Enter a number from the set of files or a pattern:')"
               if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
@@ -189,34 +191,46 @@ ds:gvi() { # Grep and open vim on match: ds:gvi search [file|dir] [edit_all_matc
     IFS="$OLD_IFS"
   fi
 }
+alias ds:gvi="ds:grepvi"
 
 ds:cd() { # cd to higher or lower level dirs: ds:cd [search]
   [ ! "$1" ] && cd "$HOME" && return
   local search="$1"
   [ -d "$search" ] && cd "$search" && return
   if fd --version &>/dev/null; then
-    local _FD=0; dirs="$(fd -t d "$search" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
+    local _FD=0 dirset="$(fd -t d "$search" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
   elif fd-find --version &>/dev/null; then
-    local _FDF=0; dirs="$(fd-find -t d "$search" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
+    local _FDF=0 dirset="$(fd-find -t d "$search" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
   else
-    local dirs="$(find "$dir" -type d -name "$search" -maxdepth 10 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
+    local dirset="$(find "$dir" -type d -name "$search" -maxdepth 10 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
   fi
-  local matchcount="$(echo -e "$dirs" | wc -l | xargs)"
-  if [ "$dirs" ] && ds:is_int "$matchcount"; then
+  local matchcount="$(echo -e "$dirset" | wc -l | xargs)"
+  if [ "$dirset" ] && ds:is_int "$matchcount"; then
     if [ "$matchcount" -gt 1 ]; then
-      # TODO: Allow pattern match to found dirs
       echo 'Multiple matches found - select a directory:'
-      echo -e "$dirs" | ds:idx 1 -F: | ds:fit -v FS=: -v color=never
       while [ ! "$confirmed" ]; do
-        local choice="$(ds:readp 'Enter a number from the set of directories:')"
-        if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
-          local confirmed=0
-        else
-          echo "Unable to read selection, try again."; fi; done
-        local dirchoice="$(echo -e "$fileset" | ds:reo $choice off)"
-        [ -d "$dirchoice" ] && cd "$dirchoice" && return
+        echo -e "$dirset" | ds:index 1 -F: | ds:fit -v FS=: -v color=never
+        while [ ! "$_matched_" ]; do
+          local choice="$(ds:readp 'Enter a number from the set of directories or a pattern:')"
+          if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
+            local _matched_=0 _patt_=""
+          elif echo -e "$dirset" | grep -q "$choice"; then
+            local _matched_=0 _patt_='~'
+          else
+            echo "Unable to read selection, try again."
+            continue
+          fi
+        done
+        local dirset="$(echo -e "$dirset" | ds:reo "${_patt_}${choice}" off)"
+        local matchcount="$(echo -e "$dirset" | wc -l | xargs)"
+        ! ds:is_int "$matchcount" && ds:fail 'Unable to find a match with current args'
+        [ "$matchcount" -gt 1 ] && unset _matched_ && continue
+        local confirmed=0
+      done
+      local dirchoice="$dirset"
+      [ -d "$dirchoice" ] && cd "$dirchoice" && return
     else
-      [ -d "$dirs" ] && cd "$dirs" && return
+      [ -d "$dirset" ] && cd "$dirset" && return
     fi
   else
     local testdir=".." counter=1
@@ -251,12 +265,12 @@ ds:ntype() { # Get name type - function, alias, variable: ds:ntype name
 
 ds:new() { # Refresh zsh or bash interactive session: ds:new
   # TODO: Clear persistent envars
-  local s = "$(ds:sh)"
+  local _sh="$(ds:sh)"
   clear
-  if [[ "$s" =~ zsh ]]; then
-    exec zsh
-  elif [[ "$s" =~ bash ]]; then
-    exec bash; fi
+  if [[ "$_sh" =~ zsh ]]; then
+    env -i zsh
+  elif [[ "$_sh" =~ bash ]]; then
+    env -i bash; fi
 }
 
 ds:cp() { # ** Copy standard input in UTF-8: data | ds:cp
@@ -485,7 +499,7 @@ ds:git_squash() { # Squash last n commits (alias ds:gsq): ds:gsq [n_commits=1]
   ! ds:is_int "$extent" && echo 'Squash commits to arg must be an integer' && ds:help ds:git_squash && return 1
   local conf="$(ds:readp "Are you sure you want to squash the last $extent commit(s) on current branch?
 
-    Please confirm (y/n)")"
+  Please confirm (y/n)")"
   [ ! "$conf" = y ] && echo 'No change made' && return 1
   let local extent=$extent+1
   git reset --soft HEAD~$extent
@@ -582,7 +596,7 @@ alias ds:gg="ds:git_graph"
 
 ds:todo() { # List todo items found in paths: ds:todo [searchpaths=.]
   ds:nset 'rg' && local RG=true
-  local re='(TODO|FIXME|XXX)( |:|\-)'
+  local re='(TODO|FIXME|(^|[^X])XXX)( |:|\-)'
   if [ -z "$1" ]; then
     [ "$RG" ] && rg -His "$re" || grep -Eirs "$re" --color=always .
     echo
@@ -599,7 +613,7 @@ ds:todo() { # List todo items found in paths: ds:todo [searchpaths=.]
   [ -z $bad_dir ] || (echo 'Some paths provided could not be searched' && return 1)
 }
 
-ds:searchx() { # Search for a C-lang/curly-brace top-level object: ds:searchx file|dir [search] [q] [multilevel]
+ds:searchx() { # Search for a C-lang/curly-brace object: ds:searchx file|dir [search] [q] [multilevel]
   if [[ -d "$1" && "$2" ]]; then
     local tmp="$(ds:tmp 'ds_searchx')" w="\033[37;1m" nc="\033[0m"
     if ds:nset 'rg'; then
@@ -644,59 +658,108 @@ ds:select() { # ** Select code by regex anchors: ds:select file [startpattern en
   ds:pipe_clean $file
 }
 
-ds:insert() { # ** Redirect input into a file at lineno or pattern: ds:insert file [lineno|pattern] [srcfile]
+ds:insert() { # ** Redirect input into a file at lineno or pattern: ds:insert file [lineno|pattern] [srcfile] [inplace=f]
   if ds:pipe_open; then
-    local source=$(ds:tmp 'ds_selectsource') piped=0
-    cat /dev/stdin > $source
+    local _source=$(ds:tmp 'ds_selectsource') piped=0
+    cat /dev/stdin > $_source
   else
-    local source=$(ds:tmp 'ds_selectsource')
+    local _source=$(ds:tmp 'ds_selectsource')
     if [ -f "$3" ]; then
-      cat "$3" > $source
+      cat "$3" > $_source
     elif [ "$3" ]; then
-      echo "$3" > $source
+      echo "$3" > $_source
     else
-      rm $source; ds:fail 'Insertion source not provided'; fi; fi
+      rm $_source; ds:fail 'Insertion source not provided'
+    fi
+  fi
+
   ds:file_check "$1" t
-  local sink="$1" where="$2" tmp=$(ds:tmp 'ds_select')
+  local sink="$1" where="$2" _inplace="${4:f}"
+
+  if ds:test '$t(rue)?$' "$inplace"; then
+    _tmp=$(ds:tmp 'ds_select')
+  else
+    unset _inplace
+  fi
+
   local nsinklines=$(cat $sink | grep -c .)
-  if ds:is_int "$where"; then
-    [ "$where" -lt "$nsinklines" ] || ds:fail 'Insertion point not provided or invalid'
-    local lineno="$where"
-  elif [ "$where" ]; then
-    local pattern="$where"
+  let local nsinklines+=500
+
+  if ds:is_int "$_where"; then
+    [ "$_where" -le "$nsinklines" ] || ds:fail 'Insertion line number must be less than or equal to sink file lines + 500'
+    local lineno="$_where"
+  elif [ "$_where" ]; then
+    local pattern="$_where"
     if [ $(grep -c "$pattern" "$sink") -gt 1 ]; then
       local conftext='File contains multiple instaces of pattern - are you sure you want to proceed? (y|n)'
       local confirm="$(ds:readp "$conftext")"
-      [ "$confirm" != "y" ] && rm $source $tmp && echo 'Exit with no insertion' && return 1
+      [ "$confirm" != "y" ] && rm $_source $_tmp && echo 'Exit with no insertion' && return 1
     fi
   else
-    rm $source $tmp; ds:fail 'Insertion point not provided or invalid'; fi
-  awk -v src="$src" -v lineno=$lineno -v pattern="$pattern" \
-    -f "$DS_SCRIPT/insert.awk" "$sink" $source 2>/dev/null > $tmp
-  cat $tmp > "$sink"
-  rm $source $tmp
+    rm $_source $tmp; ds:fail 'Insertion point not provided or invalid'
+  fi
+
+  if [ "$_inplace" ]; then
+    awk -v lineno=$lineno -v pattern="$pattern" -f "$DS_SCRIPT/insert.awk" \
+      "$sink" $_source 2>/dev/null > $_tmp
+    cat $_tmp > "$sink"
+  else
+    awk -v lineno=$lineno -v pattern="$pattern" -f "$DS_SCRIPT/insert.awk"
+      "$sink" $_source 2>/dev/null
+  fi
+  rm $_source
 }
 
-ds:shape() { # ** Print data shape by length or pattern: ds:shape [file] [str|pattern] [chart_size=15ln] [chart_off=f]
+ds:shape() { # ** Print data shape by length or pattern: ds:shape [-h|file*] [patterns] [fields] [chart_size=15ln] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_shape') piped=0
     cat /dev/stdin > $file
   else
-    local tmp=$(ds:tmp 'ds_shape')
-    ds:file_check "$1" f f t > $tmp
-    local file="$(ds:fd_check "$(cat $tmp; rm $tmp)")"; shift; fi
+    ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/shape.awk" \
+      | tr -d "#" | less && return
+    if [[ -f "$2" && -f "$1" ]]; then
+      local w="\033[37;1m" nc="\033[0m"
+      while [ -f "$1" ]; do
+        local fls=("${fls[@]}" "$1"); shift; done
+      for fl in ${fls[@]}; do
+        echo -e "\n${w}${fl}${nc}"
+        [ -f "$fl" ] && ds:shape "$fl" $@; done
+      return $?
+    else
+      local tmp=$(ds:tmp 'ds_shape')
+      ds:file_check "$1" f f t > $tmp
+      local file="$(ds:fd_check "$(cat $tmp; rm $tmp)")"; shift
+    fi
+  fi
 
-  local lines=$(cat "$file" | wc -l | awk '{print $0+0}')
-  [ $lines = 0 ] && return 1
-  ds:is_int "$2" && local printlns=$2 || local printlns=15
-  let local span=$lines/$printlns
-  awk -v FS="${1:- }" -v span=${span:-15} -v tty_size="$(tput cols)" -v lines="$lines" \
-    -v simple="${3:-0}" -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/shape.awk" "$file" 2>/dev/null
+  local _lines=$(cat "$file" | wc -l | xargs)
+  [ $_lines = 0 ] && return 1
+  if [ "$1" ]; then local measures="$1"; shift; fi
+  if [ "$1" ]; then
+    local fields="$1"; shift
+    if [ "$fields" != 0 ]; then
+      fstmp=$(ds:tmp 'ds_extractfs')
+      ds:extractfs > $fstmp
+      local fs="$(cat $fstmp; rm $fstmp)"
+    fi
+  fi
+  if [ "$1" ]; then
+    if ds:is_int "$1"; then
+      [ "$1" = 0 ] && local _simple=1 || local _printlns=$1
+    else local _simple=1; fi
+    shift
+  fi
+  local _printlns=${_printlns:-15}
+  let local _span=$_lines/$_printlns
+
+  awk -v FS="${fs:- }" -v measures="$measures" -v fields="$fields" -v span=${_span:-15} \
+    -v tty_size="$(tput cols)" -v lines="$_lines" -v simple="$_simple" \
+    -f "$DS_SUPPORT/utils.awk" $@ -f "$DS_SCRIPT/shape.awk" "$file" 2>/dev/null
 
   ds:pipe_clean $file
 }
 
-ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
+ds:join() { # ** Join two datasets with any keyset (alias ds:jn): ds:jn file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
   if ds:pipe_open; then
     local f2=$(ds:tmp 'ds_jn') piped=1
     cat /dev/stdin > $f2
@@ -709,7 +772,7 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file [f
     local f1="$(ds:fd_check "$1")"; shift
     ds:file_check "$1"
     local f2="$(ds:fd_check "$1")"; shift; fi
-  
+
   local arr_base=$(ds:arr_base)
 
   if [ -f "$1" ]; then
@@ -727,6 +790,7 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file [f
 
   local merge=$(ds:arr_idx 'm(erge)' ${@})
   local has_keyarg=$(ds:arr_idx 'k[12]?=' ${@})
+
   if [[ "$merge" = "" && "$has_keyarg" = "" ]]; then
     if ds:is_int "$1"; then
       local k="$1"; shift
@@ -741,6 +805,7 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file [f
     local args=( "$@" )
     [ "$k2" ] && local args=("${args[@]}" -v "k1=$k1" -v "k2=$k2") || local args=("${args[@]}" -v "k=$k")
   else local args=( "$@" ); fi
+
   [ "$merge" ] && local args=("${args[@]:1}" -v 'merge=1')
   [ "$type" ] && local args=("${args[@]}" -v "join=$type")
 
@@ -815,9 +880,10 @@ ds:jn() { # ** Join two files or a file and STDIN with any keyset: ds:jn file [f
 
   ds:pipe_clean $f2; if [ "$pf1" ]; then rm $pf1 $pf2; fi
 }
+alias ds:jn="ds:join"
 
-ds:print_matches() { # ** Get match lines from two datasets (alias ds:pm): ds:pm file [file] [awkargs]
-  ds:file_check "$1" # TODO delete this command?
+ds:matches() { # ** Get match lines from two datasets: ds:matches file [file] [awkargs]
+  ds:file_check "$1"
   local f1="$(ds:fd_check "$1")"; shift
   if ds:pipe_open; then
     local f2=$(ds:tmp 'ds_matches') piped=1
@@ -838,10 +904,9 @@ ds:print_matches() { # ** Get match lines from two datasets (alias ds:pm): ds:pm
   fi
   ds:pipe_clean $f2
 }
-alias ds:pm="ds:print_matches"
 
-ds:print_comps() { # ** Get non-matching lines from two datasets (alias ds:pc): ds:pc file [file] [awkargs]
-  ds:file_check "$1" # TODO delete this command?
+ds:comps() { # ** Get non-matching lines from two datasets: ds:comps file [file] [awkargs]
+  ds:file_check "$1"
   local f1="$(ds:fd_check "$1")"; shift
   if ds:pipe_open; then
     local f2=$(ds:tmp 'ds_comps') piped=1
@@ -862,7 +927,6 @@ ds:print_comps() { # ** Get non-matching lines from two datasets (alias ds:pc): 
   fi
   ds:pipe_clean $f2
 }
-alias ds:pc="ds:print_comps"
 
 ds:inferh() { # Infer if headers present in a file: ds:inferh file [awkargs]
   ds:file_check "$1"
@@ -908,8 +972,8 @@ ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [c
       [ ".tsv" = "$extension" ] && echo "\t" && return
       [ ".properties" = "$extension" ] && echo "=" && return; fi; fi
 
-  ds:test 't(rue)?' "$custom" || custom=""
-  ds:test 't(rue)?' "$hc" || hc=""
+  ds:test '^t(rue)?$' "$custom" || custom=""
+  ds:test '^t(rue)?$' "$hc" || hc=""
 
   if [ "$reparse" = true ]; then
     awk -f "$DS_SCRIPT/infer_field_separator.awk" -v high_certainty="$hc" \
@@ -919,7 +983,7 @@ ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [c
       -v custom="$custom" "$file" 2>/dev/null; fi
 }
 
-ds:fit() { # ** Fit fielded data in columns with dynamic width (alias ds:f): ds:fit [-h|file*] [prefield=t] [awkargs]
+ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*] [prefield=t] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_fit') piped=0 hc=f
     cat /dev/stdin > $file
@@ -938,7 +1002,7 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width (alias ds:f): ds:
       ds:file_check "$1"
       local file="$(ds:fd_check "$1")" hc=true; shift; fi
   fi
-  
+
   if ds:test '(f(alse)?|off)' "$1"; then
     local pf_off=0; shift
   else local prefield=$(ds:tmp "ds_fit_prefield"); fi
@@ -946,7 +1010,7 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width (alias ds:f): ds:
   ds:extractfs > $fstmp
   local fs="$(cat $fstmp; rm $fstmp)"
   ds:awksafe && local args=( ${args[@]} -v awksafe=1 -f "$DS_SUPPORT/wcwidth.awk" )
-  
+
   if [ "$pf_off" ]; then
     awk -v FS="$fs" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$file" \
       ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/fit_columns.awk" $file{,} 2>/dev/null
@@ -956,12 +1020,11 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width (alias ds:f): ds:
       ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/fit_columns.awk" $prefield{,} 2>/dev/null
     rm $prefield
   fi
-  
+
   ds:pipe_clean $file
 }
-alias ds:f="ds:fit"
 
-ds:stag() { # ** Print tabular data in staggered rows: ds:stag [file] [stag_size]
+ds:stagger() { # ** Print tabular data in staggered rows: ds:stagger [file] [stag_size]
   ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/stagger.awk" \
     | sed -E 's:^#::g' | less && return
   if ds:pipe_open; then
@@ -973,7 +1036,7 @@ ds:stag() { # ** Print tabular data in staggered rows: ds:stag [file] [stag_size
   fi
   ds:is_int "$1" && local stag_size=$1 && shift
   local args=( "$@" ) tty_size=$(tput cols)
-  
+
   if ds:noawkfs; then
     local fs="$(ds:inferfs "$file" true)"
     awk -v FS="$fs" ${args[@]} -v tty_size=$tty_size -v stag_size=$stag_size \
@@ -981,11 +1044,11 @@ ds:stag() { # ** Print tabular data in staggered rows: ds:stag [file] [stag_size
   else
     awk ${args[@]} -v tty_size=$tty_size -v stag_size=$stag_size \
       -f "$DS_SCRIPT/stagger.awk" "$file" 2>/dev/null; fi
-  
+
   ds:pipe_clean $file
 }
 
-ds:idx() { # ** Attach an index to lines from a file or STDIN: ds:idx [file] [startline=1]
+ds:index() { # ** Attach an index to lines from a file or STDIN (alias ds:i): ds:i [file] [startline=1]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_idx') piped=0
     cat /dev/stdin > $file
@@ -1004,6 +1067,7 @@ ds:idx() { # ** Attach an index to lines from a file or STDIN: ds:idx [file] [st
       -f "$DS_SCRIPT/index.awk" "$file" 2>/dev/null; fi
   ds:pipe_clean $file
 }
+alias ds:i="ds:index"
 
 ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [rows] [cols] [prefield=t] [awkargs]
   if ds:pipe_open; then
@@ -1027,7 +1091,7 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [r
       local file="$(ds:fd_check "$(cat $tmp; rm $tmp)")" rows="${2:-a}" cols="${3:-a}" base=4
     fi
   fi
-  
+
   local arr_base=$(ds:arr_base) args=("${@:$base}") fstmp=$(ds:tmp 'ds_extractfs')
   if [ "$cols" = 'off' ] || $(ds:test "f(alse)?" "${args[$arr_base]}"); then
     local pf_off=0 args=( "${args[@]:1}" )
@@ -1035,7 +1099,7 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [r
   else local prefield=$(ds:tmp "ds_reo_prefield"); fi
   ds:extractfs > $fstmp
   local fs="$(cat $fstmp; rm $fstmp)"
-  
+
   if [ "$pf_off" ]; then
     awk -v FS="$fs" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
       -f "$DS_SCRIPT/reorder.awk" "$file" 2>/dev/null | ds:ttyf "$fs" "$run_fit"
@@ -1043,20 +1107,29 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [r
     ds:prefield "$file" "$fs" 1 > $prefield
     awk -v FS="$DS_SEP" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
       -f "$DS_SCRIPT/reorder.awk" $prefield 2>/dev/null | ds:ttyf "$fs" "$run_fit"; fi
-  
+
   local stts_bash=${PIPESTATUS[0]} # TODO: Zsh pipestatus not working
   ds:pipe_clean $file; [ "$pf_off" ] || rm $prefield
   if [ "$stts_bash" ]; then return $stts_bash; fi
 }
 
-ds:pvt() { # ** Pivot tabular data: ds:pv [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
+ds:pivot() { # ** Pivot tabular data: ds:pivot [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_pivot') piped=0
     cat /dev/stdin > $file
   else
-    ds:file_check "$1"
-    local file="$(ds:fd_check "$1")"
-    shift
+    if [[ -f "$2" && -f "$1" ]]; then
+      local w="\033[37;1m" nc="\033[0m"
+      while [ -f "$1" ]; do
+        local fls=("${fls[@]}" "$1"); shift; done
+      for fl in ${fls[@]}; do
+        echo -e "\n${w}${fl}${nc}"
+        [ -f "$fl" ] && ds:pivot "$fl" $@; done
+      return $?
+    else
+      ds:file_check "$1"
+      local file="$(ds:fd_check "$1")"; shift
+    fi
   fi
 
   if ds:is_int "$1" || ds:test '^([0-9]+,)+[0-9]+$' "$1"; then
@@ -1072,27 +1145,36 @@ ds:pvt() { # ** Pivot tabular data: ds:pv [file] [y_keys] [x_keys] [z_keys=count
   ds:extractfs > $fstmp
   local fs="$(cat $fstmp; rm $fstmp)"
   ds:prefield "$file" "$fs" 1 > $prefield
-  
+
   awk -v FS="$DS_SEP" -v OFS="$fs" -v x="${x_keys:-0}" -v y="${y_keys:-0}" \
     -v z="${z_keys:-count}" -v agg="${agg_type:-0}" ${args[@]} \
     -f "$DS_SCRIPT/pivot.awk" "$prefield" 2>/dev/null \
     | ds:ttyf "$DS_SEP"
-  
+
   ds:pipe_clean $file; rm $prefield
 }
 
-ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file] [r_aggs] [c_aggs]
+ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file*] [r_aggs] [c_aggs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_agg') piped=0
     cat /dev/stdin > $file
   else
     ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/agg.awk" \
       | sed -E 's:^#::g' | less && return
-    ds:file_check "$1"
-    local file="$(ds:fd_check "$1")"
-    shift
+    if [[ -f "$2" && -f "$1" ]]; then
+      local w="\033[37;1m" nc="\033[0m"
+      while [ -f "$1" ]; do
+        local fls=("${fls[@]}" "$1"); shift; done
+      for fl in ${fls[@]}; do
+        echo -e "\n${w}${fl}${nc}"
+        [ -f "$fl" ] && ds:agg "$fl" $@; done
+      return $?
+    else
+      ds:file_check "$1"
+      local file="$(ds:fd_check "$1")"; shift
+    fi
   fi
-  
+
   [ "$1" ] && ! grep -Eq '^-' <(echo "$1") && local r_aggs="$1" && shift
   [ "$1" ] && ! grep -Eq '^-' <(echo "$1") && local c_aggs="$1" && shift
 
@@ -1103,11 +1185,11 @@ ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file] [r_aggs] [c_aggs]
   ds:extractfs > $fstmp
   local fs="$(cat $fstmp; rm $fstmp)"
   ds:prefield "$file" "$fs" > $prefield
-  
+
   awk -v FS="$DS_SEP" -v OFS="$fs" -v r_aggs="$r_aggs" -v c_aggs="$c_aggs" \
     ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/agg.awk" "$prefield" 2>/dev/null \
     | ds:ttyf "$fs" "" -v nofit='Cross__FS__Aggregation'
-  
+
   ds:pipe_clean $file; rm $prefield
 }
 
@@ -1127,7 +1209,7 @@ ds:decap() { # ** Remove up to n_lines from the start of a file: ds:decap [file]
   ds:pipe_clean $file
 }
 
-ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file] [prefield=t] [awkargs]
+ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file*] [prefield=t] [awkargs]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_transpose') piped=0
     cat /dev/stdin > $file
@@ -1145,7 +1227,7 @@ ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file] [
   local args=( "$@" ) fstmp=$(ds:tmp 'ds_extractfs')
   ds:extractfs > $fstmp
   local fs="$(cat $fstmp; rm $fstmp)"
-  
+
   if [ "$pf" ]; then
     local prefield=$(ds:tmp "ds_transpose_prefield")
     ds:prefield "$file" "$fs" 1 > $prefield
@@ -1156,7 +1238,7 @@ ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file] [
     awk -v FS="$fs" -v OFS="$fs" -v VAR_OFS=1 ${args[@]} -f "$DS_SUPPORT/utils.awk" \
       -f "$DS_SCRIPT/transpose.awk" "$file" 2>/dev/null | ds:ttyf "$fs"
   fi
-  
+
   ds:pipe_clean $file
 }
 alias ds:t="ds:transpose"
@@ -1181,11 +1263,11 @@ ds:pow() { # ** Combinatorial frequency of data field values: ds:pow [file] [min
   ds:extractfs > $fstmp
   local fs="$(cat $fstmp; rm $fstmp)"
   ds:prefield "$file" "$fs" 1 > $prefield
-  
+
   awk -v FS="$DS_SEP" -v OFS="$fs" -v min=${min:-1} -v c_counts=${flds:-0} -v invert=${inv:-0} \
     ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/power.awk" $prefield 2>/dev/null \
     | ds:sortm 1 a n -v FS="$fs" | sed 's///' | ds:ttyf "$fs" -v color=never
-  
+
   ds:pipe_clean $file; rm $prefield
 }
 
@@ -1329,7 +1411,7 @@ ds:enti() { # Print text entities separated by pattern: ds:enti [file] [sep= ] [
   LC_All='C' awk -v sep="$sep" -v min=$min -f $program "$file" 2>/dev/null | LC_ALL='C' sort -n$order
 }
 
-ds:sbsp() { # ** Extend fields by a common subseparator: ds:sbsp [file] subsep_pattern [nomatch_handler= ]
+ds:subsep() { # ** Extend fields by a common subseparator: ds:subsep [file] subsep_pattern [nomatch_handler= ]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_sbsp') piped=0
     cat /dev/stdin > $file
@@ -1338,39 +1420,62 @@ ds:sbsp() { # ** Extend fields by a common subseparator: ds:sbsp [file] subsep_p
     local file="$(ds:fd_check "$1")"
     shift
   fi
-  
+
   local ssp=(-v subsep_pattern="${1:- }") nmh=(-v nomatch_handler="${2:- }")
   local args=("${@:3}") prefield=$(ds:tmp "ds_sbsp_prefield") fstmp=$(ds:tmp 'ds_extractfs')
   ds:extractfs > $fstmp
   local fs="$(cat $fstmp; rm $fstmp)"
   ds:prefield "$file" "$fs" > $prefield
-  
+
   awk -v FS="$DS_SEP" -v OFS="$fs"  ${ssp[@]} ${nmh[@]} ${args[@]} -f "$DS_SUPPORT/utils.awk" \
     -f "$DS_SCRIPT/subseparator.awk" "$prefield"{,} 2>/dev/null
-  
+
   ds:pipe_clean $file; rm $prefield
 }
 
-ds:dostounix() { # ** Remove ^M / CR characters in place: ds:dostounix [file]
+ds:dostounix() { # ** Remove ^M / CR characters in place: ds:dostounix [file*]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_dostounix_piped') piped=0
     cat /dev/stdin > $file
   else
-    ds:file_check "$1"
-    local file="$(ds:fd_check "$1")"; shift; fi
+    if [[ -f "$2" && -f "$1" ]]; then
+      local w="\033[37;1m" nc="\033[0m"
+      while [ -f "$1" ]; do
+        local fls=("${fls[@]}" "$1"); shift; done
+      for fl in ${fls[@]}; do
+        echo -e "Removing CR line endings in ${w}${fl}${nc}"
+        [ -f "$fl" ] && ds:dostounix "$fl"; done
+      return $?
+    else
+      ds:file_check "$1"
+      local file="$(ds:fd_check "$1")"; shift
+    fi
+  fi
+
   local tmpfile=$(ds:tmp 'ds_dostounix')
   cat "$file" > $tmpfile
   awk '{gsub(/\015$/, "");print}' $tmpfile 2>/dev/null > "$file"
   ds:pipe_clean $file; rm $tmpfile
 }
 
-ds:mini() { # ** Crude minify, remove whitespace and newlines: ds:mini [file] [newline_sep=;] [blank_only=f]
+ds:mini() { # ** Crude minify, remove whitespace and newlines: ds:mini [file*] [newline_sep=;] [blank_only=f]
   if ds:pipe_open; then
     local file=$(ds:tmp 'ds_mini') piped=0
     cat /dev/stdin > $file
   else
-    ds:file_check "$1"
-    local file="$(ds:fd_check "$1")"; shift; fi
+    if [[ -f "$2" && -f "$1" ]]; then
+      local w="\033[37;1m" nc="\033[0m"
+      while [ -f "$1" ]; do
+        local fls=("${fls[@]}" "$1"); shift; done
+      for fl in ${fls[@]}; do
+        echo -e "${w}${fl}${nc}"
+        [ -f "$fl" ] && ds:mini "$fl" $@; done
+      return $?
+    else
+      ds:file_check "$1"
+      local file="$(ds:fd_check "$1")"; shift
+    fi
+  fi
   if ds:test '^t(rue)?$' "$2"; then
     perl -pe 'chomp if ($_ =~ /\S/)' "$file"
   else
@@ -1438,7 +1543,7 @@ ds:srg() { # Scope grep to files that contain a match: ds:srg scope_pattern sear
   :
 }
 
-ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [days=7] [recurse=r] [hidden=h]
+ds:recent() { # List files modified recently: ds:recent [dir=.] [days=7] [recurse=r] [hidden=h]
   if [ "$1" ]; then
     local dirname="$(echo "$1")"
     [ ! -d "$dirname" ] && echo Unable to verify directory provided! && return 1; fi
@@ -1447,40 +1552,46 @@ ds:recent() { # List files modified in last 7 days: ds:recent [dir=.] [days=7] [
   ds:nset 'fd' && local FD=1
   [ "$days" ] && ds:is_int "$days" || let local days=7
   [ "$recurse" ] && ds:test '(r(ecurse)?|t(rue)?)' "$recurse" || unset recurse
-
   [ "$(ls --time-style=%D 2>/dev/null)" ] || local bsd=1
   local prg='{for(f=1;f<NF;f++){printf "%s ", $f;if($f~"^[0-3][0-9]/[0-3][0-9]/[0-9][0-9]$")printf "\""};print $NF "\""}'
+
   if [ "$hidden" ]; then
     [ $FD ] && [ "$recurse" ] && local hidden=-HI #fd hides by default
     [ -z "$recurse" ] && local hidden='A'
-    local notfound="No files found modified in the last 7 days!"
+    local notfound="No files found modified in the last $days days!"
   else
     [ ! $FD ] && [ "$recurse" ] && local hidden="-not -path '*/\.*'" # find includes all by default
-    local notfound="No non-hidden files found modified in the last 7 days!"; fi
+    local notfound="No non-hidden files found modified in the last $days days!"
+  fi
 
   if [ "$recurse" ]; then
     if [ "$bsd" ]; then
       local cmd_exec=(-exec stat -l -t "%D" \{\}) sortf=5
     else
-      local cmd_exec=(-exec ls -ghtG --time-style=+%D \{\}) sortf=4; fi
+      local cmd_exec=(-exec ls -ghtG --time-style=+%D \{\}) sortf=4
+    fi
+
     (
       if [ $FD ]; then
-        fd -t f --changed-within="${days}days" $hidden -E 'Library/' \
+        fd -t f --changed-within="${days}days" $hidden -E ~"/Library" \
           -${cmd_exec[@]} 2> /dev/null \; ".*" "$dirname"
       else
         find "$dirname" -type f -maxdepth 6 $hidden -not -path ~"/Library" \
-          -mtime -7d ${cmd_exec[@]} 2> /dev/null
+          -mtime -${days}d ${cmd_exec[@]} 2> /dev/null
       fi
     ) | sed "s:\\$(echo -n "$dirname")\/::" | awk "$prg" | sort -k$sortf \
       | ds:fit -v FS=" +" -v color=never | ds:pipe_check
+
   else
     let local days-=1
+
     if [ "$(date -v -0d 2>/dev/null)" ]; then
       for i in {0..$days}; do
         local dates=( "${dates[@]}" "-e $(date -v "-${i}d" "+%D")" ); done
     else
       for i in {0..$days}; do
-        local dates=( "${dates[@]}" "-e $(date -d "-$i days" +%D)" ); done; fi
+        local dates=( "${dates[@]}" "-e $(date -d "-$i days" +%D)" ); done
+    fi
 
     ([ "$bsd" ] && stat -l -t "%D" "$dirname"/* \
       || ls -ghtG$hidden --time-style=+%D "$dirname" \
@@ -1504,14 +1615,16 @@ ds:sedi() { # Run global in place substitutions: ds:sedi file|dir search [replac
   else
     local search="$2"
     [ "$3" ] && local replace="$3"; fi
-  if ds:test '/' "$search$replace"; then
+  
+  if ds:test '/' "${search}${replace}"; then
     local sepalts=('@' '#' '%' '&' ';' ':' ',' '|')
     local count="$(ds:arr_base)"
     while [ ! "$sep" ]; do
-      ds:test "${sepalts[$count]}" "$search$replace" && let local count++ && continue
+      ds:test "${sepalts[$count]}" "${search}${replace}" && let local count++ && continue
       local sep="${sepalts[$count]}"; break; done
     [ ! "$sep" ] && echo 'Failed replacement - please try strings with less token characters.' && return 1
   else local sep='/'; fi
+
   if [ "$file" ]; then
     perl -pi -e "s${sep}${search}${sep}${replace}${sep}g" "$file"
   else
@@ -1543,10 +1656,11 @@ ds:dff() { # ** Diff shortcut for an easier to read view: ds:dff file1 [file2] [
 #  ds:pipe_clean $file1
 }
 
-ds:gwdf() { # Git word diff shortcut: ds:gwdf [git_diff_args]
+ds:git_word_diff() { # Git word diff shortcut (alias ds:gwdf): ds:gwdf [git_diff_args]
   local args=( "$@" )
   git diff --word-diff-regex="[A-Za-z0-9. ]|[^[:space:]]" --word-diff=color ${args[@]}
 }
+alias ds:gwdf="ds:git_word_diff"
 
 ds:line() { # ** Execute commands on var line: ds:line [seed_cmds] line_cmds [IFS=\n]
   if ds:pipe_open; then

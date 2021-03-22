@@ -3,10 +3,14 @@
 # Conversion of character byte output from xxd to various code point forms
 
 BEGIN {
-  if (!to) to = "codepoint"
+  if (!to || "codepoint" ~ to)
+    to = 0
+  else if ("octet" ~ to || "hex" ~ to)
+    to = 1
 }
 
-"codepoint" ~ to {
+to < 1 {
+  # Codepoint case
   if ($3 ~ /^[0-1]+/) {
     b[1] = substr($2, 5, 4)
     b[2] = substr($3, 3, 6)
@@ -24,7 +28,8 @@ BEGIN {
     d = d b[i]
 }
 
-"octet" ~ to || "hex" ~ to {
+to == 1 {
+  # Octet/hex case
   for (i = 1; i <= NF; i++) {
     if (i < 2) continue
     if ($i ~ /^[0-1]+/) {
