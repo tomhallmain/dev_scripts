@@ -31,13 +31,14 @@ ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [r
 
 ds:help() { # Print help for a given command: ds:help ds_command
   (ds:nset "$1" && [[ "$1" =~ "ds:" ]]) || ds:fail 'Command not found - to see all commands, run ds:commands'
-  [[ "$1" =~ 'reo' ]] && ds:reo -h && return
-  [[ "$1" =~ 'fit' ]] && ds:fit -h && return
-  [[ "$1" =~ 'join' ]] && ds:join -h && return
-  [[ "$1" =~ 'agg' ]] && ds:agg -h && return
-  [[ "$1" =~ 'stagger' ]] && ds:stagger -h && return
-  [[ "$1" =~ 'pow' ]] && ds:pow -h && return
-  [[ "$1" =~ 'shape' ]] && ds:shape -h && return
+  [[ "$1" =~ ':reo' ]] && ds:reo -h && return
+  [[ "$1" =~ ':fit' ]] && ds:fit -h && return
+  [[ "$1" =~ ':join' ]] && ds:join -h && return
+  [[ "$1" =~ ':agg' ]] && ds:agg -h && return
+  [[ "$1" =~ ':stag' ]] && ds:stagger -h && return
+  [[ "$1" =~ ':pow' ]] && ds:pow -h && return
+  [[ "$1" =~ ':shape' ]] && ds:shape -h && return
+  [[ "$1" =~ ':pivot' ]] && ds:pivot -h && return
   ds:commands "" t | ds:reo "2, 2~$1 || 3~$1" "2[$1~. || 3[$1~."
 }
 
@@ -1118,6 +1119,8 @@ ds:pivot() { # ** Pivot tabular data: ds:pivot [file] [y_keys] [x_keys] [z_keys=
     local file=$(ds:tmp 'ds_pivot') piped=0
     cat /dev/stdin > $file
   else
+    ds:test "(^| )(-h|--help)" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/pivot.awk" \
+      | sed -E 's:^#::g' | less && return
     if [[ -f "$2" && -f "$1" ]]; then
       local w="\033[37;1m" nc="\033[0m"
       while [ -f "$1" ]; do
@@ -1132,11 +1135,11 @@ ds:pivot() { # ** Pivot tabular data: ds:pivot [file] [y_keys] [x_keys] [z_keys=
     fi
   fi
 
-  if ds:is_int "$1" || ds:test '^([0-9]+,)+[0-9]+$' "$1"; then
+  if [ "$1" ] && ! grep -Eq '^-' <(echo "$1"); then
     local y_keys="$1"; shift; fi
-  if ds:is_int "$1" || ds:test '^([0-9]+,)+[0-9]+$' "$1"; then
+  if [ "$1" ] && ! grep -Eq '^-' <(echo "$1"); then
     local x_keys="$1"; shift; fi
-  if ds:is_int "$1" || ds:test '^([0-9]+,)+[0-9]+$' "$1"; then
+  if [ "$1" ] && ! grep -Eq '^-' <(echo "$1"); then
     local z_keys="$1"; shift; fi
 
   ds:test '^[A-z]+$' "$1" && local agg_type="$1" && shift
@@ -1147,7 +1150,7 @@ ds:pivot() { # ** Pivot tabular data: ds:pivot [file] [y_keys] [x_keys] [z_keys=
   ds:prefield "$file" "$fs" 1 > $prefield
 
   awk -v FS="$DS_SEP" -v OFS="$fs" -v x="${x_keys:-0}" -v y="${y_keys:-0}" \
-    -v z="${z_keys:-count}" -v agg="${agg_type:-0}" ${args[@]} \
+    -v z="${z_keys:-_}" -v agg="${agg_type:-0}" ${args[@]} \
     -f "$DS_SCRIPT/pivot.awk" "$prefield" 2>/dev/null \
     | ds:ttyf "$DS_SEP"
 

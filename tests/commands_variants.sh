@@ -36,7 +36,7 @@ case "$tests" in
   todo)     test_context="~todo"                     ;;
   substr)   test_context="~substr"                   ;;
   pow)      test_context="POW TESTS##PVT TESTS"      ;;
-  pivot)    test_context="PVT TESTS##AGG TESTS"      ;;
+  pivot)    test_context="PIVOT TESTS##AGG TESTS"    ;;
   agg)      test_context="AGG TESTS##CASE TESTS"     ;;
   case)     test_context="CASE TESTS##GRAPH"         ;;
   graph)    test_context="GRAPH TESTS##SHAPE TESTS"  ;;

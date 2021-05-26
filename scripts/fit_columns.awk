@@ -550,7 +550,7 @@ NR > FNR { # Second pass, print formatted if applicable
           value = f
         }
 
-        print_len = FMax[i] + COLOR_DIFF[FNR, I] + WCWIDTH_DIFF[FNR, i]
+        print_len = FMax[i] + COLOR_DIFF[FNR, i] + WCWIDTH_DIFF[FNR, i]
         justify_str = "%" # Right-align
         fmt_str = justify_str print_len type_str
 

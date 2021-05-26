@@ -753,7 +753,31 @@ a@@@b@@@c@@@@@@
 1@@@2@@@@@@3@@@'
 actual="$(echo -e "a b c d\n1 2 3 4" | ds:pivot 1,2 4 3)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed readme multi-y case'
-
+expected='a::b \ d@@@@@@4@@@
+1@@@2@@@3@@@'
+actual="$(echo -e "a b c d\n1 2 3 4" | ds:pivot 1,2 4 3 -v header=1)"
+[ "$actual" = "$expected" ] || ds:fail 'pvt failed basic header case'
+actual="$(echo -e "a b c d\n1 2 3 4" | ds:pivot a,b d c)"
+[ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys case'
+input='halo wing top wind
+1 2 3 4
+5 6 7 5
+4 6 5 8'
+expected='Fields not found for both x and y dimensions with given key params'
+actual="$(echo "$input" | ds:pivot halo twef)"
+[ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys negative case'
+expected='halo \ wing@@@2@@@6@@@
+1@@@1@@@@@@
+5@@@@@@1@@@
+4@@@@@@1@@@'
+actual="$(echo "$input" | ds:pivot halo win)"
+[ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys two matching case'
+expected='halo \ wing::wind@@@2::4@@@6::5@@@6::8@@@
+1@@@1@@@@@@@@@
+5@@@@@@1@@@@@@
+4@@@@@@@@@1@@@'
+actual="$(echo "$input" | ds:pivot halo win,win)"
+[ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys double same-pattern case'
 
 # AGG TESTS
 
@@ -1163,14 +1187,14 @@ expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
 actual="$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")"
 [ "$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")" = 4 ]           || ds:fail 'substr failed extended regex case'
 
-expected='support/utils.sh'
-[[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$expected" ]]                || ds:fail 'fsrc failed'
-
 if [[ $shell =~ 'zsh' ]]; then
   expected="33 !;34 \";35 #;36 $;37 %;38 &;39 ';40 (;41 );42 *;43 +;44 ,;45 -;46 .;47 /;48 0;49 1;50 2;51 3;52 4;53 5;54 6;55 7;56 8;57 9;58 :;59 ;;60 <;61 =;62 >;63 ?;64 @;65 A;66 B;67 C;68 D;69 E;70 F;71 G;72 H;73 I;74 J;75 K;76 L;77 M;78 N;79 O;80 P;81 Q;82 R;83 S;84 T;85 U;86 V;87 W;88 X;89 Y;90 Z;91 [;92 \;93 ];94 ^;95 _;96 \`;97 a;98 b;99 c;100 d;101 e;102 f;103 g;104 h;105 i;106 j;107 k;108 l;109 m;110 n;111 o;112 p;113 q;114 r;115 s;116 t;117 u;118 v;119 w;120 x;121 y;122 z;123 {;124 |;125 };126 ~;"
   [ "$(ds:ascii 33 126 | awk '{_=_$0";"}END{print _}')" = "$expected" ]    || ds:fail 'ascii failed base case'
   expected="200 È;201 É;202 Ê;203 Ë;204 Ì;205 Í;206 Î;207 Ï;208 Ð;209 Ñ;210 Ò;211 Ó;212 Ô;213 Õ;214 Ö;215 ×;216 Ø;217 Ù;218 Ú;219 Û;220 Ü;221 Ý;222 Þ;223 ß;224 à;225 á;226 â;227 ã;228 ä;229 å;230 æ;231 ç;232 è;233 é;234 ê;235 ë;236 ì;237 í;238 î;239 ï;240 ð;241 ñ;242 ò;243 ó;244 ô;245 õ;246 ö;247 ÷;248 ø;249 ù;250 ú;"
   [ "$(ds:ascii 200 250 | awk '{_=_$0";"}END{print _}')" = "$expected" ]   || ds:fail 'ascii failed accent case'
+else
+  expected='support/utils.sh'
+  [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$expected" ]]                || ds:fail 'fsrc failed'
 fi
 
 help_deps='ds:agg
@@ -1180,6 +1204,7 @@ ds:pow
 ds:fit
 ds:reo
 ds:nset
+ds:pivot
 ds:commands
 ds:shape
 ds:join'

@@ -16,17 +16,17 @@
 #
 #          > awk -f join.awk file1 file2
 #
-#       ds:jn is the caller function for the join.awk script. To run any of the examples 
+#       ds:join is the caller function for the join.awk script. To run any of the examples 
 #       below, map AWK args as given in SYNOPSIS.
 #
 #       When running with piped data, args are shifted:
 #
-#          $ file2_data | ds:jn file1
+#          $ file2_data | ds:join file1
 #
 #       ds:jn can be run with multiple files beyond the second, using the same arguments
 #       as the initial join, with limited extended functionality:
 #
-#          % ds:join file1 file2 file3 file4 ... [jointype] ...
+#          $ ds:join file1 file2 file3 file4 ... [jointype] ...
 #
 # FIELD CONSIDERATIONS
 #       When running ds:jn, an attempt is made to infer field separators of up to
@@ -96,7 +96,7 @@
 #   **  If headers are present, set the header variable to any value to ensure
 #       consistent header positioning:
 #
-#          -v headers=1
+#          -v header=1
 #
 #   **  Add an index to output:
 #
