@@ -105,240 +105,240 @@
 ## TODO: transformations
 
 BEGIN {
-  _ = SUBSEP
-  if (!(FS ~ "\\[:.+:\\]")) OFS = FS
+    _ = SUBSEP
+    if (!(FS ~ "\\[:.+:\\]")) OFS = FS
   
-  if (!x || !y) {
-    print "Missing axis fields"; exit 1 }
+    if (!x || !y) {
+        print "Missing axis fields"; exit 1 }
 
-  len_x = split(x, XKeys, /,+/)
-  len_y = split(y, YKeys, /,+/)
+    len_x = split(x, XKeys, /,+/)
+    len_y = split(y, YKeys, /,+/)
 
-  for (i = 1; i <= len_x; i++) {
-    key = XKeys[i]
+    for (i = 1; i <= len_x; i++) {
+        key = XKeys[i]
     
-    if (!(key ~ /^[0-9]+$/)) {
-      GenKey["x", i] = key
-      continue
-    }
-
-    XK[key] = 1
-  }
-
-  for (i = 1; i <= len_y; i++) {
-    key = YKeys[i]
-
-    if (!(key ~ /^[0-9]+$/)) {
-      GenKey["y", i] = key
-      continue
-    }
-    
-    if (key in XK) {
-      print "Axis field sets cannot overlap"
-      exit 1
-    }
-
-    YK[key] = 1
-  }
-
-  if (agg) {
-    if ("sum" ~ "^"agg) s = 1
-    else if ("count" ~ "^"agg) c = 1
-    else if ("product" ~ "^"agg) p = 1
-    else agg = 0
-  }
-  else no_agg = 1
-
-  if (z) {
-    if (z == "_") {
-      count_xy = 1
-    }
-    else {
-      len_z = split(z, ZKeys, /,+/)
-    
-      for (i = 1; i <= len_z; i++) {
-        key = ZKeys[i]
-        
         if (!(key ~ /^[0-9]+$/)) {
-          GenKey["z", i] = key
-          continue
-        }
-        
-        if (key in XK || key in YK) {
-          print "Field sets cannot overlap"
-          exit 1
+            GenKey["x", i] = key
+            continue
         }
 
-        ZK[key] = 1
-      }
+        XK[key] = 1
     }
-  }
-  else gen_z = 1
 
-  if (transform || transform_expr) {
-    if (transform && "norm" ~ "^"transform)
-      n = 1
-    else if (transform_expr)
-      trx = 1
-  }
+    for (i = 1; i <= len_y; i++) {
+        key = YKeys[i]
+
+        if (!(key ~ /^[0-9]+$/)) {
+            GenKey["y", i] = key
+            continue
+        }
+    
+        if (key in XK) {
+            print "Axis field sets cannot overlap"
+            exit 1
+        }
+
+        YK[key] = 1
+    }
+
+    if (agg) {
+        if ("sum" ~ "^"agg) s = 1
+        else if ("count" ~ "^"agg) c = 1
+        else if ("product" ~ "^"agg) p = 1
+        else agg = 0
+    }
+    else no_agg = 1
+
+    if (z) {
+        if (z == "_") {
+            count_xy = 1
+        }
+        else {
+            len_z = split(z, ZKeys, /,+/)
+    
+            for (i = 1; i <= len_z; i++) {
+                key = ZKeys[i]
+        
+                if (!(key ~ /^[0-9]+$/)) {
+                    GenKey["z", i] = key
+                    continue
+                }
+        
+                if (key in XK || key in YK) {
+                    print "Field sets cannot overlap"
+                    exit 1
+                }
+
+                ZK[key] = 1
+            }
+        }
+    }
+    else gen_z = 1
+
+    if (transform || transform_expr) {
+        if (transform && "norm" ~ "^"transform)
+            n = 1
+        else if (transform_expr)
+            trx = 1
+    }
 }
 
 NR < 2 {
-  if (length(GenKey) > 0) {
-    GenKeysFromHeader("x", KeyFound, XKeys, XK, YK, ZK)
-    GenKeysFromHeader("y", KeyFound, YKeys, XK, YK, ZK)
-    GenKeysFromHeader("z", KeyFound, ZKeys, XK, YK, ZK)
+    if (length(GenKey) > 0) {
+        GenKeysFromHeader("x", KeyFound, XKeys, XK, YK, ZK)
+        GenKeysFromHeader("y", KeyFound, YKeys, XK, YK, ZK)
+        GenKeysFromHeader("z", KeyFound, ZKeys, XK, YK, ZK)
     
-    if (length(XK) < 1 || length(YK) < 1) {
-      print "Fields not found for both x and y dimensions with given key params"
-      error_exit = 1
-      exit 1
-    }
-    else if (!count_xy && length(ZK) < 1) {
-      print "Z dimension fields not found with given key params"
-      error_exit = 1
-      exit 1
-    }
+        if (length(XK) < 1 || length(YK) < 1) {
+            print "Fields not found for both x and y dimensions with given key params"
+            error_exit = 1
+            exit 1
+        }
+        else if (!count_xy && length(ZK) < 1) {
+            print "Z dimension fields not found with given key params"
+            error_exit = 1
+            exit 1
+        }
     
-    header = 1
-  }
+        header = 1
+    }
 
-  if (gen_z) {
-    GenZKeys(NF, ZK, ZKeys, XK, YK)
-    len_z = length(ZK)
-  }
+    if (gen_z) {
+        GenZKeys(NF, ZK, ZKeys, XK, YK)
+        len_z = length(ZK)
+    }
 
-  if (header) {
-    for (i=1; i<=len_y; i++) {
-      if (GenKey["y", i] && !KeyFound["y", i]) continue
-      pivot_header = i == len_y ? pivot_header $YKeys[i] : pivot_header $YKeys[i] "::"
+    if (header) {
+        for (i=1; i<=len_y; i++) {
+            if (GenKey["y", i] && !KeyFound["y", i]) continue
+            pivot_header = i == len_y ? pivot_header $YKeys[i] : pivot_header $YKeys[i] "::"
+        }
+    
+        pivot_header = pivot_header " \\ "
+    
+        for (i=1; i<=len_x; i++) {
+            if (GenKey["x", i] && !KeyFound["x", i]) continue
+            pivot_header = i == len_x ? pivot_header $XKeys[i] : pivot_header $XKeys[i] "::"
+        }
+    
+        next
     }
-    
-    pivot_header = pivot_header " \\ "
-    
-    for (i=1; i<=len_x; i++) {
-      if (GenKey["x", i] && !KeyFound["x", i]) continue
-      pivot_header = i == len_x ? pivot_header $XKeys[i] : pivot_header $XKeys[i] "::"
+    else {
+        pivot_header = "PIVOT"
     }
-    
-    next
-  }
-  else {
-    pivot_header = "PIVOT"
-  }
 }
 
 {
-  # TODO: Handle noagg partial duplicate case
-  if (NF < 1) next
+    # TODO: Handle noagg partial duplicate case
+    if (NF < 1) next
 
-  x_str = ""; y_str = ""; z_str = ""
+    x_str = ""; y_str = ""; z_str = ""
 
-  for (i=1; i<=len_x; i++) {
-    if (GenKey["x", i] && !KeyFound["x", i]) continue
-    x_str = i == len_x ? x_str $XKeys[i] OFS : x_str $XKeys[i] "::"
-  }
-  for (i=1; i<=len_y; i++) {
-    if (GenKey["y", i] && !KeyFound["y", i]) continue
-    y_str = y_str $YKeys[i] OFS
-  }
-  if (!count_xy) {
-    for (i=1; i<=len_z; i++) {
-      if (GenKey["z", i] && !KeyFound["z", i]) continue
-      z_str = i == len_z ? z_str $ZKeys[i] : z_str $ZKeys[i] "::"
+    for (i=1; i<=len_x; i++) {
+        if (GenKey["x", i] && !KeyFound["x", i]) continue
+        x_str = i == len_x ? x_str $XKeys[i] OFS : x_str $XKeys[i] "::"
     }
-  }
+    for (i=1; i<=len_y; i++) {
+        if (GenKey["y", i] && !KeyFound["y", i]) continue
+        y_str = y_str $YKeys[i] OFS
+    }
+    if (!count_xy) {
+        for (i=1; i<=len_z; i++) {
+            if (GenKey["z", i] && !KeyFound["z", i]) continue
+            z_str = i == len_z ? z_str $ZKeys[i] : z_str $ZKeys[i] "::"
+        }
+    }
 
-  if (x_str y_str z_str == "") next
+    if (x_str y_str z_str == "") next
 
-  X[x_str]++
-  Y[y_str]++
+    X[x_str]++
+    Y[y_str]++
 
-  if (no_agg && !count_xy)
-    Z[x_str y_str] = z_str
-  else if (c || count_xy)
-    Z[x_str y_str]++
-  else if (s) {
-    adder = z_str + 0
-    Z[x_str y_str] += adder
-  }
-  else if (p) {
-    multiplier = z_str + 0
-    Z[x_str y_str] *= multiplier
-  }
+    if (no_agg && !count_xy)
+        Z[x_str y_str] = z_str
+    else if (c || count_xy)
+        Z[x_str y_str]++
+    else if (s) {
+        adder = z_str + 0
+        Z[x_str y_str] += adder
+    }
+    else if (p) {
+        multiplier = z_str + 0
+        Z[x_str y_str] *= multiplier
+    }
 
-  if (debug) {
-    print x_str, y_str
-    print z_str
-  }
+    if (debug) {
+        print x_str, y_str
+        print z_str
+    }
 }
 
 END {
-  if (error_exit)
-    exit
+    if (error_exit)
+        exit
 
-  # Header
+    # Header
   
-  printf "%s", pivot_header
+    printf "%s", pivot_header
   
-  for (yk = 1; yk <= length(YKeys); yk++) {
-    if (GenKey["y", yk] && !KeyFound["y", yk]) continue
-    printf "%s", OFS
-  }
-
-  for (x in X)
-    printf "%s", x
-  
-  print ""
-
-  # Data
-
-  for (y in Y) {
-    printf "%s", y
-    
-    for (x in X) {
-      cr = Z[x y] ? Z[x y] : placeholder
-      printf "%s", cr OFS
+    for (yk = 1; yk <= length(YKeys); yk++) {
+        if (GenKey["y", yk] && !KeyFound["y", yk]) continue
+        printf "%s", OFS
     }
-    
+
+    for (x in X)
+        printf "%s", x
+  
     print ""
-  }
+
+    # Data
+
+    for (y in Y) {
+        printf "%s", y
+    
+        for (x in X) {
+            cr = Z[x y] ? Z[x y] : placeholder
+            printf "%s", cr OFS
+        }
+    
+        print ""
+    }
 }
 
 function GenKeysFromHeader(pivot_dim, KeyFound, KeysMap, XK, YK, ZK) {
-  for (k = 1; k <= length(KeysMap); k++) {
-    if (!GenKey[pivot_dim, k]) continue
+    for (k = 1; k <= length(KeysMap); k++) {
+        if (!GenKey[pivot_dim, k]) continue
 
-    key = KeysMap[k]
+        key = KeysMap[k]
     
-    for (f = 1; f <= NF; f++) {
-      if ($f ~ key || tolower($f) ~ key) {
-        if (!(f in XK || f in YK || f in ZK)) {
-          if (pivot_dim == "x") {
-            XK[f] = 1
-          }
-          else if (pivot_dim == "y") {
-            YK[f] = 1
-          }
-          else {
-            ZK[f] = 1
-          }
+        for (f = 1; f <= NF; f++) {
+            if ($f ~ key || tolower($f) ~ key) {
+                if (!(f in XK || f in YK || f in ZK)) {
+                    if (pivot_dim == "x") {
+                        XK[f] = 1
+                    }
+                    else if (pivot_dim == "y") {
+                        YK[f] = 1
+                    }
+                    else {
+                        ZK[f] = 1
+                    }
 
-          KeysMap[k] = f
-          KeyFound[pivot_dim, k] = 1
-          break
+                    KeysMap[k] = f
+                    KeyFound[pivot_dim, k] = 1
+                    break
+                }
+            }
         }
-      }
     }
-  }
 }
 
 function GenZKeys(nf, Z, ZKeys, XK, YK) {
-  z_count = 1
+    z_count = 1
 
-  for (f = 1; f <= nf; f++) {
-    if (f in XK || f in YK) continue
+    for (f = 1; f <= nf; f++) {
+        if (f in XK || f in YK) continue
     
-    ZK[f] = 1; ZKeys[z_count++] = f
-  }
+        ZK[f] = 1; ZKeys[z_count++] = f
+    }
 }

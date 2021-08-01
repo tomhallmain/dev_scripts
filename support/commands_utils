@@ -88,7 +88,6 @@
 @@@ds:recent@@@@@@List files modified recently@@@ds:recent [dir=.] [days=7] [recurse=r] [hidden=h]
 **@@@ds:reo@@@@@@Reorder/repeat/slice data by rows and cols@@@ds:reo [-h|file*] [rows] [cols] [prefield=t] [awkargs]
 **@@@ds:rev@@@@@@Reverse lines from standard input@@@data | ds:rev
-@@@ds:root@@@@@@Returns the root volume / of the system@@@ds:root
 @@@ds:searchn@@@@@@Search shell environment names@@@ds:searchn name
 @@@ds:searchx@@@@@@Search for a C-lang/curly-brace object@@@ds:searchx file|dir [search] [q] [multilevel]
 @@@ds:sedi@@@@@@Run global in place substitutions@@@ds:sedi file|dir search [replace]
@@ -98,6 +97,7 @@
 @@@ds:so@@@@@@Search Stack Overflow@@@ds:so [search_query]
 **@@@ds:sort@@@@@@Sort with inferred field sep of 1 char@@@ds:sort [unix_sort_args] [file]
 **@@@ds:sortm@@@ds:s@@@Sort with inferred field sep of >=1 char@@@ds:sortm [file] [keys] [order=a|d] [sort_type] [awkargs]
+@@@ds:space@@@@@@Expand file to four spaces from two or vice versa@@@ds:space file [expand|contract]
 @@@ds:src@@@@@@Source a piece of shell code@@@ds:src file ["searchx" pattern] || [start end] || [search linesafter]
 @@@ds:srg@@@@@@Scope grep to files that contain a match@@@ds:srg scope_pattern search_pattern [dir] [invert=]
 **@@@ds:stagger@@@@@@Print tabular data in staggered rows@@@ds:stagger [file] [stag_size]

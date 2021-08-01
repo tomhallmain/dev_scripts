@@ -37,21 +37,21 @@ emoji="tests/data/emoji"
 emojifit="tests/data/emojifit"
 
 if [[ $shell =~ 'bash' ]]; then
-  bsh=0
-  cd "${BASH_SOURCE%/*}/.."
-  source commands.sh
-  $(ds:fail 'testfail' &> $tmp)
-  testfail=$(cat $tmp)
-  [[ $testfail =~ '_err_: testfail' ]] || echo 'fail command failed in bash case'
+    bsh=0
+    cd "${BASH_SOURCE%/*}/.."
+    source commands.sh
+    $(ds:fail 'testfail' &> $tmp)
+    testfail=$(cat $tmp)
+    [[ $testfail =~ '_err_: testfail' ]] || echo 'fail command failed in bash case'
 elif [[ $shell =~ 'zsh' ]]; then
-  cd "$(dirname $0)/.."
-  source commands.sh
-  $(ds:fail 'testfail' &> $tmp)
-  testfail=$(cat $tmp)
-  [[ $testfail =~ '_err_: Operation intentionally failed' ]] || echo 'fail command failed in zsh case'
+    cd "$(dirname $0)/.."
+    source commands.sh
+    $(ds:fail 'testfail' &> $tmp)
+    testfail=$(cat $tmp)
+    [[ $testfail =~ '_err_: Operation intentionally failed' ]] || echo 'fail command failed in zsh case'
 else
-  echo 'unhandled shell detected - only zsh/bash supported at this time'
-  exit 1
+    echo 'unhandled shell detected - only zsh/bash supported at this time'
+    exit 1
 fi
 
 # BASICS TESTS
@@ -76,17 +76,17 @@ ds:searchn 'test_var' 1> $q                          || ds:fail 'searchn failed 
 
 # zsh trace output in subshell lists a file descriptor
 if [[ $shell =~ 'zsh' ]]; then
-  ds:trace 'echo test' &>$tmp
-  grep -e "+ds:trace:8> eval 'echo test'" -e "+(eval):1> echo test" $tmp &>$q || ds:fail 'trace command failed'
+    ds:trace 'echo test' &>$tmp
+    grep -e "+ds:trace:8> eval 'echo test'" -e "+(eval):1> echo test" $tmp &>$q || ds:fail 'trace command failed'
 elif [[ $shell =~ 'bash' ]]; then
-  expected="++++ echo test\ntest"
-  [ "$(ds:trace 'echo test' 2>$q)" = "$(echo -e "$expected")" ] || ds:fail 'trace command failed'
+    expected="++++ echo test\ntest"
+    [ "$(ds:trace 'echo test' 2>$q)" = "$(echo -e "$expected")" ] || ds:fail 'trace command failed'
 fi
 
 # GIT COMMANDS TESTS
 
 [ $(ds:git_recent_all | awk '{print $3}' | grep -c "") -gt 2 ] \
-  || echo 'git recent all failed, possibly due to no git dirs in home'
+    || echo 'git recent all failed, possibly due to no git dirs in home'
 
 # IFS TESTS
 
@@ -339,7 +339,8 @@ expected='@@@ds:gexec@@@@@@Generate a script from pieces of another and run@@@ds
 [ "$actual" = "$expected" ] || ds:fail 'reo failed full row len case'
 
 actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>48' 2)"
-expected='ds:nset'
+expected='ds:nset
+ds:space'
 [ "$actual" = "$expected" ] || ds:fail 'reo failed basic len case'
 
 actual="$(ds:commands | grep 'ds:' | ds:reo 'len(2)%11 || len(2)=13' 'length()<5 && len()>2')"
@@ -390,10 +391,11 @@ expected='-1 nah
 [ "$(echo "$input" | ds:reo "2<0, 3~test" "31!=14")" = "$expected" ] || ds:fail 'reo failed extended cases'
 
 input="$(for i in $(seq -10 20); do 
-    [ $i -eq -10 ] && ds:iter test 23 && echo && ds:iter _TeST_ 20 && echo
-    for j in $(seq -2 20); do 
-      [ $i -ne 0 ] && printf "%s " "$(echo "scale=2; $j/$i" | bc -l)"; done
-    [ $i -ne 0 ] && echo; done)"
+      [ $i -eq -10 ] && ds:iter test 23 " " && echo && ds:iter _TeST_ 20 " " && echo
+      for j in $(seq -2 20); do 
+          [ $i -ne 0 ] && printf "%s " "$(echo "scale=2; $j/$i" | bc -l)"
+      done
+      [ $i -ne 0 ] && echo; done)"
 actual="$(echo "$input" | ds:reo "1,1,>4, [test, [test/i~ST" ">4, [test~T" -v cased=1)"
 expected='test test test test test test test test test test test test test test test test test
 test test test test test test test test test test test test test test test test test
@@ -609,7 +611,7 @@ actual="$(ds:fit $floats -v color=never -v no_zero_blank=1 | sed -E 's/[[:space:
 ps aux | ds:fit -F'[[:space:]]+' -v color=never -v endfit_col=10 | awk '{print length($0)}' > $tmp
 tty_width="$(tput cols)"
 for fit_length in $(cat $tmp); do
-  [ "$fit_length" -lt "$tty_width" ] || ds:fail 'fit failed endfit_col case'
+    [ "$fit_length" -lt "$tty_width" ] || ds:fail 'fit failed endfit_col case'
 done
 
 
@@ -1147,9 +1149,9 @@ actual="$(ds:shape "$simple_csv2" 'AUTO,INDECE,PUBLI,BURGL' 6 30 -v tty_size=238
 path_el_arr=( tests/data/ infer_join_fields_test1 '.csv' )
 [ -z $bsh ] && let count=1 || let count=0
 for el in $(IFS='\t' ds:path_elements $jnf1); do
-  test_el=${path_el_arr[count]}
-  [ $el = $test_el ] || ds:fail "path_elements failed on $test_el"
-  let count+=1
+    test_el=${path_el_arr[count]}
+    [ $el = $test_el ] || ds:fail "path_elements failed on $test_el"
+    let count+=1
 done
 
 actual="$(echo -e "5\n2\n4\n3\n1" | ds:index)"
@@ -1163,9 +1165,7 @@ expected='1 5
 [ "$(ds:filename_str $jnf1 '-1' "" t)" = 'tests/data/infer_join_fields_test1-1.csv' ] \
   || ds:fail 'filename_str command failed'
 
-[ "$(ds:iter "a" 3)" = 'a a a' ] || ds:fail 'iter failed'
-
-echo $(ds:root) 1> $q || ds:fail 'root command failed'
+[ "$(ds:iter "a" 3)" = 'aaa' ] || ds:fail 'iter failed'
 
 [ "$(printf "%s\n" a b c d | ds:rev | tr -d '\n')" = "dcba" ] || ds:fail 'rev failed'
 
@@ -1188,13 +1188,13 @@ actual="$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")"
 [ "$(ds:substr "1/2/3/4" "[0-9]+\\/[0-9]+\\/[0-9]+\\/")" = 4 ]           || ds:fail 'substr failed extended regex case'
 
 if [[ $shell =~ 'zsh' ]]; then
-  expected="33 !;34 \";35 #;36 $;37 %;38 &;39 ';40 (;41 );42 *;43 +;44 ,;45 -;46 .;47 /;48 0;49 1;50 2;51 3;52 4;53 5;54 6;55 7;56 8;57 9;58 :;59 ;;60 <;61 =;62 >;63 ?;64 @;65 A;66 B;67 C;68 D;69 E;70 F;71 G;72 H;73 I;74 J;75 K;76 L;77 M;78 N;79 O;80 P;81 Q;82 R;83 S;84 T;85 U;86 V;87 W;88 X;89 Y;90 Z;91 [;92 \;93 ];94 ^;95 _;96 \`;97 a;98 b;99 c;100 d;101 e;102 f;103 g;104 h;105 i;106 j;107 k;108 l;109 m;110 n;111 o;112 p;113 q;114 r;115 s;116 t;117 u;118 v;119 w;120 x;121 y;122 z;123 {;124 |;125 };126 ~;"
-  [ "$(ds:ascii 33 126 | awk '{_=_$0";"}END{print _}')" = "$expected" ]    || ds:fail 'ascii failed base case'
-  expected="200 È;201 É;202 Ê;203 Ë;204 Ì;205 Í;206 Î;207 Ï;208 Ð;209 Ñ;210 Ò;211 Ó;212 Ô;213 Õ;214 Ö;215 ×;216 Ø;217 Ù;218 Ú;219 Û;220 Ü;221 Ý;222 Þ;223 ß;224 à;225 á;226 â;227 ã;228 ä;229 å;230 æ;231 ç;232 è;233 é;234 ê;235 ë;236 ì;237 í;238 î;239 ï;240 ð;241 ñ;242 ò;243 ó;244 ô;245 õ;246 ö;247 ÷;248 ø;249 ù;250 ú;"
-  [ "$(ds:ascii 200 250 | awk '{_=_$0";"}END{print _}')" = "$expected" ]   || ds:fail 'ascii failed accent case'
+    expected="33 !;34 \";35 #;36 $;37 %;38 &;39 ';40 (;41 );42 *;43 +;44 ,;45 -;46 .;47 /;48 0;49 1;50 2;51 3;52 4;53 5;54 6;55 7;56 8;57 9;58 :;59 ;;60 <;61 =;62 >;63 ?;64 @;65 A;66 B;67 C;68 D;69 E;70 F;71 G;72 H;73 I;74 J;75 K;76 L;77 M;78 N;79 O;80 P;81 Q;82 R;83 S;84 T;85 U;86 V;87 W;88 X;89 Y;90 Z;91 [;92 \;93 ];94 ^;95 _;96 \`;97 a;98 b;99 c;100 d;101 e;102 f;103 g;104 h;105 i;106 j;107 k;108 l;109 m;110 n;111 o;112 p;113 q;114 r;115 s;116 t;117 u;118 v;119 w;120 x;121 y;122 z;123 {;124 |;125 };126 ~;"
+    [ "$(ds:ascii 33 126 | awk '{_=_$0";"}END{print _}')" = "$expected" ]    || ds:fail 'ascii failed base case'
+    expected="200 È;201 É;202 Ê;203 Ë;204 Ì;205 Í;206 Î;207 Ï;208 Ð;209 Ñ;210 Ò;211 Ó;212 Ô;213 Õ;214 Ö;215 ×;216 Ø;217 Ù;218 Ú;219 Û;220 Ü;221 Ý;222 Þ;223 ß;224 à;225 á;226 â;227 ã;228 ä;229 å;230 æ;231 ç;232 è;233 é;234 ê;235 ë;236 ì;237 í;238 î;239 ï;240 ð;241 ñ;242 ò;243 ó;244 ô;245 õ;246 ö;247 ÷;248 ø;249 ù;250 ú;"
+    [ "$(ds:ascii 200 250 | awk '{_=_$0";"}END{print _}')" = "$expected" ]   || ds:fail 'ascii failed accent case'
 else
-  expected='support/utils.sh'
-  [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$expected" ]]                || ds:fail 'fsrc failed'
+    expected='support/utils.sh'
+    [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$expected" ]]                || ds:fail 'fsrc failed'
 fi
 
 help_deps='ds:agg
@@ -1270,11 +1270,11 @@ expected='@@@PIVOT@@@7@@@21@@@14@@@28@@@+|all@@@
 @@@10851(A)VC TAKE VEH W/O OWNER@@@21@@@24@@@15@@@23@@@653@@@
 +|all@@@@@@249@@@234@@@221@@@279@@@7585@@@'
 actual="$(ds:subsep tests/data/testcrimedata.csv '\/' "" -v apply_to_fields=1 \
-  | ds:reo a '2,NF>3' \
-  | ds:pivot 6 1 4 c \
-  | ds:agg '+|all' '+|all' -v header=1 \
-  | ds:sortm NF n \
-  | ds:reo '2~PIVOT, >300' '1,2[PIVOT%7,2[PIVOT~all' -v uniq=1 | cat)"
+    | ds:reo a '2,NF>3' \
+    | ds:pivot 6 1 4 c \
+    | ds:agg '+|all' '+|all' -v header=1 \
+    | ds:sortm NF n \
+    | ds:reo '2~PIVOT, >300' '1,2[PIVOT%7,2[PIVOT~all' -v uniq=1 | cat)"
 [ "$actual" = "$expected" ] || ds:fail 'integration case 1 failed'
 
 expected='emoji  Generating_code_base10  init_awk_len  len_simple_extract  len_remaining

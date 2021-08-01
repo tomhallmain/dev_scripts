@@ -82,185 +82,185 @@
 #       Tom Hall (tomhallmain@gmail.com)
 
 BEGIN {
-  if (!tty_size) tty_size = 100
-  lineno_size = Max(length(lines), 5)
-  buffer_str = "                        "
-  output_space = tty_size - lineno_size - 2
-  if (!span) span = 15
+    if (!tty_size) tty_size = 100
+    lineno_size = Max(length(lines), 5)
+    buffer_str = "                        "
+    output_space = tty_size - lineno_size - 2
+    if (!span) span = 15
 
-  if (!measures) measures = "_length_"
-  SetMeasures(measures, MeasureSet, MeasureTypes)
+    if (!measures) measures = "_length_"
+    SetMeasures(measures, MeasureSet, MeasureTypes)
 
-  if (!fields) fields = "0"
-  split(fields, Fields, ",")
-  for (f in Fields) {
-    field = Fields[f]
-    if (field != "0" && field + 0 == 0) {
-      delete Fields[f]
+    if (!fields) fields = "0"
+    split(fields, Fields, ",")
+    for (f in Fields) {
+        field = Fields[f]
+        if (field != "0" && field + 0 == 0) {
+            delete Fields[f]
+        }
     }
-  }
-  if (!length(Fields)) {
-    Fields[1] = "0"
-  }
+    if (!length(Fields)) {
+        Fields[1] = "0"
+    }
 
-  if (shape_marker) {
-    marker_len = length(shape_marker)
-    marker_len_mod = marker_len > 1 ? tty_size / marker_len : tty_size
-    for (i = 1; i <= marker_len_mod; i++)
-      shape_marker_string = shape_marker_string shape_marker
-  }
-  else
-    for (i = 1; i <= tty_size; i++)
-      shape_marker_string = shape_marker_string "+"
+    if (shape_marker) {
+        marker_len = length(shape_marker)
+        marker_len_mod = marker_len > 1 ? tty_size / marker_len : tty_size
+        for (i = 1; i <= marker_len_mod; i++)
+            shape_marker_string = shape_marker_string shape_marker
+    }
+    else
+        for (i = 1; i <= tty_size; i++)
+            shape_marker_string = shape_marker_string "+"
 
-  measures_len = length(MeasureSet)
-  fields_len = length(Fields)
+    measures_len = length(MeasureSet)
+    fields_len = length(Fields)
 }
 
 {
-  bucket_discriminant = NR % span
-  if (bucket_discriminant == 0) buckets++
+    bucket_discriminant = NR % span
+    if (bucket_discriminant == 0) buckets++
 
-  for (f_i = 1; f_i <= fields_len; f_i++) {
-    for (m_i = 1; m_i <= measures_len; m_i++) {
-      key = f_i SUBSEP m_i
-      field = Fields[f_i]
-      measure = MeasureSet[m_i]
+    for (f_i = 1; f_i <= fields_len; f_i++) {
+        for (m_i = 1; m_i <= measures_len; m_i++) {
+            key = f_i SUBSEP m_i
+            field = Fields[f_i]
+            measure = MeasureSet[m_i]
 
-      value = MeasureTypes[m_i] ? split($Fields[f_i], Tmp, measure) - 1 : length($field)
-      occurrences = Max(value, 0)
+            value = MeasureTypes[m_i] ? split($Fields[f_i], Tmp, measure) - 1 : length($field)
+            occurrences = Max(value, 0)
 
-      if (occurrences > MaxOccurrences[key]) MaxOccurrences[key] = occurrences
-      TotalOccurrences[key] += occurrences
-      m = Max(Measure(MeasureTypes[m_i], field, occurrences), 0)
-      J[key] += m
-      if (m) MatchLines[key]++
+            if (occurrences > MaxOccurrences[key]) MaxOccurrences[key] = occurrences
+            TotalOccurrences[key] += occurrences
+            m = Max(Measure(MeasureTypes[m_i], field, occurrences), 0)
+            J[key] += m
+            if (m) MatchLines[key]++
 
-      if (bucket_discriminant == 0) {
-        if (J[key] > MaxJ[key]) MaxJ[key] = J[key]
-        _[key, NR/span] = J[key]
-        J[key] = 0
-      }
+            if (bucket_discriminant == 0) {
+                if (J[key] > MaxJ[key]) MaxJ[key] = J[key]
+                _[key, NR/span] = J[key]
+                J[key] = 0
+            }
+        }
     }
-  }
 }
 
 END {
-  for (f_i = 1; f_i <= fields_len; f_i++) {
-    for (m_i = 1; m_i <= measures_len; m_i++) {
-      key = f_i SUBSEP m_i
-
-      if (bucket_discriminant) {
-        J[key] = J[key] / bucket_discriminant * span
-        if (J[key] > MaxJ[key]) MaxJ[key] = J[key]
-        l = (NR - J[key] + span) / span
-        _[f_i, m_i, l] = J[f_i, m_i]
-      }
-
-      AvgOccurrences[key] = TotalOccurrences[key] / NR
-      if (MaxJ[key]) match_found = 1
-    }
-  }
-
-  if (!match_found) {
-    print "Data not found with given parameters"
-    exit
-  }
-
-  output_column_len = int(output_space / measures_len)
-  output_column_len_1 = output_column_len + lineno_size + 2
-  column_fmt = "%-"output_column_len"s"
-
-  PrintLineNoBuffer()
-  print "lines: "NR
-
-  for (f_i = 1; f_i <= fields_len; f_i++) {
-    field = Fields[f_i]
-    if (fields_len > 1 || field) {
-      PrintLineNoBuffer()
-      print "stats from field: $"field
-    }
-
-    PrintLineNoBuffer()
-    for (m_i = 1; m_i <= measures_len; m_i++)
-      PrintColumnVal("lines with \""MeasureSet[m_i]"\": "MatchLines[f_i, m_i])
-    print ""
-
-    PrintLineNoBuffer()
-    for (m_i = 1; m_i <= measures_len; m_i++)
-      PrintColumnVal("occurrence: "TotalOccurrences[f_i, m_i])
-    print ""
-
-    PrintLineNoBuffer()
-    for (m_i = 1; m_i <= measures_len; m_i++)
-      PrintColumnVal("average: "AvgOccurrences[f_i, m_i])
-    print ""
-
-    if (!simple) {
-      PrintLineNoBuffer()
-      for (m_i = 1; m_i <= measures_len; m_i++) {
-        key = f_i SUBSEP m_i
-        PrintColumnVal("approx var: "(MaxOccurrences[key]-AvgOccurrences[key])**2)
-      }
-      print ""
-
-      printf "%"lineno_size"s ", "lineno"
-
-      for (m_i = 1; m_i <= measures_len; m_i++) {
-        key = f_i SUBSEP m_i
-        ModJ[key] = MaxJ[key] <= output_column_len ? 1 : output_column_len / MaxJ[key]
-      }
-
-      for (m_i = 1; m_i <= measures_len; m_i++) {
-        measure_desc = MeasureTypes[m_i] ? "\""MeasureSet[m_i]"\"" : "length"
-        PrintColumnVal("distribution of "measure_desc)
-      }
-      print ""
-
-      buckets++
-
-      for (i = 1; i <= buckets; i++) {
-        printf " %"lineno_size"s ", i * span
-
+    for (f_i = 1; f_i <= fields_len; f_i++) {
         for (m_i = 1; m_i <= measures_len; m_i++) {
-          key = f_i SUBSEP m_i
-          shape_marker = sprintf("%.*s", _[key, i] * ModJ[key], shape_marker_string)
-          PrintColumnVal(shape_marker)
+            key = f_i SUBSEP m_i
+
+            if (bucket_discriminant) {
+                J[key] = J[key] / bucket_discriminant * span
+                if (J[key] > MaxJ[key]) MaxJ[key] = J[key]
+                l = (NR - J[key] + span) / span
+                _[f_i, m_i, l] = J[f_i, m_i]
+            }
+
+            AvgOccurrences[key] = TotalOccurrences[key] / NR
+            if (MaxJ[key]) match_found = 1
+        }
+    }
+
+    if (!match_found) {
+        print "Data not found with given parameters"
+        exit
+    }
+
+    output_column_len = int(output_space / measures_len)
+    output_column_len_1 = output_column_len + lineno_size + 2
+    column_fmt = "%-"output_column_len"s"
+
+    PrintLineNoBuffer()
+    print "lines: "NR
+
+    for (f_i = 1; f_i <= fields_len; f_i++) {
+        field = Fields[f_i]
+        if (fields_len > 1 || field) {
+            PrintLineNoBuffer()
+            print "stats from field: $"field
         }
 
+        PrintLineNoBuffer()
+        for (m_i = 1; m_i <= measures_len; m_i++)
+            PrintColumnVal("lines with \""MeasureSet[m_i]"\": "MatchLines[f_i, m_i])
         print ""
-      }
+
+        PrintLineNoBuffer()
+        for (m_i = 1; m_i <= measures_len; m_i++)
+            PrintColumnVal("occurrence: "TotalOccurrences[f_i, m_i])
+        print ""
+
+        PrintLineNoBuffer()
+        for (m_i = 1; m_i <= measures_len; m_i++)
+            PrintColumnVal("average: "AvgOccurrences[f_i, m_i])
+        print ""
+
+        if (!simple) {
+            PrintLineNoBuffer()
+            for (m_i = 1; m_i <= measures_len; m_i++) {
+                key = f_i SUBSEP m_i
+                PrintColumnVal("approx var: "(MaxOccurrences[key]-AvgOccurrences[key])**2)
+            }
+            print ""
+
+            printf "%"lineno_size"s ", "lineno"
+
+            for (m_i = 1; m_i <= measures_len; m_i++) {
+                key = f_i SUBSEP m_i
+                ModJ[key] = MaxJ[key] <= output_column_len ? 1 : output_column_len / MaxJ[key]
+            }
+
+            for (m_i = 1; m_i <= measures_len; m_i++) {
+                measure_desc = MeasureTypes[m_i] ? "\""MeasureSet[m_i]"\"" : "length"
+                PrintColumnVal("distribution of "measure_desc)
+            }
+            print ""
+
+            buckets++
+
+            for (i = 1; i <= buckets; i++) {
+                printf " %"lineno_size"s ", i * span
+
+                for (m_i = 1; m_i <= measures_len; m_i++) {
+                    key = f_i SUBSEP m_i
+                    shape_marker = sprintf("%.*s", _[key, i] * ModJ[key], shape_marker_string)
+                    PrintColumnVal(shape_marker)
+                }
+
+                print ""
+            }
+        }
     }
-  }
 }
 
 function SetMeasures(measures, MeasureSet, MeasureTypes) {
-  split(measures, MeasureSet, ",")
-  for (i = 1; i <= length(MeasureSet); i++) {
-    measure = MeasureSet[i]
-    if ("_length_" ~ "^"measure) {
-      MeasureSet[i] = "length"
-      MeasureTypes[i] = 0
+    split(measures, MeasureSet, ",")
+    for (i = 1; i <= length(MeasureSet); i++) {
+        measure = MeasureSet[i]
+        if ("_length_" ~ "^"measure) {
+            MeasureSet[i] = "length"
+            MeasureTypes[i] = 0
+        }
+        else {
+            MeasureTypes[i] = 1
+        }
     }
-    else {
-      MeasureTypes[i] = 1
-    }
-  }
 }
 
 function Measure(measure, field, occurrences) {
-  if (measure) {
-    if (measure == 1) return occurrences
-  }
-  else return length($field)
+    if (measure) {
+        if (measure == 1) return occurrences
+    }
+    else return length($field)
 }
 
 function PrintLineNoBuffer() {
-  if (simple) return
-  printf "%.*s", lineno_size + 2, buffer_str
+    if (simple) return
+    printf "%.*s", lineno_size + 2, buffer_str
 }
 
 function PrintColumnVal(print_string) {
-  printf column_fmt, print_string
+    printf column_fmt, print_string
 }
 

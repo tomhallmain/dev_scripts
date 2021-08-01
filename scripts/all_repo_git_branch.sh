@@ -19,21 +19,21 @@ REPOS=()
 HOME_DIRS=( $(cd ~ ; ls -d */ | sed 's#/##') )
 
 for dir in ${HOME_DIRS[@]} ; do
-  check_dir=$( git -C ${dir} rev-parse 2> /dev/null )
-  check_dir=$( echo $? )
-  if [ "${check_dir}" = "0" ] ; then REPOS=( " ${REPOS[@]} " "${dir}" ) ; fi
+    check_dir=$( git -C ${dir} rev-parse 2> /dev/null )
+    check_dir=$( echo $? )
+    if [ "${check_dir}" = "0" ] ; then REPOS=( " ${REPOS[@]} " "${dir}" ) ; fi
 done
 
 for repo in ${REPOS[@]} ; do
-  cd ~
-  cd "${repo}"
+    cd ~
+    cd "${repo}"
 
-  echo -e "${WHITE} ${repo}${NC}"
+    echo -e "${WHITE} ${repo}${NC}"
 
-  git -c color.ui=always branch | grep '' || echo -e "${ORANGE} No non-master branches found. ${NC}"
-  wait
+    git -c color.ui=always branch | grep '' || echo -e "${ORANGE} No non-master branches found. ${NC}"
+    wait
 
-  echo -e "\n"
+    echo -e "\n"
 done
 
 echo -e "\n"

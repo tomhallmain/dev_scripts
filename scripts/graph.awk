@@ -26,47 +26,47 @@
 #
 
 BEGIN {
-  OFS = SetOFS()
+    OFS = SetOFS()
 }
 
 {
-  Shoots[$1] = $2
-  Bases[$2] = 1
+    Shoots[$1] = $2
+    Bases[$2] = 1
 }
 
 END {
-  if (print_bases) {
-    for (base in Bases){
-      if (!(base in Shoots))
-        print base
+    if (print_bases) {
+        for (base in Bases){
+            if (!(base in Shoots))
+                print base
+        }
     }
-  }
 
-  for (shoot in Shoots) {
-    if (Shoots[shoot] && (print_bases || !Bases[shoot])) {
-      if (shoot == Shoots[shoot]) {
-        Cycles[shoot] = 1
-        continue
-      }
+    for (shoot in Shoots) {
+        if (Shoots[shoot] && (print_bases || !Bases[shoot])) {
+            if (shoot == Shoots[shoot]) {
+                Cycles[shoot] = 1
+                continue
+            }
 
-      print Backtrace(shoot, Shoots[shoot])
+            print Backtrace(shoot, Shoots[shoot])
+        }
     }
-  }
 
-  if (length(Cycles)) {
-    print "WARNING: "length(Cycles)" cycles found!"
+    if (length(Cycles)) {
+        print "WARNING: "length(Cycles)" cycles found!"
 
-    for (cycle in Cycles)
-      print "CYCLENODE__" cycle
+        for (cycle in Cycles)
+            print "CYCLENODE__" cycle
 
-    exit 1
-  }
+        exit 1
+    }
 }
 
 function Backtrace(start, test_base) {
-  return (test_base in Shoots) ? Extend(Backtrace(test_base, Shoots[test_base]), start) : Extend(test_base, start)
+    return (test_base in Shoots) ? Extend(Backtrace(test_base, Shoots[test_base]), start) : Extend(test_base, start)
 }
 function Extend(branch, offshoot) {
-  return branch OFS offshoot
+    return branch OFS offshoot
 }
 

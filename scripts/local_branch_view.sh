@@ -16,77 +16,77 @@ echo
 # Handle option flags and set conditional variables
 
 lbvHelp() {
-  echo "Script to print a view of local git repositories against branches."
-  echo
-  echo "Syntax: [-ab:Dfhmo:s]"
-  echo "-a    Run for all local repos found (implies D, m)"
-  echo "-b    Run for a custom base directory filepath arg"
-  echo "-D    Deep search for all repos in base directory"
-  echo "-f    Run find using fd if installed (implies D)"
-  echo "-h    Print this help"
-  echo "-m    Include repos found with only master branch"
-  echo "-o    Override repos to run with filepath args"
-  echo "-s    Mark repos and branches with untracked changes"
-  echo "-v    Run in verbose mode"
-  echo
-  exit
+    echo "Script to print a view of local git repositories against branches."
+    echo
+    echo "Syntax: [-ab:Dfhmo:s]"
+    echo "-a    Run for all local repos found (implies D, m)"
+    echo "-b    Run for a custom base directory filepath arg"
+    echo "-D    Deep search for all repos in base directory"
+    echo "-f    Run find using fd if installed (implies D)"
+    echo "-h    Print this help"
+    echo "-m    Include repos found with only master branch"
+    echo "-o    Override repos to run with filepath args"
+    echo "-s    Mark repos and branches with untracked changes"
+    echo "-v    Run in verbose mode"
+    echo
+    exit
 }
 
 if (($# == 0)); then
-  echo "No flags set: Running only for repos with non-master branches in top level of home"
-  echo "Add opt -h to print help"
+    echo "No flags set: Running only for repos with non-master branches in top level of home"
+    echo "Add opt -h to print help"
 fi
 
 getoptsGetOptarg() {
-  eval next_token=\${$OPTIND}
-  if [[ -n $next_token && $next_token != -* ]]; then
-    OPTIND=$((OPTIND + 1))
-    OPTARG=$next_token
-  else
-    OPTARG=""
-  fi
+    eval next_token=\${$OPTIND}
+    if [[ -n $next_token && $next_token != -* ]]; then
+        OPTIND=$((OPTIND + 1))
+        OPTARG=$next_token
+    else
+        OPTARG=""
+    fi
 }
 
 while getopts ":ab:Dfhmo:sv" opt; do
-  case $opt in
-    a)  RUN_ALL_REPOS=true ; DEEP=true ; INCLUDE_MASTER_ONLYS=true ;;
-    b)  if [ -z $BASE_DIR ]; then
-          BASE_DIR=$(echo "$OPTARG" | sed 's/^ //g')
-        else
-          echo -e "\nOpts -b and -o cannot be used together - exiting"; exit 1
-        fi
-        [ "${BASE_DIR:0:1}" = '~' ] && BASE_DIR="${HOME}${BASE_DIR:1}" ;;
-    D)  getoptsGetOptarg $@
-        DEEP=${OPTARG:-true} ;;
-    f)  which fd &> /dev/null
-        [ $? = 0 ] && USE_FD=true || echo 'Unable to validate fd command - '\
-          'FD not set - running all repos using find'
-        DEEP=true ;;
-    h)  lbvHelp ;;
-    m)  INCLUDE_MASTER_ONLYS=true ;;
-    o)  if [ -z $BASE_DIR ]; then
-          OVERRIDE_REPOS=( $(echo "${OPTARG[@]}") )
-        else
-          echo -e "\nOpts -b and -o cannot be used together - exiting"; exit 1
-        fi ;;
-    s)  DISPLAY_STATUS=true ;;
-    v)  VERBOSE=true ;;
-    \?) echo -e "\nInvalid option: -$opt \nValid options include [-ab:Dfhmo:sv]" >&2
-        exit 1 ;;
-  esac
+    case $opt in
+        a)  RUN_ALL_REPOS=true ; DEEP=true ; INCLUDE_MASTER_ONLYS=true ;;
+        b)  if [ -z $BASE_DIR ]; then
+                    BASE_DIR=$(echo "$OPTARG" | sed 's/^ //g')
+                else
+                    echo -e "\nOpts -b and -o cannot be used together - exiting"; exit 1
+                fi
+                [ "${BASE_DIR:0:1}" = '~' ] && BASE_DIR="${HOME}${BASE_DIR:1}" ;;
+        D)  getoptsGetOptarg $@
+                DEEP=${OPTARG:-true} ;;
+        f)  which fd &> /dev/null
+                [ $? = 0 ] && USE_FD=true || echo 'Unable to validate fd command - '\
+                    'FD not set - running all repos using find'
+                DEEP=true ;;
+        h)  lbvHelp ;;
+        m)  INCLUDE_MASTER_ONLYS=true ;;
+        o)  if [ -z $BASE_DIR ]; then
+                    OVERRIDE_REPOS=( $(echo "${OPTARG[@]}") )
+                else
+                    echo -e "\nOpts -b and -o cannot be used together - exiting"; exit 1
+                fi ;;
+        s)  DISPLAY_STATUS=true ;;
+        v)  VERBOSE=true ;;
+        \?) echo -e "\nInvalid option: -$opt \nValid options include [-ab:Dfhmo:sv]" >&2
+                exit 1 ;;
+    esac
 done
 
 [[ ! ( $RUN_ALL_REPOS || $OVERRIDE_REPOS ) ]] && BASE_DIR_CASE=true
 
 if [ $VERBOSE ]; then
-  [ $RUN_ALL_REPOS ] && echo "All opt set: Running for all git repos found"
-  [ $BASE_DIR ] && echo "Base dir opt set: Running with base directory ${OPTARG}"
-  if [[ $DEEP && $BASE_DIR_CASE ]]; then
-    echo "Deep search opt set: Running for all repos found in base directory"
-  fi
-  [ $OVERRIDE_REPOS ] && echo "Override repos opt set: All filepaths provided must be valid repos"
-  [ $DISPLAY_STATUS ] && echo "Status opt set: Branches with untracked changes will be marked in red"
-  [ $INCLUDE_MASTER_ONLYS ] && echo "Master opt set: Repos with only master/main branch will be included"
+    [ $RUN_ALL_REPOS ] && echo "All opt set: Running for all git repos found"
+    [ $BASE_DIR ] && echo "Base dir opt set: Running with base directory ${OPTARG}"
+    if [[ $DEEP && $BASE_DIR_CASE ]]; then
+        echo "Deep search opt set: Running for all repos found in base directory"
+    fi
+    [ $OVERRIDE_REPOS ] && echo "Override repos opt set: All filepaths provided must be valid repos"
+    [ $DISPLAY_STATUS ] && echo "Status opt set: Branches with untracked changes will be marked in red"
+    [ $INCLUDE_MASTER_ONLYS ] && echo "Master opt set: Repos with only master/main branch will be included"
 fi
 
 # Initialize variables
@@ -116,78 +116,78 @@ OLD_IFS="$IFS"
 # Define methods
 
 isInt() {
-  local test="$1"
-  local n_re="^[0-9]$"
-  [[ "$test" =~ $n_re ]]
+    local test="$1"
+    local n_re="^[0-9]$"
+    [[ "$test" =~ $n_re ]]
 }
 generateAllowedVarName() {
-  # Shell doesn't allow some chars in var names
-  local unparsed="$1"
+    # Shell doesn't allow some chars in var names
+    local unparsed="$1"
 
-  var="${unparsed//\./_DOT_}"
-  var="${var// /_SPACE_}"
-  var="${var//-/_HYPHEN_}"
-  var="${var//\//_FSLASH_}"
-  var="${var//\\/_BSLASH_}"
-  var="${var//1/_ONE_}"
-  var="${var//2/_TWO_}"
-  var="${var//3/_THREE_}"
-  var="${var//4/_FOUR_}"
-  var="${var//5/_FIVE_}"
-  var="${var//6/_SIX_}"
-  var="${var//7/_SEVEN_}"
-  var="${var//8/_EIGHT_}"
-  var="${var//9/_NINE_}"
+    var="${unparsed//\./_DOT_}"
+    var="${var// /_SPACE_}"
+    var="${var//-/_HYPHEN_}"
+    var="${var//\//_FSLASH_}"
+    var="${var//\\/_BSLASH_}"
+    var="${var//1/_ONE_}"
+    var="${var//2/_TWO_}"
+    var="${var//3/_THREE_}"
+    var="${var//4/_FOUR_}"
+    var="${var//5/_FIVE_}"
+    var="${var//6/_SIX_}"
+    var="${var//7/_SEVEN_}"
+    var="${var//8/_EIGHT_}"
+    var="${var//9/_NINE_}"
   
-  printf '%s\n' "$var"
+    printf '%s\n' "$var"
 }
 spaceRemove() {
-  local spaced="$@"
-  printf '%s\n' "${spaced// /_SPACE_}"
+    local spaced="$@"
+    printf '%s\n' "${spaced// /_SPACE_}"
 }
 spaceReplace() {
-  local unspaced="$1"
-  printf '%s\n' "${unspaced//_SPACE_/ }"
+    local unspaced="$1"
+    printf '%s\n' "${unspaced//_SPACE_/ }"
 }
 spaceToUnderscore() {
-  local spaced="$@"
-  printf '%s\n' "${spaced// /_}"
+    local spaced="$@"
+    printf '%s\n' "${spaced// /_}"
 }
 associateKeyToArray() {
-  # Bash 3 doesn't support hashes
-  local key="$1" vals="${@:2}"
-  printf -v "$key" %s " ${vals[@]} "
+    # Bash 3 doesn't support hashes
+    local key="$1" vals="${@:2}"
+    printf -v "$key" %s " ${vals[@]} "
 }
 rangeBind() {
-  if   (($1 < $3)) ; then echo "$3"
-  elif (($1 > $5)) ; then echo "$5"
-  else                    echo "$1"
-  fi
+    if   (($1 < $3)) ; then echo "$3"
+    elif (($1 > $5)) ; then echo "$5"
+    else                    echo "$1"
+    fi
 }
 repeatString() {
-  local input="$1" count="$2"
-  printf -v str "%${count}s"
-  printf '%s\n' "${str// /$input}"
+    local input="$1" count="$2"
+    printf -v str "%${count}s"
+    printf '%s\n' "${str// /$input}"
 }
 argIndex() {
-  unset str
-  local n_fields="$1"
-  for i in $(seq 1 $n_fields); do
-    [ $i -lt $n_fields ] && str="${str}\$$i," || str="${str}\$$i"
-  done
-  printf '%s\n' "${str}"
+    unset str
+    local n_fields="$1"
+    for i in $(seq 1 $n_fields); do
+        [ $i -lt $n_fields ] && str="${str}\$$i," || str="${str}\$$i"
+    done
+    printf '%s\n' "${str}"
 }
 spin() {
-  spinner='\|/—'
-  let count=0
-  while [ $count -lt 5000 ]; do
-    for i in {0..3}; do
-      echo -n "${spinner:$i:1}"
-      echo -en "\010"
-      let count+=1
-      sleep 0.5
+    spinner='\|/—'
+    let count=0
+    while [ $count -lt 5000 ]; do
+        for i in {0..3}; do
+            echo -n "${spinner:$i:1}"
+            echo -en "\010"
+            let count+=1
+            sleep 0.5
+        done
     done
-  done
 }
 
 
@@ -200,28 +200,28 @@ spin() {
 cd "$BASE_DIR"
 
 if [[ $DEEP || $OVERRIDE_REPOS ]]; then
-  spin &
-  SPIN_PID=$!
-  disown $SPIN_PID
+    spin &
+    SPIN_PID=$!
+    disown $SPIN_PID
 fi
 
 while IFS=$'\n' read -r line; do
-  ([ $DEEP ] || [ -d "${line}/.git" ]) && ALL_REPOS+=( $(spaceRemove $line ) )
+    ([ $DEEP ] || [ -d "${line}/.git" ]) && ALL_REPOS+=( $(spaceRemove $line ) )
 done < <(
-  if [ $OVERRIDE_REPOS ]; then
-    printf '%s\n' "${OVERRIDE_REPOS[@]}"
-  elif [ $DEEP ]; then
-    [ -z $RUN_ALL_REPOS ] && FIND_DIRS=( "$BASE_DIR" )
-    if [ $USE_FD ]; then
-      isInt $DEEP && maxdepth="-d $DEEP"
-      fd $maxdepth -c never -Hast d "\.git$" "${FIND_DIRS}" | sed 's/\/\.git$//'
+    if [ $OVERRIDE_REPOS ]; then
+        printf '%s\n' "${OVERRIDE_REPOS[@]}"
+    elif [ $DEEP ]; then
+        [ -z $RUN_ALL_REPOS ] && FIND_DIRS=( "$BASE_DIR" )
+        if [ $USE_FD ]; then
+            isInt $DEEP && maxdepth="-d $DEEP"
+            fd $maxdepth -c never -Hast d "\.git$" "${FIND_DIRS}" | sed 's/\/\.git$//'
+        else
+            isInt $DEEP && maxdepth="-maxdepth $DEEP"
+            find "${FIND_DIRS[@]}" -name ".git" -prune $maxdepth 2>/dev/null | sed 's/\/\.git$//'
+        fi
     else
-      isInt $DEEP && maxdepth="-maxdepth $DEEP"
-      find "${FIND_DIRS[@]}" -name ".git" -prune $maxdepth 2>/dev/null | sed 's/\/\.git$//'
+        cd "$BASE_DIR" ; find * -maxdepth 0 -type d
     fi
-  else
-    cd "$BASE_DIR" ; find * -maxdepth 0 -type d
-  fi
 )
 
 [ $SPIN_PID ] && kill -9 $SPIN_PID > /dev/null 2>&1; printf '\e[K'
@@ -231,81 +231,81 @@ REPOS=( ${ALL_REPOS[@]} )
 let input_repo_count=${#REPOS[@]}
 
 for repo in ${ALL_REPOS[@]} ; do
-  spacey_repo=$(spaceReplace $repo)
-  [ $RUN_ALL_REPOS ] || [ $OVERRIDE_REPOS ] || cd "$BASE_DIR"
-  cd "$spacey_repo"
-  BRANCHES=()
+    spacey_repo=$(spaceReplace $repo)
+    [ $RUN_ALL_REPOS ] || [ $OVERRIDE_REPOS ] || cd "$BASE_DIR"
+    cd "$spacey_repo"
+    BRANCHES=()
 
-  if [ $(git rev-parse --is-inside-work-tree 2> /dev/null) ]; then
-    # Despite having a .git folder, a directory may not be a valid git repo
-    eval "$(git for-each-ref --shell \
-      --format='BRANCHES+=(%(refname:lstrip=2))' refs/heads/)"
-    [[ $DISPLAY_STATUS && $(git status --porcelain | wc -c | xargs) -gt 0 ]] && untracked=1
-  fi
-
-  let branch_count=${#BRANCHES[@]}
-
-  # Exclude repos that are only master with no untracked changes
-  if [[ $branch_count -eq 0 || ! $INCLUDE_MASTER_ONLYS && ! $untracked \
-        && -z ${BRANCHES[2]} && ("${BRANCHES[@]}" = 'master' || "${BRANCHES[@]}" = 'main') ]]
-  then
-    REPOS=( ${REPOS[@]/%"${repo}"/} )
-  else
-    ALL_BRANCHES=( "${ALL_BRANCHES[@]}" "${BRANCHES[@]}" )
-    
-    repo_key_base=$(generateAllowedVarName "$repo")
-    repo_key="${repo_key_base}_key"
-    repo_branch_count_key="${repo_key_base}_branch_count"
-    associateKeyToArray $repo_key ${BRANCHES[@]}
-    associateKeyToArray $repo_branch_count_key $branch_count
-    
-    if [ $untracked ] ; then
-      # Assumes untracked files only exist on the current branch for now
-      active_branch=$(git branch --show-current)
-      branch_key_base=$(generateAllowedVarName "$active_branch")
-      branch_untracked_key="${branch_key_base}_untracked_key"
-      repo_untracked_key="${repo_key_base}_untracked_key"
-      repo_branch_untracked_key="${branch_key_base}_${repo_untracked_key}"
-      associateKeyToArray $branch_untracked_key $untracked
-      associateKeyToArray $repo_untracked_key $untracked
-      associateKeyToArray $repo_branch_untracked_key $untracked
+    if [ $(git rev-parse --is-inside-work-tree 2> /dev/null) ]; then
+        # Despite having a .git folder, a directory may not be a valid git repo
+        eval "$(git for-each-ref --shell \
+            --format='BRANCHES+=(%(refname:lstrip=2))' refs/heads/)"
+        [[ $DISPLAY_STATUS && $(git status --porcelain | wc -c | xargs) -gt 0 ]] && untracked=1
     fi
-  fi
 
-  unset untracked
+    let branch_count=${#BRANCHES[@]}
+
+    # Exclude repos that are only master with no untracked changes
+    if [[ $branch_count -eq 0 || ! $INCLUDE_MASTER_ONLYS && ! $untracked \
+                && -z ${BRANCHES[2]} && ("${BRANCHES[@]}" = 'master' || "${BRANCHES[@]}" = 'main') ]]
+    then
+        REPOS=( ${REPOS[@]/%"${repo}"/} )
+    else
+        ALL_BRANCHES=( "${ALL_BRANCHES[@]}" "${BRANCHES[@]}" )
+    
+        repo_key_base=$(generateAllowedVarName "$repo")
+        repo_key="${repo_key_base}_key"
+        repo_branch_count_key="${repo_key_base}_branch_count"
+        associateKeyToArray $repo_key ${BRANCHES[@]}
+        associateKeyToArray $repo_branch_count_key $branch_count
+    
+        if [ $untracked ] ; then
+            # Assumes untracked files only exist on the current branch for now
+            active_branch=$(git branch --show-current)
+            branch_key_base=$(generateAllowedVarName "$active_branch")
+            branch_untracked_key="${branch_key_base}_untracked_key"
+            repo_untracked_key="${repo_key_base}_untracked_key"
+            repo_branch_untracked_key="${branch_key_base}_${repo_untracked_key}"
+            associateKeyToArray $branch_untracked_key $untracked
+            associateKeyToArray $repo_untracked_key $untracked
+            associateKeyToArray $repo_branch_untracked_key $untracked
+        fi
+    fi
+
+    unset untracked
 done
 
 if [ ${#REPOS[@]} -eq 0 ]; then
-  if [ $OVERRIDE_REPOS ]; then
-    echo -e "\n${ORANGE}Filepaths provided for repo override are not valid repos\n"
-  else
-    echo -e "\n${ORANGE}No repos found that match current settings - exiting\n"
-  fi
-  exit
+    if [ $OVERRIDE_REPOS ]; then
+        echo -e "\n${ORANGE}Filepaths provided for repo override are not valid repos\n"
+    else
+        echo -e "\n${ORANGE}No repos found that match current settings - exiting\n"
+    fi
+    exit
 elif [ ${#ALL_BRANCHES[@]} -eq 0 ]; then
-  echo -e "\n${ORANGE}No branches found that match current settings - exiting\n"
-  exit
+    echo -e "\n${ORANGE}No branches found that match current settings - exiting\n"
+    exit
 else
-  let output_repo_count=${#REPOS[@]}
-  let repos_filtered_out=($input_repo_count - $output_repo_count)
-  if [ $VERBOSE ]; then
-    echo -e "${repos_filtered_out} out of ${input_repo_count} repos found do not meet display criteria"
-  fi
+    let output_repo_count=${#REPOS[@]}
+    let repos_filtered_out=($input_repo_count - $output_repo_count)
+    if [ $VERBOSE ]; then
+        echo -e "${repos_filtered_out} out of ${input_repo_count} repos found do not meet display criteria"
+    fi
 fi
 
 
 # Sort the repos and branches by most combinations found
 
 UNIQ_BRANCHES=( $(printf '%s\n' "${ALL_BRANCHES[@]}" \
-                  | sort -r | uniq -c | sort -nr | awk '{print $2}') )
+                                    | sort -r | uniq -c | sort -nr | awk '{print $2}') )
 REPOS=( $(printf '%s\n' "${REPOS[@]}") )
 
 for repo in ${REPOS[@]} ; do
-  repo_branch_count_key="$(generateAllowedVarName "$repo")_branch_count"
+    repo_branch_count_key="$(generateAllowedVarName "$repo")_branch_count"
 
-  branch_count=$( echo ${!repo_branch_count_key} | tr -d '[:space:]' )
+    branch_count=$( echo ${!repo_branch_count_key} | tr -d '[:space:]' )
 
-  REPOS=( ${REPOS[@]/%$repo/${branch_count}@@${repo}} )
+    REPOS=( ${REPOS[@]/%$repo/${branch_count}@@${repo}} )
 done
 
 REPOS=( $(printf '%s\n' "${REPOS[@]}" | sort -nr | awk -F "@@" '{print $2}') )
@@ -331,75 +331,75 @@ COL_WID=$( rangeBind $COL_WID between $COL_MIN and $COL_MAX )
 # Build data into ordered table string
 
 if [ $VERBOSE ]; then
-  [ $BASE_DIR_CASE ] && echo -e "\nBase directory: ${BASE_DIR}"
+    [ $BASE_DIR_CASE ] && echo -e "\nBase directory: ${BASE_DIR}"
 
-  echo -e "\nRepos included:"
+    echo -e "\nRepos included:"
 fi
 
 for repo in ${REPOS[@]} ; do
-  repo="$(spaceReplace $repo)"
-  repo_basename="$(basename "$repo")"
-  short_repo=${repo_basename:0:$REPO_STR_LEN}
+    repo="$(spaceReplace $repo)"
+    repo_basename="$(basename "$repo")"
+    short_repo=${repo_basename:0:$REPO_STR_LEN}
   
-  if [ $VERBOSE ]; then
-    [ $BASE_DIR_CASE ] && echo "$repo_basename" || echo "$repo"
-  fi
+    if [ $VERBOSE ]; then
+        [ $BASE_DIR_CASE ] && echo "$repo_basename" || echo "$repo"
+    fi
   
-  if [ $DISPLAY_STATUS ]; then
-    repo_untracked_key="$(generateAllowedVarName "$repo")_untracked_key"
-    untracked="${!repo_untracked_key}"
-    [ $untracked ] && REPO_COLOR="$RED"
-  fi
-  [ $REPO_COLOR ] || REPO_COLOR="$WHITE"
+    if [ $DISPLAY_STATUS ]; then
+        repo_untracked_key="$(generateAllowedVarName "$repo")_untracked_key"
+        untracked="${!repo_untracked_key}"
+        [ $untracked ] && REPO_COLOR="$RED"
+    fi
+    [ $REPO_COLOR ] || REPO_COLOR="$WHITE"
 
-  TABLE_DATA="${TABLE_DATA} ${REPO_COLOR}$(spaceToUnderscore $short_repo)${GRAY}"
+    TABLE_DATA="${TABLE_DATA} ${REPO_COLOR}$(spaceToUnderscore $short_repo)${GRAY}"
 
-  unset REPO_COLOR
+    unset REPO_COLOR
 done
 
 echo
 
 for branch in ${UNIQ_BRANCHES[@]} ; do
-  short_branch=${branch:0:45}
+    short_branch=${branch:0:45}
 
-  if [ $DISPLAY_STATUS ]; then
-    branch_key_base=$(generateAllowedVarName "$branch")
-    branch_untracked_key="${branch_key_base}_untracked_key"
-    untracked="${!branch_untracked_key}"
-    [ $untracked ] && BRANCH_COLOR="$RED"
-  fi
-  
-  if [[ ! $BRANCH_COLOR && " ${branch} " =~ " master " ]]; then
-    BRANCH_COLOR="$BLUE"
-  elif [ ! $BRANCH_COLOR ]; then
-    BRANCH_COLOR="$ORANGE"
-  fi
-
-  TABLE_DATA="${TABLE_DATA}\n${BRANCH_COLOR}${short_branch}${GRAY}"
-  
-  for repo in ${REPOS[@]} ; do
-    repo_key_base=$(generateAllowedVarName "$repo")
-    
     if [ $DISPLAY_STATUS ]; then
-      repo_untracked_key="${repo_key_base}_untracked_key"
-      repo_branch_untracked_key="${branch_key_base}_${repo_untracked_key}"
-      untracked="${!repo_branch_untracked_key}"
-      [ $untracked ] && INTERSECT_COLOR="$RED"
+        branch_key_base=$(generateAllowedVarName "$branch")
+        branch_untracked_key="${branch_key_base}_untracked_key"
+        untracked="${!branch_untracked_key}"
+        [ $untracked ] && BRANCH_COLOR="$RED"
     fi
-    [ $INTERSECT_COLOR ] || INTERSECT_COLOR="$CYAN"
+  
+    if [[ ! $BRANCH_COLOR && " ${branch} " =~ " master " ]]; then
+        BRANCH_COLOR="$BLUE"
+    elif [ ! $BRANCH_COLOR ]; then
+        BRANCH_COLOR="$ORANGE"
+    fi
 
-    repo_key="${repo_key_base}_key"
-    repo_branches="${!repo_key}"
+    TABLE_DATA="${TABLE_DATA}\n${BRANCH_COLOR}${short_branch}${GRAY}"
+  
+    for repo in ${REPOS[@]} ; do
+        repo_key_base=$(generateAllowedVarName "$repo")
     
-    if [[ " ${repo_branches} " =~ " ${branch} " ]]; then
-      TABLE_DATA="${TABLE_DATA} ${INTERSECT_COLOR}X${GRAY}"
-    else
-      TABLE_DATA="${TABLE_DATA} ${GRAY}.${GRAY}"
-    fi
+        if [ $DISPLAY_STATUS ]; then
+            repo_untracked_key="${repo_key_base}_untracked_key"
+            repo_branch_untracked_key="${branch_key_base}_${repo_untracked_key}"
+            untracked="${!repo_branch_untracked_key}"
+            [ $untracked ] && INTERSECT_COLOR="$RED"
+        fi
+        [ $INTERSECT_COLOR ] || INTERSECT_COLOR="$CYAN"
 
-    unset INTERSECT_COLOR
-  done
-  unset BRANCH_COLOR
+        repo_key="${repo_key_base}_key"
+        repo_branches="${!repo_key}"
+    
+        if [[ " ${repo_branches} " =~ " ${branch} " ]]; then
+            TABLE_DATA="${TABLE_DATA} ${INTERSECT_COLOR}X${GRAY}"
+        else
+            TABLE_DATA="${TABLE_DATA} ${GRAY}.${GRAY}"
+        fi
+
+        unset INTERSECT_COLOR
+    done
+    unset BRANCH_COLOR
 done
 
 
