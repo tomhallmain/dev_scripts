@@ -2,7 +2,7 @@
 # DS:JOIN
 #
 # NAME
-#       ds:join, ds:jn, join.awk
+#       ds:join, join.awk
 #
 # SYNOPSIS
 #       ds:join [-h|--help|file] [file*] [jointype=outer] [k|merge] [k2] [prefield=t] [awkargs]
@@ -23,13 +23,13 @@
 #
 #          $ file2_data | ds:join file1
 #
-#       ds:jn can be run with multiple files beyond the second, using the same arguments
+#       ds:join can be run with multiple files beyond the second, using the same arguments
 #       as the initial join, with limited extended functionality:
 #
 #          $ ds:join file1 file2 file3 file4 ... [jointype] ...
 #
 # FIELD CONSIDERATIONS
-#       When running ds:jn, an attempt is made to infer field separators of up to
+#       When running ds:join, an attempt is made to infer field separators of up to
 #       three characters. If none found, FS will be set to default value, a single
 #       space = " ". To override FS, add as a trailing awkarg. If the two files have
 #       different FS, assign to vars fs1 and fs2. Be sure to escape and quote if needed. 
@@ -45,13 +45,13 @@
 #
 #          $ ds:join file1 file2 -v FS=""
 #
-#       When running ds:jn, an attempt is made to extract relevant instances of field
+#       When running ds:join, an attempt is made to extract relevant instances of field
 #       separators in the case that a field separator appears in field values. To turn this
 #       off set prefield to false in the positional arg.
 #
 #          $ ds:join simple1.csv simple2.csv inner 1 1 [f|false]
 #
-#       If ds:jn detects it is connected to a terminal, it will attempt to fit the data
+#       If ds:join detects it is connected to a terminal, it will attempt to fit the data
 #       into the terminal width using the same field separator. If the data is being sent to
 #       a file or a pipe, no attempt to fit will be made. One easy way to turn off fit is to
 #       cat the output or redirect to a file.

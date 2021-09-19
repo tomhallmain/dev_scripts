@@ -193,7 +193,7 @@ invert && NR == 1 && c_counts {
 
 {
     i_max = GetOrSetIMax(NF, choose)
-  
+    
     for (i = 1; i <= i_max; i++) {
         combin_str = ""
         count_str = ""
@@ -228,6 +228,11 @@ invert && NR == 1 && c_counts {
 }
 
 END {
+    for (nfs in CombinError) {
+        if (CombinError[nfs]) {
+            print "Encountered an error generating combinations for records with " nfs " fields"
+        }
+    }
 
     if (c_counts) {
         for (combin in Combins) {
@@ -327,7 +332,7 @@ END {
 
 function GetOrSetIMax(nf, choose) {
     if (IMax[nf]) return IMax[nf]
-
+    
     if (choose) {
         if (choose > nf)
             i_max = 0
@@ -338,14 +343,20 @@ function GetOrSetIMax(nf, choose) {
         else
             i_max = Fact(nf) / (choose_fact * Fact(nf - choose))
     }
-    else
+    else {
         i_max = 2^nf - 2
+    }
 
     IMax[nf] = i_max
     return i_max
 }
 
 function GetOrSetCombinationDiscriminant(i, j, choose, nf) {
+    # i - index of possible combination for this choose-nf configuration
+    # j - index of field in the record
+    # choose - filtered number of fields per combination
+    # nf - total number of fields in the record
+    
     if (debug) DebugPrint(6)
   
     if (CDSet[i,j])
@@ -386,10 +397,8 @@ function GetChooseTwoState(nf, i_idx, j_idx) {
             t_state++
             rev_tri = RevTri(nf, nf - t_state - 1)
 
-            if (i_idx > state_base && i_idx < rev_tri) { 
-
+            if (i_idx > state_base && i_idx < rev_tri) {
                 state_diff = diff + t_state * nf - Tri(t_state)
-
                 return (state_diff == 0 || (state_diff == (t_state + 1)))
             }
 
@@ -401,33 +410,178 @@ function GetChooseTwoState(nf, i_idx, j_idx) {
 }
 
 function GetChooseState(nf, i_idx, j_idx) {
-    if (!ChooseState[i_idx]) {
-        build_combin = ""
-        if (i_idx == 1) {
-            for (i_i = 1; i_i <= nf; i_i++) {
-                state_part = i_i <= choose
-                build_combin = build_combin i_i <= choose  
-                if (i_i < nf)
-                    build_combin = build_combin ","
+   if (!ChooseState[nf, i_idx] && !CombinError[nf]) {        
+        combin_complement = nf - choose
+        fixture_len = choose - 1
+        fixture_index = 0
+        combin_tests = 0
+
+        # Set up the initial combination (all first chosen, rest excluded)
+        
+        for (nf_i = 1; nf_i <= nf; nf_i++) {
+            if (nf_i > choose) {
+                BuildCombin[nf_i] = 0
+            }
+            else {
+                if (nf_i < choose) {
+                    fixture_index++
+                    Fixture[fixture_index] = nf_i
+                }
+                BuildCombin[nf_i] = 1
             }
         }
-        else {
-            for (i_i = i_idx - 1; i_i > 0; i_i--) {
+        
+        # Build other combinations from this base
+
+        while (length(TmpChooseState) < IMax[nf]) {
+            combin_tests++
+            
+            if (combin_tests > 10000) {
+                CombinError[nf] = 1
+                
+                if (debug) {
+                    print "Found " length(TmpChooseState) " combinations for fields " nf
+                    
+                    for (build_combin in TmpChooseState) {
+                        print "Saved combins: " build_combin
+                    }
+                }
+                
+                exit
+            }
+            
+            build_combin = JoinIndexedHash(BuildCombin, ",")
+            fixture = JoinIndexedHash(Fixture, ",")
+
+            if (build_combin in TmpChooseState) {
+                # Try a new combination
+                set_new_fixture = 0
+                
+                if (Fixtures[fixture] == combin_complement) {
+                    # Set new fixture
+                    set_new_fixture = 1
+                    fixture_found = 0
+
+                    for (fixture_remove_tracer = 1; fixture_remove_tracer <= fixture_len; 
+                            fixture_remove_tracer++) {
+                        if (fixture_found) break
+                        
+                        for (fixture_comp_tracer = 1; fixture_comp_tracer <= combin_complement + 1; 
+                                fixture_comp_tracer++) {
+                            fixture_index = 0
+                            found_complement = 0
+                            found_fixed = 0
+
+                            for (nf_i = 1; nf_i <= nf; nf_i++) {
+                                if (IndexedHashPosition(Fixture, nf_i)) {
+                                    found_fixed++
+                                    
+                                    if (found_fixed == fixture_remove_tracer) {
+                                        remove_index = nf_i
+                                    }
+                                    else {
+                                        fixture_index++
+                                        TmpFixture[fixture_index] = nf_i
+                                    }
+                                }
+                                else {
+                                    found_complement++
+                                    if (found_complement == fixture_comp_tracer) {
+                                        fixture_index++
+                                        TmpFixture[fixture_index] = nf_i
+                                    }
+                                }
+                            }
+
+                            fixture = JoinIndexedHash(TmpFixture, ",")
+                            
+                            if (debug) {
+                                print "Temp Fixture: " fixture
+                            }
+
+                            if (!(fixture in Fixtures)) {
+                                split("", Fixture, "")
+                                for (affix in TmpFixture) {
+                                    field = TmpFixture[affix]
+                                    Fixture[affix] = field
+                                    field_on = BuildCombin[field]
+                                    if (!field_on) {
+                                        BuildCombin[field] = 1
+                                    }
+                                    BuildCombin[remove_index] = 0
+                                }
+                                fixture_found = 1
+                                if (debug) {
+                                    print "Fixture found: " fixture
+                                }
+                                break
+                            }
+                        }
+                        split("", TmpFixture, "") # Delete temp hash
+                    }
+                }
+                
+                Fixtures[fixture]++
+                unfixed_found = 0
+                new_position_searching = 1
+                combin_cycles = 0
+                
+                while (new_position_searching) {
+                    for (nf_i = 1; nf_i <= nf; nf_i++) {
+                        if (nf_i == nf) combin_cycles++
+                        if (IndexedHashPosition(Fixture, nf_i) || nf_i == remove_index) {
+                            continue
+                        }
+                        if (unfixed_found) {
+                            BuildCombin[nf_i] = 1 # Turn on this index
+                            new_position_searching = 0
+                            break
+                        }
+                        if (BuildCombin[nf_i] > 0) {
+                            unfixed_found = 1
+                            BuildCombin[nf_i] = 0 # Turn off this index
+                            continue
+                        }
+                        if (combin_cycles > 1) {
+                            BuildCombin[nf_i] = 1 # Turn on this index
+                            new_position_searching = 0
+                            break
+                        }
+                    }
+                }
+            }
+            else {
+                # Save this combination
+                TmpChooseState[build_combin] = length(TmpChooseState) + 1
+                
+                if (debug) {
+                    print "Saved build_combin : " build_combin
+                }
             }
         }
+
+        for (build_combin in TmpChooseState) {
+            ChooseState[nf, TmpChooseState[build_combin]] = build_combin            
+        }
+
+        # Delete temp hashes
+        split("", BuildCombin, "")
+        split("", TmpChooseState, "")
+        split("", Fixture, "")
+        split("", Fixtures, "")
     }
 
-    split(ChooseState[i_idx],Tmp,",")
+    split(ChooseState[nf, i_idx],Tmp,",")
     return Tmp[j_idx]
 }
 
 function Fact(n,   f) {
     if (F[n]) return F[n]
-
     f = n
 
-    for (i = n - 1; i > 1; i--)
+    for (i = n - 1; i > 1; i--) {
         f *= i
+    }
 
     F[n] = f
     return f
@@ -435,30 +589,50 @@ function Fact(n,   f) {
 
 function Tri(n,   t) {
     if (T[n]) return T[n]
-
     t = SumRange(0, n)
-
     T[n] = t
     return t
 }
 
 function SumRange(start, end) {
-    for (a = start + 1; a < end; a++)
+    for (a = start + 1; a < end; a++) {
         start += a
-
+    }
     return start + end
 }
 
 function RevTri(base, n,   t) {
     if (RT[base, n]) return RT[base, n]
-
     t = base
-
-    for (rt_i = base - 2; rt_i >= n; rt_i--)
+    for (rt_i = base - 2; rt_i >= n; rt_i--) {
         t += rt_i
-
+    }
     RT[base, n] = t
     return t
+}
+
+function IndexedHashPosition(hash, testval,    i) {
+    len_hash = length(hash)
+
+    for (i = 1; i <= len_hash; i++) {
+        if (hash[i] == testval) {
+            return i
+        }
+    }
+
+    return 0
+}
+
+function JoinIndexedHash(hash, sep,    result, i) {
+    if (sep == "")
+       sep = " "
+    else if (sep == SUBSEP)
+       sep = ""
+    result = hash[1]
+    len_hash = length(hash)
+    for (i = 2; i <= len_hash; i++)
+        result = result sep hash[i]
+    return result
 }
 
 function DebugPrint(case) {

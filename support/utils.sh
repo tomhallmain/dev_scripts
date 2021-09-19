@@ -244,8 +244,8 @@ ds:is_cli() { # Detect if shell is interactive: ds:is_cli
     fi
 }
 
-ds:readp() { # Portable read prompt: ds:readp [message]
-    local s="$(ds:sh)"
+ds:readp() { # Portable read prompt: ds:readp [message] [downcase=t]
+    local s="$(ds:sh)" downcase="${2:-t}"
     if [[ "$s" =~ bash ]]; then
         read -p $'[37m'"$1 "'[0m' readvar
     elif [[ $s =~ zsh ]]; then
@@ -253,7 +253,11 @@ ds:readp() { # Portable read prompt: ds:readp [message]
     else
         ds:fail 'This shell unsupported at this time'
     fi
-    ds:case $readvar down
+    if [[ "$downcase" = t || "$downcase" = T ]]; then
+        ds:case $readvar down
+    else
+        echo -n "$readvar"
+    fi
     unset readvar
 }
 

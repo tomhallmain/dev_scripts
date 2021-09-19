@@ -106,7 +106,7 @@ emoji  Generating_code_base10  init_awk_len  len_simple_extract  len_remaining
 ❔     10068                              3                   1              2
 ```
 
-#### `ds:jn`
+#### `ds:join`
 
 Join data on multi-key sets or perform full merges of data. Runs ds:fit on output if to a terminal.
 
@@ -119,15 +119,15 @@ a b c d
 a b c d
 1 3 2 4
 
-$ ds:jn /tmp/jn_a /tmp/jn_b inner 1,4
+$ ds:join /tmp/jn_a /tmp/jn_b inner 1,4
 a  b  c  d  b  c
 1  2  3  4  3  2
 
-$ ds:jn /tmp/jn_a /tmp/jn_b right 1,2,3,4 1,3,2,4
+$ ds:join /tmp/jn_a /tmp/jn_b right 1,2,3,4 1,3,2,4
 a  c  b  d
 1  2  3  4
 
-$ ds:jn /tmp/jn_a /tmp/jn_b outer merge -v merge_verbose=1
+$ ds:join /tmp/jn_a /tmp/jn_b outer merge -v merge_verbose=1
 BOTH       a  b  c  d
 /tmp/jn_b  1  3  2  4
 /tmp/jn_a  1  2  3  4

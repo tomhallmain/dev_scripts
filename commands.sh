@@ -62,7 +62,7 @@ ds:vi() { # Search for files and open in vim: ds:vi search [dir] [edit_all_match
             while [ ! $confirmed ]; do
                 echo -e "$fileset" | ds:index 1 -v FS=$DS_SEP | ds:fit -v FS=$DS_SEP
                 while [ ! "$_matched_" ]; do
-                    local choice="$(ds:readp 'Enter a number from the set of files or a pattern:')"
+                    local choice="$(ds:readp 'Enter a number from the set of files or a pattern:' f)"
                     if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
                         local _matched_=0 _patt_=""
                     elif echo -e "$fileset" | grep -q "$choice"; then
@@ -148,7 +148,7 @@ ds:grepvi() { # Grep and open vim on match (alias ds:gvi): ds:gvi search [file|d
                         echo -e "$fileset" | ds:index 1 -F: | ds:fit -v FS=: -v color=never
                         
                         while [ ! "$_matched_" ]; do
-                            local choice="$(ds:readp 'Enter a number from the set of files or a pattern:')"
+                            local choice="$(ds:readp 'Enter a number from the set of files or a pattern:' f)"
                             if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
                                 local _matched_=0 _patt_=""
                             elif echo -e "$fileset" | grep -q "$choice"; then
@@ -613,10 +613,30 @@ ds:git_add_com_push() { # Add, commit with message, push (alias ds:gacp): ds:gac
     ds:not_git && return 1
     local commit_msg="$1" prompt="${2:-t}"
     
+    if [ "$(ds:os)" = 'MacOSX' ]; then
+        if fd --version &>/dev/null; then
+            rm $(fd -t f --hidden '.DS_Store' 2>/dev/null) 2>/dev/null
+        elif fd-find --version &>/dev/null; then
+            rm $(fd-find -t f --hidden '.DS_Store' 2>/dev/null) 2>/dev/null
+        else
+            rm $(find . -name "\.DS_Store" -maxdepth 10 2>/dev/null) 2>/dev/null
+        fi
+    fi
+
     if ds:test '^t$' "$prompt"; then
         git status; echo
-        local confirm="$(ds:readp 'Do you wish to proceed with add+commit+push? (y/n)')"
-        [ "$confirm" = y ] || return 1
+        local confirm="$(ds:readp 'Do you wish to proceed with add+commit+push? (y/n/new_commit_message)' f)"
+        if [[ "$confirm" = n || "$confirm" = N ]]; then
+            echo 'No add/commit/push made.'
+            return
+        elif [[ ! "$confirm" = y && ! "$confirm" = Y ]]; then
+            local commit_msg="$confirm"
+            local change_message_confirm="$(ds:readp "Change message to \"$commit_msg\" ? (y/n)")"
+            if [ ! "$change_message_confirm" = y ]; then
+                echo 'No add/commit/push made.'
+                return
+            fi
+        fi
     fi
     
     git add "$(git rev-parse --show-toplevel)"

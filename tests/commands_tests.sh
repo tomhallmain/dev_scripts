@@ -719,7 +719,7 @@ expected='1 1 2
 1 5 7
 1 6 7'
 actual="$(echo 1 2 3 4 5 6 7 | ds:pow 1 f f -v choose=2 | sort -n)"
-[ "$expected" = "$actual" ] || ds:fail 'pow failed choose 2 4-base case'
+[ "$expected" = "$actual" ] || ds:fail 'pow failed choose 2 7-base case'
 
 expected='1 a b d c
 1 a d b c
@@ -729,6 +729,67 @@ expected='1 a b d c
 4 a d'
 actual="$(echo -e "a b c d\na b c d\na b d c\na d b c" | ds:pow)"
 [ "$expected" = "$actual" ] || ds:fail 'pow failed combinations discrimination case'
+
+expected='1 a c d
+1 a b d
+1 b c d
+1 a b c'
+actual="$(echo "a b c d" | ds:pow 1 f f -v choose=3)"
+[ "$expected" = "$actual" ] || ds:fail 'pow failed choose 3 4-base case'
+
+expected='1 c d e
+1 a b d
+1 b c d
+1 b d e
+1 a d e
+1 a b e
+1 a c e
+1 b c e
+1 a b c
+1 a c d'
+actual="$(echo "a b c d e" | ds:pow 1 f f -v choose=3)"
+[ "$expected" = "$actual" ] || ds:fail 'pow failed choose 3 5-base case'
+
+expected='1 c d f
+1 a b d
+1 b c d
+1 b c f
+1 a d f
+1 a b c
+1 a b f
+1 a e f
+1 b e f
+1 c d e
+1 a c f
+1 b d f
+1 d e f
+1 b c e
+1 c e f
+1 a c d
+1 b d e
+1 a b e
+1 a c e
+1 a d e'
+actual="$(echo "a b c d e f" | ds:pow 1 f f -v choose=3)"
+[ "$expected" = "$actual" ] || ds:fail 'pow failed choose 3 6-base case'
+
+expected='1 a b e f
+1 a b c f
+1 a c d e
+1 a c e f
+1 c d e f
+1 a c d f
+1 b c d e
+1 b c e f
+1 a b c e
+1 b d e f
+1 a b d f
+1 a b d e
+1 a d e f
+1 a b c d
+1 b c d f'
+actual="$(echo -e "a b c d e f" | ds:pow 1 f f -v choose=4)"
+[ "$expected" = "$actual" ] || ds:fail 'pow failed choose 4 6-base case'
 
 # PIVOT TESTS
 

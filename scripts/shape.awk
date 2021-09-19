@@ -23,7 +23,7 @@
 #          $ data_in | ds:shape [patterns] [fields] [chart=t] [chart_size=15ln] [awkargs]
 #
 # FIELD CONSIDERATIONS
-#       When running ds:pow, an attempt is made to infer field separators of up to
+#       When running ds:shape, an attempt is made to infer field separators of up to
 #       three characters. If none found, FS will be set to default value, a single
 #       space = " ". To override FS, add as a trailing awkarg. If the two files have
 #       different FS, assign to vars fs1 and fs2. Be sure to escape and quote if needed. 

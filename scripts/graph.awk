@@ -16,7 +16,7 @@
 #            1 4
 #
 # AWKARG OPTS
-#       -v print_bases
+#       -v print_bases=1
 #           With this option set, resulting graph output includes bases:
 #             1
 #             1 2
@@ -30,8 +30,13 @@ BEGIN {
 }
 
 {
-    Shoots[$1] = $2
-    Bases[$2] = 1
+    if ($2) {
+        Shoots[$1] = $2
+        Bases[$2] = 1
+    }
+    else if ($1) {
+        Bases[$1] = 1
+    }
 }
 
 END {
