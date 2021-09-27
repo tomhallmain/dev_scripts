@@ -88,10 +88,12 @@ quote_rebalance && !($0 ~ QRe["e"]) {
         run_prefield = 1
         quotequote = q q
         quote_fieldsep = q space FS
-        quotequotefs = quotequote space FS
+        quotequote_marker = "_qqqq_"
+        empty_field_re = "^" quotequote_marker space "$"
         fsinglequote = FS space q
         BuildRe(QRe, FS, q, space)
-        quotequote_replace = retain_outer_quotes ? quotequote : q
+        quotequote_replace0 = retain_outer_quotes ? quotequote : ""
+        quotequote_replace1 = retain_outer_quotes ? quotequote : q
     }
 
     if (debug) DebugPrint(3)
@@ -121,7 +123,7 @@ quote_rebalance && !($0 ~ QRe["e"]) {
     if (run_prefield && (quote_rebalance || $0 ~ q)) {
         i_seed = diff && save_i ? save_i : 1
         for (i = i_seed; i < 500; i++) {
-            gsub(quotequote, "_qqqq_", $0)
+            gsub(quotequote, quotequote_marker, $0)
             gsub(init_space, "", $0)
             len0 = length($0)
             if (len0 < 1) break
@@ -150,7 +152,7 @@ quote_rebalance && !($0 ~ QRe["e"]) {
                 index_fieldsep = RSTART
                 len_fieldsep = Max(RLENGTH, 1)
                 index_quote = index($0, q)
-                index_quotequote = index($0, "_qqqq_")
+                index_quotequote = index($0, quotequote_marker)
                 if (balance_os) {
                     match($0, QRe["s_imbal"])
                     index_quote_imbal_start = RSTART
@@ -252,7 +254,10 @@ quote_rebalance && !($0 ~ QRe["e"]) {
 
             f_part = substr($0, startf, endf)
             _[i] = close_multiline_field ? _[i] f_part : f_part
-            gsub("_qqqq_", quotequote_replace, _[i])
+            # Field is empty if only has two quotes
+            gsub(empty_field_re, quotequote_replace0, _[i])
+            # Any remaining quotequotes assumed escaped quotes
+            gsub("_qqqq_", quotequote_replace1, _[i])
             $0 = substr($0, endf + len_fieldsep + quote_cut + 1)
             if (debug) DebugPrint(2)
             close_multiline_field = 0

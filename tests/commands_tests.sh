@@ -258,8 +258,8 @@ actual="$(ds:prefield $ls_sq '[[:space:]]+')"
 [ "$expected" = "$actual" ] || ds:fail 'prefield failed base sq case'
 
 expected='Conference room 1@@@John,  \n  Please bring the M. Mathers file for review   \n  -J.L.@@@10/18/2002@@@test, field
-Conference room 1@@@John \n  Please bring the M. Mathers file for review \n  -J.L.@@@10/18/2002@@@"
-Conference room 1@@@"@@@10/18/2002'
+Conference room 1@@@John \n  Please bring the M. Mathers file for review \n  -J.L.@@@10/18/2002@@@
+Conference room 1@@@@@@10/18/2002'
 actual="$(ds:prefield $complex_csv4 ,)"
 [ "$expected" = "$actual" ] || ds:fail 'prefield failed newline lossy quotes case'
 
