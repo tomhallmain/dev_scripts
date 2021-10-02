@@ -225,8 +225,8 @@ merge && FNR < 2 {
 }
 
 ## Save first stream
+
 NR == FNR {
-    gsub(/\015$/, "") # TODO: Move to prefield
     #if (k1 > NF) { print "Key out of range in file 1"; err = 1; exit }
 
     if (NF > max_nf1) max_nf1 = NF
@@ -252,9 +252,9 @@ NR == FNR {
 }
 
 ## Print matches and second file unmatched
+
 NR > FNR { 
     #if (k2 > NF) { print "Key out of range in file 2";  err = 1; exit }
-    gsub(/\015$/, "") # TODO: Move to prefield
 
     if (NF > max_nf2) max_nf2 = NF
 

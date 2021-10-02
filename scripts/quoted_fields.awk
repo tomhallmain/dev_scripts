@@ -42,7 +42,7 @@ BEGIN {
     }
 }
 
-not_applicable || (!quote_rebalance && !($0 ~ FS)) {
+not_applicable || (!quote_rebalance && !($0 ~ FS) && q && !($0 ~ q)) {
     gsub(FS, OFS)
     print
     next
@@ -54,13 +54,15 @@ simple_replace {
     next
 }
 
-quote_rebalance && !($0 ~ QRe["e"]) {
+quote_rebalance && !($0 ~ QRe["end"]) {
     if (debug) DebugPrint(6)
     _[save_i] = _[save_i] " \\n " $0
     next
 }
 
 {
+    gsub(/\015$/, "") # Remove Carriage Returns "\r"
+
     diff = 0
     index_quote_imbal_start = 0
     close_multiline_field = 0
@@ -90,7 +92,7 @@ quote_rebalance && !($0 ~ QRe["e"]) {
         quote_fieldsep = q space FS
         quotequote_marker = "_qqqq_"
         empty_field_re = "^" quotequote_marker space "$"
-        fsinglequote = FS space q
+        fieldsep_quote = FS space q
         BuildRe(QRe, FS, q, space)
         quotequote_replace0 = retain_outer_quotes ? quotequote : ""
         quotequote_replace1 = retain_outer_quotes ? quotequote : q
@@ -100,33 +102,38 @@ quote_rebalance && !($0 ~ QRe["e"]) {
 
     if (quote_rebalance) {
         if (debug) DebugPrint(4)
-        save_bal = balance_os
-        diff = QBalance($0, QRe, quote_rebalance) 
-        balance_os += diff
-        if (debug && save_bal != balance_os) DebugPrint(5)
-        if (diff && balance_os == 0) {
-            quote_rebalance = 0
+        save_bal = balance_outstanding
+        starts = QuoteStarts($0, QRe)
+        ends = QuoteEnds($0, QRe)
+        balance_outstanding += starts - ends
+        #if (balance_outstanding < 0) balance_outstanding = 0
+        if (debug && save_bal != balance_outstanding) DebugPrint(5)
+        if (ends) {
+            if (balance_outstanding == 0) quote_rebalance = 0
             close_multiline_field = 1
         }
     }
     else if (run_prefield) {
-        balance_os = QBalance($0, QRe)
+        balance_outstanding = QuoteDiff($0, QRe)
+        #if (balance_outstanding < 0) balance_outstanding = 0
         save_i = 1
     }
 
     if (debug && quote_rebalance) print "carried q"
-    if (balance_os) {
+    if (balance_outstanding) {
         if (debug) print "Unbalanced"
         quote_rebalance = 1
     }
 
     if (run_prefield && (quote_rebalance || $0 ~ q)) {
-        i_seed = diff && save_i ? save_i : 1
+        i_seed = save_i ? save_i : 1
+        
         for (i = i_seed; i < 500; i++) {
             gsub(quotequote, quotequote_marker, $0)
             gsub(init_space, "", $0)
             len0 = length($0)
             if (len0 < 1) break
+
             match($0, quote_fieldsep)
             index_quote_fieldsep = RSTART
             len_index_quote_fieldsep = RLENGTH
@@ -139,13 +146,13 @@ quote_rebalance && !($0 ~ QRe["e"]) {
             }
 
             if (close_multiline_field) {
-                match($0, QRe["e_imbal"])
+                match($0, QRe["end_imbal"])
                 startf = 1
                 endf = RLENGTH - mod_f_len0
                 quote_cut = mod_f_len0
             }
             else {
-                match($0, fsinglequote)
+                match($0, fieldsep_quote)
                 index_fieldsep_quote = RSTART
                 len_index_fieldsep_quote = RLENGTH
                 match($0, FS)
@@ -153,15 +160,18 @@ quote_rebalance && !($0 ~ QRe["e"]) {
                 len_fieldsep = Max(RLENGTH, 1)
                 index_quote = index($0, q)
                 index_quotequote = index($0, quotequote_marker)
-                if (balance_os) {
-                    match($0, QRe["s_imbal"])
+                
+                if (balance_outstanding) {
+                    match($0, QRe["start_imbal"])
                     index_quote_imbal_start = RSTART
                     match($0, QRe["sep_exc"])
                     inquote_fieldsep = RSTART
                 }
+                
                 if (index_quote == 1 && !(index_quotequote == 1)) {
                     quote_set = 1
                 }
+                
                 quote_cut = 0
 
                 if (debug) {
@@ -173,11 +183,11 @@ quote_rebalance && !($0 ~ QRe["e"]) {
                 if (quote_set) {
                     quote_set = 0
                     quote_cut = quote_cut_len
-                    startf = balance_os ? mod_f_len1 : len_fieldsep + mod_f_len0
+                    startf = balance_outstanding ? mod_f_len1 : len_fieldsep + mod_f_len0
                     endf = index_quote_fieldsep - quote_cut_len
                     
                     if (endf < 1) {
-                        if (index_quote != 1 && !balance_os) {
+                        if (index_quote != 1 && !balance_outstanding) {
                             startf++
                         }
                         endf = len0 - quote_cut_len
@@ -254,10 +264,12 @@ quote_rebalance && !($0 ~ QRe["e"]) {
 
             f_part = substr($0, startf, endf)
             _[i] = close_multiline_field ? _[i] f_part : f_part
+            
             # Field is empty if only has two quotes
             gsub(empty_field_re, quotequote_replace0, _[i])
             # Any remaining quotequotes assumed escaped quotes
             gsub("_qqqq_", quotequote_replace1, _[i])
+            
             $0 = substr($0, endf + len_fieldsep + quote_cut + 1)
             if (debug) DebugPrint(2)
             close_multiline_field = 0
@@ -268,7 +280,7 @@ quote_rebalance && !($0 ~ QRe["e"]) {
             _[i] = $i
     }
 
-    if (balance_os) {
+    if (balance_outstanding) {
         quote_rebalance = 1
         save_i = i - 1
         next
@@ -280,29 +292,50 @@ quote_rebalance && !($0 ~ QRe["e"]) {
         delete _[i]
     }
 
-    print _[len_]; delete _[len_]; delete prev_i
+    print _[len_]
+    delete _[len_]
+    delete prev_i
 }
 
 function BuildRe(ReArr, sep, q, space) {
+    exclude_fieldsep_quote = GetExclusiveQuoteRegex(sep, q)
     ReArr["exc"] = "[^"q"]*[^"sep"]*[^"q"]+"
     ReArr["sep_exc"] = "[^"q sep"]+"
-    ReArr["l"] = "(^|"sep")"space q
-    ReArr["r"] = q space"("sep"|$)"
-    ReArr["f"] = ReArr["l"] ReArr["exc"] ReArr["r"]
-    ReArr["s"] = "(^|"sep")"space q space"("quotequote"[^"q"]|[^"q"]|$)"
-    ReArr["e"] = "(^|[^"q"]|[^"q"]"quotequote")"space q space"("sep"|$)"
-    ReArr["s_imbal"] = "^"space q ReArr["exc"]"$"
-    ReArr["e_imbal"] = "^[^"q sep"]*[^"q"]*" q
+    ReArr["left"] = "(^|"sep")"space q
+    ReArr["right"] = q space"("sep"|$)"
+    ReArr["field"] = ReArr["left"] ReArr["exc"] ReArr["right"]
+    ReArr["start"] = "(^|"sep")"space q space"("quotequote exclude_fieldsep_quote"|"exclude_fieldsep_quote"|$)"
+    ReArr["end"] = "(^|"exclude_fieldsep_quote"|"exclude_fieldsep_quote quotequote")"space q space"("sep"|$)"
+    ReArr["start_imbal"] = "^"space q ReArr["exc"]"$"
+    ReArr["end_imbal"] = "^[^"q sep"]*[^"q"]*" q
 }
-function QBalance(line, QRe, quote_set) {
-    tmp_starts = line
-    tmp_ends = line
-    n_starts = gsub(QRe["s"], "", tmp_starts)
-    n_ends = gsub(QRe["e"], "", tmp_ends)
+function GetExclusiveQuoteRegex(str, quote,   regex, c) {
+    regex = ""
+    split(str, Chars, "")
+    for (c in Chars) {
+        escape_c = match(Chars[c], /[A-z0-9]/) ? Chars[c] : "\\" Chars[c]
+        if (c > 1) {
+            regex = regex "[^" escape_c "]"
+        }
+        else {
+            regex = regex "[^" quote escape_c "]"
+        }
+    }
+    return regex
+}
+function QuoteStarts(line, QRe) {
+    tmp_line = line
+    return gsub(QRe["start"], "", tmp_line)
+}
+function QuoteEnds(line, QRe) {
+    tmp_line = line
+    return gsub(QRe["end"], "", tmp_line)
+}
+function QuoteDiff(line, QRe, quote_set) {
+    n_starts = QuoteStarts(line, QRe)
+    n_ends = QuoteEnds(line, QRe)
     if (debug) print "n_starts: "n_starts", n_ends: "n_ends
-    base_diff = n_starts - n_ends
-    bal = n_starts > 0 ? base_diff - quote_set : base_diff
-    return bal
+    return n_starts - n_ends
 }
 function DebugPrint(case) {
     if (case == 0) {
@@ -314,22 +347,32 @@ function DebugPrint(case) {
         print "NR: "NR" quote_set: " quote_set " len0: " len0 " $0: " $0
         print "previous_i: " pi
         print "index_fieldsep: "index_fieldsep" index_quote: "index_quote" index_quote_fieldsep: "index_quote_fieldsep" index_fieldsep_quote: "index_fieldsep_quote" index_quotequote: "index_quotequote 
-        if (balance_os) print "balance os: "balance_os", index_quote_imbal_start: "index_quote_imbal_start }
+        if (balance_outstanding) print "balance outstanding: "balance_outstanding", index_quote_imbal_start: "index_quote_imbal_start }
     else if (case == 2) {
-        print "_["i"] = substr($0, "startf", "endf")"
-        print "$0 = substr($0, "endf" + "len_fieldsep" + "quote_cut" + 1)"
-        print "----- OUTPUT FIELD "i" -----"
-        print _[i]
-        print "" }
+        if (close_multiline_field) {
+            print "_["i"] = _[save_i] substr($0, "startf", "endf")"
+            print "$0 = substr($0, "endf" + "len_fieldsep" + "quote_cut" + 1)"
+            print "----- OUTPUT FIELD "i" -----"
+            print _[i]
+            print ""
+        }
+        else {
+            print "_["i"] = substr($0, "startf", "endf")"
+            print "$0 = substr($0, "endf" + "len_fieldsep" + "quote_cut" + 1)"
+            print "----- OUTPUT FIELD "i" -----"
+            print _[i]
+            print ""
+        }
+    }
     else if (case == 3) {
         print ""
         print "NR: "NR", $0: "$0
-        print "match_start: "match($0, QRe["s"])", RLENGTH: "RLENGTH" QRe[\"s\"]"QRe["s"]
-        print "match_field: "match($0, QRe["f"])", RLENGTH: "RLENGTH" QRe[\"f\"]"QRe["f"] }
+        print "match_start: "match($0, QRe["start"])", RLENGTH: "RLENGTH" QRe[\"s\"]"QRe["start"]
+        print "match_field: "match($0, QRe["field"])", RLENGTH: "RLENGTH" QRe[\"f\"]"QRe["field"] }
     else if (case == 4)
-        print "bal: "balance_os
+        print "bal: "balance_outstanding
     else if (case == 5)
-        print "newbal: "balance_os
+        print "newbal: "balance_outstanding
     else if (case == 6)
         print "NR: "NR", save_i: "save_i", _[save_i]: "_[save_i]
 }

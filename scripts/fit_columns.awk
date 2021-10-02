@@ -516,7 +516,6 @@ NR == FNR { # First pass, gather field info
 }
 
 NR > FNR { # Second pass, print formatted if applicable
-    gsub(/\015$/, "") # TODO: Move to prefield
     for (i = 1; i <= max_nf; i++) {
         not_last_f = i < max_nf
         f = endfit_col && i == endfit_col ? ResLine[FNR] : $i

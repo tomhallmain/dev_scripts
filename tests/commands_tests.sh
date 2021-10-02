@@ -30,6 +30,8 @@ complex_csv3="tests/data/addresses_reordered"
 complex_csv2="tests/data/Sample100.csv"
 complex_csv4="tests/data/quoted_fields_with_newline.csv" 
 complex_csv5="tests/data/taxables.csv"
+complex_csv6="tests/data/quoted_multiline_fields.csv"
+complex_csv6_prefield="tests/data/quoted_multiline_fields_prefield"
 ls_sq="tests/data/ls_sq"
 floats="tests/data/floats_test"
 inferfs_chunks="tests/data/inferfs_chunks_test"
@@ -268,6 +270,10 @@ expected='Conference room 1@@@"John,   \n  Please bring the M. Mathers file for 
 "Conference room 1"@@@""@@@10/18/2002'
 actual="$(ds:prefield $complex_csv4 , 1)"
 [ "$expected" = "$actual" ] || ds:fail 'prefield failed newline retain outer quotes case'
+
+ds:prefield $complex_csv6 , > $tmp
+cmp $complex_csv6_prefield $tmp || ds:fail 'prefield failed complex newline quoted case'
+
 
 # REO TESTS
 
@@ -657,8 +663,8 @@ expected="23,ACK,0
 24,Mark,0
 25,ACK
 27,ACER PRESS,0
-28,Mark
 28,ACER PRESS
+28,Mark
 74,0"
 actual="$(ds:pow $complex_csv2 20 | cat)"
 [ "$expected" = "$actual" ] || ds:fail 'pow failed base case'
