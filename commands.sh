@@ -11,7 +11,7 @@ ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [r
     [ "$utils" ] && local DS_COMMANDS="$DS_SUPPORT/commands_utils" || local DS_COMMANDS="$DS_SUPPORT/commands"
 
     if [ "$re_source" ] || ! ds:test "@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE" "$DS_COMMANDS" t; then
-        grep -h '[[:alnum:]_]*()' "$DS_LOC/commands.sh" "$utils" 2>/dev/null | grep -hv 'grep -h' | sort \
+        grep -h '[[:alnum:]_][[:alnum:]_]()' "$DS_LOC/commands.sh" "$utils" 2>/dev/null | sort \
             | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
             | ds:subsep '\\\*\\\*' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" \
             | ds:subsep ":[[:space:]]" "888" -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" \
@@ -297,7 +297,7 @@ ds:searchn() { # Search shell environment names: ds:searchn name
     ds:ndata | awk -v s="$1" '$2~s{print}'
 }
 
-ds:nset() { # Test if name (function/alias/variable) is defined: ds:nset name [search_vars=f]
+ds:nset() { # Test name (function/alias/variable) is defined: ds:nset name [search_vars=f]
     [ "$2" ] && ds:ntype "$1" &> /dev/null || type "$1" &> /dev/null
 }
 
@@ -328,7 +328,7 @@ ds:tmp() { # Shortcut for quiet mktemp: ds:tmp filename
     mktemp -q "/tmp/${1}.XXXXX"
 }
 
-ds:fail() { # Safe failure, kills parent but returns to prompt: ds:fail [error_message]
+ds:fail() { # Safe failure that kills parent: ds:fail [error_message]
     bash "$DS_SUPPORT/clean.sh"
     local shell="$(ds:sh)"
     if [[ "$shell" =~ "bash" ]]; then
@@ -700,6 +700,25 @@ ds:git_graph() { # Print colorful git history graph (alias ds:gg): ds:gg
 }
 alias ds:gg="ds:git_graph"
 
+ds:git_diff() { # Diff shortcut for exclusions: ds:git_diff obj obj exclusions
+    if [ -f "$1" ]; then
+        git diff $@
+    else
+        local from_object="$1" to_object="$2" FILE_EXCLUSIONS=()
+        if [[ -z "$from_object" || -z "$to_object" ]]; then
+            echo "Missing commit or branch objects"
+            return 1
+        fi
+        shift 2
+        while [ ! -z "$1" ]; do
+            local FILE_EXCLUSIONS=(${FILE_EXCLUSIONS[@]} ":(exclude)$1")
+            shift
+        done
+        echo "git diff \"$from_object\" \"$to_object\" -b $@ -- . ${FILE_EXCLUSIONS[@]}"
+        git diff "$from_object" "$to_object" -b $@ -- . ${FILE_EXCLUSIONS[@]}
+    fi
+}
+
 ds:todo() { # List todo items found in paths: ds:todo [searchpaths=.]
     ds:nset 'rg' && local RG=true
     local re='(TODO|FIXME|(^|[^X])XXX)( |:|\-)'
@@ -828,7 +847,7 @@ ds:insert() { # ** Redirect input into a file at lineno or pattern: ds:insert fi
     rm $_source
 }
 
-ds:space() { # Expand file to four spaces from two or vice versa: ds:space file [expand|contract]
+ds:space() { # Change file spaces 2>4 or 4>2: ds:space file [expand|contract]
     ds:file_check "$1" t
     local fl="$1" dir="${2:-expand}"
     
@@ -1337,7 +1356,7 @@ ds:pivot() { # ** Pivot tabular data: ds:pivot [file] [y_keys] [x_keys] [z_keys=
     ds:pipe_clean $file; rm $prefield
 }
 
-ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file*] [r_aggs] [c_aggs]
+ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file*] [r_aggs=+] [c_aggs=+]
     if ds:pipe_open; then
         local file=$(ds:tmp 'ds_agg') piped=0
         cat /dev/stdin > $file
@@ -1783,24 +1802,24 @@ ds:recent() { # List files modified recently: ds:recent [dir=.] [days=7] [recurs
             fi
         ) | sed "s:\\$(echo -n "$dirname")\/::" | awk "$prg" | sort -k$sortf \
             | ds:fit -v FS=" +" -v color=never | ds:pipe_check
+    else
+        let local days-=1
 
-      else
-          let local days-=1
-
-          if [ "$(date -v -0d 2>/dev/null)" ]; then
-              for i in {0..$days}; do
-                  local dates=( "${dates[@]}" "-e $(date -v "-${i}d" "+%D")" )
-              done
-          else
-              for i in {0..$days}; do
-                  local dates=( "${dates[@]}" "-e $(date -d "-$i days" +%D)" )
-              done
-          fi
+        if [ "$(date -v -0d 2>/dev/null)" ]; then
+            for i in {0..$days}; do
+                local dates=( "${dates[@]}" "-e $(date -v "-${i}d" "+%D")" )
+            done
+        else
+            for i in {0..$days}; do
+                local dates=( "${dates[@]}" "-e $(date -d "-$i days" +%D)" )
+            done
+        fi
 
         ([ "$bsd" ] && stat -l -t "%D" "$dirname"/* \
             || ls -ghtG$hidden --time-style=+%D "$dirname" \
         ) | grep -v '^d' | grep ${dates[@]} | awk "$prg" | ds:fit -v FS=" +" -v color=never | ds:pipe_check
     fi
+    
     [ $? = 0 ] || (echo "$notfound" && return 1)
 }
 
@@ -1965,6 +1984,14 @@ ds:case() { # ** Recase text data globally or in part: ds:case [string] [tocase=
     ds:pipe_clean $file
 }
 
+ds:random() { # ** Generate a random number 0-1 or randomize text: ds:random [number|text]
+    if ds:pipe_open; then
+        awk -v FS="" -v mode="$1" -f $DS_SCRIPT/randomize.awk
+    else
+        echo "" | awk -v FS="" -v mode="$1" -f $DS_SCRIPT/randomize.awk
+    fi
+}
+
 ds:websel() { # Download and extract inner html by regex: ds:websel url [tag_re] [attrs_re]
     local location="$1" tr_file="$DS_SUPPORT/named_entities_escaped.sed"
     local tag="${2:-[a-z]+}" attrs="${3:-[^>]*}"
@@ -2008,7 +2035,7 @@ ds:deps() { # Identify the dependencies of a shell function: ds:deps name [filte
     [ "$rm_dt" ] && rm $ndt
 }
 
-ds:gexec() { # Generate a script from pieces of another and run: ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
+ds:gexec() { # Generate script from parts of another and run: ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
     [ "$1" ] && local run="$1" && shift || (ds:help ds:gexec && return 1)
     ds:file_check "$1"
     [ -d "$2" ] || ds:fail 'arg 2 must be a directory'

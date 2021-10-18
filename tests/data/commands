@@ -1,6 +1,6 @@
 @@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE
 @@@@@@@@@@@@
-**@@@ds:agg@@@@@@Aggregate by index/pattern@@@ds:agg [-h|file*] [r_aggs] [c_aggs]
+**@@@ds:agg@@@@@@Aggregate by index/pattern@@@ds:agg [-h|file*] [r_aggs=+] [c_aggs=+]
 @@@ds:asgn@@@@@@Print lines matching assignment pattern@@@ds:asgn file
 **@@@ds:case@@@@@@Recase text data globally or in part@@@ds:case [string] [tocase=proper] [filter]
 @@@ds:cd@@@@@@cd to higher or lower level dirs@@@ds:cd [search]
@@ -15,16 +15,17 @@
 @@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir]
 @@@ds:embrace@@@@@@Enclose a string on each side by args@@@embrace str [left={] [right=}]
 @@@ds:enti@@@@@@Print text entities separated by pattern@@@ds:enti [file] [sep= ] [min=1] [order=a]
-@@@ds:fail@@@@@@Safe failure, kills parent but returns to prompt@@@ds:fail [error_message]
+@@@ds:fail@@@@@@Safe failure that kills parent@@@ds:fail [error_message]
 **@@@ds:fieldcounts@@@ds:fc@@@Print value counts@@@ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
 @@@ds:filename_str@@@@@@Add string to filename, preserving path@@@ds:filename_str file str [prepend|append|replace] [abs_path=f]
 **@@@ds:fit@@@@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file*] [prefield=t] [awkargs]
 @@@ds:fsrc@@@@@@Show the source of a shell function@@@ds:fsrc func
-@@@ds:gexec@@@@@@Generate a script from pieces of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
+@@@ds:gexec@@@@@@Generate script from parts of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
 @@@ds:git_add_com_push@@@ds:gacp@@@Add, commit with message, push@@@ds:gacp commit_message [prompt=t]
 @@@ds:git_branch@@@ds:gb@@@Run git branch for all repos@@@ds:gb
 @@@ds:git_checkout@@@ds:gco@@@Checkout branch matching pattern@@@ds:gco [branch_pattern] [new_branch=f]
 @@@ds:git_cross_view@@@ds:gcv@@@Display table of git repos vs branches@@@ds:gcv [:ab:Dfhmo:sv]
+@@@ds:git_diff@@@@@@Diff shortcut for exclusions@@@ds:git_diff obj obj exclusions
 @@@ds:git_graph@@@ds:gg@@@Print colorful git history graph@@@ds:gg
 @@@ds:git_purge_local@@@ds:gpl@@@Purge branches from local git repos@@@ds:gpl [repos_dir=~]
 @@@ds:git_recent@@@ds:gr@@@Display commits sorted by recency@@@ds:gr [refs=heads] [run_context=display]
@@ -53,13 +54,14 @@
 **@@@ds:mini@@@@@@Crude minify, remove whitespace and newlines@@@ds:mini [file*] [newline_sep=;] [blank_only=f]
 @@@ds:new@@@@@@Refresh zsh or bash interactive session@@@ds:new
 **@@@ds:newfs@@@@@@Convert field separators - i.e. tsv -> csv@@@ds:newfs [file] [newfs=,] [awkargs]
-@@@ds:nset@@@@@@Test if name (function/alias/variable) is defined@@@ds:nset name [search_vars=f]
+@@@ds:nset@@@@@@Test name (function/alias/variable) is defined@@@ds:nset name [search_vars=f]
 @@@ds:ntype@@@@@@Get name type - function, alias, variable@@@ds:ntype name
 @@@ds:path_elements@@@@@@Return dirname/filename/extension from filepath@@@ds:path_elements file
 **@@@ds:pipe_check@@@@@@Detect if pipe has data or over [n_lines]@@@data | ds:pipe_check [n_lines]
 **@@@ds:pivot@@@@@@Pivot tabular data@@@ds:pivot [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
 **@@@ds:pow@@@@@@Combinatorial frequency of data field values@@@ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
 **@@@ds:prod@@@@@@Return product multiset of filelines@@@ds:pow file [file*] [awkargs]
+**@@@ds:random@@@@@@Generate a random number 0-1 or randomize text@@@ds:random [number|text]
 @@@ds:recent@@@@@@List files modified recently@@@ds:recent [dir=.] [days=7] [recurse=r] [hidden=h]
 **@@@ds:reo@@@@@@Reorder/repeat/slice data by rows and cols@@@ds:reo [-h|file*] [rows] [cols] [prefield=t] [awkargs]
 **@@@ds:rev@@@@@@Reverse lines from standard input@@@data | ds:rev
@@ -71,7 +73,7 @@
 @@@ds:so@@@@@@Search Stack Overflow@@@ds:so [search_query]
 **@@@ds:sort@@@@@@Sort with inferred field sep of 1 char@@@ds:sort [unix_sort_args] [file]
 **@@@ds:sortm@@@ds:s@@@Sort with inferred field sep of >=1 char@@@ds:sortm [file] [keys] [order=a|d] [sort_type] [awkargs]
-@@@ds:space@@@@@@Expand file to four spaces from two or vice versa@@@ds:space file [expand|contract]
+@@@ds:space@@@@@@Change file spaces 2>4 or 4>2@@@ds:space file [expand|contract]
 @@@ds:src@@@@@@Source a piece of shell code@@@ds:src file ["searchx" pattern] || [start end] || [search linesafter]
 @@@ds:srg@@@@@@Scope grep to files that contain a match@@@ds:srg scope_pattern search_pattern [dir] [invert=]
 **@@@ds:stagger@@@@@@Print tabular data in staggered rows@@@ds:stagger [file] [stag_size]

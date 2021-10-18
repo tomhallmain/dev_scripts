@@ -37,6 +37,7 @@ floats="tests/data/floats_test"
 inferfs_chunks="tests/data/inferfs_chunks_test"
 emoji="tests/data/emoji"
 emojifit="tests/data/emojifit"
+number_comma_format="tests/data/number_comma_format"
 
 if [[ $shell =~ 'bash' ]]; then
     bsh=0
@@ -340,18 +341,21 @@ expected=':5:4:3:2:1
 actual="$(echo "$input" | ds:reo rev rev -v idx=1)"
 [ "$actual" = "$expected" ] || ds:fail 'reo failed rev idx case'
 
-actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>128' off)"
-expected='@@@ds:gexec@@@@@@Generate a script from pieces of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]'
+actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>127' off)"
+expected='@@@ds:filename_str@@@@@@Add string to filename, preserving path@@@ds:filename_str file str [prepend|append|replace] [abs_path=f]'
 [ "$actual" = "$expected" ] || ds:fail 'reo failed full row len case'
 
-actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>48' 2)"
-expected='ds:nset
-ds:space'
+actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>46' 2)"
+expected='ds:dups
+ds:insert
+ds:jira
+ds:path_elements'
 [ "$actual" = "$expected" ] || ds:fail 'reo failed basic len case'
 
 actual="$(ds:commands | grep 'ds:' | ds:reo 'len(2)%11 || len(2)=13' 'length()<5 && len()>2')"
 expected='@@@
 ds:gb@@@
+@@@
 ds:gr@@@
 ds:gsq@@@
 ds:gs@@@
@@ -620,6 +624,23 @@ for fit_length in $(cat $tmp); do
     [ "$fit_length" -lt "$tty_width" ] || ds:fail 'fit failed endfit_col case'
 done
 
+expected='Spetnixvbi lej Bkapf Giawgg             2166631  114957
+Vgrrhfhb ul Wkuu                           7563       0
+Ivfubovmpm Svvsud                         82809   75629
+Brjtlras Tvgqicmq (xrmbi)                     0       0
+Kox-spetnixv Bilejbka (pfgia)                 0       0
+Xggvgrr Hfhbulv Luuiv                         0       0
+Fubovmp Nsvvsu & Dbrjtlrassv             190142       0
+Gqicmqx Smbiko                           163178       0
+YXJ                                       26964       0
+Vuspe Unixvbil Ejbkap Fgiawg                  0       0
+HVGS Shfhbulvkuuiv                            0       0
+Fubovmp Nsvvsud Brjtlras Tvgqicmqxrmbi    16101       0
+Kox Xivudrxflj Awcbqvxx                       0     962
+Ohbcabs Qetnix                          2431044  189624'
+actual="$(ds:fit "$number_comma_format" -v color=never)"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed number comma format case'
+
 
 # FC TESTS
 
@@ -862,6 +883,13 @@ expected='one two three four
 4 3 2 1
 1 2 4 3
 3 2 4 1
+-3 -1 1 3'
+[ "$(ds:agg $tmp 0 '$2-$3')" = "$expected" ] || ds:fail 'agg failed C specific agg base case'
+expected='one two three four
+1 2 3 4
+4 3 2 1
+1 2 4 3
+3 2 4 1
 6 7 9 8'
 [ "$(ds:agg $tmp 0 '$2+$3+$4')" = "$expected" ] || ds:fail 'agg failed C specific agg base case'
 
@@ -945,6 +973,24 @@ goal 2 4 1 0.5 7 8 -7
 * 24 96 12 0.0208334 3402 27648 3402
 + 9 13 9 2.33334 31 62 -31'
 [ "$(ds:agg $tmp '/,+,*,-' '\-,/,*,+')" = "$expected" ]           || ds:fail 'agg failed all shortforms case'
+
+expected='Spetnixvbi lej Bkapf Giawgg  $2,166,631  $114,957  $2281588
+Vgrrhfhb ul Wkuu  $7,563  $0  $7563
+Ivfubovmpm Svvsud  $82,809  $75,629  $158438
+Brjtlras Tvgqicmq (xrmbi)  $0  $0  $0
+Kox-spetnixv Bilejbka (pfgia)  $0  $0  $0
+Xggvgrr Hfhbulv Luuiv  $0  $0  $0
+Fubovmp Nsvvsu & Dbrjtlrassv  $190,142  $0  $190142
+Gqicmqx Smbiko  $163,178  $0  $163178
+YXJ  $26,964  $0  $26964
+Vuspe Unixvbil Ejbkap Fgiawg  $0  $0  $0
+HVGS Shfhbulvkuuiv  $0  $0  $0
+Fubovmp Nsvvsud Brjtlras Tvgqicmqxrmbi  $16,101  $0  $16101
+Kox Xivudrxflj Awcbqvxx  $0  $962  $962
+Ohbcabs Qetnix  $2,431,044  $189,624  $2620668
+$1+$2+$3+$4+$5+$6+$7+$10-$11-$12-$13  $2431044  $189624  $2620668'
+[ "$(ds:agg $number_comma_format '+' '$1+$2+$3+$4+$5+$6+$7+$10-$11-$12-$13')" = "$expected" ] || ds:fail 'agg failed number comma format case'
+
 expected='one two three four three+two -
 akk 2 3 4 5 -9
 blah 3 2 1 5 -6
@@ -952,7 +998,7 @@ yuge 2 4 3 6 -9
 goal 2 4 1 6 -7
 akk-goal 0 -1 3 -1 -2
 blah/yuge 1.5 0.5 0.333333 0.833333 0.666667'
-[ "$(ds:agg $tmp 'three+two,-' 'akk-goal,blah/yuge')" ]           || ds:fail 'agg failed keysearch cases'
+[ "$(ds:agg $tmp 'three+two,-' 'akk-goal,blah/yuge')" = "$expected" ] || ds:fail 'agg failed keysearch cases'
 
 echo -e "a 2 3 4\nb 3 4 5\na 4 5 2\nc 7 7 7" > $tmp
 expected='a 2 3 4
@@ -961,15 +1007,15 @@ a 4 5 2
 c 7 7 7
 +|~a 6 8 6
 + 16 19 18'
-[ "$(ds:agg $tmp 0 '+|~a,+')" ] || ds:fail 'agg failed conditional C agg case'
+[ "$(ds:agg $tmp 0 '+|~a,+')" = "$expected" ] || ds:fail 'agg failed conditional C agg case'
 
 echo -e "one:two:three:four\n1:2:3:4\n4:3:2:1\n1:2:4:3\n3:2:4:1" > $tmp
 expected='one:two:three:four:+|$4>3||$4<2
-1:2:3:4:8
-4:3:2:1:7
-1:2:4:3:8
-3:2:4:1:8'
-[ "$(ds:agg $tmp '+|$4>3||$4<2')" ] || ds:fail 'agg failed conditional R agg case'
+1:2:3:4:4
+4:3:2:1:6
+1:2:4:3:5
+3:2:4:1:7'
+[ "$(ds:agg $tmp '+|$4>3||$4<2')" = "$expected" ] || ds:fail 'agg failed conditional R agg case'
 
 expected='USER
 user 2059788916

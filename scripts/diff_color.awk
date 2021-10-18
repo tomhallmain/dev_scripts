@@ -39,8 +39,9 @@ BEGIN {
         l_len = length(lchars)
         r_len = length(rchars)
 
-        j = 1
+        j = 2
         recap = 0
+        recaps = 0
         for (i = 1; i <= l_len; i++) {
             if (lchars[i] == rchars[j]) {
                 if (coloron) {
@@ -50,6 +51,7 @@ BEGIN {
                 j++
             }
             else {
+                if (recap) recap = 0
                 tmp_j = j
                 for (k = j; k <= l_len; k++) { #TODO: May want to refactor using substr
                     mtch = lchars[i] == rchars[k]
@@ -58,7 +60,8 @@ BEGIN {
                     mtch3 = lchars[i+3] == rchars[k+3]
                     if (mtch && mtch1 && mtch2 && mtch3) {
                         recap = 1
-                        j = k
+                        recaps++
+                        j = k + recaps
                         coloron = 0
                         printf coloroff
                         break
@@ -77,6 +80,7 @@ BEGIN {
 
         j = 1
         recap = 0
+        recaps = 0
         for (i=1; i <= r_len; i++) {
             if (rchars[i] == lchars[j]) {
                 if (coloron) {
@@ -86,6 +90,7 @@ BEGIN {
                 j++
             }
             else {
+                if (recap) recap = 0
                 tmp_j = j
                 for (k = j; k <= r_len; k++) {
                     mtch = rchars[i] == lchars[k]
@@ -94,7 +99,8 @@ BEGIN {
                     mtch3 = rchars[i+3] == lchars[k+3]
                     if (mtch && mtch1 && mtch2 && mtch3) {
                         recap = 1
-                        j = k
+                        recaps++
+                        j = k + recaps
                         coloron = 0
                         printf coloroff
                         break

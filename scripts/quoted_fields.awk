@@ -42,6 +42,10 @@ BEGIN {
     }
 }
 
+{
+    gsub(/\015$/, "") # Remove Carriage Returns "\r"
+}
+
 not_applicable || (!quote_rebalance && !($0 ~ FS) && q && !($0 ~ q)) {
     gsub(FS, OFS)
     print
@@ -61,8 +65,6 @@ quote_rebalance && !($0 ~ QRe["end"]) {
 }
 
 {
-    gsub(/\015$/, "") # Remove Carriage Returns "\r"
-
     diff = 0
     index_quote_imbal_start = 0
     close_multiline_field = 0
@@ -106,7 +108,6 @@ quote_rebalance && !($0 ~ QRe["end"]) {
         starts = QuoteStarts($0, QRe)
         ends = QuoteEnds($0, QRe)
         balance_outstanding += starts - ends
-        #if (balance_outstanding < 0) balance_outstanding = 0
         if (debug && save_bal != balance_outstanding) DebugPrint(5)
         if (ends) {
             if (balance_outstanding == 0) quote_rebalance = 0
@@ -115,7 +116,6 @@ quote_rebalance && !($0 ~ QRe["end"]) {
     }
     else if (run_prefield) {
         balance_outstanding = QuoteDiff($0, QRe)
-        #if (balance_outstanding < 0) balance_outstanding = 0
         save_i = 1
     }
 

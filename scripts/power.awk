@@ -141,7 +141,6 @@
 ## low-variance fields as these do not add more info - this would have to be
 ## done BEFORE or WHILE permorming exclusions relating to contained fields
 ## TODO: Output single fields based on their interaction characteristic value
-## TODO: Set combinations once as a list then iterate over the list
 
 BEGIN {
 
