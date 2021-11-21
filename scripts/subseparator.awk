@@ -20,11 +20,21 @@ BEGIN {
     }
     else {
         if (debug) print "splitting lines on "FS" then on "subsep_pattern" with tiebreaker "nomatch_handler 
-        if (escape) nomatch_handler = Escape(nomatch_handler)
+        if (escape) {
+            nomatch_handler = Escape(nomatch_handler)
+        }
+        else {
+            nomatch_handler = EscapePreserveRegex(nomatch_handler)
+        }
     }
   
     unescaped_pattern = Unescape(subsep_pattern)
-    if (escape) subsep_pattern = Escape(subsep_pattern)
+    if (escape) {
+        subsep_pattern = Escape(subsep_pattern)
+    }
+    else {
+        subsep_pattern = EscapePreserveRegex(subsep_pattern)
+    }
   
     if (apply_to_fields) {
         split(apply_to_fields, Fields, ",")

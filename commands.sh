@@ -13,7 +13,7 @@ ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [r
     if [ "$re_source" ] || ! ds:test "@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE" "$DS_COMMANDS" t; then
         grep -h '[[:alnum:]_][[:alnum:]_]()' "$DS_LOC/commands.sh" "$utils" 2>/dev/null | sort \
             | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
-            | ds:subsep '\\\*\\\*' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" \
+            | ds:subsep '**' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" \
             | ds:subsep ":[[:space:]]" "888" -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" \
             | ds:subsep '\\\(alias ' '$' -v apply_to_fields=3 | sed 's/)@/@/' \
             | awk -v FS="$DS_SEP" '
@@ -847,25 +847,50 @@ ds:insert() { # ** Redirect input into a file at lineno or pattern: ds:insert fi
     rm $_source
 }
 
-ds:space() { # Change file spaces 2>4 or 4>2: ds:space file [expand|contract]
-    ds:file_check "$1" t
-    local fl="$1" dir="${2:-expand}"
-    
-    if [ "$dir" = "expand" ]; then
-        local base_space='  '
-        local new_space='    '
+ds:space() { # ** Modify file space or tab counts: ds:space [file] from=$'\t' target=4
+    if ds:pipe_open; then
+        local _file=$(ds:tmp 'ds_space') piped=0
+        cat /dev/stdin > $_file
     else
-        local base_space='    '
-        local new_space='  '
+        ds:file_check "$1" t
+        local _file="$1"
+        shift
     fi
-
+    
+    local _from="${1:-2}" _target="${2:-4}"
+    [ "$_from" = "$_target" ] && ds:fail "From and target spaces are the same."
+    if [ "$_from" = $'\t' ]; then
+        local base_space="$_from"
+    else
+        ds:is_int "$_from" || ds:fail "Non-integer value for from spaces: \"$_from\""
+        local base_space="$(ds:iter " " "$_from" "")"
+    fi
+    if [ "$_target" = $'\t' ]; then
+        local target_space="$_target"
+    else
+        ds:is_int "$_target" || ds:fail "Non-integer value for target spaces: \"$_target\""
+        local target_space="$(ds:iter " " "$_target" "")"
+    fi
     let local i=0
 
-    for ((i=12; i>0; i--)); do
-        local search="^$(ds:iter "$base_space" $i "")(\\S)"
-        local replace="$(ds:iter "$new_space" $i "")\\1"
-        ds:sedi "$fl" "$search" "$replace"
-    done
+    if [[ $_from -gt $_target || ($_from = $'\t' && $_target -le 4) || ($_target = $'\t' && $_from -ge 4) ]]; then
+        for ((i=0; i<13; i++)); do
+            local search="^$(ds:iter "$base_space" $i "")(\\S)"
+            local replace="$(ds:iter "$target_space" $i "")\\1"
+            ds:sedi "$_file" "$search" "$replace"
+        done
+    else
+        for ((i=12; i>0; i--)); do
+            local search="^$(ds:iter "$base_space" $i "")(\\S)"
+            local replace="$(ds:iter "$target_space" $i "")\\1"
+            ds:sedi "$_file" "$search" "$replace"
+        done
+    fi
+
+    if [ "$piped" ]; then
+        cat "$_file"
+    fi
+    ds:pipe_clean "$_file"
 }
 
 ds:shape() { # ** Print data shape by length or pattern: ds:shape [-h|file*] [patterns] [fields] [chart_size=15ln] [awkargs]
@@ -1515,7 +1540,7 @@ ds:fieldcounts() { # ** Print value counts (alias ds:fc): ds:fc [file] [fields=1
         ([ "$1" = d ] || [ "$1" = desc ]) && local order="r"
         [[ ! "$1" =~ "-" ]] && shift
     fi
-    [ "$order" ] && shift; local args=( "$@" ) fstmp=$(ds:tmp 'ds_extractfs')
+    local args=( "$@" ) fstmp=$(ds:tmp 'ds_extractfs')
     if [ ! "$fields" = "a" ]; then
         ds:extractfs > $fstmp
         local fs="$(cat $fstmp; rm $fstmp)" prefield=$(ds:tmp "ds_fc_prefield")
@@ -1524,6 +1549,7 @@ ds:fieldcounts() { # ** Print value counts (alias ds:fc): ds:fc [file] [fields=1
         awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v min="$min" -v fields="$fields" \
             -f "$DS_SCRIPT/field_counts.awk" $prefield 2>/dev/null | sort -n$order | ds:ttyf "$fs" -v color=never
     else
+        rm $fstmp
         awk ${args[@]} -v min="$min" -v fields="$fields" -f "$DS_SCRIPT/field_counts.awk" \
             "$file" 2>/dev/null | sort -n$order | ds:ttyf "$fs" -v color=never
     fi
@@ -1971,8 +1997,6 @@ ds:case() { # ** Recase text data globally or in part: ds:case [string] [tocase=
     local file=$(ds:tmp 'ds_case') piped=0
     if ds:pipe_open; then
         cat /dev/stdin > $file
-    elif [[ -e "$1" && ! -d "$1" ]]; then
-        cat "$1" > $file; shift
     elif [ "$1" ]; then
         ds:test "^(-h|--help)" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/case.awk" \
             | sed -E 's:^#::g' && return
@@ -2004,15 +2028,24 @@ ds:websel() { # Download and extract inner html by regex: ds:websel url [tag_re]
         printf "$unescaped"; fi
 }
 
-ds:dups() { # Report duplicate files with option for deletion: ds:dups [dir]
+ds:dups() { # Report duplicate files with option for deletion: ds:dups [dir] [confirm=f] [of_file] [try_nonmatch_ext=f]
     if ! ds:nset 'md5sum'; then
         echo 'md5sum utility not found - please install GNU coreutils to enable this command'
         return 1
     fi
     ds:nset 'pv' && local use_pv="-p"
-    ds:nset 'fd' && local use_fd="-f"
+    ds:nset 'fd' && local use_fd="-u"
     [ -d "$1" ] && local dir="$1" || local dir="$PWD"
-    bash "$DS_SCRIPT/dup_files.sh" -s "$dir" $use_fd $use_pv
+    ds:test 't(rue)?' "$2" && local delete="-d"
+    ds:test 't(rue)?' "$4" && local all_files="-a"
+    if [ "$3" ]
+    then
+        ds:file_check "$3" f t
+        local of_file="$3"
+        bash "$DS_SCRIPT/dup_files.sh" -s "$dir" -f "$of_file" $delete $use_fd $use_pv $all_files
+    else
+        bash "$DS_SCRIPT/dup_files.sh" -s "$dir" $delete $use_fd $use_pv 
+    fi
 }
 
 ds:deps() { # Identify the dependencies of a shell function: ds:deps name [filter] [ntype=(FUNC|ALIAS)] [caller] [ndata]

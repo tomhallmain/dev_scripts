@@ -195,9 +195,15 @@ BEGIN {
     if (gen) GenAllAggregationExpr(max_nr, 0)
   
     OFS = SetOFS()
+    header_unset = 1
 }
 
-NR < 2 {
+$0 ~ /^[[:space:]]+*$/ {
+    next
+}
+
+header_unset {
+    header_unset = 0
     if (!fixed_nf) fixed_nf = NF
     if (gen) GenAllAggregationExpr(fixed_nf, 1)
   
@@ -216,8 +222,9 @@ row_column_aggs_basic {
     _[NR] = $0
     RHeader[NR] = $1
 
-    if (NF < fixed_nf)
+    if (NF < fixed_nf) {
         NFPad[NR] = NF - fixed_nf
+    }
 
     for (i in RA) {
         agg = RA[i]
@@ -231,15 +238,15 @@ row_column_aggs_basic {
     for (i in CA) {
         agg = CA[i]
         agg_amort = ColumnAggAmort[i]
-    
+
         if (ConditionalAgg[agg] && GetOrSetIndexNA(agg, NR, 0)) {
             continue
         }
         else if (!KeyAgg[0, i] && !SearchAgg[agg_amort] && !Indexed(agg_amort, NR)) {
             continue
         }
-    
-        ColumnAggResult[i] = AdvanceCarryVector(i, NF, agg_amort, ColumnAggResult[i])
+
+        ColumnAggResult[i] = AdvanceCarryVector(i, fixed_nf, agg_amort, ColumnAggResult[i])
     }
 }
 

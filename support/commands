@@ -12,7 +12,7 @@
 **@@@ds:dff@@@@@@Diff shortcut for an easier to read view@@@ds:dff file1 [file2] [suppress_common] [color=t]
 **@@@ds:dostounix@@@@@@Remove ^M / CR characters in place@@@ds:dostounix [file*]
 **@@@ds:dup_input@@@@@@Duplicate standard input in aggregate@@@data | ds:dup_input
-@@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir]
+@@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir] [confirm=f] [of_file] [try_nonmatch_ext=f]
 @@@ds:embrace@@@@@@Enclose a string on each side by args@@@embrace str [left={] [right=}]
 @@@ds:enti@@@@@@Print text entities separated by pattern@@@ds:enti [file] [sep= ] [min=1] [order=a]
 @@@ds:fail@@@@@@Safe failure that kills parent@@@ds:fail [error_message]
@@ -73,7 +73,7 @@
 @@@ds:so@@@@@@Search Stack Overflow@@@ds:so [search_query]
 **@@@ds:sort@@@@@@Sort with inferred field sep of 1 char@@@ds:sort [unix_sort_args] [file]
 **@@@ds:sortm@@@ds:s@@@Sort with inferred field sep of >=1 char@@@ds:sortm [file] [keys] [order=a|d] [sort_type] [awkargs]
-@@@ds:space@@@@@@Change file spaces 2>4 or 4>2@@@ds:space file [expand|contract]
+**@@@ds:space@@@@@@Modify file space or tab counts@@@ds:space [file] from=$'\t' target=4
 @@@ds:src@@@@@@Source a piece of shell code@@@ds:src file ["searchx" pattern] || [start end] || [search linesafter]
 @@@ds:srg@@@@@@Scope grep to files that contain a match@@@ds:srg scope_pattern search_pattern [dir] [invert=]
 **@@@ds:stagger@@@@@@Print tabular data in staggered rows@@@ds:stagger [file] [stag_size]

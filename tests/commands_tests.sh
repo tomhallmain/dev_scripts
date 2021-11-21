@@ -675,7 +675,7 @@ expected='cdatetime,,,address
 1,1,06 0:00,2082 EXPEDITION WAY
 1,1,06 0:00,4 PALEN CT
 1,1,06 0:00,22 BECKFORD CT'
-actual="$(ds:reo tests/data/testcrimedata.csv 1..5 1,2 | ds:subsep '\\/' "" -F,)"
+actual="$(ds:reo tests/data/testcrimedata.csv 1..5 1,2 | ds:subsep '/' "" -F,)"
 [ "$expected" = "$actual" ] || ds:fail 'sbsp failed readme case'
 
 # POW TESTS
@@ -1382,7 +1382,7 @@ expected='@@@PIVOT@@@7@@@21@@@14@@@28@@@+|all@@@
 @@@TOWED/STORED VEH-14602.6@@@11@@@8@@@9@@@11@@@463@@@
 @@@10851(A)VC TAKE VEH W/O OWNER@@@21@@@24@@@15@@@23@@@653@@@
 +|all@@@@@@249@@@234@@@221@@@279@@@7585@@@'
-actual="$(ds:subsep tests/data/testcrimedata.csv '\/' "" -v apply_to_fields=1 \
+actual="$(ds:subsep tests/data/testcrimedata.csv '/' "" -v apply_to_fields=1 \
     | ds:reo a '2,NF>3' \
     | ds:pivot 6 1 4 c \
     | ds:agg '+|all' '+|all' -v header=1 \

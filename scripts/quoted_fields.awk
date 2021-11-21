@@ -12,6 +12,8 @@ BEGIN {
     singlequote = "'"
     doublequote = "\""
 
+    FS = EscapePreserveRegex(FS)
+
     if (FS == "" \
         || FS ~ singlequote \
         || FS ~ doublequote \

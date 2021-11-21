@@ -215,7 +215,7 @@ debug {
         for (i in Keys1) print i, Keys1[i]
         for (i in Keys2) print i, Keys2[i]
     }
-    print NR, FNR, keycount, key, FS
+    print NR, FNR, keycount, key, "\""FS"\""
 }
 
 keycount = 0

@@ -37,6 +37,15 @@ function Unescape(_string,   i) {
 
     return _string
 }
+# Escape FS string only if not a regular expression or already well formed
+function EscapePreserveRegex(_fs) {
+    fs_copy = _fs
+    if (gsub(/[\\.^$(){}\[\]|*+?]/, "", fs_copy) == length(_fs)) {
+        return Escape(_fs)
+    }
+
+    return _fs
+}
 function EvalExpr(expr,   res,nm,a,s,m,d,u,e) {
     res = 0
     nm = gsub(/\*-/, "*", expr)
