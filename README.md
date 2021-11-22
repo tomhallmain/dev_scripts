@@ -139,9 +139,9 @@ Pivot tabular data. Runs ds:fit on output if to a terminal.
 
 ```bash
 $ ds:pivot /tmp/jn_a 1,2 4 3
-PIVOT     d  4
-    a  b  c
-    1  2     3
+PIVOT     4  d
+1      2  3
+a      b     c
 ```
 
 #### `ds:agg`

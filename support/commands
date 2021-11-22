@@ -17,7 +17,7 @@
 @@@ds:enti@@@@@@Print text entities separated by pattern@@@ds:enti [file] [sep= ] [min=1] [order=a]
 @@@ds:fail@@@@@@Safe failure that kills parent@@@ds:fail [error_message]
 **@@@ds:fieldcounts@@@ds:fc@@@Print value counts@@@ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
-@@@ds:filename_str@@@@@@Add string to filename, preserving path@@@ds:filename_str file str [prepend|append|replace] [abs_path=f]
+@@@ds:filename_str@@@@@@Add string to filename, preserving path@@@ds:filename_str file str [prepend|append|replace] [abs_path=t]
 **@@@ds:fit@@@@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file*] [prefield=t] [awkargs]
 @@@ds:fsrc@@@@@@Show the source of a shell function@@@ds:fsrc func
 @@@ds:gexec@@@@@@Generate script from parts of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]

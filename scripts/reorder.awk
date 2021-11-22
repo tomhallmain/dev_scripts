@@ -233,9 +233,14 @@
 ## SETUP
 
 BEGIN {
-    BuildRe(Re); BuildTokens(Tk); BuildTokenMap(TkMap)
-    assume_constant_fields = 0; base_r = 1; base_c = 1
-    min_guar_print_nf = 1000; min_guar_print_nr = 100000000
+    BuildRe(Re)
+    BuildTokens(Tk)
+    BuildTokenMap(TkMap)
+    assume_constant_fields = 0
+    base_r = 1
+    base_c = 1
+    min_guar_print_nf = 1000
+    min_guar_print_nr = 100000000
     comma_escape_string = "#_ECSOCMAMPA_#"
     if (!cased) ignore_case_global = 1
     if (ARGV[1]) {
@@ -273,14 +278,19 @@ BEGIN {
     if (!reo_c_count) pass_c = 1
 
     if (pass_r && pass_c) pass = 1
-    if (r_len == 1 && c_len == 1 && !pass_r && !pass_c && !range && !reo)
+
+    if (r_len == 1 && c_len == 1 && !pass_r && !pass_c && !range && !reo) {
         indx = 1
-    else if (!pass && !range && !reo)
+    }
+    else if (!pass && !range && !reo) {
         base = 1
-    else if (range && !reo)
+    }
+    else if (range && !reo) {
         base_range = 1
-    else if (reo && !mat && !re && !anc && !rev && !oth && !c_nidx && !c_nidx_rng)
+    }
+    else if (reo && !mat && !re && !anc && !rev && !oth && !c_nidx && !c_nidx_rng) {
         base_reo = 1
+    }
 
     if (OFS ~ "\\\\") OFS = Unescape(OFS)
     if (OFS ~ "\\[:space:\\]\{") OFS = "  "
@@ -292,10 +302,12 @@ BEGIN {
     if (debug) { DebugPrint(0); DebugPrint(7) }
   
     if (idx && !pass && (!reo || base_reo && pass_r)) {
-        if (base_range || base_reo)
+        if (base_range || base_reo) {
             FieldsIndexPrint(ReoC, reo_c_len)
-        else
+        }
+        else {
             FieldsIndexPrint(COrder, c_len)
+        }
     }
 }
 
@@ -372,10 +384,12 @@ END {
     if (debug) DebugPrint(4)
     if (err || !reo || (base_reo && pass_r)) exit err
 
-    if (c_nidx)
+    if (c_nidx) {
         SetNegativeIndexFieldOrder(0, CNidx, max_nf)
-    if (c_nidx_rng)
+    }
+    if (c_nidx_rng) {
         SetNegativeIndexFieldOrder(1, CNidxRanges, max_nf)
+    }
     if (anc) {
         FillAnchorRange(1, RAnchors, AnchorRO)
         FillAnchorRange(0, CAnchors, AnchorFO)
@@ -396,16 +410,20 @@ END {
     }
     if (debug) { if (!pass_c) DebugPrint(6); DebugPrint(8) }
 
-    if (!pass_c && !q && !rev_c && !oth_c && !c_anc_found && max_nf < min_guar_print_nf)
+    if (!pass_c && !q && !rev_c && !oth_c && !c_anc_found && max_nf < min_guar_print_nf) {
         MatchCheck(ExprFO, SearchFO, AnchorFO, CNidx, CNidxRanges)
-    if (!pass_r && !q && !rev_r && !oth_r && !r_anc_found && NR < min_guar_print_nr)
+    }
+    if (!pass_r && !q && !rev_r && !oth_r && !r_anc_found && NR < min_guar_print_nr) {
         MatchCheck(ExprRO, SearchRO, AnchorRO)
+    }
 
     if (idx) {
-        if (reo_c_len)
+        if (reo_c_len) {
             FieldsIndexPrint(ReoC, reo_c_len)
-        else
+        }
+        else {
             FieldsIndexPrint(Empty, max_nf)
+        }
     }
 
     if (pass_r) {
@@ -414,10 +432,13 @@ END {
             for (rc = 1; rc <= reo_c_len; rc++) {
                 c_key = ReoC[rc]
                 if (!c_key) continue
+                
                 row = _[rr]
                 split(row, Row, FS)
-                if (c_key ~ Re["int"])
+                
+                if (c_key ~ Re["int"]) {
                     PrintField(Row[c_key], rc, reo_c_len)
+                }
                 else {
                     Reo(c_key, Row, 0)
                     if (rc!=reo_c_len) printf "%s", OFS
@@ -431,11 +452,17 @@ END {
     for (rr = 1; rr <= reo_r_len; rr++) {
         r_key = ReoR[rr]
         if (!r_key) continue
-        if (pass_c && base_reo) FieldsPrint(_[r_key])
+        
+        if (pass_c && base_reo) {
+            FieldsPrint(_[r_key])
+        }
         else {
             if (r_key ~ Re["int"]) {
                 if (idx) printf "%s", r_key OFS
-                if (pass_c) FieldsPrint(_[r_key])
+                
+                if (pass_c) {
+                    FieldsPrint(_[r_key])
+                }
                 else {
                     for (rc = 1; rc <= reo_c_len; rc++) {
                         c_key = ReoC[rc]
@@ -444,8 +471,9 @@ END {
                         row = _[r_key]
                         split(row, Row, FS)
             
-                        if (c_key ~ Re["int"])
+                        if (c_key ~ Re["int"]) {
                             PrintField(Row[c_key], rc, reo_c_len)
+                        }
                         else {
                             Reo(c_key, Row, 0)
                             if (rc!=reo_c_len) printf "%s", OFS

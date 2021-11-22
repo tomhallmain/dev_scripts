@@ -284,6 +284,7 @@ f e d c b
 e d c b a'
 output='f e c b a'
 [ "$(echo "$input" | ds:reo 2)" = "$output" ] || ds:fail 'reo failed base row case'
+
 output='c
 e
 e
@@ -306,6 +307,7 @@ input='1:2:3:4:5
 
 actual="$(echo "$input" | ds:reo '>5' off)"
 [ "$actual" = "::6::" ]         || ds:fail 'reo failed c off case'
+
 actual="$(echo "$input" | ds:reo '~6' off)"
 [ "$actual" = "::6::" ]         || ds:fail 'reo failed c off case'
 
@@ -314,8 +316,10 @@ expected='6::
 3:2:1
 3:4:5'
 [ "$actual" = "$expected" ] || ds:fail 'reo failed anchor case'
+
 actual="$(echo "$input" | ds:reo '/6/../2/' '/3/..' | cat)"
 [ "$actual" = "$expected" ] || ds:fail 'reo failed anchor_re case'
+
 actual="$(echo "$input" | ds:reo '6##2' '##3' | cat)"
 expected='::6
 5:4:3
@@ -328,11 +332,13 @@ expected=':3
 3:6'
 actual="$(echo "$input" | ds:reo 3 3 -v idx=1)"
 [ "$actual" = "$expected" ] || ds:fail 'reo failed indx idx case'
+
 expected=':4:3
 4:2:
 3::6'
 actual="$(echo "$input" | ds:reo 4..3 4..3 -v idx=1)"
 [ "$actual" = "$expected" ] || ds:fail 'reo failed rev range idx case'
+
 expected=':5:4:3:2:1
 4:1:2::3:
 3:::6::
@@ -342,7 +348,7 @@ actual="$(echo "$input" | ds:reo rev rev -v idx=1)"
 [ "$actual" = "$expected" ] || ds:fail 'reo failed rev idx case'
 
 actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>127' off)"
-expected='@@@ds:filename_str@@@@@@Add string to filename, preserving path@@@ds:filename_str file str [prepend|append|replace] [abs_path=f]'
+expected='@@@ds:filename_str@@@@@@Add string to filename, preserving path@@@ds:filename_str file str [prepend|append|replace] [abs_path=t]'
 [ "$actual" = "$expected" ] || ds:fail 'reo failed full row len case'
 
 actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>46' 2)"
@@ -365,6 +371,7 @@ ds:gs@@@
 actual="$(echo "$input" | ds:reo 1 'len()>0,len()<2' -v uniq=1)"
 expected='1:2:3:4:5:'
 [ "$actual" = "$expected" ] || ds:fail 'reo failed uniq col case'
+
 actual="$(echo "$input" | ds:reo 'len(1)>0,len(1)<2' 3 -v uniq=1)"
 expected='3
 3
@@ -823,32 +830,45 @@ actual="$(echo -e "a b c d e f" | ds:pow 1 f f -v choose=4)"
 input='1 2 3 4
 5 6 7 5
 4 6 5 8'
-expected='PIVOT@@@1@@@5@@@4@@@
+
+expected='PIVOT@@@1@@@4@@@5@@@
 2@@@1@@@@@@@@@
 6@@@@@@1@@@1@@@'
 actual="$(echo "$input" | ds:pivot 2 1)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed count z case'
-expected='PIVOT@@@1@@@5@@@4@@@
+
+expected='PIVOT@@@1@@@4@@@5@@@
 2@@@3::4@@@@@@@@@
-6@@@@@@7::5@@@5::8@@@'
+6@@@@@@5::8@@@7::5@@@'
 actual="$(echo "$input" | ds:pivot 2 1 0)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed gen z case'
-expected='PIVOT@@@1@@@5@@@4@@@
+
+expected='PIVOT@@@1@@@4@@@5@@@
 2@@@3@@@@@@@@@
-6@@@@@@7@@@5@@@'
+6@@@@@@5@@@7@@@'
 actual="$(echo "$input" | ds:pivot 2 1 3)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed spec z case'
-expected='PIVOT@@@@@@d@@@4@@@
-a@@@b@@@c@@@@@@
-1@@@2@@@@@@3@@@'
+
+expected='PIVOT@@@@@@4@@@d@@@
+1@@@2@@@3@@@@@@
+a@@@b@@@@@@c@@@'
 actual="$(echo -e "a b c d\n1 2 3 4" | ds:pivot 1,2 4 3)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed readme multi-y case'
+
+expected='Fields not found for both x and y dimensions with given key params'
+actual="$(echo -e "a b c d\n1 2 3 4" | ds:pivot 1,2 4 3 -v header=1)"
+[ "$actual" = "$expected" ] || ds:fail 'pvt failed basic header case no number matching'
+
+expected='1::2 \ 4@@@@@@d@@@
+a@@@b@@@c@@@'
+actual="$(echo -e "1 2 3 4\na b c d" | ds:pivot 1,2 4 3 -v header=1)"
+[ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys case number matching'
+
 expected='a::b \ d@@@@@@4@@@
 1@@@2@@@3@@@'
-actual="$(echo -e "a b c d\n1 2 3 4" | ds:pivot 1,2 4 3 -v header=1)"
-[ "$actual" = "$expected" ] || ds:fail 'pvt failed basic header case'
 actual="$(echo -e "a b c d\n1 2 3 4" | ds:pivot a,b d c)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys case'
+
 input='halo wing top wind
 1 2 3 4
 5 6 7 5
@@ -856,16 +876,18 @@ input='halo wing top wind
 expected='Fields not found for both x and y dimensions with given key params'
 actual="$(echo "$input" | ds:pivot halo twef)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys negative case'
+
 expected='halo \ wing@@@2@@@6@@@
 1@@@1@@@@@@
-5@@@@@@1@@@
-4@@@@@@1@@@'
+4@@@@@@1@@@
+5@@@@@@1@@@'
 actual="$(echo "$input" | ds:pivot halo win)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys two matching case'
+
 expected='halo \ wing::wind@@@2::4@@@6::5@@@6::8@@@
 1@@@1@@@@@@@@@
-5@@@@@@1@@@@@@
-4@@@@@@@@@1@@@'
+4@@@@@@@@@1@@@
+5@@@@@@1@@@@@@'
 actual="$(echo "$input" | ds:pivot halo win,win)"
 [ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys double same-pattern case'
 
@@ -1375,13 +1397,13 @@ Hist: field 8 (latitude), cardinality 1905
 
 # INTEGRATION TESTS
 
-expected='@@@PIVOT@@@7@@@21@@@14@@@28@@@+|all@@@
-@@@459 PC  BURGLARY RESIDENCE@@@12@@@7@@@10@@@13@@@356@@@
-@@@TOWED/STORED VEHICLE@@@9@@@8@@@15@@@9@@@434@@@
-@@@459 PC  BURGLARY VEHICLE@@@23@@@22@@@15@@@15@@@462@@@
-@@@TOWED/STORED VEH-14602.6@@@11@@@8@@@9@@@11@@@463@@@
-@@@10851(A)VC TAKE VEH W/O OWNER@@@21@@@24@@@15@@@23@@@653@@@
-+|all@@@@@@249@@@234@@@221@@@279@@@7585@@@'
+expected='@@@PIVOT@@@7@@@14@@@21@@@28@@@+|all@@@
+@@@459 PC  BURGLARY RESIDENCE@@@12@@@10@@@7@@@13@@@356@@@
+@@@TOWED/STORED VEHICLE@@@9@@@15@@@8@@@9@@@434@@@
+@@@459 PC  BURGLARY VEHICLE@@@23@@@15@@@22@@@15@@@462@@@
+@@@TOWED/STORED VEH-14602.6@@@11@@@9@@@8@@@11@@@463@@@
+@@@10851(A)VC TAKE VEH W/O OWNER@@@21@@@15@@@24@@@23@@@653@@@
++|all@@@@@@249@@@221@@@234@@@279@@@7585@@@'
 actual="$(ds:subsep tests/data/testcrimedata.csv '/' "" -v apply_to_fields=1 \
     | ds:reo a '2,NF>3' \
     | ds:pivot 6 1 4 c \

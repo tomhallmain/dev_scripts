@@ -60,16 +60,16 @@
 #      If no value is passed for z_keys, ds:pivot outputs a count of each combination:
 #
 #          $ ds:pivot test.csv 1,2 4
-#          PIVOT     d  4
-#              a  b  1
-#              1  2     1
+#          PIVOT     4  d
+#          1      2  1
+#          a      b     1
 #
 #      If a value is passed for z_keys, ds:pivot outputs the value found at each combination::
 #
 #          $ ds:pivot test.csv 1,2 4 3
-#          PIVOT     d  4
-#              a  b  c
-#              1  2     3
+#          PIVOT     4  d
+#          1      2  3
+#          a      b     c
 #
 #      Passing a header pattern instead of a field index will remove the first row from 
 #      the pivot and generate a pivot based on the first field header found matching the 
@@ -89,11 +89,13 @@
 #
 #
 # AWKARG OPTS
-#       Recognize a header without specifying a field name by header title:
+#       Enable generation of keys by matching number pattern:
 #
-#          $ ds:pivot test.csv 1,2 4 3 -v header=1
-#          a::b \ d     4
-#                 1  2  3
+#          -v header=1
+#
+#       Turn off sorting of X and Y:
+#
+#          -v sort_off=1
 #
 # VERSION
 #      1.0
@@ -106,6 +108,8 @@
 
 BEGIN {
     _ = SUBSEP
+
+    if (!sort_off) sort = 1
     if (!(FS ~ "\\[:.+:\\]")) OFS = FS
   
     if (!x || !y) {
@@ -117,7 +121,7 @@ BEGIN {
     for (i = 1; i <= len_x; i++) {
         key = XKeys[i]
     
-        if (!(key ~ /^[0-9]+$/)) {
+        if (!(key ~ /^[0-9]+$/) || header) {
             GenKey["x", i] = key
             continue
         }
@@ -128,7 +132,7 @@ BEGIN {
     for (i = 1; i <= len_y; i++) {
         key = YKeys[i]
 
-        if (!(key ~ /^[0-9]+$/)) {
+        if (!(key ~ /^[0-9]+$/) || header) {
             GenKey["y", i] = key
             continue
         }
@@ -147,7 +151,7 @@ BEGIN {
         else if ("product" ~ "^"agg) p = 1
         else agg = 0
     }
-    else no_agg = 1
+    else { no_agg = 1 }
 
     if (z) {
         if (z == "_") {
@@ -158,12 +162,12 @@ BEGIN {
     
             for (i = 1; i <= len_z; i++) {
                 key = ZKeys[i]
-        
-                if (!(key ~ /^[0-9]+$/)) {
+
+                if (!(key ~ /^[0-9]+$/) || header) {
                     GenKey["z", i] = key
                     continue
                 }
-        
+
                 if (key in XK || key in YK) {
                     print "Field sets cannot overlap"
                     exit 1
@@ -173,22 +177,32 @@ BEGIN {
             }
         }
     }
-    else gen_z = 1
+    else { gen_z = 1 }
 
     if (transform || transform_expr) {
-        if (transform && "norm" ~ "^"transform)
+        if (transform && "norm" ~ "^"transform) {
             n = 1
-        else if (transform_expr)
+        }
+        else if (transform_expr) {
             trx = 1
+        }
     }
+
+    header_unset = 1
 }
 
-NR < 2 {
+$0 ~ /^[[:space:]]+*$/ {
+    next
+}
+
+header_unset {
+    header_unset = 0
+    
     if (length(GenKey) > 0) {
         GenKeysFromHeader("x", KeyFound, XKeys, XK, YK, ZK)
         GenKeysFromHeader("y", KeyFound, YKeys, XK, YK, ZK)
         GenKeysFromHeader("z", KeyFound, ZKeys, XK, YK, ZK)
-    
+
         if (length(XK) < 1 || length(YK) < 1) {
             print "Fields not found for both x and y dimensions with given key params"
             error_exit = 1
@@ -199,7 +213,7 @@ NR < 2 {
             error_exit = 1
             exit 1
         }
-    
+
         header = 1
     }
 
@@ -213,14 +227,14 @@ NR < 2 {
             if (GenKey["y", i] && !KeyFound["y", i]) continue
             pivot_header = i == len_y ? pivot_header $YKeys[i] : pivot_header $YKeys[i] "::"
         }
-    
+
         pivot_header = pivot_header " \\ "
-    
+
         for (i=1; i<=len_x; i++) {
             if (GenKey["x", i] && !KeyFound["x", i]) continue
             pivot_header = i == len_x ? pivot_header $XKeys[i] : pivot_header $XKeys[i] "::"
         }
-    
+
         next
     }
     else {
@@ -232,7 +246,9 @@ NR < 2 {
     # TODO: Handle noagg partial duplicate case
     if (NF < 1) next
 
-    x_str = ""; y_str = ""; z_str = ""
+    x_str = ""
+    y_str = ""
+    z_str = ""
 
     for (i=1; i<=len_x; i++) {
         if (GenKey["x", i] && !KeyFound["x", i]) continue
@@ -254,10 +270,12 @@ NR < 2 {
     X[x_str]++
     Y[y_str]++
 
-    if (no_agg && !count_xy)
+    if (no_agg && !count_xy) {
         Z[x_str y_str] = z_str
-    else if (c || count_xy)
+    }
+    else if (c || count_xy) {
         Z[x_str y_str]++
+    }
     else if (s) {
         adder = z_str + 0
         Z[x_str y_str] += adder
@@ -274,8 +292,46 @@ NR < 2 {
 }
 
 END {
-    if (error_exit)
-        exit
+    if (error_exit) {
+        exit 1
+    }
+
+    x_counter = 0
+    x_is_numeric = 0
+    for (x in X) {
+        if (x && !x_is_numeric && x > 0) {
+            x_is_numeric = 1
+        }
+        XIndexed[++x_counter] = x
+    }
+
+    counter = 0
+    y_is_numeric = 0
+    for (y in Y) {
+        if (y && !y_is_numeric && y > 0) {
+            y_is_numeric = 1
+        }
+        YIndexed[++y_counter] = y
+    }
+
+    if (sort) {
+        n_re = "^[[:space:]]*\\$?[[:space:]]?-?\\$?([0-9]{,3},)*[0-9]*\\.?[0-9]+"
+        f_re = "^[[:space:]]*-?[0-9]\.[0-9]+(E|e)(\\+|-)?[0-9]+[[:space:]]*$"
+        
+        if (x_is_numeric) {
+            QSAN(XIndexed, 1, x_counter)
+        }
+        else {
+            QSA(XIndexed, 1, x_counter)
+        }
+
+        if (y_is_numeric) {
+            QSAN(YIndexed, 1, y_counter)
+        }
+        else {
+            QSA(YIndexed, 1, y_counter)
+        }
+    }
 
     # Header
   
@@ -286,21 +342,24 @@ END {
         printf "%s", OFS
     }
 
-    for (x in X)
-        printf "%s", x
+    for (i = 1; i <= x_counter; i++) {
+        printf "%s", XIndexed[i]
+    }
   
     print ""
 
     # Data
 
-    for (y in Y) {
+    for (i = 1; i <= y_counter; i++) {
+        y = YIndexed[i]
         printf "%s", y
-    
-        for (x in X) {
+
+        for (j = 1; j <= x_counter; j++) {
+            x = XIndexed[j]
             cr = Z[x y] ? Z[x y] : placeholder
             printf "%s", cr OFS
         }
-    
+
         print ""
     }
 }
@@ -340,5 +399,104 @@ function GenZKeys(nf, Z, ZKeys, XK, YK) {
         if (f in XK || f in YK) continue
     
         ZK[f] = 1; ZKeys[z_count++] = f
+    }
+}
+
+function QSA(A,left,right,    i,last) {
+    if (left >= right) return
+
+    S(A, left, left + int((right-left+1)*rand()))
+    last = left
+
+    for (i = left+1; i <= right; i++)
+        if (A[i] < A[left])
+            S(A, ++last, i)
+
+    S(A, left, last)
+    QSA(A, left, last-1)
+    QSA(A, last+1, right)
+}
+
+function QSD(A,left,right,    i,last) {
+    if (left >= right) return
+
+    S(A, left, left + int((right-left+1)*rand()))
+    last = left
+
+    for (i = left+1; i <= right; i++)
+        if (A[i] > A[left])
+            S(A, ++last, i)
+
+    S(A, left, last)
+    QSD(A, left, last-1)
+    QSD(A, last+1, right)
+}
+
+function QSAN(A,left,right,    i,last) {
+    if (left >= right) return
+
+    S(A, left, left + int((right-left+1)*rand()))
+    last = left
+
+    for (i = left+1; i <= right; i++) {
+        if (GetN(A[i]) < GetN(A[left])) {
+            S(A, ++last, i)
+        }
+        else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]]) {
+            S(A, ++last, i)
+        }
+    }
+
+    S(A, left, last)
+    QSAN(A, left, last-1)
+    QSAN(A, last+1, right)
+}
+
+function QSDN(A,left,right,    i,last) {
+    if (left >= right) return
+
+    S(A, left, left + int((right-left+1)*rand()))
+    last = left
+
+    for (i = left+1; i <= right; i++) {
+        if (GetN(A[i]) > GetN(A[left])) {
+            S(A, ++last, i)
+        }
+        else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]]) {
+            S(A, ++last, i)
+        }
+    }
+
+    S(A, left, last)
+    QSDN(A, left, last-1)
+    QSDN(A, last+1, right)
+}
+
+function S(A,i,j,t,  _) {
+    t = A[i]; A[i] = A[j]; A[j] = t
+    t = _[i]; _[i] = _[j]; _[j] = t
+}
+
+function GetN(str) {
+    if (NS[str]) {
+        return NS[str]
+    }
+    else if (match(str, n_re)) {
+        n_end = RSTART + RLENGTH
+        n_str = substr(str, RSTART, n_end)
+
+        if (n_str != str) {
+            NExt[str] = substr(str, n_end+1, length(str))
+        }
+
+        n_str = sprintf("%f", n_str)
+        gsub(/[^0-9\.Ee\+\-]+/, "", n_str)
+        gsub(/^0*/, "", n_str)
+        n_str = n_str + 0
+        NS[str] = n_str
+        return n_str
+    }
+    else {
+        return str
     }
 }

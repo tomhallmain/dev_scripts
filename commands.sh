@@ -421,24 +421,32 @@ ds:embrace() { # Enclose a string on each side by args: embrace str [left={] [ri
     echo -n "${l}${val}${r}"
 }
 
-ds:filename_str() { # Add string to filename, preserving path: ds:filename_str file str [prepend|append|replace] [abs_path=f]
+ds:filename_str() { # Add string to filename, preserving path: ds:filename_str file str [prepend|append|replace] [abs_path=t]
     read -r dirpath filename extension <<<$(ds:path_elements "$1")
     [ ! -d "$dirpath" ] && echo 'Filepath given is invalid' && return 1
-    local add="$2" position=${3:-append}
-    [ "$4" ] && ds:test '^t(rue)?$' "$4" && local abs_path=0
-    
-    case $position in
+    if [ "$dirpath" = "./" ]
+    then
+        dirpath=""
+    fi
+    local add="$2" position=${3:-append} abs_path="${4:-t}"
+    [ "$abs_path" ] && ds:test '^t(rue)?$' "$abs_path" || local abs_path=""
+
+    case "$position" in
         append)  filename="${filename}${add}${extension}" ;;
         prepend) filename="${add}${filename}${extension}" ;;
         replace) filename="${add}${extension}"            ;;
-        *)       ds:help 'ds:filename_str'; return 1      ;; esac
+        *)       ds:help 'ds:filename_str'; return 1      ;;
+    esac
     
-    if [ "$abs_path" ]; then printf "${dirpath}${filename}"
-    else printf "${filename}"; fi
+    if [ "$abs_path" ]
+    then
+        printf "${dirpath}${filename}"
+    else
+        printf "${filename}"
+    fi
 }
 
 ds:path_elements() { # Return dirname/filename/extension from filepath: ds:path_elements file
-    ds:file_check "$1" f t
     local filepath="$1" dirpath=$(dirname "$1") filename=$(basename "$1")
     local extension=$([[ "$filename" = *.* ]] && echo ".${filename##*.}" || echo '')
     local filename="${filename%.*}"

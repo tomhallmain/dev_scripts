@@ -87,10 +87,12 @@ function QSAN(A,left,right,    i,last) {
     last = left
 
     for (i = left+1; i <= right; i++) {
-        if (GetN(A[i]) < GetN(A[left]))
+        if (GetN(A[i]) < GetN(A[left])) {
             S(A, ++last, i)
-        else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]])
+        }
+        else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]]) {
             S(A, ++last, i)
+        }
     }
 
     S(A, left, last)
@@ -105,10 +107,12 @@ function QSDN(A,left,right,    i,last) {
     last = left
 
     for (i = left+1; i <= right; i++) {
-        if (GetN(A[i]) > GetN(A[left]))
+        if (GetN(A[i]) > GetN(A[left])) {
             S(A, ++last, i)
-        else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]])
+        }
+        else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]]) {
             S(A, ++last, i)
+        }
     }
 
     S(A, left, last)
@@ -122,8 +126,9 @@ function S(A,i,j,t) {
 }
 
 function GetN(str) {
-    if (NS[str])
+    if (NS[str]) {
         return NS[str]
+    }
     else if (match(str, n_re)) {
         n_end = RSTART + RLENGTH
         n_str = substr(str, RSTART, n_end)
@@ -139,6 +144,7 @@ function GetN(str) {
         NS[str] = n_str
         return n_str
     }
-    else
+    else {
         return str
+    }
 }
