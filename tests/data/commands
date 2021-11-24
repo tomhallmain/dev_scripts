@@ -43,7 +43,7 @@
 **@@@ds:index@@@ds:i@@@Attach an index to lines from a file or STDIN@@@ds:i [file] [startline=1]
 @@@ds:inferfs@@@@@@Infer field separator from data@@@ds:inferfs file [reparse=f] [custom=t] [file_ext=t] [high_cert=f]
 @@@ds:inferh@@@@@@Infer if headers present in a file@@@ds:inferh file [awkargs]
-**@@@ds:inferk@@@@@@Infer join fields in two text data files@@@ds:inferk file [file] [awkargs]
+@@@ds:inferk@@@@@@Infer join fields in two text data files@@@ds:inferk file1 file2 [awkargs]
 **@@@ds:insert@@@@@@Redirect input into a file at lineno or pattern@@@ds:insert file [lineno|pattern] [srcfile] [inplace=f]
 @@@ds:iter@@@@@@Repeat a string@@@ds:iter str [n=1] [fs]
 @@@ds:jira@@@@@@Open Jira at specified workspace issue / search@@@ds:jira workspace_subdomain [issue|query]

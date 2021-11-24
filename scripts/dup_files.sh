@@ -19,13 +19,19 @@ done
 
 tempdata=$(mktemp -q /tmp/filedata.XXXXX || echo '/tmp/filedata.XXXXX')
 [ -z "$source_folder" ] && source_folder="$1"
-echo -e "\n Gathering checksum data... \n"
 
 if [ "$of_file" ]; then
     of_file_cksum="$(md5sum "$of_file" | awk '{print $1}')"
     of_file_filename=$(basename "$of_file")
     of_file_extension=$([[ "$of_file_filename" = *.* ]] && echo ".${of_file_filename##*.}" || echo '')
 fi
+
+if [ ! "$FD" ]; then
+    echo -e "WARNING: Using \"find\" to search for files which may be slow."
+    echo -e "Consider installing \"fd\" (fd-find) for improved performance."
+fi
+
+echo -e "\n Gathering checksum data... \n"
 
 # Limit search to only files of same extension type by default
 
@@ -36,14 +42,14 @@ if [[ "$of_file" && ! $all_files ]]; then
             fd . "$source_folder" -H --type f -e "$of_file_extension" --exec md5sum "{}" \; \
                 | pv -l -s $(fd . "$source_folder" -H --type f -e "$of_file_extension" | wc -l) | sort > $tempdata
         else
-            find "$source_folder" -type f -name "*.$of_file_extension" -exec md5sum "{}" \; \
-                | pv -l -s $(find "$source_folder" -type f -name "*.$of_file_extension" | wc -l) | sort > $tempdata
+            find "$source_folder" -type f -name "*$of_file_extension" -exec md5sum "{}" \; \
+                | pv -l -s $(find "$source_folder" -type f -name "*$of_file_extension" | wc -l) | sort > $tempdata
         fi
     else
         if [ $FD ]; then
             fd . "$source_folder" -H --type f -e "$of_file_extension" --exec md5sum "{}" \; | sort > $tempdata
         else
-            find "$source_folder" -type f -name "*.$of_file_extension" -exec md5sum "{}" \; | sort > $tempdata
+            find "$source_folder" -type f -name "*$of_file_extension" -exec md5sum "{}" \; | sort > $tempdata
         fi
     fi
 else
@@ -137,7 +143,7 @@ if [ "$check_filenames" ]; then
             if [ "$FD" ]; then
                 dup_filenames=$(fd --type f "^$of_file_filename(\.|$)" "$source_folder")
             else
-                dup_filenames=$(fd "$source_folder" -type f -name "$of_file_filename\.*")
+                dup_filenames=$(find "$source_folder" -type f -name "$of_file_filename\\.*")
             fi
         else
             echo -e " Gathering filename data... \n"

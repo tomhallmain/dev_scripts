@@ -108,15 +108,34 @@
 #
 #   **  Merge with custom labels:
 #
-#          -v left_label="Stuff"
-#          -v right_label="Other stuff"
-#          -v inner_label="BOTH stuff"
+#          -v left_label="Prior Data"
+#          -v right_label="Current Data"
+#          -v inner_label="No Change"
+#
+#       Merge with a bias to the right join on certain fields (by default nulls in right joins 
+#       will be overwritten with the left join value):
+#
+#          -v bias_merge_keys={keys}
+#
+#       Override null overwrite default behavior in bias merges to preserve nulls from the 
+#       right join:
+#
+#          -v full_bias=1
+#
+#       Set a maximum number of fields to merge starting from first field:
+#
+#          -v mf_max={int}
+#
+#       Print null fields as empty instead of <NULL>:
+#
+#          -v null_off=1
+#
 #
 #
 #   ** - Works only on two-file joins
 #
 # VERSION
-#       1.0
+#       1.1
 #
 # AUTHORS
 #       Tom Hall (tomhall.main@gmail.com)
@@ -129,33 +148,66 @@ BEGIN {
     if (!fs2) fs2 = FS
     FS = fs1
     OFS = SetOFS()
-    if (OFS ~ /\[\:.+\:\]\{2,\}/)
+    if (OFS ~ /\[\:.+\:\]\{2,\}/) {
         OFS = "  "
-    else if (OFS ~ /\[\:.+\:\]/)
+    }
+    else if (OFS ~ /\[\:.+\:\]/) {
         OFS = " "
+    }
 
     if (merge) {
+        merge = 1
+        
         if (merge_verbose) {
             merge_verbose = 1
             file_labels = (ARGV[1] && ARGV[2] && ARGV[1] != ARGV[2])
 
-            if (!left_label)
+            if (!left_label) {
                 left_label = (file_labels ? ARGV[1] : "FILE1")
-            if (!right_label)
+            }
+            if (!right_label) {
                 right_label = (file_labels ? ARGV[2] : "FILE2")
-            if (!inner_label)
+                right_label = piped ? "PIPEDDATA" : right_label
+            }
+            if (!inner_label) {
                 inner_label = "BOTH"
+            }
 
             left_label = left_label OFS
-            right_label = piped ? "PIPEDDATA" OFS : right_label OFS
+            right_label = right_label OFS
             inner_label = inner_label OFS
         }
         else {
             left_label = ""; right_label = ""; inner_label = ""
         }
+
+        if (bias_merge_keys) {
+            bias_merge = 1
+            split(bias_merge_keys, _BiasMergeKeys, ",")
+
+            for (key_index in _BiasMergeKeys) {
+                key = _BiasMergeKeys[key_index]
+                
+                if (!(key ~ /^[0-9]+$/)) {
+                    print "Bias merge keys must be integers, found key: " key
+                    exit 1
+                }
+
+                BiasMergeKeys[key] = key_index
+            }
+
+            if (full_bias) {
+                full_bias = 1
+            }
+        }
+        else {
+            full_bias = 0
+        }
     }
     else {
-        left_label = ""; right_label = ""; inner_label = ""
+        left_label = ""
+        right_label = ""
+        inner_label = ""
 
         if (k) {
             k1 = k
@@ -163,7 +215,7 @@ BEGIN {
             equal_keys = 1
         }
         else if (!k1 || !k2) {
-            print "Missing key"
+            print "Missing join key field"
             exit 1
         }
 
@@ -179,7 +231,7 @@ BEGIN {
             key = Keys1[i]
 
             if (!(key ~ /^[0-9]+$/)) {
-                print "Keys must be integers"
+                print "Keys must be integers, found key: " key
                 exit 1
             }
         }
@@ -189,7 +241,7 @@ BEGIN {
             joint_key = Keys1[i]
 
             if (!(key ~ /^[0-9]+$/)) {
-                print "Keys must be integers"
+                print "Keys must be integers, found key: " key
                 exit 1
             }
 
@@ -197,30 +249,47 @@ BEGIN {
             K1[joint_key] = key
         }
     }
+    
+    if (debug) {
+        for (i in Keys1) print i, Keys1[i]
+        for (i in Keys2) print i, Keys2[i]
+    }
 
     if (join == "left") left = 1
     else if (join == "right") right = 1
     else if (join == "inner") inner = 1
     else if (join == "diff") diff = 1
 
+    if (!merge) {
+        bias_merge = 0
+    }
+
     run_inner = !diff
     run_right = !left && !inner
     skip_left = inner || right
+    null_field = null_off ? "" : "<NULL>"
 
     "wc -l < \""ARGV[1]"\"" | getline f1nr; f1nr+=0 # Get number of rows in file1
 }
 
+FNR < 2 {
+    header_unset = 1
+}
+
+$0 ~ /^[[:space:]]+*$/ {
+    next
+}
+
 debug {
-    if (NR < 2) {
-        for (i in Keys1) print i, Keys1[i]
-        for (i in Keys2) print i, Keys2[i]
-    }
     print NR, FNR, keycount, key, "\""FS"\""
 }
 
 keycount = 0
 
-merge && FNR < 2 {
+merge && header_unset {
+    if (!header) {
+        header_unset = 0
+    }
     GenMergeKeys(mf_max ? mf_max : NF, K1, K2)
 }
 
@@ -231,8 +300,9 @@ NR == FNR {
 
     if (NF > max_nf1) max_nf1 = NF
 
-    if (header && FNR < 2) {
+    if (header && header_unset) {
         header1 = $0
+        header_unset = 0
         next
     }
 
@@ -258,9 +328,10 @@ NR > FNR {
 
     if (NF > max_nf2) max_nf2 = NF
 
-    if (header && FNR == 1) { 
+    if (header && header_unset) { 
         if (ind) printf "%s", OFS
         print GenInnerOutputString(header1, $0, K2, max_nf1, max_nf2, fs1)
+        header_unset = 0
         next
     }
 
@@ -312,12 +383,17 @@ END {
     for (compound_key in S1) {
         record_count++
         if (ind) printf "%s", record_count OFS
-        print GenLeftOutputString(S1[compound_key], K1, max_nf1, max_nf2, fs1)
+        stream2_line = full_bias ? S2[compound_key] : ""
+        print GenLeftOutputString(S1[compound_key], stream2_line, K1, max_nf1, max_nf2, fs1, fs2)
     }
 }
 
 function GenMergeKeys(nf, K1, K2) {
     for (f = 1; f <= nf; f++) {
+        if (f in BiasMergeKeys) {
+            continue
+        }
+
         K1[f] = f
         K2[f] = f
         Keys1[f] = f
@@ -331,7 +407,7 @@ function GenKeyString(Keys) {
     for (i in Keys) {
         k = Keys[i]
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", $k)
-        if (length($k) == 0) $k = "<NULL>"
+        if (length($k) == 0) $k = null_field
         str = str $k _
     }
 
@@ -339,14 +415,39 @@ function GenKeyString(Keys) {
 }
 
 function GenInnerOutputString(line1, line2, K2, nf1, nf2, fs1) {
-    nf_pad = Max(nf1 - gsub(fs1, OFS, line1), 0)
-    jn = inner_label line1
+    jn = inner_label
+    
+    if (bias_merge) {
+        split(line1, Line1, fs1)
 
-    for (f = nf_pad; f > 1; f--)
-        jn = jn OFS
+        for (f = 1; f <= nf1; f++) {
+            if (f in BiasMergeKeys && (full_bias || (length($f) > 0 && $f != null_field))) {
+                if (full_bias && length($f) == 0) {
+                    jn = jn null_field
+                }
+                else {
+                    jn = jn $f
+                }
+            }
+            else {
+                jn = jn Line1[f]
+            }
+            
+            if (f < nf1) jn = jn OFS
+        }
+    }
+    else {
+        nf_pad = Max(nf1 - gsub(fs1, OFS, line1), 0)
+        jn = jn line1
+
+        for (f = nf_pad; f > 1; f--) {
+            jn = jn OFS
+        }
+    }
 
     for (f = 1; f <= nf2; f++) {
         if (f in K2) continue
+        if (bias_merge && f in BiasMergeKeys) continue
         jn = jn OFS $f
     }
 
@@ -357,31 +458,69 @@ function GenRightOutputString(line2, K1, K2, nf1, nf2, fs2) {
     jn = right_label
 
     for (f = 1; f <= nf1; f++) {
-        if (f in K1)
+        if (f in K1) {
             jn = jn $K1[f]
-        else
-            jn = jn "<NULL>"
+        }
+        else if (bias_merge && f in BiasMergeKeys) {
+            if (length($f) == 0) {
+                jn = jn null_field
+            }
+            else {
+                jn = jn $f
+            }
+        }
+        else {
+            jn = jn null_field
+        }
         if (f < nf1) jn = jn OFS
     }
 
     for (f = 1; f <= nf2; f++) {
         if (f in K2) continue
+        if (bias_merge && f in BiasMergeKeys) continue
         jn = jn OFS $f
     }
 
     return jn
 }
 
-function GenLeftOutputString(line1, K1, nf1, nf2, fs1) {
-    nf_pad = Max(nf1 - gsub(fs1, OFS, line1), 0)
-    jn = left_label line1
+function GenLeftOutputString(line1, line2, K1, nf1, nf2, fs1, fs2) {
+    jn = inner_label
+    
+    if (full_bias) {
+        split(line1, Line1, fs1)
+        split(line2, Line2, fs2)
 
-    for (f = nf_pad; f > 1; f--)
-        jn = jn OFS
+        for (f = 1; f <= nf1; f++) {
+            if (f in BiasMergeKeys) {
+                new_field = Line2[f]
+            }
+            else {
+                new_field = Line1[f]
+            }
+
+            if (length(new_field) == 0) {
+                new_field = null_field
+            }
+
+            jn = jn new_field
+            
+            if (f < nf1) jn = jn OFS
+        }
+    }
+    else {
+        nf_pad = Max(nf1 - gsub(fs1, OFS, line1), 0)
+        jn = jn line1
+
+        for (f = nf_pad; f > 1; f--) {
+            jn = jn OFS
+        }
+    }
 
     for (f = 1; f <= nf2; f++) {
         if (f in K2) continue
-        jn = jn OFS "<NULL>"
+        if (bias_merge && f in BiasMergeKeys) continue
+        jn = jn OFS null_field
     }
 
     return jn

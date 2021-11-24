@@ -502,23 +502,21 @@ ds:fsrc() { # Show the source of a shell function: ds:fsrc func
             rm $tmp
             return $?
         fi
-        local file=$(awk '{for(i=1;i<=NF;i++)if(i>2)printf "%s",$i}' $tmp \
+        local sourcefile=$(awk '{for(i=1;i<=NF;i++)if(i>2)printf "%s",$i}' $tmp \
             2>/dev/null | head -n1)
-        awk -v f="$file" '{ print f ":" $2 }' $tmp
+        awk -v f="$sourcefile" '{ print f ":" $2 }' $tmp
     elif [[ $shell =~ zsh ]]; then
-        grep '> source' <(zsh -xc "declare -F $1" 2>&1) \
-            | awk '{ print substr($0, index($0, "> source ")+9) }' > $tmp
-        local file="$(grep --files-with-match -En "$1 ?\(.*?\)" \
-            $(cat $tmp) 2> /dev/null | head -n1)"
-        if [ -z $file ]; then
+        local sourcefile="$(whence -v "$1" | grep -Eo 'from .+' | sed -E 's#^from ##g')"
+        if [ ! -f "$sourcefile" ]
+        then
             which "$1"
             rm $tmp
             return $?
-         fi
-        echo "$file"
+        fi
+        echo "$sourcefile:$(grep -En "$1 ?\(.*?\)" "$sourcefile" | ds:reo 1 1 -v FS=:)"
     fi
-    
-    ds:searchx "$file" "$1" q
+
+    ds:searchx "$sourcefile" "$1" q
     rm $tmp
 }
 
@@ -1093,7 +1091,8 @@ ds:join() { # ** Join two datasets with any keyset (alias ds:jn): ds:jn file [fi
         fi
     fi
 
-    ds:pipe_clean $f2; if [ "$pf1" ]; then rm $pf1 $pf2; fi
+    ds:pipe_clean $f2
+    if [ "$pf1" ]; then rm $pf1 $pf2; fi
 }
 alias ds:jn="ds:join"
 
@@ -1155,16 +1154,11 @@ ds:inferh() { # Infer if headers present in a file: ds:inferh file [awkargs]
     fi
 }
 
-ds:inferk() { # ** Infer join fields in two text data files: ds:inferk file [file] [awkargs]
+ds:inferk() { # Infer join fields in two text data files: ds:inferk file1 file2 [awkargs]
     ds:file_check "$1"
     local f1="$(ds:fd_check "$1")"; shift
-    if ds:pipe_open; then
-        local f2=$(ds:tmp 'ds_inferk') piped=0
-        cat /dev/stdin > $file2
-    else
-        ds:file_check "$1"
-        local f2="$(ds:fd_check "$1")"; shift
-    fi
+    ds:file_check "$1"
+    local f2="$(ds:fd_check "$1")"; shift
     local args=( "$@" )
     if ds:noawkfs; then
         local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
@@ -1173,7 +1167,6 @@ ds:inferk() { # ** Infer join fields in two text data files: ds:inferk file [fil
     else
         awk ${args[@]} -f "$DS_SCRIPT/infer_join_fields.awk" "$f1" "$f2" 2>/dev/null
     fi
-    ds:pipe_clean $f2
 }
 
 ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [custom=t] [file_ext=t] [high_cert=f]

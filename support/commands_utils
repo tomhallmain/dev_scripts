@@ -26,7 +26,7 @@
 @@@ds:fd_check@@@@@@Convert fds into files@@@ds:fd_check testfile
 **@@@ds:fieldcounts@@@ds:fc@@@Print value counts@@@ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
 @@@ds:file_check@@@@@@Test for file validity and fail if invalid@@@ds:file_check testfile [check_writable=f] [allow_binary=f] [enable_search]
-@@@ds:filename_str@@@@@@Add string to filename, preserving path@@@ds:filename_str file str [prepend|append|replace] [abs_path=f]
+@@@ds:filename_str@@@@@@Add string to filename, preserving path@@@ds:filename_str file str [prepend|append|replace] [abs_path=t]
 **@@@ds:fit@@@@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file*] [prefield=t] [awkargs]
 @@@ds:fsrc@@@@@@Show the source of a shell function@@@ds:fsrc func
 @@@ds:genvar@@@@@@Gen varname, shell disallows certain chars in var names@@@ds:genvar name
@@ -53,7 +53,7 @@
 **@@@ds:index@@@ds:i@@@Attach an index to lines from a file or STDIN@@@ds:i [file] [startline=1]
 @@@ds:inferfs@@@@@@Infer field separator from data@@@ds:inferfs file [reparse=f] [custom=t] [file_ext=t] [high_cert=f]
 @@@ds:inferh@@@@@@Infer if headers present in a file@@@ds:inferh file [awkargs]
-**@@@ds:inferk@@@@@@Infer join fields in two text data files@@@ds:inferk file [file] [awkargs]
+@@@ds:inferk@@@@@@Infer join fields in two text data files@@@ds:inferk file1 file2 [awkargs]
 **@@@ds:insert@@@@@@Redirect input into a file at lineno or pattern@@@ds:insert file [lineno|pattern] [srcfile] [inplace=f]
 @@@ds:is_cli@@@@@@Detect if shell is interactive@@@ds:is_cli
 @@@ds:is_int@@@@@@Tests if arg is an integer@@@ds:is_int arg
@@ -99,7 +99,7 @@
 @@@ds:so@@@@@@Search Stack Overflow@@@ds:so [search_query]
 **@@@ds:sort@@@@@@Sort with inferred field sep of 1 char@@@ds:sort [unix_sort_args] [file]
 **@@@ds:sortm@@@ds:s@@@Sort with inferred field sep of >=1 char@@@ds:sortm [file] [keys] [order=a|d] [sort_type] [awkargs]
-**@@@ds:space@@@@@@Change file spaces - also supports tab replacement@@@ds:space [file] from=2 target=4
+**@@@ds:space@@@@@@Modify file space or tab counts@@@ds:space [file] from=$'\t' target=4
 @@@ds:src@@@@@@Source a piece of shell code@@@ds:src file ["searchx" pattern] || [start end] || [search linesafter]
 @@@ds:srg@@@@@@Scope grep to files that contain a match@@@ds:srg scope_pattern search_pattern [dir] [invert=]
 **@@@ds:stagger@@@@@@Print tabular data in staggered rows@@@ds:stagger [file] [stag_size]

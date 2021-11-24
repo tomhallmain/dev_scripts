@@ -109,7 +109,7 @@ ds:inferh $ls_sq 2>$q                                       && ds:fail 'inferh f
 ds:inferh $simple_csv 2>$q                                  || ds:fail 'inferh failed basic headers case'
 ds:inferh $complex_csv3 2>$q                                || ds:fail 'inferh failed complex headers case'
 
-# JN TESTS
+# JOIN TESTS
 
 echo -e "a b c d\n1 2 3 4" > $tmp
 expected='a b c d b c
@@ -125,6 +125,12 @@ expected='a b c d
 1 2 3 4'
 actual="$(echo -e "a b c d\n1 3 2 4" | ds:join $tmp outer merge)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed readme merge case'
+expected='a b c d d
+1 3 2  4
+1 2 3 4 '
+actual="$(echo -e "a b c d\n1 3 2 4" | ds:join $tmp outer merge -v mf_max=3 -v null_off=1)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed mf_max null_off case'
+
 
 [ $(ds:join "$jnf1" "$jnf2" o 1 | grep -c "") -gt 15 ]        || ds:fail 'ds:join failed one-arg shell case'
 [ $(ds:join "$jnf1" "$jnf2" r -v ind=1 | grep -c "") -gt 15 ] || ds:fail 'ds:join failed awkarg nonkey case'
@@ -133,17 +139,19 @@ actual="$(echo -e "a b c d\n1 3 2 4" | ds:join $tmp outer merge)"
 
 ds:join "$jnf1" "$jnf2" -v ind=1 > $tmp
 cmp --silent $tmp $jnd1                                     || ds:fail 'ds:join failed base outer join case'
+cat "$jnf2" | ds:join "$jnf1" -v ind=1 > $tmp
+cmp --silent $tmp $jnd1                                     || ds:fail 'ds:join failed base outer join case piped infer key'
 ds:join "$jnr1" "$jnr2" o 2,3,4,5 > $tmp
 cmp --silent $tmp $jnrjn1                                   || ds:fail 'ds:join failed repeats partial keyset case'
 ds:join "$jnr3" "$jnr4" o merge -v merge_verbose=1 > $tmp
 cmp --silent $tmp $jnrjn2                                   || ds:fail 'ds:join failed repeats merge case'
 
-echo -e "a b d f\nd c e f" > /tmp/ds_jn_test1
-echo -e "a b d f\nd c e f\ne r t a\nt o y l" > /tmp/ds_jn_test2
-echo -e "a b l f\nd p e f\ne o t a\nt p y 6" > /tmp/ds_jn_test3
+echo -e "a b d f\nd c e f" > /tmp/ds_join_test1
+echo -e "a b d f\nd c e f\ne r t a\nt o y l" > /tmp/ds_join_test2
+echo -e "a b l f\nd p e f\ne o t a\nt p y 6" > /tmp/ds_join_test3
 
 expected='a b d f a d f a l f'
-actual="$(ds:join /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 i 2)"
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 i 2)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join inner case'
 
 expected='a b l f
@@ -154,7 +162,7 @@ a b d f
 d c e f
 t o y l
 e r t a'
-actual="$(ds:join /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o merge)"
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 o merge)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join merge case'
 
 expected='a <NULL> l <NULL> <NULL> <NULL> b f
@@ -162,7 +170,7 @@ d c e f c f p f
 e <NULL> t <NULL> r a o a
 t <NULL> y <NULL> o l p 6
 a b d f b f <NULL> <NULL>'
-actual="$(ds:join /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o 1,3)"
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 o 1,3)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join multikey case 1'
 
 expected='a b d f b d b l
@@ -170,14 +178,14 @@ d c e f c e p e
 e <NULL> <NULL> a r t o t
 t <NULL> <NULL> 6 <NULL> <NULL> p y
 t <NULL> <NULL> l o y <NULL> <NULL>'
-actual="$(ds:join /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 o 4,1)"
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 o 4,1)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join multikey case 2'
 
-echo -e "a b d 3\nd c e f" > /tmp/ds_jn_test4
+echo -e "a b d 3\nd c e f" > /tmp/ds_join_test4
 
 expected='a b d f b d f b l f b d 3
 d c e f c e f p e f c e f'
-actual="$(ds:join /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4 i 1)"
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 /tmp/ds_join_test4 i 1)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 3-join inner case'
 
 expected='a b d f b f <NULL> <NULL> b 3
@@ -185,10 +193,35 @@ d c e f c f p f c f
 t <NULL> y <NULL> o l p 6 <NULL> <NULL>
 e <NULL> t <NULL> r a o a <NULL> <NULL>
 a <NULL> l <NULL> <NULL> <NULL> b f <NULL> <NULL>'
-actual="$(ds:join /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4 o 1,3)"
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 /tmp/ds_join_test4 o 1,3)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 3-join outer case'
 
-rm /tmp/ds_jn_test1 /tmp/ds_jn_test2 /tmp/ds_jn_test3 /tmp/ds_jn_test4
+echo -e "a,b,c,d\n1,2,3,4\n1,2,2,5" > /tmp/ds_join_test1
+echo -e "a b c d\n1 3 2 4" > /tmp/ds_join_test2
+echo -e "a b c d\n1 3 2\n1 2 3 7" > /tmp/ds_join_test3
+
+expected='a,b,c,d
+1,3,2,4
+1,2,3,7
+1,2,2,5'
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 outer merge -v bias_merge_keys=4)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 3-join bias merge default case'
+
+expected='a,b,c,d
+1,3,2,<NULL>
+1,2,3,7
+1,2,2,<NULL>'
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 outer merge -v bias_merge_keys=4 -v full_bias=1)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 3-join bias merge full_bias case'
+
+expected='a,b,c,d
+1,3,2,
+1,2,3,7
+1,2,2,'
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 outer merge -v bias_merge_keys=4 -v full_bias=1 -v null_off=1)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 3-join bias merge full_bias null_off case'
+
+rm /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 /tmp/ds_join_test4
 
 cat "$jnf1" > $tmp
 ds:comps $jnf1 $tmp                                         || ds:fail 'comps failed no complement case'
