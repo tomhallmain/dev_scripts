@@ -102,3 +102,38 @@ function EvalExpr(expr,   res,nm,a,s,m,d,u,e) {
   
     return nm % 2 ? -res : res
 }
+function PrintMap(_Map, print_mode) {
+    _array_len = length(_Map)
+    _print_counter = 0
+    printf "%s", "[ "
+    
+    if (print_mode > 0) {
+        for (_key in _Map) {
+            printf "%s", "\""_key"\""
+            if (++_print_counter < _array_len) {
+                printf "%s", ","
+            }
+            printf "%s", " "
+        }
+    }
+    else if (print_mode == 0) {
+        for (_key in _Map) {
+            printf "%s", "\""_key"\":\""_Map[_key]"\""
+            if (++_print_counter < _array_len) {
+                printf "%s", ","
+            }
+            printf "%s", " "
+        }
+    }
+    else {
+        for (_key in _Map) {
+            printf "%s", "\""_Map[_key]"\""
+            if (++_print_counter < _array_len) {
+                printf "%s", ","
+            }
+            printf "%s", " "
+        }
+    }
+    
+    print "]"
+}

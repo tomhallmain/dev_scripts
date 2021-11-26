@@ -5,16 +5,17 @@
 #       ds:agg, agg.awk
 #
 # SYNOPSIS
-#      ds:agg [file] [r_aggs=+] [c_aggs=+]
+#       ds:agg [-h|file*] [r_aggs=+] [c_aggs=+]
 #
 # DESCRIPTION
 #       agg.awk is a script to aggregate values from a data stream or file using various
 #       aggregation expressions.
 #
 #       To run the script, ensure AWK is installed and in your path (on most Unix-based
-#       systems it should be), and call it on a file using aggregation expression:
+#       systems it should be), and call it on a file using aggregation expression.
+#       Ensure utils.awk helper file is passed as well:
 #
-#         > awk -f agg.awk -v r_aggs=+ -v c_aggs=+ file
+#         > awk -f support/utils.awk -f agg.awk -v r_aggs=+ -v c_aggs=+ file
 #
 #       ds:agg is the caller function for the agg.awk script. To run any of the examples 
 #       below, map AWK args as given in SYNOPSIS.
@@ -56,6 +57,7 @@
 #        - (subtraction)
 #        * (multiplication)
 #        / (division)
+#        m[ean]
 #
 #      All row and column agg args take multiple aggregation expression types:
 #
@@ -63,6 +65,7 @@
 #
 #          +         -- sum all number field values over all cross indices
 #          +|all     -- same as above
+#          mean|all  -- take mean of all number field values over all cross indices
 #          *|2..6    -- multiply all number field values over cross indices 2 - 6
 #
 #        Specific:  [agg_operator]|[field_or_numberval][agg_operator][field_or_numberval]..
@@ -95,6 +98,8 @@
 #          $3        -- return the sum of the field values in index 3 grouped
 #                         by the unique values from index 1 (header)
 #          +|$3      -- same as above
+#          mean|$3   -- take the mean of the field values in index 3 grouped
+#                          by the unique values from index 1 (header)
 #          +|$3|$4   -- return the sum of the field values in index 3 grouped
 #                         by the unique values from index 4
 #          +|$3|4..5 -- return the sum of the field values in index 3 grouped
@@ -104,9 +109,9 @@
 # AWKARG OPTS
 #      By default agg.awk will not attempt to aggregate number values in fields unless
 #      the field is formatted as a number. If a field does not follow a typical number
-#      format, numbers in the field can still be aggregated using by setting arg:
+#      format, numbers in the field can still be aggregated by:
 #
-#        -v extract_vals=1 
+#        -v extract_vals=1
 #
 #      Set a fixed maximum column value for processing:
 #
@@ -124,7 +129,7 @@
 #      Tom Hall (tomhallmain@gmail.com)
 #
 ## TODO: Header/key Caggs improvements - aggregate more than first instance of match
-## TODO: Central tendency agg operators
+## TODO: Other central tendency agg operators - mode, std dev, variance, etc.
 
 BEGIN {
     if (r_aggs && !("off" == r_aggs)) {
@@ -306,6 +311,10 @@ x {
             else {
                 XAggResult[cross_agg_i, key_id] = trunc_val
             }
+
+            if (cross_agg_i in MeanAgg) {
+                CrossAggCounts[cross_agg_i, key_id]++
+            }
         }
     }
 }
@@ -338,10 +347,21 @@ END {
             for (j = 1; j <= row_aggs_count; j++) {
                 agg = RA[j]
                 if (!agg) continue
-        
+
                 print_header = (header || !RowAggResult[agg, i]) && i < 2
-                print_str = print_header ? RowAggs[j] : RowAggResult[agg, i]
-        
+                
+                if (print_header) {
+                    print_str = RowAggs[j]
+                }
+                else {
+                    aggregation = RowAggResult[agg, i]
+                    if (MeanAgg[agg]) {
+                        aggregation /= RowAggCounts[agg, i]
+                        #print RowAggCounts[agg, i]
+                    }
+                    print_str = aggregation
+                }
+
                 printf "%s", print_str
                 if (j < row_aggs_count) {
                     printf "%s", OFS
@@ -353,6 +373,7 @@ END {
 
         for (i = 1; i <= column_aggs_count; i++) {
             if (!ColumnAggs[i]) continue
+            agg = CA[i]
             skip_first = ColumnAggResult[i] ~ /^0?,/
       
             if (header || skip_first) {
@@ -365,8 +386,14 @@ END {
             start = skip_first && !header ? 2 : 1
 
             for (j = start; j <= fixed_nf; j++) {
-                if (ColumnAggVec[j]) printf "%s", EvalExpr(ColumnAggVec[j])
-        
+                if (ColumnAggVec[j]) {
+                    aggregation = EvalExpr(ColumnAggVec[j])
+                    if (MeanAgg[agg]) {
+                        aggregation /= ColumnAggCounts[agg, j]
+                    }
+                    printf "%s", aggregation
+                }
+
                 if (j < fixed_nf) {
                     printf "%s", OFS
                 }
@@ -375,8 +402,14 @@ END {
                 printf "%s", OFS
         
                 for (j = 1; j <= row_aggs_count; j++) {
-                    printf "%s", Totals[i, j]
-          
+                    aggregation_total = Totals[i, j]
+                    
+                    if (MeanAgg[agg]) {
+                        aggregation_total /= ColumnAggCounts[agg, j]
+                    }
+
+                    printf "%s", aggregation_total
+
                     if (j < row_aggs_count) {
                         printf "%s", OFS
                     }
@@ -395,7 +428,7 @@ END {
             agg_expr = CrossAggExpr[compound_i]
       
             split(agg_expr, AggExprParts, /\|/)
-            agg_op = AggExprParts[1]
+            agg_op = cross_agg_i in MeanAgg ? "mean()" : AggExprParts[1]
             agg_index = AggExprParts[2]
             agg_group_scope = AggExprParts[3]
 
@@ -410,10 +443,34 @@ END {
                 print "Cross Aggregation: "agg_op" on field "agg_index" grouped by field "agg_group_scope
             }
 
-            for (j = 1; j <= rel_len; j++) {
-                print CrossAggKey[cross_agg_i, j], XAggResult[cross_agg_i, j]
+            if (cross_agg_i in MeanAgg) {
+                for (j = 1; j <= rel_len; j++) {
+                    base_result = XAggResult[cross_agg_i, j]
+                    
+                    if (j == 1 && !base_result) {
+                        base_result = agg_op
+                    }
+                    
+                    if (CrossAggCounts[cross_agg_i, j] == 0) {
+                        print CrossAggKey[cross_agg_i, j], base_result
+                    }
+                    else {
+                        print CrossAggKey[cross_agg_i, j], base_result / CrossAggCounts[cross_agg_i, j]
+                    }
+                }
             }
-      
+            else {
+                for (j = 1; j <= rel_len; j++) {
+                    base_result = XAggResult[cross_agg_i, j]
+                    
+                    if (j == 1 && !base_result) {
+                        base_result = agg_op
+                    }
+
+                    print CrossAggKey[cross_agg_i, j], base_result
+                }
+            }
+
             if (length(XA) > 1) print ""
         }
     }
@@ -426,6 +483,7 @@ END {
             if (SearchAgg[RA[i]]) print "(SearchAgg)"
             if (ConditionalAgg[RA[i]]) print "(ConditionalAgg)"
             if (AllAgg[RA[i]]) print "(AllAgg)"
+            if (MeanAgg[RA[i]]) print "(MeanAgg)"
         }
         if (length(CA)) print "\nColumn Aggregations"
         for (i in CA) {
@@ -434,27 +492,40 @@ END {
             if (SearchAgg[CA[i]]) print "(SearchAgg)"
             if (ConditionalAgg[CA[i]]) print "(ConditionalAgg)"
             if (AllAgg[CA[i]]) print "(AllAgg)"
+            if (MeanAgg[CA[i]]) print "(MeanAgg)"
         }
     }
 }
 
-function AggregationExpr(agg_expr, call, call_idx) {
+function AggregationExpr(agg_expr, call, call_idx, reparse) {
     orig_agg_expr = agg_expr
     gsub(/[[:space:]]+/, "", agg_expr)
     all_agg = 0
+    mean_agg = 0
     spec_agg = 0
     conditional_agg = 0
-
-    if (agg_expr ~ /^[\+\-\*\/]/) {
-        if (agg_expr ~ /^[\+\-\*\/](\|all)?$/) {
+    
+    if (agg_expr ~ /^([\+\-\*\/]|m(ean)?)/) {
+        if (agg_expr ~ /^([\+\-\*\/]|m(ean?))(\|all)?$/) {
+            if (match(agg_expr, /^m/)) {
+                mean_agg = 1
+            }
+            
             if (!(agg_expr ~ /\|all$/)) {
                 agg_expr = agg_expr "|all"
             }
 
             all_agg = 1
             AllAgg[agg_expr] = 1
+            
+            if (mean_agg) {
+                MeanAgg[agg_expr] = 1
+            }
         }
-        else if (agg_expr ~ /^[\+\-\*\/]\|(\$)?[0-9]+\.\.(\$)?[0-9]+/) {
+        else if (agg_expr ~ /^([\+\-\*\/]|m(ean)?)\|(\$)?[0-9]+\.\.(\$)?[0-9]+/) {
+            if (gsub(/^m[^\|]*\|/, "+|", agg_expr)) {
+                mean_agg = 1
+            }
             split(agg_expr, AggBase, /\|/)
             operation = AggBase[1] ? AggBase[1] : "+"
             gsub(/\$/, "", AggBase[2])
@@ -474,30 +545,45 @@ function AggregationExpr(agg_expr, call, call_idx) {
 
             agg_expr = agg_expr operation "$" AggAnchor[2]
         }
-        else if (agg_expr ~ /^[\+\-\*\/]\|(\$)?[0-9]+(\|(\$)?[0-9]+(\.\.(\$)?[0-9]+)?)?$/) {
+        else if (agg_expr ~ /^([\+\-\*\/]|m(ean)?)\|(\$)?[0-9]+(\|(\$)?[0-9]+(\.\.(\$)?[0-9]+)?)?$/) {
             gsub(/\$/, "", agg_expr)
+            if (gsub(/^m[^\|]*\|/, "+|", agg_expr)) {
+                mean_agg = 1
+            }
             CrossAggs[call, ++cross_agg_i] = orig_agg_expr
             XA[call, cross_agg_i] = agg_expr
             XAI[call, agg_expr] = cross_agg_i
             CrossAggExpr[call, cross_agg_i] = agg_expr
  
-            if (agg_expr ~ /^[\+\-\*\/]\|(\$)?[0-9]+$/) {
+            if (agg_expr ~ /^([\+\-\*\/]|m(ean)?)\|(\$)?[0-9]+$/) {
                 CrossAggForm[call, cross_agg_i] = 2
             }
-            else if (agg_expr ~ /^[\+\-\*\/]\|(\$)?[0-9]+\|(\$)?[0-9]+$/) {
+            else if (agg_expr ~ /^([\+\-\*\/]|m(ean)?)\|(\$)?[0-9]+\|(\$)?[0-9]+$/) {
                 CrossAggForm[call, cross_agg_i] = 3
             }
             else {
                 CrossAggForm[call, cross_agg_i] = 4
             }
+            
+            if (mean_agg) {
+                MeanAgg[cross_agg_i] = 1
+            }
 
             XAShift[call, call_idx] = cross_agg_i
             return ""
         }
-        else if (agg_expr ~ /^[\+\-\*\/]|((\$)?[0-9]+)?([<>=][0-9]+|[~])/) {
+        else if (agg_expr ~ /^([\+\-\*\/]|m(ean)?)|((\$)?[0-9]+)?([<>=][0-9]+|[~])/) {
+            if (gsub(/^m[^\|]*\|/, "+|", agg_expr)) {
+                mean_agg = 1
+            }
             gsub(/\|\|/, "___OR___", agg_expr)
             ConditionalAgg[agg_expr] = SetConditionalAgg(agg_expr)
             AllAgg[agg_expr] = 1
+            
+            if (mean_agg) {
+                MeanAgg[agg_expr] = 1
+            }
+            
             conditional_agg = 1
             if (call) conditional_row_aggs = 1
         }
@@ -541,6 +627,10 @@ function AggregationExpr(agg_expr, call, call_idx) {
         else if (agg_expr ~ /^[\*\/]/) {
             agg_expr = "1*" substr(agg_expr, RLENGTH + 1, length(agg_expr))
         }
+        
+        if (mean_agg && !reparse) {
+            MeanAgg[agg_expr] = 1
+        }
     }
 
     return agg_expr
@@ -565,10 +655,10 @@ function GenAllAggregationExpr(max, call) {
         temp_agg = Agg[1]"|1.."max
 
         if (call > 0 && agg in RAI) {
-            RowAggExpr[RAI[agg]] = AggregationExpr(temp_agg, 1)
+            RowAggExpr[RAI[agg]] = AggregationExpr(temp_agg, 1, 0, 1)
         }
         else if (!call && agg in CAI) {
-            ColumnAggAmort[CAI[agg]] = AggregationExpr(temp_agg, 0)
+            ColumnAggAmort[CAI[agg]] = AggregationExpr(temp_agg, 0, 0, 1)
         }
     }
 }
@@ -596,10 +686,10 @@ function SetRowAggKeyFields(row_agg_i, agg_expr) {
 
 function GetOrSetIndexNA(agg, idx, call) {
     if (IndexNA[agg, idx, call]) return IndexNA[agg, idx, call]
-
+    
     n_ors = ConditionalAgg[agg]
     idx_na = 1
-
+    
     for (or_i = 1; or_i <= n_ors; or_i++) {
         condition = Condition[agg, or_i]
         split(condition, Ands, /&&/)
@@ -733,6 +823,13 @@ function ResolveConditionalRowAggs() {
                     }
                     if (f_val) {
                         expr = expr cond_op f_val
+                        
+                        if (MeanAgg[agg]) {
+                            RowAggCounts[agg, j]++
+                        }
+                    }
+                    else if (MeanAgg[agg] && length(f_val) > 0) {
+                        RowAggCounts[agg, j]++
                     }
                 }
  
@@ -787,6 +884,10 @@ function GenRExpr(agg) {
             if (!extract_val && !(extract_val == 0)) continue
 
             expr = expr GetOrSetTruncVal(extract_val) op
+            
+            if (MeanAgg[agg] && j < fs) {
+                RowAggCounts[agg, NR]++
+            }
         }
     }
 
@@ -857,6 +958,12 @@ function AdvanceCarryVector(column_agg_i, nf, agg_amort, carry) { # TODO: This i
                 }
         
                 t_carry = t_carry sep CarryVec[f] margin_operator GetOrSetTruncVal(extract_val)
+
+                agg = CA[column_agg_i]
+
+                if (MeanAgg[agg]) {
+                    ColumnAggCounts[agg, f]++
+                }
             }
         }
 
@@ -919,7 +1026,7 @@ function ResolveRowCrossAggs() {
 
         start = AnchorFields[1]
         end = AnchorFields[2] ? AnchorFields[2] : start
-    
+
         if (end < start) {
             tmp = end
             end = start
@@ -927,11 +1034,11 @@ function ResolveRowCrossAggs() {
         }
 
         agg_row = (NR == agg_index)
-    
+
         for (crossfield_i = start; crossfield_i <= end; crossfield_i++) {
             if (agg_index == crossfield_i) continue
             split(_[crossfield_i], Row, FS)
-      
+
             for (f = 1; f <= fixed_nf; f++) {
                 if (crossfield_i == start) {
                     CrossKey[f] = Row[f]
@@ -960,11 +1067,11 @@ function ResolveRowCrossAggs() {
             val = AggRow[f]
             if (val == "") continue
             extract_val = GetOrSetExtractVal(val)
-      
+
             if (!extract_val && extract_val != 0) {
                 continue
             }
-      
+
             trunc_val = GetOrSetTruncVal(extract_val)
             key_id = CrossAggKeySave[cross_agg_i, CrossKey[f]]
 
@@ -972,6 +1079,10 @@ function ResolveRowCrossAggs() {
                 XAggResult[cross_agg_i, key_id] = EvalExpr(XAggResult[cross_agg_i, key_id] agg_op trunc_val)
             } else {
                 XAggResult[cross_agg_i, key_id] = trunc_val
+            }
+
+            if (cross_agg_i in MeanAgg) {
+                CrossAggCounts[cross_agg_i, key_id]++
             }
         }
     }
@@ -1043,7 +1154,7 @@ function GetOrSetExtractVal(val) {
         return ""
     }
 
-    extract_val += 0 
+    extract_val += 0
     ExtractVal[val] = extract_val
     return extract_val
 }

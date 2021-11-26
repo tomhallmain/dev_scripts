@@ -48,8 +48,8 @@ ds:fd_check() { # Convert fds into files: ds:fd_check testfile
 
 ds:awk() { # Run an awk script with utils: ds:awk [script] [files...] varargs...
     if ds:pipe_open; then
-        local file=$(ds:tmp 'ds_awk') piped=0
-        cat /dev/stdin > $file
+        local _file=$(ds:tmp 'ds_awk') piped=0
+        cat /dev/stdin > $_file
     fi
     local _SCRIPT_="$(ds:fd_check "$1")"
     local _FILES_=( ) _counter_=0
@@ -87,7 +87,7 @@ ds:readlink() { # Portable readlink: ds:readlink [file|dir]
 
 ds:extractfs() { # Infer or extract single awk FS from args: ds:extractfs
     if ds:noawkfs; then
-        local fs="$(ds:inferfs "$file" true)"
+        local fs="$(ds:inferfs "$_file" true)"
     else
         local fs_idx="$(ds:arr_idx '^FS=' ${args[@]})"
         if [ "$fs_idx" = "" ]; then
@@ -113,14 +113,14 @@ ds:awksafe() { # Test whether AWK is configured for multibyte regex: ds:awksafe
 
 ds:prefield() { # Infer and transform FS for complex field patterns: ds:prefield file fs [dequote] [awkOFSargs]
     ds:file_check "$1"
-    local file="$1" fs="$2" dequote=${3:-0}
-    [[ "$file" =~ "^/tmp" ]] && ds:dostounix "$file"
+    local _file="$1" fs="$2" dequote=${3:-0}
+    [[ "$_file" =~ "^/tmp" ]] && ds:dostounix "$_file"
     if [[ ! "${@:4}" =~ "-v OFS" && ! "${@:4}" =~ "-v ofs" ]]; then
         awk -v OFS="$DS_SEP" -v FS="$fs" -v retain_outer_quotes="$dequote" ${@:4} \
-            -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/quoted_fields.awk" "$file" 2>/dev/null
+            -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/quoted_fields.awk" "$_file" 2>/dev/null
     else
         awk -v FS="$fs" -v retain_outer_quotes="$dequote" ${@:4} -f "$DS_SUPPORT/utils.awk" \
-            -f "$DS_SCRIPT/quoted_fields.awk" "$file" 2>/dev/null; fi
+            -f "$DS_SCRIPT/quoted_fields.awk" "$_file" 2>/dev/null; fi
 }
 
 ds:arr_idx() { # Extract first shell array element position matching pattern: ds:arr_idx pattern ${arr[@]}

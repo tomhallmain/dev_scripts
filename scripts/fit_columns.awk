@@ -9,24 +9,25 @@
 #
 # DESCRIPTION
 #       fit_columns.awk is a sript to fit a table of values with dynamic column 
-#       lengths. If running with AWK, data must be passed twice.
+#       lengths. If running with AWK, files must be passed twice.
 #
-#       Running on a single file:
-#    > awk -f fit_columns.awk file{,}
+#       To run on a single file, ensure utils.awk is passed first:
+#
+#          $ awk -f support/utils.awk -f fit_columns.awk file{,}
 #
 #       ds:fit is the caller function for the fit_columns.awk script. To run with 
 #       any of the overrides below, map AWK args as given in SYNOPSIS.
 #
 #       When running with piped data, args are shifted:
 #
-#    $ data_in | ds:fit [awkargs]
+#          $ data_in | ds:fit [awkargs]
 #
 #       When running with ds:fit, an attempt will be made to infer a field separator 
 #       of up to three characters. If none is found, FS will be set to default value,
 #       a single space = " ". To override the FS, add as a trailing awkarg. Be sure 
 #       to escape and quote if needed. AWK's extended regex can be used as FS:
 #
-#    $ ds:fit datafile -v FS=" {2,}"
+#          $ ds:fit datafile -v FS=" {2,}"
 #
 #       When running ds:fit, an attempt is made to extract relevant instances of field
 #       separators in the case that a field separator appears in field values. This is 
@@ -37,51 +38,66 @@
 #       If a limited version of AWK is installed, the fit for multibyte characters 
 #       such as emoji may be incorrect.
 #
-# FUNCTIONS
-#    -h Print help
+# OPTS AND AWKARG OPTS
+#       Print this help:
+#
+#         -h, --help
 #
 #       Run with custom buffer (default is 1):
-#    -v buffer=5
+#
+#         -v buffer=5
 #
 #       Custom character for buffer/separator:
-#    -v bufferchar="|"
+#
+#         -v bufferchar="|"
 #
 #       Run with custom decimal setting:
-#    -v d=4
+#
+#         -v d=4
 #
 #       Run with custom decimal setting of zero:
-#    -v d=z
+#
+#         -v d=z
 #
 #       Run with float output on decimal/number-valued fields:
-#    -v d=-1
+#
+#         -v d=-1
 #
 #       Run without decimal or scientific notation transformations:
-#    -v no_tf_num=1
+#
+#         -v no_tf_num=1
 #
 #       Turn off default behavior of setting zeros in decimal columns to "-":
-#    -v no_zero_blank=1
+#
+#         -v no_zero_blank=1
 #
 #       Run with no color or warning:
-#    -v color=never
+#
+#         -v color=never
 #
 #       Fit all rows except where matching pattern:
-#    -v nofit=pattern
+#
+#         -v nofit=pattern
 #
 #       Fit only rows matching pattern, print rest normally:
-#    -v onlyfit=pattern
+#
+#         -v onlyfit=pattern
 #
 #       Start fit at pattern, end fit at pattern:
-#    -v startfit=startpattern
-#    -v endfit=endpattern
 #
-#    NOTE: To match the FS in patterns above, use the string '__FS__'
+#         -v startfit=startpattern
+#         -v endfit=endpattern
+#
+#       NOTE: To match the FS in patterns above, use the string '__FS__'
 #
 #       Start fit at row number, end fit at row number:
-#    -v startrow=100
-#    -v endrow=200
+#
+#         -v startrow=100
+#         -v endrow=200
 #
 #       Fit up to a certain number of columns, and squeeze the rest:
-#    -v endfit_col=10
+#
+#         -v endfit_col=10
 #
 # VERSION
 #       1.3
@@ -138,7 +154,7 @@ BEGIN {
     }
 
     if (!buffer) buffer = 2
-    if (!(color == "never")) {
+    if (!(color == "never" || color == "off")) {
         color_on = 1
         color_pending = 1
     }
@@ -264,6 +280,10 @@ partial_fit {
     }
 }
 
+$0 ~ /No matches found/ {
+    print
+    exit
+}
 
 # First pass, gather field info
 

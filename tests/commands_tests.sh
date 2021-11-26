@@ -1,6 +1,10 @@
 #!/bin/bash
-# This test script should produce no output if test run is successful
-# TODO: Negative tests, Git tests
+#
+#
+# This test script should produce no output if test run is successful.
+#
+#
+## TODO: Git tests
 
 test_var=1
 tmp=/tmp/ds_commands_tests
@@ -116,10 +120,14 @@ expected='a b c d b c
 1 2 3 4 3 2'
 actual="$(echo -e "a b c d\n1 3 2 4" | ds:join $tmp inner 1,4)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed readme single keyset case'
+actual="$(echo -e "a b c d\n1 3 2 4" | ds:join $tmp inner "a,d")"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed readme single keyset gen keys case'
 expected='a c b d
 1 2 3 4'
 actual="$(echo -e "a b c d\n1 3 2 4" | ds:join $tmp right 1,2,3,4 1,3,2,4)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed readme multi-keyset case'
+actual="$(echo -e "a b c d\n1 3 2 4" | ds:join $tmp right a,b,c,d "a,c,b,d")"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed readme multi-keyset gen keys case'
 expected='a b c d
 1 3 2 4
 1 2 3 4'
@@ -143,6 +151,8 @@ cat "$jnf2" | ds:join "$jnf1" -v ind=1 > $tmp
 cmp --silent $tmp $jnd1                                     || ds:fail 'ds:join failed base outer join case piped infer key'
 ds:join "$jnr1" "$jnr2" o 2,3,4,5 > $tmp
 cmp --silent $tmp $jnrjn1                                   || ds:fail 'ds:join failed repeats partial keyset case'
+ds:join "$jnr1" "$jnr2" o "h,j,f,total" > $tmp
+cmp --silent $tmp $jnrjn1                                   || ds:fail 'ds:join failed repeats partial keyset gen keys case'
 ds:join "$jnr3" "$jnr4" o merge -v merge_verbose=1 > $tmp
 cmp --silent $tmp $jnrjn2                                   || ds:fail 'ds:join failed repeats merge case'
 
@@ -153,6 +163,8 @@ echo -e "a b l f\nd p e f\ne o t a\nt p y 6" > /tmp/ds_join_test3
 expected='a b d f a d f a l f'
 actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 i 2)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join inner case'
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 i b)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join inner gen key case'
 
 expected='a b l f
 d p e f
@@ -172,6 +184,8 @@ t <NULL> y <NULL> o l p 6
 a b d f b f <NULL> <NULL>'
 actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 o 1,3)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join multikey case 1'
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 o a,d -v inherit_keys=1)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join multikey case 1 - gen and inherit keys'
 
 expected='a b d f b d b l
 d c e f c e p e
@@ -180,6 +194,8 @@ t <NULL> <NULL> 6 <NULL> <NULL> p y
 t <NULL> <NULL> l o y <NULL> <NULL>'
 actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 o 4,1)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join multikey case 2'
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 o "f,a")"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join multikey gen keys case 2'
 
 echo -e "a b d 3\nd c e f" > /tmp/ds_join_test4
 
@@ -187,6 +203,8 @@ expected='a b d f b d f b l f b d 3
 d c e f c e f p e f c e f'
 actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 /tmp/ds_join_test4 i 1)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 3-join inner case'
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 /tmp/ds_join_test4 i a)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 3-join inner gen key case'
 
 expected='a b d f b f <NULL> <NULL> b 3
 d c e f c f p f c f
@@ -718,6 +736,7 @@ expected='cdatetime,,,address
 actual="$(ds:reo tests/data/testcrimedata.csv 1..5 1,2 | ds:subsep '/' "" -F,)"
 [ "$expected" = "$actual" ] || ds:fail 'sbsp failed readme case'
 
+
 # POW TESTS
 
 expected="23,ACK,0
@@ -858,6 +877,7 @@ expected='1 a b e f
 actual="$(echo -e "a b c d e f" | ds:pow 1 f f -v choose=4)"
 [ "$expected" = "$actual" ] || ds:fail 'pow failed choose 4 6-base case'
 
+
 # PIVOT TESTS
 
 input='1 2 3 4
@@ -868,39 +888,44 @@ expected='PIVOT@@@1@@@4@@@5@@@
 2@@@1@@@@@@@@@
 6@@@@@@1@@@1@@@'
 actual="$(echo "$input" | ds:pivot 2 1)"
-[ "$actual" = "$expected" ] || ds:fail 'pvt failed count z case'
+[ "$actual" = "$expected" ] || ds:fail 'pivot failed count z case'
 
 expected='PIVOT@@@1@@@4@@@5@@@
 2@@@3::4@@@@@@@@@
 6@@@@@@5::8@@@7::5@@@'
 actual="$(echo "$input" | ds:pivot 2 1 0)"
-[ "$actual" = "$expected" ] || ds:fail 'pvt failed gen z case'
+[ "$actual" = "$expected" ] || ds:fail 'pivot failed gen z case'
 
 expected='PIVOT@@@1@@@4@@@5@@@
 2@@@3@@@@@@@@@
 6@@@@@@5@@@7@@@'
 actual="$(echo "$input" | ds:pivot 2 1 3)"
-[ "$actual" = "$expected" ] || ds:fail 'pvt failed spec z case'
+[ "$actual" = "$expected" ] || ds:fail 'pivot failed spec z case'
+
+expected='2 \ 4@@@5@@@8@@@
+6@@@1@@@1@@@'
+actual="$(echo "$input" | ds:pivot 2 4 -v header=1)"
+[ "$actual" = "$expected" ] || ds:fail 'pivot failed basic header case'
 
 expected='PIVOT@@@@@@4@@@d@@@
 1@@@2@@@3@@@@@@
 a@@@b@@@@@@c@@@'
 actual="$(echo -e "a b c d\n1 2 3 4" | ds:pivot 1,2 4 3)"
-[ "$actual" = "$expected" ] || ds:fail 'pvt failed readme multi-y case'
+[ "$actual" = "$expected" ] || ds:fail 'pivot failed readme multi-y case'
 
 expected='Fields not found for both x and y dimensions with given key params'
-actual="$(echo -e "a b c d\n1 2 3 4" | ds:pivot 1,2 4 3 -v header=1)"
-[ "$actual" = "$expected" ] || ds:fail 'pvt failed basic header case no number matching'
+actual="$(echo -e "a b c d\n1 2 3 4" | ds:pivot 1,2 4 3 -v gen_keys=1)"
+[ "$actual" = "$expected" ] || ds:fail 'pivot failed basic header case no number matching'
 
 expected='1::2 \ 4@@@@@@d@@@
 a@@@b@@@c@@@'
-actual="$(echo -e "1 2 3 4\na b c d" | ds:pivot 1,2 4 3 -v header=1)"
-[ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys case number matching'
+actual="$(echo -e "1 2 3 4\na b c d" | ds:pivot 1,2 4 3 -v gen_keys=1)"
+[ "$actual" = "$expected" ] || ds:fail 'pivot failed gen header keys case number matching'
 
 expected='a::b \ d@@@@@@4@@@
 1@@@2@@@3@@@'
 actual="$(echo -e "a b c d\n1 2 3 4" | ds:pivot a,b d c)"
-[ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys case'
+[ "$actual" = "$expected" ] || ds:fail 'pivot failed gen header keys case'
 
 input='halo wing top wind
 1 2 3 4
@@ -908,31 +933,34 @@ input='halo wing top wind
 4 6 5 8'
 expected='Fields not found for both x and y dimensions with given key params'
 actual="$(echo "$input" | ds:pivot halo twef)"
-[ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys negative case'
+[ "$actual" = "$expected" ] || ds:fail 'pivot failed gen header keys negative case'
 
 expected='halo \ wing@@@2@@@6@@@
 1@@@1@@@@@@
 4@@@@@@1@@@
 5@@@@@@1@@@'
 actual="$(echo "$input" | ds:pivot halo win)"
-[ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys two matching case'
+[ "$actual" = "$expected" ] || ds:fail 'pivot failed gen header keys two matching case'
 
 expected='halo \ wing::wind@@@2::4@@@6::5@@@6::8@@@
 1@@@1@@@@@@@@@
 4@@@@@@@@@1@@@
 5@@@@@@1@@@@@@'
 actual="$(echo "$input" | ds:pivot halo win,win)"
-[ "$actual" = "$expected" ] || ds:fail 'pvt failed gen header keys double same-pattern case'
+[ "$actual" = "$expected" ] || ds:fail 'pivot failed gen header keys double same-pattern case'
+
 
 # AGG TESTS
 
 echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" > $tmp
+
 expected='one two three four $3+$2
 1 2 3 4 5
 4 3 2 1 5
 1 2 4 3 6
 3 2 4 1 6'
 [ "$(ds:agg $tmp '$3+$2')" = "$expected" ] || ds:fail 'agg failed R specific agg base case'
+
 expected='one two three four
 1 2 3 4
 4 3 2 1
@@ -940,6 +968,7 @@ expected='one two three four
 3 2 4 1
 -3 -1 1 3'
 [ "$(ds:agg $tmp 0 '$2-$3')" = "$expected" ] || ds:fail 'agg failed C specific agg base case'
+
 expected='one two three four
 1 2 3 4
 4 3 2 1
@@ -956,7 +985,31 @@ expected='one,two,three,four,*|2..4
 actual="$(echo -e "one,two,three,four\n1,2,3,4\n4,3,2,1\n1,2,4,3\n3,2,4,1" | ds:agg '*|2..4')"
 [ "$actual" = "$expected" ]        || ds:fail 'agg failed R specific range agg base case'
 
-# add base specific range case for c aggs here
+expected='one,two,three,four,mean|2..4
+1,2,3,4,3
+4,3,2,1,2
+1,2,4,3,3
+3,2,4,1,2.33333'
+actual="$(echo -e "one,two,three,four\n1,2,3,4\n4,3,2,1\n1,2,4,3\n3,2,4,1" | ds:agg 'mean|2..4')"
+[ "$actual" = "$expected" ]        || ds:fail 'agg failed R specific range agg means case'
+
+expected='one,two,three,four
+1,2,3,4
+4,3,2,1
+1,2,4,3
+3,2,4,1
+-5,-5,-6,-4'
+actual="$(echo -e "one,two,three,four\n1,2,3,4\n4,3,2,1\n1,2,4,3\n3,2,4,1" | ds:agg 0 '-|3..4')"
+[ "$actual" = "$expected" ]        || ds:fail 'agg failed C specific range agg base case'
+
+expected='one,two,three,four
+1,2,3,4
+4,3,2,1
+1,2,4,3
+3,2,4,1
+2.66667,2.33333,3.33333,1.66667'
+actual="$(echo -e "one,two,three,four\n1,2,3,4\n4,3,2,1\n1,2,4,3\n3,2,4,1" | ds:agg 0 'mean|3..5')"
+[ "$actual" = "$expected" ]        || ds:fail 'agg failed C specific range agg means case'
 
 expected='one:two:three:four:+|all
 1:2:3:4:10
@@ -965,6 +1018,15 @@ expected='one:two:three:four:+|all
 3:2:4:1:10'
 actual="$(echo -e "one:two:three:four\n1:2:3:4\n4:3:2:1\n1:2:4:3\n3:2:4:1" | ds:agg '+|all')"
 [ "$actual" = "$expected" ]        || ds:fail 'agg failed R all agg base case'
+
+expected='one:two:three:four:mean|all
+1:2:3:4:2.5
+4:3:2:1:2.5
+1:2:4:3:2.5
+3:2:4:1:2.5'
+actual="$(echo -e "one:two:three:four\n1:2:3:4\n4:3:2:1\n1:2:4:3\n3:2:4:1" | ds:agg 'mean|all')"
+[ "$actual" = "$expected" ]        || ds:fail 'agg failed R all agg mean case'
+
 expected='one;two;three;four
 1;2;3;4
 4;3;2;1
@@ -1063,6 +1125,13 @@ c 7 7 7
 +|~a 6 8 6
 + 16 19 18'
 [ "$(ds:agg $tmp 0 '+|~a,+')" = "$expected" ] || ds:fail 'agg failed conditional C agg case'
+expected='a 2 3 4
+b 3 4 5
+a 4 5 2
+c 7 7 7
+mean|~a 3 4 3
++ 16 19 18'
+[ "$(ds:agg $tmp 0 'mean|~a,+')" = "$expected" ] || ds:fail 'agg failed conditional C agg mean case'
 
 echo -e "one:two:three:four\n1:2:3:4\n4:3:2:1\n1:2:4:3\n3:2:4:1" > $tmp
 expected='one:two:three:four:+|$4>3||$4<2
@@ -1071,8 +1140,14 @@ expected='one:two:three:four:+|$4>3||$4<2
 1:2:4:3:5
 3:2:4:1:7'
 [ "$(ds:agg $tmp '+|$4>3||$4<2')" = "$expected" ] || ds:fail 'agg failed conditional R agg case'
+expected='one:two:three:four:mean|$4>3||$4<2
+1:2:3:4:2
+4:3:2:1:3
+1:2:4:3:2.5
+3:2:4:1:3.5'
+[ "$(ds:agg $tmp 'mean|$4>3||$4<2')" = "$expected" ] || ds:fail 'agg failed conditional R agg mean case'
 
-expected='USER
+expected='USER +
 user 2059788916
 root 557934576
 _driverkit 57665820
@@ -1110,7 +1185,7 @@ ds:transpose tests/data/ps_aux > $tmp
 actual="$(ds:agg $tmp 5 | ds:decap 1 | sed -E 's/[[:space:]]+$//g')"
 [ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg simple row case'
 
-expected='USER::STARTED
+expected='USER::STARTED +
 user::4:56PM 66904232
 user::4:29PM 17910632
 root::Thu11PM 479285720
@@ -1196,6 +1271,94 @@ actual="$(ds:agg tests/data/ps_aux 0 '+|5|1..2' | ds:decap 1 | sed -E 's/[[:spac
 [ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg range field case'
 actual="$(ds:agg $tmp '+|5|1..2' | ds:decap 1 | sed -E 's/[[:space:]]+$//g' | awk '{gsub("\034","");print}')"
 [ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg range row case'
+
+expected='USER::STARTED mean()
+user::4:56PM 9.55775e+06
+user::4:29PM 17910632
+root::Thu11PM 4.43783e+06
+user::11:22PM 5.15184e+06
+user::Thu11PM 4.74621e+06
+user::1:04PM 8958804
+user::12:56PM 8963396
+root::12:49PM 4431616
+user::12:09PM 4365536
+user::11:27AM 4357336
+root::11:27AM 4345892
+_driverkit::11:26AM 4804844
+root::4:47AM 4295916
+user::2:47AM 4458792
+user::1:46AM 4329154
+root::1:46AM 4345892
+user::1:30AM 47388994
+user::12:52AM 4372696
+root::12:52AM 4362276
+user::11:26PM 4658916
+user::11:25PM 4823592
+user::11:24PM 4.54098e+06
+user::11:23PM 4891540
+root::11:22PM 4322148
+root::10:31PM 4382212
+root::8:34PM 4423564
+user::6:17PM 4985040
+root::6:17PM 4530472
+user::6:15PM 4987532
+root::6:15PM 4341920
+user::6:14PM 4867292
+user::5:54PM 4884860
+user::5:20PM 4430752
+user::5:01PM 9026804
+user::4:30PM 8.46484e+06
+user::Fri01PM 1.18551e+07
+user::Fri12PM 4449066
+user::Fri11AM 4.68576e+06
+root::Fri11AM 4314416
+user::Fri10AM 4382872
+user::Fri09AM 4985392
+user::Fri01AM 1.92538e+07
+user::Fri12AM 7.81738e+06
+root::Fri12AM 4.38402e+06
+_spotlight::Fri12AM 4425740
+_fpsd::Fri12AM 4398440
+_spotlight::Thu11PM 4412126
+_gamecontrollerd::Thu11PM 4395696
+_ctkd::Thu11PM 4387972
+_applepay::Thu11PM 4.40228e+06
+_datadetectors::Thu11PM 4388328
+_fpsd::Thu11PM 4411670
+_assetcache::Thu11PM 4428578
+_nsurlstoraged::Thu11PM 4357112
+_locationd::Thu11PM 4.41043e+06
+_windowserver::Thu11PM 6.29961e+06
+_netbios::Thu11PM 4397460
+_appleevents::Thu11PM 4425400
+_captiveagent::Thu11PM 4397764
+_driverkit::Thu11PM 4806126
+_coreaudiod::Thu11PM 4393100
+_atsserver::Thu11PM 4426392
+_softwareupdate::Thu11PM 4469218
+_cmiodalassistants::Thu11PM 4459716
+_nsurlsessiond::Thu11PM 4436820
+_networkd::Thu11PM 4436988
+_mdnsresponder::Thu11PM 4426516
+_analyticsd::Thu11PM 4431416
+_distnote::Thu11PM 4396688
+_hidd::Thu11PM 4428040
+_displaypolicyd::Thu11PM 4398396
+_usbmuxd::Thu11PM 4423984
+_timed::Thu11PM 4423572
+_iconservices::Thu11PM 4397076
+user::3:10PM 4.31321e+06
+root::3:10PM 4299084
+user::3:08PM 4358940
+root::3:08PM 4333336
+user::2:58PM 4308104
+user::1:40PM 8919832
+user::1:33PM 55511336'
+actual="$(ds:agg tests/data/ps_aux 0 'mean|5|1..2' | ds:decap 1 | sed -E 's/[[:space:]]+$//g' | awk '{gsub("\034","");print}')"
+[ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg range field case'
+actual="$(ds:agg $tmp 'mean|5|1..2' | ds:decap 1 | sed -E 's/[[:space:]]+$//g' | awk '{gsub("\034","");print}')"
+[ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg range row case'
+
 
 # CASE TESTS
 
@@ -1347,7 +1510,7 @@ output="1;2;3;4;5;6;7;8;9;10"
 [ "$(echo "cats😼😻" | ds:unicode)" = '\U63\U61\U74\U73\U1F63C\U1F63B' ] || ds:fail 'unicode command failed pipe case'
 [ "$(ds:unicode "cats😼😻" hex)" = '%63%61%74%73%F09F98BC%F09F98BB' ]    || ds:fail 'unicode command failed hex case'
 
-expected='tests/commands_tests.sh:# TODO: Negative tests, Git tests'
+expected='tests/commands_tests.sh:## TODO: Git tests'
 [ "$(ds:todo tests/commands_tests.sh | head -n1)" = "$expected" ]        || ds:fail 'todo command failed'
 
 [ "$(ds:substr "TEST" "T" "ST")" = "E" ]                                 || ds:fail 'substr failed base case'
@@ -1370,6 +1533,7 @@ ds:fail
 ds:stagger
 ds:pow
 ds:fit
+ds:subsep
 ds:reo
 ds:nset
 ds:pivot
@@ -1428,7 +1592,12 @@ Hist: field 8 (latitude), cardinality 1905
      38.6592-38.6838 ++++++'
 [ "$(ds:hist "$simple_csv2" | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'hist command failed'
 
+
 # INTEGRATION TESTS
+
+
+# Integration Case 1 - Sum of all crimes by day of the month, only select a certain day 
+# of the week and the total where the total is greater than 300 crimes.
 
 expected='@@@PIVOT@@@7@@@14@@@21@@@28@@@+|all@@@
 @@@459 PC  BURGLARY RESIDENCE@@@12@@@10@@@7@@@13@@@356@@@
@@ -1445,6 +1614,10 @@ actual="$(ds:subsep tests/data/testcrimedata.csv '/' "" -v apply_to_fields=1 \
     | ds:reo '2~PIVOT, >300' '1,2[PIVOT%7,2[PIVOT~all' -v uniq=1 | cat)"
 [ "$actual" = "$expected" ] || ds:fail 'integration case 1 failed'
 
+
+
+# Integration Case 2 - Reorder and fit multibyte chars
+
 expected='emoji  Generating_code_base10  init_awk_len  len_simple_extract  len_remaining
 ❎     10062                              3                   1              2
 🚧     unknown                            4                   1              3
@@ -1452,6 +1625,38 @@ expected='emoji  Generating_code_base10  init_awk_len  len_simple_extract  len_r
 ❔     10068                              3                   1              2'
 actual="$(cat $emoji | ds:reo '1, NR%2 && NR>80 && NR<90' '[emoji,others' | ds:fit -v color=never)"
 [ "$actual" = "$expected" ] || ds:fail 'integration readme emoji case failed'
+
+
+
+# Integration Case 3 - Mean day of the month for crimes per beat, with full mean,
+# those crimes with mean day of the month greater than 17.
+
+expected='243.4(A) SEXUAL BATTERY                     24.0        28.0        17.3
+245(A)(2) AWDW/FIREARM/CIVILIA  20.7   6.7  29.0  26.5  18.7  19.0  17.2
+451(D) PC  ARSON OF PROPERTY          13.0  27.0  27.0  18.5  25.0  18.4
+484 PETTY THEFT-PURSE SNATCH          28.0                    27.0  18.3
+603  FORCED ENTRY/PROP DAMAGE         28.0  30.0                    19.3
+653K PC POSS/SELL SWITCHBLADE         17.0  26.0        30.0        18.2
+1203.2 PC VIOLATION OF PROBATI        18.0  31.0        28.0  12.2  17.8
+12316(B)(1)FELON POSSESS AMMO                           30.0  24.0  18.0
+23222(B)POSSESS MARIJ IN VEH    30.0  28.0  21.5  21.0  23.7        20.7
+CHILD WELFARE - I RPT           16.0  27.0  27.0  23.5  16.8  23.7  19.1
+FRAUDULENT DOCUMENTS- I RPT           20.0              30.0  24.0  18.5
+HIT AND RUN /SUSPECTS- I RPT    30.0  18.3  21.0        24.0        18.7
+POSSIBLE FINANCIAL CRIME-I RPT  19.2  29.0        18.2  22.0        17.7
+WANTED SUBJ-O/S WANT/ I RPT                 27.0        31.0        19.3'
+actual="$(ds:subsep tests/data/testcrimedata.csv '/' "" -v apply_to_fields=1 \
+    | ds:reo a '2,NF>3' \
+    | ds:newfs $DS_SEP \
+    | ds:pivot 6 3 1 mean -v header=1 \
+    | ds:agg mean mean \
+    | ds:reo '9>17' \
+    | ds:fit -v d=1 -v color=never)"
+[ "$actual" = "$expected" ] || ds:fail 'integration case 3 failed'
+
+
+
+# Integration Case 4 - Various agregation to fit negative decimals
 
 expected='    one      two     three     four         +         *
  1.0000   2.0000    3.0000   4.0000   10.0000   24.0000
@@ -1462,6 +1667,9 @@ expected='    one      two     three     four         +         *
  0.0833   0.1667    0.0938   1.3333    0.0100    0.0017'
 actual="$(echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" | ds:agg '+,*' '\-,/' | ds:fit -v d=4 -v color=never)"
 [ "$actual" = "$expected" ] || ds:fail 'integration agg fit negative decimals case 1 failed'
+
+
+# Integration Case 5 - Various agregation to fit negative decimals
 
 input='a  1  -2  3.0  4
 b  0  -3  4.0  1

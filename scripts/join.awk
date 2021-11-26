@@ -12,9 +12,9 @@
 #       options for output.
 #
 #       To run the script, ensure AWK is installed and in your path (on most Unix-based
-#       systems it should be), and call it on two files:
+#       systems it should be), and call it on two files along with utils.awk:
 #
-#          > awk -f join.awk file1 file2
+#          > awk -f support/utils.awk -f join.awk file1 file2
 #
 #       ds:join is the caller function for the join.awk script. To run any of the examples 
 #       below, map AWK args as given in SYNOPSIS.
@@ -67,9 +67,6 @@
 #          r[ight]
 #          d[iff]
 #
-#       Certain jointypes will not function well when joining more than two files: left,
-#       right, diff
-#
 #       If there is one field number to join on, assign it to var k at runtime:
 #
 #          $ ds:join file1 file2 o 1
@@ -83,18 +80,25 @@
 #
 #          $ ds:join file1 file2 o 1,2 2,3
 #
+#       Keys can also be generated from matching regex patterns in the first row with data 
+#       in each file:
+#
+#          $ ds:join file1 file2 o f1header1,f1header2 f2header1,f2header2
+#
 #       To join on all fields from both files, set k to "merge":
 #
 #          $ ds:join file1 file2 left merge
 #
+#
 # AWKARG OPTS
-#       Note that any fields beyond the maximum of the first row in the first file will 
-#       not be merged unless mf_max is set:
+#       Any fields beyond the maximum of the first row in the first file will not be merged 
+#       unless mf_max is set to a higher value. It can also be set to a lower value to merge 
+#       all fields up to a certain index, and join as normal on the others:
 #
-#          $ ds:join file1 file2 right merge -v mf_max=9
+#          -v mf_max={int}
 #
-#   **  If headers are present, set the header variable to any value to ensure
-#       consistent header positioning:
+#   **  If headers are present, set the header variable to any value to ensure consistent 
+#       header positioning - usually not required:
 #
 #          -v header=1
 #
@@ -106,7 +110,7 @@
 #
 #          -v merge_verbose=1
 #
-#   **  Merge with custom labels:
+#   **  Merge with custom labels in the verbose column:
 #
 #          -v left_label="Prior Data"
 #          -v right_label="Current Data"
@@ -122,20 +126,28 @@
 #
 #          -v full_bias=1
 #
-#       Set a maximum number of fields to merge starting from first field:
-#
-#          -v mf_max={int}
-#
 #       Print null fields as empty instead of <NULL>:
 #
 #          -v null_off=1
 #
+#       Force key generation from regex matching integer key inputs, as opposed to assuming 
+#       these indicate field indices:
 #
+#          -v gen_keys=1
 #
-#   ** - Works only on two-file joins
+#       Limit key generation to key matches sensitive to case:
+#
+#          -v case_sensitive=1
+#
+#       Inherit generated keys indices from left data if they are not found in right data:
+#
+#          -v inherit_keys=1
+#
+#   ** - Indicates opt functions well only on two-file joins
+#
 #
 # VERSION
-#       1.1
+#       1.2
 #
 # AUTHORS
 #       Tom Hall (tomhall.main@gmail.com)
@@ -215,12 +227,12 @@ BEGIN {
             equal_keys = 1
         }
         else if (!k1 || !k2) {
-            print "Missing join key field"
+            print "Missing join key fields"
             exit 1
         }
 
-        len_k1 = split(k1, Keys1, /[[:punct:]]+/)
-        len_k2 = split(k2, Keys2, /[[:punct:]]+/)
+        len_k1 = split(k1, Keys1, /,+/)
+        len_k2 = split(k2, Keys2, /,+/)
 
         if (len_k1 != len_k2) {
             print "Keysets must be equal in length"
@@ -228,21 +240,27 @@ BEGIN {
         }
 
         for (i = 1; i <= len_k1; i++) {
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", Keys1[i])
             key = Keys1[i]
 
-            if (!(key ~ /^[0-9]+$/)) {
-                print "Keys must be integers, found key: " key
-                exit 1
+            if (length(key) == 0) {
+                continue
+            }
+            else if (!gen_keys && (!(key ~ /^[0-9]+$/) || length(key) > 3)) {
+                gen_keys = 1
             }
         }
 
         for (i = 1; i <= len_k2; i++) {
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", Keys2[i])
             key = Keys2[i]
             joint_key = Keys1[i]
 
-            if (!(key ~ /^[0-9]+$/)) {
-                print "Keys must be integers, found key: " key
-                exit 1
+            if (length(key) == 0) {
+                continue
+            }
+            else if (!gen_keys && !(key ~ /^[0-9]+$/) || length(key) > 3) {
+                gen_keys = 1
             }
 
             K2[key] = joint_key
@@ -300,10 +318,17 @@ NR == FNR {
 
     if (NF > max_nf1) max_nf1 = NF
 
-    if (header && header_unset) {
-        header1 = $0
+    if (header_unset) {
         header_unset = 0
-        next
+
+        if (gen_keys) {
+            GenKeys(0, NF, K1, K2)
+        }
+
+        if (header) {
+            header1 = $0
+            next
+        }
     }
 
     keybase = GenKeyString(Keys1)
@@ -325,14 +350,21 @@ NR == FNR {
 
 NR > FNR { 
     #if (k2 > NF) { print "Key out of range in file 2";  err = 1; exit }
-
     if (NF > max_nf2) max_nf2 = NF
 
-    if (header && header_unset) { 
-        if (ind) printf "%s", OFS
-        print GenInnerOutputString(header1, $0, K2, max_nf1, max_nf2, fs1)
+    if (header_unset) {
         header_unset = 0
-        next
+
+        if (gen_keys) {
+            GenKeys(1, NF, K1, K2)
+        }
+
+        if (header) { 
+            if (ind) printf "%s", OFS
+            print GenInnerOutputString(header1, $0, K2, max_nf1, max_nf2, fs1)
+            header_unset = 0
+            next
+        }
     }
 
     keybase = GenKeyString(Keys2)
@@ -385,6 +417,90 @@ END {
         if (ind) printf "%s", record_count OFS
         stream2_line = full_bias ? S2[compound_key] : ""
         print GenLeftOutputString(S1[compound_key], stream2_line, K1, max_nf1, max_nf2, fs1, fs2)
+    }
+}
+
+function GenKeys(file2_call, nf, K1, K2, GenKeySet) {
+    delete MissingKeys
+    
+    for (i = 1; i <= length(file2_call ? Keys2 : Keys1); i++) {
+        key_pattern = file2_call ? Keys2[i] : Keys1[i]
+        key_found = 0
+
+        if (!case_sensitive) {
+            key_pattern = tolower(key_pattern)
+        }
+
+        for (f = 1; f <= nf; f++) {
+            field = case_sensitive ? $f : tolower($f)
+            
+            if (field ~ "^(\"|')*"key_pattern) {
+                if (file2_call) {
+                    Keys2[i] = f
+                    K2[f] = Keys1[i]
+                    K1[K2[f]] = f
+                    
+                    if (K2[key_pattern] in K1) {
+                        delete K1[K2[key_pattern]]
+                    }
+                    
+                    delete K2[key_pattern]
+                }
+                else {
+                    Keys1[i] = f
+                    K1[f] = f
+                    K2[K1[f]] = f
+                    delete K1[key_pattern]
+                }
+                
+                key_found = 1
+                break
+            }
+        }
+
+        if (!key_found) {
+            MissingKeys[key_pattern] = 1
+        }
+    }
+
+    if (length(MissingKeys) > 0) {
+        if (file2_call && inherit_keys) {
+            n_keys = length(Keys2)
+
+            for (i = 1; i <= n_keys; i++) {
+                delete K2[Keys2[i]]
+                delete Keys2[i]
+            }
+
+            for (i = 1; i <= n_keys; i++) {
+                key = Keys1[i]
+                Keys2[i] = key
+                K2[key] = K1[key]
+            }
+
+            return
+        }
+
+        err = 1
+        
+        if (file2_call) {
+            filename = ARGV[2]
+            
+            if (filename ~ /^\/tmp\//) {
+                filename = "right data"
+            }
+        }
+        else {
+            filename = ARGV[1]
+
+            if (filename ~ /^\/tmp\//) {
+                filename = "left data"
+            }
+        }
+        
+        printf "%s", "Could not locate keys in "filename": "
+        PrintMap(MissingKeys, 1)
+        exit
     }
 }
 

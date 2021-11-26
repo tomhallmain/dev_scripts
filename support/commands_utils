@@ -14,8 +14,8 @@
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [file] [n_lines=1]
 @@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=(FUNC|ALIAS)] [caller] [ndata]
-**@@@ds:dff@@@@@@Diff shortcut for an easier to read view@@@ds:dff file1 [file2] [suppress_common] [color=t]
 @@@ds:die@@@@@@Output to STDERR and exit with error@@@ds:die
+**@@@ds:diff@@@@@@Diff shortcut for an easier to read view@@@ds:diff file1 [file2] [suppress_common] [color=t]
 **@@@ds:dostounix@@@@@@Remove ^M / CR characters in place@@@ds:dostounix [file*]
 **@@@ds:dup_input@@@@@@Duplicate standard input in aggregate@@@data | ds:dup_input
 @@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir] [confirm=f] [of_file] [try_nonmatch_ext=f]
@@ -87,7 +87,7 @@
 **@@@ds:random@@@@@@Generate a random number 0-1 or randomize text@@@ds:random [number|text]
 @@@ds:readlink@@@@@@Portable readlink@@@ds:readlink [file|dir]
 @@@ds:readp@@@@@@Portable read prompt@@@ds:readp [message] [downcase=t]
-@@@ds:recent@@@@@@List files modified recently@@@ds:recent [dir=.] [days=7] [recurse=r] [hidden=h]
+@@@ds:recent@@@@@@List files modified recently@@@ds:recent [dir=.] [days=7] [recurse=f] [hidden=f]
 **@@@ds:reo@@@@@@Reorder/repeat/slice data by rows and cols@@@ds:reo [-h|file*] [rows] [cols] [prefield=t] [awkargs]
 **@@@ds:rev@@@@@@Reverse lines from standard input@@@data | ds:rev
 @@@ds:searchn@@@@@@Search shell environment names@@@ds:searchn name
@@ -103,7 +103,7 @@
 @@@ds:src@@@@@@Source a piece of shell code@@@ds:src file ["searchx" pattern] || [start end] || [search linesafter]
 @@@ds:srg@@@@@@Scope grep to files that contain a match@@@ds:srg scope_pattern search_pattern [dir] [invert=]
 **@@@ds:stagger@@@@@@Print tabular data in staggered rows@@@ds:stagger [file] [stag_size]
-**@@@ds:subsep@@@@@@Extend fields by a common subseparator@@@ds:subsep [file] subsep_pattern [nomatch_handler= ]
+**@@@ds:subsep@@@@@@Extend fields by a common subseparator@@@ds:subsep [-h|file] subsep_pattern [nomatch_handler= ]
 @@@ds:subsh@@@@@@Detect if in a subshell@@@ds:subsh
 **@@@ds:substr@@@@@@Extract a substring with regex@@@ds:substr str [leftanc] [rightanc]
 @@@ds:termcolors@@@@@@Check terminal colors@@@ds:termcolors

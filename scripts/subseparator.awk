@@ -1,10 +1,75 @@
 #!/usr/bin/awk
+# DS:SUBSEP
 #
-# Separates a text file by an implied pattern given in addition to existing field 
-# separators, effectively creating new fields for each subfield identified.
+# NAME
+#       ds:subsep, subseparator.awk
 #
-# Running:
-# > awk -f subseparator.awk -v subsep_pattern=" " file file
+# SYNOPSIS
+#       ds:subsep [file] subsep_pattern [nomatch_handler= ]
+#
+# DESCRIPTION
+#       subseparator.awk is a script to split files in a data stream or file using a
+#       pattern. It will separate fields, effectively creating new fields for each 
+#       subfield identified.
+#
+#       To run the script, ensure AWK is installed and in your path (on most Unix-based
+#       systems it should be), and call it on a file using aggregation expression.
+#       Ensure utils.awk helper file is passed as well:
+#
+#          $ awk -f support/utils.awk -f subseparator.awk -v subsep_pattern=" " file{,}
+#
+#       ds:subsep is the caller function for the subseparator.awk script. To run any of 
+#       the examples below, map AWK args as given in SYNOPSIS.
+#
+#       When running with piped data, args are shifted:
+#
+#          $ data_in | ds:agg subsep_pattern [nomatch_handler= ]
+#
+# FIELD_CONSIDERATIONS
+#       When running ds:subsep, an attempt is made to infer field separators of up to three 
+#       characters. If none found, FS will be set to default value, a single space = " ".
+#       To override FS, add as a trailing awkarg. Be sure to escape and quote if needed.
+#       AWK's extended regex can be used as FS if needed.
+#
+#          $ ds:subsep file " " "" -F':'
+#
+#          $ ds:subsep file ":" "" -v FS=" {2,}"
+#
+#          $ ds:subsep file "," "" -v FS='\\\|'
+#
+#       If FS is set to an empty string, all characters will be separated.
+#
+#          $ ds:subsep file -v FS=""
+#
+# USAGE
+#      By default subsep_pattern and nomatch_handler are a single space.
+#
+#      Both subsep_pattern and nomatch_handler accept regex. nomatch_handler is only 
+#      needed when there are certain lines with fields that may not have a match for 
+#      given subsep_pattern.
+#
+#      Depending on if certain regex tokens are used as fixed strings, this means 
+#      escapes may be needed. Eescapes should have two backslashes when passed to
+#      ds:subsep (note that they are not necessary for below example):
+#
+#         $ ds:subsep tests/data/testcrimedata.csv '\\/' "" -v apply_to_fields=1
+#
+#      There may be instances where neither subsep_pattern nor nomatch_handler find a 
+#      match. For these cases, it may be advisable to do a bit of data cleaning first.
+#
+# AWKARG OPTS
+#      If only certain fields should be subseparated, pass them as a comma-separated 
+#      list to apply_to_fields, corresponding to the index:
+#
+#         -v apply_to_fields=3,4,5
+#
+#
+# VERSION
+#      1.0
+#
+# AUTHORS
+#      Tom Hall (tomhallmain@gmail.com)
+#
 ## TODO: Fix output of subseparated files with quoted fields
 ## TODO: Manpage
 

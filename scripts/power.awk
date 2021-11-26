@@ -12,9 +12,9 @@
 #       field-separated data. 
 #
 #       To run the script, ensure AWK is installed and in your path (on most Unix-based 
-#       systems it should be), and call it on a file:
+#       systems it should be), and call it on a file along with utils.awk helper file:
 #
-#          > awk -f power.awk file
+#          > awk -f support/utils.awk -f power.awk file
 #
 #       ds:pow is the caller function for the power.awk script. To run any of the examples 
 #       below, map AWK args as given in SYNOPSIS.
@@ -45,20 +45,20 @@
 #       From this set it will output only the most characteristic combinations. For 
 #       example, assume a file with the following data:
 #
-#          $ cat test.txt
-#          A B C
-#          A B D
-#          X B D
+#           $ cat test.txt
+#           A B C
+#           A B D
+#           X B D
 #
 #       Running ds:pow on this file produces the following output:
 #
-#          $ ds:pow test.txt
-#          1 X B D
-#          1 A B D
-#          1 A B C
-#          2 B D
-#          2 A B
-#          3 B
+#           $ ds:pow test.txt
+#           1 X B D
+#           1 A B D
+#           1 A B C
+#           2 B D
+#           2 A B
+#           3 B
 #
 #       The number at left indicates the total number of occurrences of the
 #       combination. By default if a combination is included within another and both
@@ -68,25 +68,25 @@
 #       To filter output by a custom minimum number of occurrences, set param [min] to
 #       the desired minimum. To turn off all co-occurrence filtering set [min] = 0.
 #
-#         $ ds:pow test.txt 3
-#         3 B
+#          $ ds:pow test.txt 3
+#          3 B
 #
-#         $ ds:pow test.txt 0
-#         1 A C
-#         1 A B C
-#         1 A B D
-#         1 X
-#         1 X B
-#         1 X D
-#         1 X B D
-#         1 B C
-#         1 A D
-#         1 C
-#         2 B D
-#         2 A
-#         2 D
-#         2 A B
-#         3 B
+#          $ ds:pow test.txt 0
+#          1 A C
+#          1 A B C
+#          1 A B D
+#          1 X
+#          1 X B
+#          1 X D
+#          1 X B D
+#          1 B C
+#          1 A D
+#          1 C
+#          2 B D
+#          2 A
+#          2 D
+#          2 A B
+#          3 B
 #
 #       Note that as the number of fields and variance in the data grows,
 #       the processing required to filter the output to the most unique combinations
@@ -96,12 +96,12 @@
 #       To output the strength of field combinations generally instead of field values, set
 #       [return_fields] = t|true.
 #
-#         $ ds:pow test.txt 2 t
-#         0.666667 1
-#         0.666667 1 2
-#         0.666667 2 3
-#         0.666667 3
-#         1 2
+#          $ ds:pow test.txt 2 t
+#          0.666667 1
+#          0.666667 1 2
+#          0.666667 2 3
+#          0.666667 3
+#          1 2
 #       
 #       When this option is set, the leftmost number indicates the proportion of the 
 #       total amount of lines that the given underlying combination represents. For
@@ -119,14 +119,14 @@
 #
 #       Running with this option on the example file produces the following output:
 #
-#         $ ds:pow test.txt 1 f f -v choose=2
-#         1 B C
-#         1 X B
-#         1 X D
-#         1 A D
-#         1 A C
-#         2 A B
-#         2 B D
+#          $ ds:pow test.txt 1 f f -v choose=2
+#          1 B C
+#          1 X B
+#          1 X D
+#          1 A D
+#          1 A C
+#          2 A B
+#          2 B D
 #
 # VERSION
 #      0.4

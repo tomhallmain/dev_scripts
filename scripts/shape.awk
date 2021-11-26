@@ -11,16 +11,16 @@
 #       shape.awk is a script to print the general shape of text-based data.
 #
 #       To run the script, ensure AWK is installed and in your path (on most Unix-based 
-#       systems it should be), and call it on a file:
+#       systems it should be), and call it on a file along with the utils.awk helper file:
 #
-#          > awk -f shape.awk -v measures=[patterns] -v fields=[fields] file
+#           > awk -f support/utils.awk -f shape.awk -v measures=[patterns] -v fields=[fields] file
 #
 #       ds:shape is the caller function for the shape.awk script. To run any of the examples 
 #       below, map AWK args as given in SYNOPSIS.
 #
 #       When running with piped data, args are shifted:
 #
-#          $ data_in | ds:shape [patterns] [fields] [chart=t] [chart_size=15ln] [awkargs]
+#           $ data_in | ds:shape [patterns] [fields] [chart=t] [chart_size=15ln] [awkargs]
 #
 # FIELD CONSIDERATIONS
 #       When running ds:shape, an attempt is made to infer field separators of up to
@@ -29,28 +29,26 @@
 #       different FS, assign to vars fs1 and fs2. Be sure to escape and quote if needed. 
 #       AWK's extended regex can be used as FS:
 #
-#          $ ds:shape file searchtext 2,3 t 15 -v fs1=',' -v fs2=':'
+#           $ ds:shape file searchtext 2,3 t 15 -v fs1=',' -v fs2=':'
 #
-#          $ ds:shape file searchtext 2,3 t 15 -v FS=" {2,}"
+#           $ ds:shape file searchtext 2,3 t 15 -v FS=" {2,}"
 #
-#          $ ds:shape file searchtext 2,3 t 15 -F'\\\|'
+#           $ ds:shape file searchtext 2,3 t 15 -F'\\\|'
 #
 #       If FS is set to an empty string, all characters will be separated.
 #
-#          $ ds:shape file searchtext 2,3 t 15 -v FS=""
+#           $ ds:shape file searchtext 2,3 t 15 -v FS=""
 #
 # USAGE
-#   -h  Print this help.
-#
 #       If no patterns or fields are provided, ds:shape will test each line for length,
 #       and generate statistics and a graphic from the findings. If only a single pattern 
 #       is provided, each line will be searched for the pattern.
 #
-#          lines - total lines in source file
-#          lines with [measure] - lines matching pattern or with length
-#          occurrence - total counts of pattern (or chars with length)
-#          average - occurrences / total lines
-#          approx var - crude occurrence variance
+#           lines - total lines in source file
+#           lines with [measure] - lines matching pattern or with length
+#           occurrence - total counts of pattern (or chars with length)
+#           average - occurrences / total lines
+#           approx var - crude occurrence variance
 #
 #       The distribution chart shows gives a representation of the total number of
 #       occurrences per bucket. By default there are 15 buckets - to run with custom 
@@ -68,10 +66,14 @@
 #       Depending on the output space, up to 10 patterns can be displayed per field 
 #       section.
 #
-# AWKARG OPTS
+# OPTS AND AWKARG OPTS
+#       Print this help:
+#
+#           -h
+#
 #       To set a custom pattern for the shape chart, set shape_marker to any string:
 #
-#          -v shape_marker=.
+#           -v shape_marker=.
 #
 #       By default the shape marker pattern is "+".
 #

@@ -13,9 +13,9 @@
 #       limited to rows in that case.
 #
 #       To run the script, ensure AWK is installed and in your path (on most Unix-based 
-#       systems it should be), and call it on a file:
+#       systems it should be), and call it on a file along with utils.awk:
 #
-#          > awk -f reorder.awk -v r=1 -v c=1 file
+#          > awk -f support/utils.awk -f reorder.awk -v r=1 -v c=1 file
 #
 #       r and c refer to row and column order args respectively.
 #
@@ -351,16 +351,14 @@ reo {
             StoreFieldRefs()
         }
     }
+    else if (base_reo && NR in R) {
+        StoreRow(_)
+        if (NF > max_nf) max_nf = NF
+    }
     else {
-        if (base_reo && NR in R) {
-            StoreRow(_)
-            if (NF > max_nf) max_nf = NF
-        }
-        else {
-            StoreRow(_)
-            if (!base_c) StoreFieldRefs()
-            if (!base_r) StoreRowRefs()
-        }
+        StoreRow(_)
+        if (!base_c) StoreFieldRefs()
+        if (!base_r) StoreRowRefs()
     }
 
     if (NF > max_nf) max_nf = NF
