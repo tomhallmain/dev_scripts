@@ -16,6 +16,7 @@
 @@@ds:embrace@@@@@@Enclose a string on each side by args@@@embrace str [left={] [right=}]
 @@@ds:enti@@@@@@Print text entities separated by pattern@@@ds:enti [file] [sep= ] [min=1] [order=a]
 @@@ds:fail@@@@@@Safe failure that kills parent@@@ds:fail [error_message]
+**@@@ds:field_replace@@@@@@Overwrite field val if matches pattern@@@ds:field_replace [file] val_replace_func [key=1] [pattern=]
 **@@@ds:fieldcounts@@@ds:fc@@@Print value counts@@@ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
 @@@ds:filename_str@@@@@@Add string to filename, preserving path@@@ds:filename_str file str [prepend|append|replace] [abs_path=t]
 **@@@ds:fit@@@@@@Fit fielded data in columns with dynamic width@@@ds:fit [-h|file*] [prefield=t] [awkargs]

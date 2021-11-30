@@ -895,6 +895,26 @@ actual="$(echo -e "a b c d e f" | ds:pow 1 f f -v choose=4)"
 [ "$expected" = "$actual" ] || ds:fail 'pow failed choose 4 6-base case'
 
 
+# FIELD_REPLACE TESTS
+
+input='1:2:3:4:
+4:3:2:5:6
+::::
+4:6:2:4'
+expected='11:2:3:4:
+-1:3:2:5:6
+11::::
+-1:6:2:4'
+actual="$(echo "$input" | ds:field_replace 'val > 2 ? -1 : 11')"
+[ "$expected" = "$actual" ] || ds:fail 'field_replace failed only replacement_func case'
+
+expected='1:11:3:4:
+4:-1:2:5:6
+::::
+4:-1:2:4'
+actual="$(echo "$input" | ds:field_replace 'val > 2 ? -1 : 11' 2 '[0-9]')"
+[ "$expected" = "$actual" ] || ds:fail 'field_replace failed all args case'
+
 # PIVOT TESTS
 
 input='1 2 3 4

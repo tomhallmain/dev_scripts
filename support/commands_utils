@@ -24,6 +24,7 @@
 @@@ds:extractfs@@@@@@Infer or extract single awk FS from args@@@ds:extractfs
 @@@ds:fail@@@@@@Safe failure that kills parent@@@ds:fail [error_message]
 @@@ds:fd_check@@@@@@Convert fds into files@@@ds:fd_check testfile
+**@@@ds:field_replace@@@@@@Overwrite field val if matches pattern@@@ds:field_replace [file] val_replace_func [key=1] [pattern=]
 **@@@ds:fieldcounts@@@ds:fc@@@Print value counts@@@ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
 @@@ds:file_check@@@@@@Test for file validity and fail if invalid@@@ds:file_check testfile [check_writable=f] [allow_binary=f] [enable_search]
 @@@ds:filename_str@@@@@@Add string to filename, preserving path@@@ds:filename_str file str [prepend|append|replace] [abs_path=t]

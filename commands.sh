@@ -11,7 +11,7 @@ ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [r
     [ "$utils" ] && local DS_COMMANDS="$DS_SUPPORT/commands_utils" || local DS_COMMANDS="$DS_SUPPORT/commands"
 
     if [ "$re_source" ] || ! ds:test "@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE" "$DS_COMMANDS" t; then
-        grep -h '[[:alnum:]_][[:alnum:]_]()' "$DS_LOC/commands.sh" "$utils" 2>/dev/null | sort \
+        grep -Eh 'ds:[[:alnum:]_]+\(\)' "$DS_LOC/commands.sh" "$utils" 2>/dev/null | sort \
             | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
             | ds:subsep '**' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" \
             | ds:subsep ":[[:space:]]" "888" -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" \
@@ -851,6 +851,29 @@ ds:insert() { # ** Redirect input into a file at lineno or pattern: ds:insert fi
             "$sink" $_source 2>/dev/null
     fi
     rm $_source
+}
+
+ds:field_replace() { # ** Overwrite field val if matches pattern: ds:field_replace [file] val_replace_func [key=1] [pattern=]
+    if ds:pipe_open; then
+        local _file=$(ds:tmp 'ds_field_replace') piped=0
+        cat /dev/stdin > $_file
+    else
+        ds:file_check "$1" t
+        local _file="$1"
+        shift
+    fi
+
+    local replacement_func="$1" key="${2:-1}" pattern="$3"
+    ds:is_int "$key" || ds:fail "Invalid key provided: $key"
+    if [[ "$replacement_func" =~ rand ]]; then
+        local prg="BEGIN{\"date +%s%3N\" | getline date; srand(date)}{n_rand = rand()}"
+    else
+        local prg=""
+    fi
+    local prg="${prg}{if (\$$key ~ \"$pattern\") { val = \$$key; \$$key = $replacement_func }; print}"
+    local fs="$(ds:inferfs "$_file" true)"
+    awk -v FS="$fs" -v OFS="$fs" "$prg" "$_file" | ds:ttyf "$fs"
+    ds:pipe_clean "$_file"
 }
 
 ds:space() { # ** Modify file space or tab counts: ds:space [file] from=$'\t' target=4
