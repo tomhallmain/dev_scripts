@@ -6,7 +6,7 @@
 # Example execution:
 # > awk -v FS="," -f quoted_fields.awk file.csv
 ## TODO: Carriage return character handling
-
+## TODO: Fix keep outer quotes case
 
 BEGIN {
     singlequote = "'"

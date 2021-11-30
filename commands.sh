@@ -346,7 +346,7 @@ ds:pipe_check() { # ** Detect if pipe has data or over [n_lines]: data | ds:pipe
     if [[ -z "$1" || $(! ds:is_int "$1") ]]; then
         test -s $chkfile
     else
-        [ $(cat $chkfile | wc -l) -gt $1 ]
+        [ $(cat $chkfile | wc -l | xargs) -gt $1 ]
     fi
     local has_data=$?; cat $chkfile; rm $chkfile; return $has_data
 }
@@ -962,7 +962,7 @@ ds:join() { # ** Join two datasets with any keyset (alias ds:jn): ds:jn file [fi
         local f1="$1"
         shift
     else
-        ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/join.awk" \
+        ds:test "(^| )(-h|--help)" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/join.awk" \
             | sed -E 's:^#::g' | less && return
         ds:file_check "$1"
         local f1="$(ds:fd_check "$1")"
@@ -1291,10 +1291,10 @@ ds:index() { # ** Attach an index to lines from a file or STDIN (alias ds:i): ds
     if ds:noawkfs; then
         local fs="$(ds:inferfs "$_file" true)"
         awk -v FS="$fs" ${args[@]} -v header="${1:-1}" -v pipeout="$pipe_out" \
-            -f "$DS_SCRIPT/index.awk" "$_file" 2>/dev/null
+            -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/index.awk" "$_file" 2>/dev/null
     else
         awk ${args[@]} -v header="${1:-1}" -v pipeout="$pipe_out" \
-            -f "$DS_SCRIPT/index.awk" "$_file" 2>/dev/null; fi
+            -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/index.awk" "$_file" 2>/dev/null; fi
     ds:pipe_clean $_file
 }
 alias ds:i="ds:index"
@@ -1342,7 +1342,7 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [r
     fi
 
     local stts_bash=${PIPESTATUS[0]} # TODO: Zsh pipestatus not working
-    ds:pipe_clean $file; [ "$pf_off" ] || rm $prefield
+    ds:pipe_clean $_file; [ "$pf_off" ] || rm $prefield
     if [ "$stts_bash" ]; then return $stts_bash; fi
 }
 
@@ -1582,7 +1582,20 @@ ds:newfs() { # ** Convert field separators - i.e. tsv -> csv: ds:newfs [file] [n
 
     [ "$1" ] && local newfs="$1" && shift
     local args=( "$@" ) newfs="${newfs:-,}" prefield=$(ds:tmp "ds_newfs_prefield") fstmp=$(ds:tmp 'ds_extractfs')
-    local program='{for(i=1;i<NF;i++){printf "%s", $i OFS} print $NF}'
+    local program='BEGIN{is_comma_ofs = OFS == ","}
+        {
+            for(i=1;i<=NF;i++) {
+                if (is_comma_ofs && $i ~ OFS && !($i ~ /^[[:space:]]*"/)) { 
+                    gsub("\"", "\"\"", $i)
+                    $i = "\"" $i "\""
+                }
+                printf "%s", $i
+                if (i < NF) {
+                    printf "%s", OFS
+                }
+            }
+            print ""
+        }'
     ds:extractfs > $fstmp
     local fs="$(cat $fstmp; rm $fstmp)"
     ds:prefield "$_file" "$fs" > $prefield
@@ -1772,11 +1785,11 @@ ds:sort() { # ** Sort with inferred field sep of 1 char: ds:sort [unix_sort_args
 ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sortm [file] [keys] [order=a|d] [sort_type] [awkargs]
     # TODO: Default to infer header
     if ds:pipe_open; then
-        local _file=$(ds:tmp 'ds_sortm') piped=0
-        cat /dev/stdin > $_file
+        local file=$(ds:tmp 'ds_sortm') piped=0
+        cat /dev/stdin > $file
     else
         ds:file_check "$1"
-        local _file="$(ds:fd_check "$1")"
+        local file="$(ds:fd_check "$1")"
         shift
     fi
     ! grep -Eq '^-' <(echo "$1") && local keys="$1" && shift
@@ -1786,15 +1799,15 @@ ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sort
     [ "$keys" ] && local args=("${args[@]}" -v k="$keys")
     [ "$ord" ] && local args=("${args[@]}" -v order="$ord")
     [ "$type" ] && local args=("${args[@]}" -v type="$type")
-    
+
     #TODO: Replace with consistent fs logic
     if ds:noawkfs; then
-        local fs="$(ds:inferfs "$_file" f true f f)"
-        awk -v FS="$fs" ${args[@]} -f "$DS_SCRIPT/fields_qsort.awk" "$_file" 2>/dev/null
+        local fs="$(ds:inferfs "$file" f true f f)"
+        awk -v FS="$fs" ${args[@]} -f "$DS_SCRIPT/fields_qsort.awk" "$file" 2>/dev/null
     else
-        awk ${args[@]} -f "$DS_SCRIPT/fields_qsort.awk" "$_file" 2>/dev/null
+        awk ${args[@]} -f "$DS_SCRIPT/fields_qsort.awk" "$file" 2>/dev/null
     fi
-    ds:pipe_clean $_file
+    ds:pipe_clean $file
 }
 alias ds:s="ds:sortm"
 
@@ -1815,16 +1828,17 @@ ds:srg() { # Scope grep to files that contain a match: ds:srg scope_pattern sear
     :
 }
 
-ds:recent() { # List files modified recently: ds:recent [dir=.] [days=7] [recurse=f] [hidden=f]
+ds:recent() { # List files modified recently: ds:recent [dir=.] [days=7] [recurse=f] [hidden=f] [only_files=f]
     if [ "$1" ]; then
         local dirname="$(echo "$1")"
         [ ! -d "$dirname" ] && echo Unable to verify directory provided! && return 1
     fi
 
-    local dirname="${dirname:-$PWD}" days="$2" recurse="$3" hidden="$4" datefilter
+    local dirname="${dirname:-$PWD}" days="$2" recurse="$3" hidden="$4" only_files="$5" datefilter
     ds:nset 'fd' && local FD=1
     [ "$days" ] && ds:is_int "$days" || let local days=7
     [ "$recurse" ] && ds:test '(r(ecurse)?|t(rue)?)' "$recurse" || unset recurse
+    [ "$only_files" ] && ds:test 't(rue)?' "$only_files" || unset only_files
     [ "$(ls --time-style=%D 2>/dev/null)" ] || local bsd=1
     local prg='{for(f=1;f<NF;f++){printf "%s ", $f;if($f~"^[0-3][0-9]/[0-3][0-9]/[0-9][0-9]$")printf "\""};print $NF "\""}'
 
@@ -1837,23 +1851,43 @@ ds:recent() { # List files modified recently: ds:recent [dir=.] [days=7] [recurs
         local notfound="No non-hidden files found modified in the last $days days!"
     fi
 
-    if [ "$recurse" ]; then
+    [ "$FD" ] && local fd_hyphen="-" || local fd_hyphen=""
+
+    if [[ "$recurse" || "$only_files" ]]; then
         if [ "$bsd" ]; then
-            local cmd_exec=(-exec stat -l -t "%D" \{\}) sortf=5
+            local sortf=5
+            [ ! "$only_files" ] && local cmd_exec=("$fd_hyphen"-exec stat -l -t "%D" \{\})
         else
-            local cmd_exec=(-exec ls -ghtG --time-style=+%D \{\}) sortf=4
+            local sortf=4
+            [ ! "$only_files" ] && local cmd_exec=("$fd_hyphen"-exec ls -ghtG --time-style=+%D \{\})
+        fi
+
+        if [[ "$only_files" && ! "$recurse" ]]; then
+            local max_depth=("$fd_hyphen"-maxdepth 1) || local max_depth=""
         fi
 
         (
             if [ $FD ]; then
-                fd -t f --changed-within="${days}days" $hidden -E ~"/Library" \
-                    -${cmd_exec[@]} 2> /dev/null \; ".*" "$dirname"
+                if [ "$only_files" ]; then
+                    fd -t f --changed-within="${days}days" $hidden -E ~"/Library" \
+                        ${max_depth[@]} ".*" "$dirname"
+                else
+                    fd -t f --changed-within="${days}days" $hidden -E ~"/Library" \
+                        ${max_depth[@]} ${cmd_exec[@]} 2> /dev/null \; ".*" "$dirname"
+                fi
             else
-                find "$dirname" -type f -maxdepth 6 $hidden -not -path ~"/Library" \
-                    -mtime -${days}d ${cmd_exec[@]} 2> /dev/null
+                if [ "$only_files" ]; then
+                    find "$dirname" -type f ${max_depth[@]} $hidden \
+                        -not -path ~"/Library" -mtime -${days}d
+                else
+                    find "$dirname" -type f ${max_depth[@]} $hidden -not -path ~"/Library" \
+                        -mtime -${days}d ${cmd_exec[@]} 2> /dev/null
+                fi
             fi
-        ) | sed "s:\\$(echo -n "$dirname")\/::" | awk "$prg" | sort -k$sortf \
-            | ds:fit -v FS=" +" -v color=never | ds:pipe_check
+        ) | ( [ "$only_files" ] && cat || awk "$prg" ) \
+            | sort -V -k$sortf \
+            | ( [ "$only_files" ] && cat || ds:fit -v FS=" +" -v color=never ) \
+            | ds:pipe_check
     else
         let local days-=1
 
@@ -1869,9 +1903,10 @@ ds:recent() { # List files modified recently: ds:recent [dir=.] [days=7] [recurs
 
         ([ "$bsd" ] && stat -l -t "%D" "$dirname"/* \
             || ls -ghtG$hidden --time-style=+%D "$dirname" \
-        ) | grep -v '^d' | grep ${dates[@]} | awk "$prg" | ds:fit -v FS=" +" -v color=never | ds:pipe_check
+        ) | grep -v '^d' | grep ${dates[@]} | awk "$prg" \
+            | ds:fit -v FS=" +" -v color=never | ds:pipe_check
     fi
-    
+
     [ $? = 0 ] || (echo "$notfound" && return 1)
 }
 

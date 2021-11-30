@@ -27,7 +27,7 @@ test_base="##BASICS TESTS , "
 case "$tests" in
     inferfs)  test_context="IFS TESTS##JOIN TESTS"     ;;
     join)     test_context="JOIN TESTS##SORT TESTS"    ;;
-    sort)     test_context="SORT TESTS##PREFIELD"      ;;
+    sort)     test_context="SORT TESTS##PREFIELD TESTS" ;;
     prefield) test_context="PREFIELD TESTS##REO TESTS" ;;
     reo)      test_context="REO TESTS##FIT TESTS"      ;;
     fit)      test_context="FIT TESTS##FC TESTS"       ;;

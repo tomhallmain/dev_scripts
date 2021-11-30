@@ -6,16 +6,33 @@
 # Example sorting with custom FS on field 3 then 2 in descending order:
 # > awk -F||| -f fields_qsort.awk -v k=3,2 -v order=d file
 #
-# TODO: Multikey numeric sort
-# TODO: Float tests
+## TODO: Multikey numeric sort
+## TODO: Float tests
+## TODO: Manpage
 
 BEGIN {
-    if (k)
-        split(k, Keys, /[[:punct:]]+/)
-    else
-        Keys[1] = 0
+    n_keys = 0
+    
+    if (k) {
+        n_keys = split(k, Keys, /,+/)
+        
+        for (i = 1; i <= n_keys; i++) {
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", Keys[i])
+            key = Keys[i]
 
-    n_keys = length(Keys)
+            if (length(key) == 0) {
+                continue
+            }
+            else if (!gen_keys && !(key == "NF") && (!(key ~ /^[0-9]+$/) || length(key) > 3)) {
+                gen_keys = 1
+            }
+        }
+    }
+    else {
+        Keys[1] = 0
+        n_keys = 1
+    }
+
     desc = (order && "desc" ~ "^"order)
 
     if (type && "numeric" ~ "^"type) {
@@ -23,31 +40,110 @@ BEGIN {
         n_re = "^[[:space:]]*\\$?[[:space:]]?-?\\$?([0-9]{,3},)*[0-9]*\\.?[0-9]+"
         f_re = "^[[:space:]]*-?[0-9]\.[0-9]+(E|e)(\\+|-)?[0-9]+[[:space:]]*$"
     }
+
+    err = 0
+
+    if (header) {
+        header_unset = 1
+    }
+
+    sort_nr = 0
+}
+
+$0 ~ /^[[:space:]]*$/ {
+    next
+}
+
+header_unset || gen_keys {
+    if (gen_keys) {
+        gen_keys = 0
+
+        for (i = 1; i <= n_keys; i++) {
+            key_pattern = Keys[i]
+            
+            if (key_pattern == "NF") {
+                continue
+            }
+            
+            key_found = 0
+
+            if (!case_sensitive) {
+                key_pattern = tolower(key_pattern)
+            }
+
+            for (f = 1; f <= NF; f++) {
+                field = case_sensitive ? $f : tolower($f)
+            
+                if (field ~ "^(\"|')*"key_pattern) {
+                    Keys[i] = f
+                    key_found = 1
+                    break
+                }
+            }
+
+            if (!key_found) {
+                n_keys--
+                delete Keys[i]
+            }
+        }
+
+        if (n_keys < 1) {
+            "No key patterns provided matched header"
+            err = 1
+            exit
+        }
+    }
+    
+    if (header_unset) {
+        header_unset = 0
+    }
+    
+    header = $0
+    next
 }
 
 {
+    sort_key = ""
+    has_started_sort_key = 0
+
     for (i = 1; i <= n_keys; i++) {
         kf = Keys[i]
-        if (kf == "NF") kf = NF
-        sort_key = i == 1 ? sort_key = $kf : sort_key FS $kf
+        
+        if (!kf) continue
+        else if (kf < 0) kf = NF + kf
+        else if (kf == "NF") kf = NF
+        
+        sort_key = has_started_sort_key ? sort_key FS $kf : $kf
+        
+        if (!has_started_sort_key) {
+            has_started_sort_key = 1
+        }
     }
 
-    A[NR] = sort_key
-    _[NR] = $0
+    sort_nr++
+    A[sort_nr] = sort_key
+    _[sort_nr] = $0
 }
 
 END {
+    if (err) exit err
+    
     if (n) {
-        if (desc) QSDN(A, 1, NR)
-        else      QSAN(A, 1, NR)
+        if (desc) QSDN(A, 1, sort_nr)
+        else      QSAN(A, 1, sort_nr)
     }
     else {
-        if (desc) QSD(A, 1, NR)
-        else      QSA(A, 1, NR)
+        if (desc) QSD(A, 1, sort_nr)
+        else      QSA(A, 1, sort_nr)
     }
 
-    for (i = 1; i <= NR; i++)
+    if (header) {
+        print header
+    }
+
+    for (i = 1; i <= sort_nr; i++) {
         print _[i]
+    }
 }
 
 function QSA(A,left,right,    i,last) {

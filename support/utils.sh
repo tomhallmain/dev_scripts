@@ -1,5 +1,4 @@
 #!/bin/bash
-# TODO: commands tests for these
 
 DS_SEP=$'@@@'
 

@@ -70,8 +70,8 @@
 #
 #        Specific:  [agg_operator]|[field_or_numberval][agg_operator][field_or_numberval]..
 #
-#          $1+3      -- sum number values at cross index two and 3 (literal)
-#          $1+$3     -- sum number values at cross indices two and three
+#          $1+3      -- sum number values at cross index one and 3 (literal)
+#          $1+$3     -- sum number values at cross indices one and three
 #          pork+bean -- sum number values at cross indices with header matching "pork"
 #                         and cross indices with header matching "bean"
 #
@@ -203,7 +203,7 @@ BEGIN {
     header_unset = 1
 }
 
-$0 ~ /^[[:space:]]+*$/ {
+$0 ~ /^[[:space:]]*$/ {
     next
 }
 
@@ -357,7 +357,6 @@ END {
                     aggregation = RowAggResult[agg, i]
                     if (MeanAgg[agg]) {
                         aggregation /= RowAggCounts[agg, i]
-                        #print RowAggCounts[agg, i]
                     }
                     print_str = aggregation
                 }

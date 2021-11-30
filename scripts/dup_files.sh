@@ -36,7 +36,7 @@ echo -e "\n Gathering checksum data... \n"
 # Limit search to only files of same extension type by default
 
 if [[ "$of_file" && ! $all_files ]]; then
-    # pv provids a way to view the status and probable completion time of a process
+    # pv provides a way to view the status and probable completion time of a process
     if [ $PV ]; then
         if [ $FD ]; then
             fd . "$source_folder" -H --type f -e "$of_file_extension" --exec md5sum "{}" \; \

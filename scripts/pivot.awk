@@ -222,7 +222,7 @@ BEGIN {
     header_unset = 1
 }
 
-$0 ~ /^[[:space:]]+*$/ {
+$0 ~ /^[[:space:]]*$/ {
     next
 }
 

@@ -238,6 +238,8 @@ expected='a,b,c,d
 1,2,2,'
 actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 outer merge -v bias_merge_keys=4 -v full_bias=1 -v null_off=1)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 3-join bias merge full_bias null_off case'
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 outer merge -v bias_merge_exclude_keys=1,2,3 -v full_bias=1 -v null_off=1)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 3-join bias merge exclude keys full_bias null_off case'
 
 rm /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 /tmp/ds_join_test4
 
@@ -278,7 +280,7 @@ f e c b a
 e d c b a'
 [ "$(echo "$input" | ds:sortm -v k=5,1 -v order=d)" = "$output" ] || ds:fail 'sortm failed awkargs case'
 
-input="1\nj\n98\n47\n9\n05\nj2\n9ju\n9\n9d" 
+input="1\nJ\n98\n47\n9\n05\nj2\n9ju\n9\n9d" 
 output='1
 05
 9
@@ -287,9 +289,24 @@ output='1
 9ju
 47
 98
-j
+J
 j2'
 [ "$(echo -e "$input" | ds:sortm 1 a n)" = "$output" ] || ds:fail 'sortm failed numeric sort case'
+
+input='Test Header 1,Test Header 2,Header,Test
+3,88,h,3
+,5,Eq,:
+,,,
+
+,a,1,
+Yh,4304,45900,H'
+output='Test Header 1,Test Header 2,Header,Test
+,,,
+,5,Eq,:
+3,88,h,3
+Yh,4304,45900,H
+,a,1,'
+[ "$(echo -e "$input" | ds:sortm "Test.Header.2,Header,Test" a n)" = "$output" ] || ds:fail 'sortm failed numeric sort gen keys case'
 
 # PREFIELD TESTS
 
@@ -1355,9 +1372,9 @@ user::2:58PM 4308104
 user::1:40PM 8919832
 user::1:33PM 55511336'
 actual="$(ds:agg tests/data/ps_aux 0 'mean|5|1..2' | ds:decap 1 | sed -E 's/[[:space:]]+$//g' | awk '{gsub("\034","");print}')"
-[ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg range field case'
+[ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg range field mean case'
 actual="$(ds:agg $tmp 'mean|5|1..2' | ds:decap 1 | sed -E 's/[[:space:]]+$//g' | awk '{gsub("\034","");print}')"
-[ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg range row case'
+[ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg range row mean case'
 
 
 # CASE TESTS

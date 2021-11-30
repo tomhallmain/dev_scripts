@@ -121,6 +121,10 @@
 #
 #          -v bias_merge_keys={keys}
 #
+#       Merge with a bias on all keys except for keys in bias_merge_exclude_keys:
+#
+#          -v bias_merge_exclude_keys={keys}
+#
 #       Override null overwrite default behavior in bias merges to preserve nulls from the 
 #       right join:
 #
@@ -212,8 +216,30 @@ BEGIN {
                 full_bias = 1
             }
         }
-        else {
-            full_bias = 0
+
+        if (bias_merge_exclude_keys) {
+            bias_merge = 1
+            gen_bias_merge_keys_from_exclusion = 1
+            split(bias_merge_exclude_keys, _BiasMergeExcludeKeys, ",")
+
+            for (key_index in _BiasMergeExcludeKeys) {
+                key = _BiasMergeExcludeKeys[key_index]
+
+                if (!(key ~ /^[0-9]+$/)) {
+                    print "Bias merge exclude keys must be integers, found key: " key
+                    exit 1
+                }
+
+                if (key in BiasMergeKeys) {
+                    delete BiasMergeKeys[key]
+                }
+
+                BiasMergeExcludeKeys[key] = 1
+            }
+
+            if (full_bias) {
+                full_bias = 1
+            }
         }
     }
     else {
@@ -294,7 +320,7 @@ FNR < 2 {
     header_unset = 1
 }
 
-$0 ~ /^[[:space:]]+*$/ {
+$0 ~ /^[[:space:]]*$/ {
     next
 }
 
@@ -507,6 +533,11 @@ function GenKeys(file2_call, nf, K1, K2, GenKeySet) {
 function GenMergeKeys(nf, K1, K2) {
     for (f = 1; f <= nf; f++) {
         if (f in BiasMergeKeys) {
+            continue
+        }
+        else if (gen_bias_merge_keys_from_exclusion \
+            && !(f in BiasMergeExcludeKeys)) {
+            BiasMergeKeys[f] = f
             continue
         }
 

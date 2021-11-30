@@ -11,6 +11,13 @@ BEGIN {
         FS = " "
         space_fs = 1
     }
+    else if (FS ~ /^\\ /) {
+        FS = "  "
+        space_fs = 1
+    }
+    else {
+        FS = Escape(FS);
+    }
 
     space = space_fs && !pipeout
     start_mod = header - 1

@@ -87,7 +87,7 @@
 **@@@ds:random@@@@@@Generate a random number 0-1 or randomize text@@@ds:random [number|text]
 @@@ds:readlink@@@@@@Portable readlink@@@ds:readlink [file|dir]
 @@@ds:readp@@@@@@Portable read prompt@@@ds:readp [message] [downcase=t]
-@@@ds:recent@@@@@@List files modified recently@@@ds:recent [dir=.] [days=7] [recurse=f] [hidden=f]
+@@@ds:recent@@@@@@List files modified recently@@@ds:recent [dir=.] [days=7] [recurse=f] [hidden=f] [only_files=f]
 **@@@ds:reo@@@@@@Reorder/repeat/slice data by rows and cols@@@ds:reo [-h|file*] [rows] [cols] [prefield=t] [awkargs]
 **@@@ds:rev@@@@@@Reverse lines from standard input@@@data | ds:rev
 @@@ds:searchn@@@@@@Search shell environment names@@@ds:searchn name
