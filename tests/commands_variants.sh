@@ -37,7 +37,8 @@ case "$tests" in
     substr)   test_context="~substr"                   ;;
     pow)      test_context="POW TESTS##PVT TESTS"      ;;
     pivot)    test_context="PIVOT TESTS##AGG TESTS"    ;;
-    agg)      test_context="AGG TESTS##CASE TESTS"     ;;
+    agg)      test_context="AGG TESTS##DIFF_FIELDS"    ;;
+    diff_f)   test_context="DIFF_FIELDS TESTS##CASE TESTS"  ;;
     case)     test_context="CASE TESTS##GRAPH"         ;;
     graph)    test_context="GRAPH TESTS##SHAPE TESTS"  ;;
     shape)    test_context="SHAPE TESTS##ASSORTED"     ;;

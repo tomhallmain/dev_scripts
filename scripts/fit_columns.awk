@@ -182,7 +182,7 @@ BEGIN {
 }
 
 
-# Reconcile lengths with term width after first pass
+## Reconcile lengths with term width after first pass
 
 FNR < 2 && NR > FNR {
     for (i = 1; i <= max_nf; i++) {
@@ -285,7 +285,7 @@ $0 ~ /No matches found/ {
     exit
 }
 
-# First pass, gather field info
+## First pass, gather field info
 
 NR == FNR {
     fitrows++
@@ -574,7 +574,7 @@ NR == FNR {
 }
 
 
-# Second pass, print formatted if applicable
+## Second pass, print formatted if applicable
 
 NR > FNR {
     gsub(/\015$/, "") # TODO: Move to prefield

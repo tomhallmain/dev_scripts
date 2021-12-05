@@ -183,7 +183,7 @@ BEGIN {
             }
             if (!right_label) {
                 right_label = (file_labels ? ARGV[2] : "FILE2")
-                right_label = piped ? "PIPEDDATA" : right_label
+                right_label = piped ? "PIPEDATA" : right_label
             }
             if (!inner_label) {
                 inner_label = "BOTH"

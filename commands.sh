@@ -40,6 +40,7 @@ ds:help() { # Print help for a given command: ds:help ds_command
     [[ "$1" =~ ':shape' ]] && ds:shape -h && return
     [[ "$1" =~ ':subsep' ]] && ds:subsep -h && return
     [[ "$1" =~ ':pivot' ]] && ds:pivot -h && return
+    [[ "$1" =~ ':diff_fields' ]] && ds:diff_fields -h && return
     ds:commands "" t | ds:reo "2, 2~$1 || 3~$1" "2[$1~. || 3[$1~."
 }
 
@@ -977,7 +978,140 @@ ds:shape() { # ** Print data shape by length or pattern: ds:shape [-h|file*] [pa
     ds:pipe_clean $_file
 }
 
-ds:join() { # ** Join two datasets with any keyset (alias ds:jn): ds:jn file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
+ds:diff_fields() { # ** Get elementwise diff of two datasets (alias ds:df): ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]
+    if ds:pipe_open; then
+        local f2=$(ds:tmp 'ds_diff_fields') piped=1
+        cat /dev/stdin > $f2
+        ds:file_check "$1"
+        local f1="$1"
+        shift
+    else
+        ds:test "(^| )(-h|--help)" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/diff_fields.awk" \
+            | sed -E 's:^#::g' | less && return
+        ds:file_check "$1"
+        local f1="$(ds:fd_check "$1")"
+        shift
+        ds:file_check "$1"
+        local f2="$(ds:fd_check "$1")"
+        shift
+    fi
+
+    local arr_base=$(ds:arr_base)
+
+    if [ -f "$1" ]; then
+        local ext_tmp=$(ds:tmp 'ds_diff_fields_ext') ext_jnf=("$f1" "$f2")
+        while [ -f "$1" ]; do
+            local ext_jnf=(${ext_jnf[@]} "$1")
+            shift
+        done
+        let local ext_f=${#ext_jnf[@]}-1+$arr_base
+    fi
+
+    if [ "$1" ]; then
+        if [ "$1" = '-' ]; then
+            local op="$1" && shift
+        else
+            ds:test '^[\+\-\%\/\*]$' "$1" && local op="$1" && shift
+        fi
+    else
+        local op="-"
+    fi
+
+    if [ "$1" ] && ! ds:test '^-' "$1"; then
+        local exclude_fields="${1:-0}" && shift
+    else
+        local exclude_fields=0
+    fi
+    
+    local args=( "$@" -v "exclude_fields=$exclude_fields" )
+    [ "$op" ] && local args=("${args[@]}" -v "op=$op")
+
+    if ds:noawkfs; then
+        local fs1="$(ds:inferfs "$f1" true)" fs2="$(ds:inferfs "$f2" true)"
+    else
+        local fs_i="$(ds:arr_idx '^FS=' ${args[@]})"
+        if [ "$fs_i" = "" ]; then
+            local fs_i="$(ds:arr_idx '^-F' ${args[@]})"
+            if [ "$fs_i" ]; then
+                local fs1="$(echo "${args[$fs_i]}" | tr -d '\-F')"
+            fi
+        else
+            local fs1="$(echo "${args[$fs_i]}" | tr -d 'FS=')"
+            let local fsv_i=$fs_i-1
+            unset "args[$fsv_i]"
+        fi
+        [ "$fs_i" ] && unset "args[$fs_i]"
+        if ! ds:noawkfs; then
+            local fs1_i="$(ds:arr_idx '^fs1=' ${args[@]})"
+            local fs2_i="$(ds:arr_idx '^fs2=' ${args[@]})"
+            if [ "$fs1_i" ]; then
+                echo $fs1_i ${args[$fs1_i]}
+                local fs1="$(echo "${args[$fs1_i]}" | tr -d 'fs1=')"
+                unset "args[$fs1_i]"
+                let local fs1v_i=$fs1_i-1
+                [ "$fs1v_i" ] && unset "args[$fs1v_i]"
+            fi
+            if [ "$fs2_i" ]; then
+                local fs2="$(echo "${args[$fs2_i]}" | tr -d 'fs2=')"
+                unset "args[$fs2_i]"
+                let local fs2v_i=$fs2_i-1
+                [ "$fs2v_i" ] && unset "args[$fs2v_i]"
+            fi
+        fi
+    fi
+    [ ! "$fs2" ] && local fs2="$fs1"
+
+    if ds:test 't(rue)?' "$args[$arr_base]"; then
+        local pf1=$(ds:tmp "ds_diff_field_prefield1") pf2=$(ds:tmp "ds_diff_field_prefield2")
+        ds:prefield "$f1" "$fs1" > $pf1
+        ds:prefield "$f2" "$fs2" > $pf2
+
+        if [ "$ext_f" ]; then
+            let local file_anc=$arr_base+1
+            while [ "$ext_f" -ge "$file_anc" ]
+            do
+              let local file_anc+=1
+              awk -v FS="$DS_SEP" -v OFS="$fs1" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+                  -f "$DS_SCRIPT/diff_fields.awk" $pf1 $pf2 2>/dev/null > $ext_tmp
+              ds:prefield "$ext_tmp" "$fs1" > $pf1
+              ds:prefield "${ext_jnf[$file_anc]}" "$fs1" > $pf2
+            done
+            cat $ext_tmp | ds:ttyf "$fs1"; rm $ext_tmp; unset "ext_f"
+        else
+            awk -v FS="$DS_SEP" -v OFS="$fs1" -v left_label="$f1" -v right_label="$f2" \
+                -v piped=$piped ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+                -f "$DS_SCRIPT/diff_fields.awk" $pf1 $pf2 2>/dev/null \
+                | ds:ttyf "$fs1"
+        fi
+    else
+        ! ds:test '(-|=)' "${args[$arr_base]}" && local args=("${args[@]:1}")
+        if [ "$ext_f" ]; then
+            let local file_anc=$arr_base+1
+            local ext_tmp1=$(ds:tmp 'ds_diff_fields_ext1')
+            awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+                -f "$DS_SCRIPT/diff_fields.awk" "$f1" "$f2" 2>/dev/null > $ext_tmp1
+            while [ "$ext_f" -gt "$file_anc" ]
+            do
+                let local file_anc+=1
+                awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" ${args[@]} \
+                    -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/diff_fields.awk" \
+                    $ext_tmp1 "${ext_jnf[$file_anc]}" 2>/dev/null > $ext_tmp
+                cat $ext_tmp > $ext_tmp1
+            done
+            cat $ext_tmp | ds:ttyf "$fs1"; rm $ext_tmp $ext_tmp1; unset "ext_f"
+        else
+            awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" -v piped=$piped ${args[@]} \
+                -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/diff_fields.awk" "$f1" "$f2" \
+                2>/dev/null | ds:ttyf "$fs1"
+        fi
+    fi
+
+    ds:pipe_clean $f2
+    if [ "$pf1" ]; then rm $pf1 $pf2; fi
+}
+alias ds:df="ds:diff_fields"
+
+ds:join() { # ** Join two datasets with any keyset (alias ds:jn): ds:join file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
     if ds:pipe_open; then
         local f2=$(ds:tmp 'ds_jn') piped=1
         cat /dev/stdin > $f2
@@ -1090,15 +1224,16 @@ ds:join() { # ** Join two datasets with any keyset (alias ds:jn): ds:jn file [fi
             while [ "$ext_f" -ge "$file_anc" ]
             do
               let local file_anc+=1
-              awk -v FS="$DS_SEP" -v OFS="$fs1" ${args[@]} -f "$DS_SCRIPT/join.awk" \
-                  $pf1 $pf2 2>/dev/null > $ext_tmp
+              awk -v FS="$DS_SEP" -v OFS="$fs1" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+                  -f "$DS_SCRIPT/join.awk" $pf1 $pf2 2>/dev/null > $ext_tmp
               ds:prefield "$ext_tmp" "$fs1" > $pf1
               ds:prefield "${ext_jnf[$file_anc]}" "$fs1" > $pf2
             done
             cat $ext_tmp | ds:ttyf "$fs1"; rm $ext_tmp; unset "ext_f"
         else
             awk -v FS="$DS_SEP" -v OFS="$fs1" -v left_label="$f1" -v right_label="$f2" \
-                -v piped=$piped ${args[@]} -f "$DS_SCRIPT/join.awk" $pf1 $pf2 2>/dev/null \
+                -v piped=$piped ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+                -f "$DS_SCRIPT/join.awk" $pf1 $pf2 2>/dev/null \
                 | ds:ttyf "$fs1"
         fi
     else
@@ -1631,7 +1766,7 @@ ds:hist() { # ** Print histograms for all number fields in data: ds:hist [file] 
         local _file=$(ds:tmp 'ds_hist') piped=0
         cat /dev/stdin > $_file
     else
-        local tmp=$(ds:tmp 'ds:hist')
+        local tmp=$(ds:tmp 'ds_hist')
         ds:file_check "$1" f f t > $tmp
         local _file="$(ds:fd_check "$(cat $tmp; rm $tmp)")"
         shift
@@ -1861,16 +1996,17 @@ ds:recent() { # List files modified recently: ds:recent [dir=.] [days=7] [recurs
     ds:nset 'fd' && local FD=1
     [ "$days" ] && ds:is_int "$days" || let local days=7
     [ "$recurse" ] && ds:test '(r(ecurse)?|t(rue)?)' "$recurse" || unset recurse
+    [ "$hidden" ] && ds:test 't(rue)?' "$hidden" || unset hidden
     [ "$only_files" ] && ds:test 't(rue)?' "$only_files" || unset only_files
     [ "$(ls --time-style=%D 2>/dev/null)" ] || local bsd=1
     local prg='{for(f=1;f<NF;f++){printf "%s ", $f;if($f~"^[0-3][0-9]/[0-3][0-9]/[0-9][0-9]$")printf "\""};print $NF "\""}'
 
     if [ "$hidden" ]; then
-        [ $FD ] && [ "$recurse" ] && local hidden=-HI #fd hides by default
-        [ -z "$recurse" ] && local hidden='A'
+        [ $FD ] && [[ "$recurse" || "$only_files" ]] && local hidden=-HI #fd hides by default
+        [[ -z "$recurse" && -z "$only_files" ]] && local hidden='A'
         local notfound="No files found modified in the last $days days!"
     else
-        [ ! $FD ] && [ "$recurse" ] && local hidden="-not -path '*/\.*'" # find includes all by default
+        [ ! $FD ] && [[ "$recurse" || "$only_files" ]] && local hidden="-not -path '*/\.*'" # find includes all by default
         local notfound="No non-hidden files found modified in the last $days days!"
     fi
 

@@ -16,6 +16,7 @@
 @@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=(FUNC|ALIAS)] [caller] [ndata]
 @@@ds:die@@@@@@Output to STDERR and exit with error@@@ds:die
 **@@@ds:diff@@@@@@Diff shortcut for an easier to read view@@@ds:diff file1 [file2] [suppress_common] [color=t]
+**@@@ds:diff_fields@@@ds:df@@@Get elementwise diff of two datasets@@@ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]
 **@@@ds:dostounix@@@@@@Remove ^M / CR characters in place@@@ds:dostounix [file*]
 **@@@ds:dup_input@@@@@@Duplicate standard input in aggregate@@@data | ds:dup_input
 @@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir] [confirm=f] [of_file] [try_nonmatch_ext=f]
@@ -60,7 +61,7 @@
 @@@ds:is_int@@@@@@Tests if arg is an integer@@@ds:is_int arg
 @@@ds:iter@@@@@@Repeat a string@@@ds:iter str [n=1] [fs]
 @@@ds:jira@@@@@@Open Jira at specified workspace issue / search@@@ds:jira workspace_subdomain [issue|query]
-**@@@ds:join@@@ds:jn@@@Join two datasets with any keyset@@@ds:jn file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
+**@@@ds:join@@@ds:jn@@@Join two datasets with any keyset@@@ds:join file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
 **@@@ds:join_by@@@@@@Join a shell array by given delimiter@@@ds:join_by delimiter [join_array]
 **@@@ds:line@@@@@@Execute commands on var line@@@ds:line [seed_cmds] line_cmds [IFS=\n]
 @@@ds:longopts@@@@@@Extract long opts - https://stackoverflow.com/a/28466267/519360@@@ds:longopts opt [optarg]
