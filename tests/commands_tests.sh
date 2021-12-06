@@ -10,6 +10,8 @@ test_var=1
 tmp=/tmp/ds_commands_tests
 q=/dev/null
 shell="$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')"
+cmds="support/commands"
+test_cmds="tests/data/commands"
 png='assets/gcv_ex.png'
 jnf1="tests/data/infer_join_fields_test1.csv"
 jnf2="tests/data/infer_join_fields_test2.csv"
@@ -41,6 +43,8 @@ floats="tests/data/floats_test"
 inferfs_chunks="tests/data/inferfs_chunks_test"
 emoji="tests/data/emoji"
 emojifit="tests/data/emojifit"
+emoji_fit_gridlines="tests/data/emoji_fit_gridlines"
+commands_fit_gridlines="tests/data/commands_shrink_fit_gridlines"
 number_comma_format="tests/data/number_comma_format"
 
 if [[ $shell =~ 'bash' ]]; then
@@ -65,8 +69,6 @@ fi
 
 [[ $(ds:sh | grep -c "") = 1 && $(ds:sh) =~ sh ]]    || ds:fail 'sh command failed'
 
-cmds="support/commands"
-test_cmds="tests/data/commands"
 ch="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
 ds:commands "" "" 0 > $q
 cmp --silent $cmds $test_cmds && grep -q "$ch" $cmds || ds:fail 'commands listing failed'
@@ -605,6 +607,20 @@ expected="Index  Item                              Cost   Tax  Total
     9  Bertoli Alfredo Sauce             2.12  0.16   2.28"
 [ "$(ds:fit $complex_csv5 -v color=never | head)" = "$expected" ] || ds:fail 'fit failed spaced quoted field case'
 
+expected="┌─────┬─────────────────────────────────┬───────┬──────┬───────┐
+│Index│  Item                           │   Cost│   Tax│  Total│
+├─────┼─────────────────────────────────┼───────┼──────┼───────┤
+│    1│  Fruit of the Loom Girl's Socks │   7.97│  0.60│   8.57│
+├─────┼─────────────────────────────────┼───────┼──────┼───────┤
+│    2│  Rawlings Little League Baseball│   2.97│  0.22│   3.19│
+├─────┼─────────────────────────────────┼───────┼──────┼───────┤
+│    3│  Secret Antiperspirant          │   1.29│  0.10│   1.39│
+├─────┼─────────────────────────────────┼───────┼──────┼───────┤
+│    4│  Deadpool DVD                   │  14.96│  1.12│  16.08│
+└─────┴─────────────────────────────────┴───────┴──────┴───────┘"
+actual="$(head -n5 tests/data/taxables.csv | ds:fit -v gridlines=1 -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed README case'
+
 input='# Test comment 1
 1,2,3,4,5,100
 a,b,c,d,e,f
@@ -663,6 +679,65 @@ g,h,i,j,k,l,m,f,o
 actual="$(echo -e "$input" | ds:fit -F, -v nofit='(^1|^#|^//|o$)' -v color=never | sed -E 's/[[:space:]]+$//g')"
 [ "$expected" = "$actual" ] || ds:fail 'fit failed nofit case'
 
+expected="# Test comment 1
+┌─┬───┬───┬───┬───┬─────┬───┬───┬───┐
+│1│  2│  3│  4│  5│  100│   │   │   │
+├─┼───┼───┼───┼───┼─────┼───┼───┼───┤
+│a│  b│  c│  d│  e│  f  │   │   │   │
+├─┼───┼───┼───┼───┼─────┼───┼───┼───┤
+│g│  h│  i│  j│  k│  l  │  m│  f│  o│
+├─┼───┼───┼───┼───┼─────┼───┼───┼───┤
+│ │   │  2│  3│  5│  1  │   │   │   │
+└─┴───┴───┴───┴───┴─────┴───┴───┴───┘
+# Test comment 2
+// Diff style comment"
+actual="$(echo -e "$input" | ds:fit -F, -v startrow=2 -v endrow=5 -v color=never -v gridlines=1 | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed startrow endrow gridlines case'
+
+expected="# Test comment 1
+┌─────────────────────┬───┬───┬───┬───┬─────┬───┬───┬───┐
+│1                    │  2│  3│  4│  5│  100│   │   │   │
+├─────────────────────┼───┼───┼───┼───┼─────┼───┼───┼───┤
+│a                    │  b│  c│  d│  e│  f  │   │   │   │
+├─────────────────────┼───┼───┼───┼───┼─────┼───┼───┼───┤
+│g                    │  h│  i│  j│  k│  l  │  m│  f│  o│
+├─────────────────────┼───┼───┼───┼───┼─────┼───┼───┼───┤
+│                     │   │  2│  3│  5│  1  │   │   │   │
+├─────────────────────┼───┼───┼───┼───┼─────┼───┼───┼───┤
+│# Test comment 2     │   │   │   │   │     │   │   │   │
+├─────────────────────┼───┼───┼───┼───┼─────┼───┼───┼───┤
+│// Diff style comment│   │   │   │   │     │   │   │   │
+└─────────────────────┴───┴───┴───┴───┴─────┴───┴───┴───┘"
+actual="$(echo -e "$input" | ds:fit -F, -v startrow=2 -v color=never -v gridlines=1 | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed startrow only gridlines case'
+
+expected="┌────────────────┬───┬───┬───┬───┬─────┐
+│# Test comment 1│   │   │   │   │     │
+├────────────────┼───┼───┼───┼───┼─────┤
+│1               │  2│  3│  4│  5│  100│
+├────────────────┼───┼───┼───┼───┼─────┤
+│a               │  b│  c│  d│  e│  f  │
+└────────────────┴───┴───┴───┴───┴─────┘
+g,h,i,j,k,l,m,f,o
+,,2,3,5,1
+# Test comment 2
+// Diff style comment"
+actual="$(echo -e "$input" | ds:fit -F, -v endrow=3 -v color=never -v gridlines=1 | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed endrow only gridlines case'
+
+expected="# Test comment 1
+┌─┬───┬───┬───┬───┬─────┐
+│1│  2│  3│  4│  5│  100│
+├─┼───┼───┼───┼───┼─────┤
+│a│  b│  c│  d│  e│  f  │
+└─┴───┴───┴───┴───┴─────┘
+g,h,i,j,k,l,m,f,o
+,,2,3,5,1
+# Test comment 2
+// Diff style comment"
+actual="$(echo -e "$input" | ds:fit -F, -v startfit=2 -v endfit=f -v color=never -v gridlines=1 | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed startfit endfit gridlines case'
+
 input="one two three four + *\n-7 -5 -7 -1 -20 -48\n0.0833 0.1667 0.0938 1.333 0.01 0.0017"
 expected='    one      two    three    four       +         *
 -7.0000  -5.0000  -7.0000  -1.000  -20.00  -48.0000
@@ -715,6 +790,62 @@ Kox Xivudrxflj Awcbqvxx                       0     962
 Ohbcabs Qetnix                          2431044  189624'
 actual="$(ds:fit "$number_comma_format" -v color=never)"
 [ "$expected" = "$actual" ] || ds:fail 'fit failed number comma format case'
+
+expected="┌──────────┬───────────┬──────┬───────────┬───────────┬────────────┐
+│<NULL>    │          H│     J│         FE│      TOTAL│            │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│SETS      │           │      │           │           │  TIFS      │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│N-R       │           │      │           │           │  N-ré      │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│J i       │          -│     -│   10000.00│   10000.00│  J i       │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│T N-R     │          -│     -│   10000.00│   10000.00│  T N-eré   │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│R         │           │      │           │           │  Eré       │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│rkljg     │          -│     -│    2000.00│    2000.00│  rkljg     │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│Test      │    5555.00│     -│          -│    5555.00│  Test      │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│T R       │    5555.00│     -│    2000.00│    7555.00│  T Eré     │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│C A       │           │      │           │           │  A d’ent   │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│525 345 44│  250000.00│     -│          -│  250000.00│  525 345 44│
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│T C A     │  250000.00│     -│          -│  250000.00│  T A d’e   │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│N-L       │           │      │           │           │  N-l       │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│T m h     │          -│     -│  175000.00│  175000.00│  T m h     │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│T N-L     │          -│     -│  175000.00│  175000.00│  T N-l     │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│T A       │  255555.00│     -│  187000.00│  442555.00│  T d a     │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│L         │           │      │           │           │  P         │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│T D       │           │      │           │           │  T d d     │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│wfrw      │   10542.00│     -│          -│   10542.00│  wfrw      │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│T M       │          -│     -│  234233.00│  234233.00│  T M       │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│T L       │   10542.00│     -│  234233.00│  244775.00│  T d p     │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│TOTAL     │  245013.00│     -│  -47233.00│  197780.00│  TOTAL     │
+├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
+│          │          H│     J│         FY│      TOTAL│  <NULL>    │
+└──────────┴───────────┴──────┴───────────┴───────────┴────────────┘"
+actual="$(ds:fit "$jnrjn1" -v gridlines=1 -v d=2 -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed gridlines decimals multibyte_chars case'
+
+ds:fit $emoji -v gridlines=1 -v color=never > $tmp
+cmp $tmp $emoji_fit_gridlines || ds:fail 'fit failed gridlines emoji case'
+
+ds:fit $cmds -v gridlines=1 -v color=never -v tty_size=120 | sed -E 's/[[:space:]]+$//g' > $tmp
+cmp $tmp $commands_fit_gridlines || ds:fail 'fit failed gridlines shrink field case'
 
 
 # FC TESTS

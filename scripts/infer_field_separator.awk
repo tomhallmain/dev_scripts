@@ -368,10 +368,15 @@ END {
         winner_unsure = scaled_var_frac != 0
     }
 
-    if ( ! winning_s || winner_unsure ) 
+    if ( ! winning_s || winner_unsure ) {
         print CommonFS["s"] # Space is default separator
-    else
+    }
+    else if (Winners[winning_s] ~ /(\\ )*\\,(\\ )+/) {
+        print ","
+    }
+    else {
         print Winners[winning_s]
+    }
 }
 
 function QuotedFieldsRe(sep, q) { # TODO: CRLF in fields!!

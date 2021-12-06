@@ -43,6 +43,11 @@
 #
 #         -h, --help
 #
+#       Run with gridlines (overrides buffer, bufferchar; does not work with
+#       onlyfit, nofit):
+#
+#         -v gridlines=1
+#
 #       Run with custom buffer (default is 1):
 #
 #         -v buffer=5
@@ -147,10 +152,29 @@ BEGIN {
     sn0_len = 1 + 4 # e.g. 0e+00
   
     if (sn && d) {
-        if (d == "z")
+        if (d == "z") {
             sn_len = sn0_len
-        else
+        }
+        else {
             sn_len = 2 + d + 4 # e.g. 0.00e+00
+        }
+    }
+
+    if (gridlines) {
+        if (nofit || onlyfit) {
+            gridlines = 0 # This option combination is too complex
+        }
+        else {
+            gridlines = 1
+            buffer = 5
+            bufferchar = "\xE2\x94\x82"
+            gridline_base_char = "\xE2\x94\x80"
+            if (!partial_fit) {
+                to_print_start_gridline = 1
+                to_print_final_gridline = 1
+            }
+            for (i = 0; i < 100; i++) gridline_base = gridline_base gridline_base_char
+        }
     }
 
     if (!buffer) buffer = 2
@@ -158,6 +182,9 @@ BEGIN {
         color_on = 1
         color_pending = 1
     }
+    
+    space_str = "                                                                   "
+    buffer_str = bufferchar space_str
 
     if (!(color == "never")) {
         hl = "\033[1;36m"
@@ -246,6 +273,8 @@ FNR < 2 && NR > FNR {
 }
 
 partial_fit {
+    started_new_fit = 0
+    
     if (FNR < 2) {
         fit_complete = 0
         in_fit = 0
@@ -255,6 +284,9 @@ partial_fit {
             || (endrow && FNR == endrow)) {
             in_fit = 0
             fit_complete = 1
+            if (NR > FNR && gridlines) {
+                to_print_final_gridline = 1
+            }
         }
     }
     else {
@@ -266,6 +298,10 @@ partial_fit {
             if (NR == FNR) {
                 next
             } else {
+                if (gridlines && to_print_final_gridline) {
+                    PrintGridline(1, max_nf)
+                    to_print_final_gridline = 0
+                }
                 if (prefield) gsub(FS, OFS) # Need to add to prefield too to ensure this isn't lossy
                 print
                 next
@@ -276,13 +312,17 @@ partial_fit {
             || (!startfit && endfit) \
             || (!startrow && endrow)) {
             in_fit = 1
+            if (gridlines) {
+                to_print_start_gridline = 1
+            }
         }
     }
 }
 
-$0 ~ /No matches found/ {
+$0 ~ /^No matches found/ {
     print
-    exit
+    err = 1
+    exit(err)
 }
 
 ## First pass, gather field info
@@ -578,8 +618,20 @@ NR == FNR {
 
 NR > FNR {
     gsub(/\015$/, "") # TODO: Move to prefield
-    
+
+    if (gridlines) {
+        if (to_print_start_gridline) {
+            to_print_start_gridline = 0
+            mode = -1
+        }
+        else {
+            mode = 0
+        }
+        PrintGridline(mode, max_nf)
+    }
+
     for (i = 1; i <= max_nf; i++) {
+        if (gridlines && i == 1) PrintBuffer(3)
         not_last_f = i < max_nf
         f = endfit_col && i == endfit_col ? ResLine[FNR] : $i
 
@@ -621,7 +673,7 @@ NR > FNR {
                 if (color_on && color_pending) fmt_str = white fmt_str no_color
 
                 printf fmt_str, value
-                if (not_last_f) PrintBuffer(buffer)
+                if (not_last_f || gridlines) PrintBuffer(buffer)
             }
 
             else {
@@ -651,15 +703,30 @@ NR > FNR {
                 fmt_str = a_color justify_str print_len "s" color_off
 
                 printf fmt_str, value
+                
+                if (gridlines) {
+                    printf "%.*s", MaxFieldLen[i] + COLOR_DIFF[FNR, i] + WCWIDTH_DIFF[FNR, i] - print_len, space_str
+                }
+
                 if (not_last_f) PrintBuffer(buffer)
+                else if (gridlines) {
+                    printf "%s", bufferchar
+                }
             }
         }
         if (debug && FNR < 2) DebugPrint(6)
     }
-
+    
     print ""
 
     if (color_pending) color_pending = 0
+}
+
+END {
+    if (err) exit(err)
+    if (gridlines && !has_printed_final_gridline) {
+        PrintGridline(1, max_nf)
+    }
 }
 
 
@@ -751,8 +818,58 @@ function PrintWarning() {
 }
 
 function PrintBuffer(buffer) {
-    space_str = bufferchar "                                                               "
-    printf "%.*s", buffer, space_str
+    printf "%.*s", buffer, buffer_str
+}
+
+function PrintGridline(mode, max_nf) {
+    if (mode < 0) {
+        start_char = "\xE2\x94\x8C"
+        end_char = "\xE2\x94\x90"
+        intersect_char = "\xE2\x94\xAC"
+    }
+    else if (mode > 0) {
+        start_char = "\xE2\x94\x94"
+        end_char = "\xE2\x94\x98"
+        intersect_char = "\xE2\x94\xB4"
+        has_printed_final_gridline = 1
+    }
+    else {
+        start_char = "\xE2\x94\x9C"
+        end_char = "\xE2\x94\xA4"
+        intersect_char = "\xE2\x94\xBC"
+    }
+    
+    for (i = 1; i <= max_nf; i++) {
+        
+        if (i == 1) printf "%s", start_char
+        not_last_f = i < max_nf
+
+        if (FieldMax[i]) {
+            if (DecimalSet[i] || (NumberSet[i] && !NumberOverset[i])) {
+                print_len = FieldMax[i]
+            }
+            else if (not_last_f || ShrinkF[i]) {
+                print_len = MaxFieldLen[i]
+            }
+            else {
+                f = endfit_col && i == endfit_col ? ResLine[FNR] : $i
+                print_len = length(f)
+                
+                if (print_len < MaxFieldLen[i]) {
+                    print_len = MaxFieldLen[i]
+                }
+            }
+
+            printf "%.*s", print_len * 3, gridline_base
+            
+            if (not_last_f) { 
+                printf "%s", intersect_char
+                printf "%.*s", 6, gridline_base
+            }
+        }
+    }
+    
+    print end_char
 }
 
 function DebugPrint(case) {

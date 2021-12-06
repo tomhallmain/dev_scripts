@@ -32,7 +32,7 @@ The below functions are especially useful when working in the terminal, and can 
 
 #### `ds:fit`
 
-Fits tabular data (including multibyte characters) dynamically into your terminal, and attempts to format it richly and intelligently. If the max field lengths for all fields combined is too long, the longest fields will be right-truncated until the terminal width is reached.
+Fits tabular data (including multibyte characters) dynamically into your terminal, and attempts to format it richly and intelligently as requested by the user. If the max field lengths for all fields combined is too long, the longest fields will be right-truncated until the terminal width is reached.
 
 Also supports file sets as arguments to a single call for quickly reporting on multiple disjoined files.
 
@@ -44,12 +44,18 @@ $ head -n5 tests/data/taxables.csv
 3, "Secret Antiperspirant", 1.29, 0.10, 1.39
 4, "Deadpool DVD",    14.96, 1.12, 16.08
 
-$ head -n5 tests/data/taxables.csv | ds:fit -v bufferchar="|" -v d=z
-Index| Item                           | Cost| Tax| Total
-    1| Fruit of the Loom Girl's Socks |    7|   0|     8
-    2| Rawlings Little League Baseball|    2|   0|     3
-    3| Secret Antiperspirant          |    1|   0|     1
-    4| Deadpool DVD                   |   14|   1|    16
+$ head -n5 tests/data/taxables.csv | ds:fit -v gridlines=1
+┌─────┬─────────────────────────────────┬───────┬──────┬───────┐
+│Index│  Item                           │   Cost│   Tax│  Total│
+├─────┼─────────────────────────────────┼───────┼──────┼───────┤
+│    1│  Fruit of the Loom Girl's Socks │   7.97│  0.60│   8.57│
+├─────┼─────────────────────────────────┼───────┼──────┼───────┤
+│    2│  Rawlings Little League Baseball│   2.97│  0.22│   3.19│
+├─────┼─────────────────────────────────┼───────┼──────┼───────┤
+│    3│  Secret Antiperspirant          │   1.29│  0.10│   1.39│
+├─────┼─────────────────────────────────┼───────┼──────┼───────┤
+│    4│  Deadpool DVD                   │  14.96│  1.12│  16.08│
+└─────┴─────────────────────────────────┴───────┴──────┴───────┘
 
 $ ds:fit $(fd -e csv) # Fit all CSVs in current dir with fd
 ```
