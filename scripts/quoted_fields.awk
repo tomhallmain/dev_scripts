@@ -13,6 +13,7 @@ BEGIN {
     doublequote = "\""
 
     FS = EscapePreserveRegex(FS)
+    spaced_fs = "[[:space:]]*" FS "[[:space:]]*"
 
     if (FS == "" \
         || FS ~ singlequote \
@@ -22,7 +23,8 @@ BEGIN {
     }
     else if (FS == "@@@") {
         simple_replace = 1
-        replace_fieldsep = retain_outer_quotes ? OFS : "(\"?" OFS "\"?|'?" OFS "'?)"
+        spaced_ofs = "[[:space:]]*" OFS "[[:space:]]*"
+        replace_fieldsep = retain_outer_quotes ? spaced_ofs : "(\"?" spaced_ofs "\"?|'?" spaced_ofs "'?)"
     }
     else {
         if (FS == " ") FS = "[[:space:]]+"
@@ -49,7 +51,7 @@ BEGIN {
 }
 
 not_applicable || (!quote_rebalance && !($0 ~ FS) && q && !($0 ~ q)) {
-    gsub(FS, OFS)
+    gsub(spaced_fs, OFS)
     print
     next
 }

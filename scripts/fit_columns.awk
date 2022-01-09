@@ -122,7 +122,7 @@ BEGIN {
     FIT_FS = FS
 
     if (file && !nofit && !onlyfit && !startfit && !endfit && !startrow && !endrow) {
-        if (file ~ /\.(properties|csv|tsv)$/)
+        if (file ~ /\.(properties|csv|tsv)$/ && !gridlines)
             nofit = "^#"
     }
     else if (nofit || onlyfit || startfit || endfit) {
@@ -339,13 +339,14 @@ NR == FNR {
                 res_line = substr(res_line, RSTART+RLENGTH, length(res_line))
             }
             else {
-                gsub(FS, OFS, res_line)
+                gsub("[[:space:]]*" FS "[[:space:]]*", OFS, res_line)
                 ResLine[NR] = res_line
                 init_f = res_line
             }
         }
         else {
             init_f = $i
+            gsub("(^[[:space:]]*|[[:space:]]*$|^[[:space:]]+$)", "", init_f)
         }
 
         init_len = length(init_f)
@@ -634,6 +635,7 @@ NR > FNR {
         if (gridlines && i == 1) PrintBuffer(3)
         not_last_f = i < max_nf
         f = endfit_col && i == endfit_col ? ResLine[FNR] : $i
+        gsub("(^[[:space:]]*|[[:space:]]*$|^[[:space:]]+$)", "", f)
 
         if (FieldMax[i]) {
             if (DecimalSet[i] || (NumberSet[i] && !NumberOverset[i])) {

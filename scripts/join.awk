@@ -89,8 +89,41 @@
 #
 #          $ ds:join file1 file2 left merge
 #
+# JOIN LOGIC
+#       Assuming two data files as follows:
+#
+#          $ cat data1
+#          a 1
+#          a 2
+#          $ cat data2
+#          a 3
+#          a 4
+#
+#       Standard relational joins are the relational products of left and right multisets
+#       involved. This join logic is not the default for ds:join. For example:
+#
+#          $ ds:join data1 data2 outer 1 -v standard_join=1
+#          a  1  3
+#          a  2  3
+#          a  1  4
+#          a  2  4
+#
+#       ds:join's default join is a recordwise merge-type join that produces a lower output 
+#       record count. Provided the source files have been pre-sorted, this type of join can 
+#       be more desirable.
+#
+#          $ ds:join data1 data2 outer 1
+#          a  1  3
+#          a  2  4
+#
+#       Note the only difference between these join types occurs in the inner part of joins.
 #
 # AWKARG OPTS
+#       To run a standard relational join that produces the multiset product instead of the 
+#       limited default join that joins line-by-line if found, set standard_join to any value:
+#
+#          -v standard_join=1
+#
 #       Any fields beyond the maximum of the first row in the first file will not be merged 
 #       unless mf_max is set to a higher value. It can also be set to a lower value to merge 
 #       all fields up to a certain index, and join as normal on the others:
@@ -401,27 +434,51 @@ NR > FNR {
     if (key in SK1) {
         SK2[key]++
 
-        while (key _ SK2[key] in S1) {
-            sk2_keycount = SK2[key]
-
+        if (standard_join) {
             if (run_inner) {
-                record_count++
-                if (ind) printf "%s", record_count OFS
-                print GenInnerOutputString(S1[key, sk2_keycount], $0, K2, max_nf1, max_nf2, fs1)
+                stream1_keycount = SK1[key]
+            
+                for (i = 1; i <= stream1_keycount; i++) {
+                    record_count++
+                    if (ind) printf "%s", record_count OFS
+                    print GenInnerOutputString(S1[key, i], $0, K2, max_nf1, max_nf2, fs1)
+                }
             }
+        }
+        else {
+            if (key _ SK2[key] in S1) {
+                while (key _ SK2[key] in S1) {
+                    sk2_keycount = SK2[key]
 
-            delete S1[key, sk2_keycount]
-            keycount++
-            key = keybase _ keycount
+                    if (run_inner) {
+                        record_count++
+                        if (ind) printf "%s", record_count OFS
+                        print GenInnerOutputString(S1[key, sk2_keycount], $0, K2, max_nf1, max_nf2, fs1)
+                    }
+
+                    delete S1[key, sk2_keycount]
+                    keycount++
+                    key = keybase _ keycount
+                }
+            }
+            else {
+                if (run_right) {
+                    record_count++
+                    if (ind) printf "%s", record_count OFS
+                    print GenRightOutputString($0, K1, K2, max_nf1, max_nf2, fs2)
+                }
+
+                keycount++
+                key = keybase _ keycount
+            }
         }
     }
     else {
         S2[key] = $0
 
         while (key in S2) {
-            record_count++
-
             if (run_right) {
+                record_count++
                 if (ind) printf "%s", record_count OFS
                 print GenRightOutputString(S2[key], K1, K2, max_nf1, max_nf2, fs2)
             }
@@ -439,6 +496,13 @@ END {
     # Print left joins
 
     for (compound_key in S1) {
+        if (standard_join && run_inner) {
+            base_key = substr(compound_key, 0, length(compound_key) - 2)
+            if (base_key in SK2) {
+                continue
+            }
+        }
+
         record_count++
         if (ind) printf "%s", record_count OFS
         stream2_line = full_bias ? S2[compound_key] : ""

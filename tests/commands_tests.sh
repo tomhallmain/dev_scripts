@@ -141,6 +141,37 @@ expected='a b c d d
 actual="$(echo -e "a b c d\n1 3 2 4" | ds:join $tmp outer merge -v mf_max=3 -v null_off=1)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed mf_max null_off case'
 
+echo -e "a 1\na 2\nb 2\nc 1\nb 1" > /tmp/ds_join_test1
+echo -e "a 1\na 2\na 3\na 4\na 3" > /tmp/ds_join_test2
+
+expected='a 1 1
+a 2 2
+a <NULL> 3
+a <NULL> 4
+a <NULL> 3
+b 2 <NULL>
+b 1 <NULL>
+c 1 <NULL>'
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 o 1)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed extra unmatched right join case'
+expected='a 1 1
+a 2 1
+a 1 2
+a 2 2
+a 1 3
+a 2 3
+a 1 4
+a 2 4
+a 1 3
+a 2 3
+b 2 <NULL>
+b 1 <NULL>
+c 1 <NULL>'
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 o 1 -v standard_join=1)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed standard join case'
+expected="$(join /tmp/ds_join_test1 /tmp/ds_join_test2 | sort)"
+actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 i 1 -v standard_join=1 | sort)"
+[ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed inner join unix join case'
 
 [ $(ds:join "$jnf1" "$jnf2" o 1 | grep -c "") -gt 15 ]        || ds:fail 'ds:join failed one-arg shell case'
 [ $(ds:join "$jnf1" "$jnf2" r -v ind=1 | grep -c "") -gt 15 ] || ds:fail 'ds:join failed awkarg nonkey case'

@@ -294,10 +294,19 @@ NR > FNR {
                 }
                 else if (pc) {
                     if (s1_val == 0) {
-                        diff_val = 1
+                        if (s2_val == 0) {
+                            diff_val = 0
+                        }
+                        else {
+                            diff_val = 1
+                        }
                     }
                     else {
                         diff_val = (s2_val - s1_val) / s1_val
+                        
+                        if (s1_val < 0 && s2_val < 0) {
+                            diff_val *= -1
+                        }
                     }
                 }
                 else if (add) {

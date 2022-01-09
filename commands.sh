@@ -65,7 +65,9 @@ ds:vi() { # Search for files and open in vim: ds:vi search [dir] [edit_all_match
                 echo -e "$fileset" | ds:index 1 -v FS=$DS_SEP | ds:fit -v FS=$DS_SEP
                 while [ ! "$_matched_" ]; do
                     local choice="$(ds:readp 'Enter a number from the set of files or a pattern:' f)"
-                    if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
+                    if [ -z "$choice" ]; then
+                        local _matched_=0 _patt_="" choice=1 # Default to first option
+                    elif ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
                         local _matched_=0 _patt_=""
                     elif ! ds:test '^ *$' "$choice" && echo -e "$fileset" | grep -q "$choice"; then
                         local _matched_=0 _patt_='~'
@@ -151,7 +153,9 @@ ds:grepvi() { # Grep and open vim on match (alias ds:gvi): ds:gvi search [file|d
                         
                         while [ ! "$_matched_" ]; do
                             local choice="$(ds:readp 'Enter a number from the set of files or a pattern:' f)"
-                            if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
+                            if [ -z "$choice" ]; then
+                                local _matched_=0 _patt_="" choice=1  # Default to first option
+                            elif ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
                                 local _matched_=0 _patt_=""
                             elif ! ds:test '^ *$' "$choice" && echo -e "$fileset" | grep -q "$choice"; then
                                 local _matched_=0 _patt_='~'

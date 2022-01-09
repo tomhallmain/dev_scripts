@@ -14,22 +14,26 @@
 #      If set, [filter] is regex used to only case rows that match.
 #
 # CASE OUTPUT OPTIONS
-#      lowercase      l[ower][case][c] || d[own][case]
+#      lowercase      l[ower][case] || lc || d[own][case]
 #
-#      UPPERCASE      u[pper][case][u]
+#      UPPERCASE      u[pper][case] || uc
 #
-#      Proper Case    p[roper][case][c]
+#      Proper Case    p[roper][case] || pc
 #
-#      camelCase      c[amel][case][c]
-# 
-#      snake_case     s[nake][case][c]
+#      camelCase      c[amel][case] || cc
 #
-#      VARIABLE_CASE  v[ar][ariable][case][c]
+#      UpperCamelCase uppercamel || ucc
 #
-#      Object.Case    o[bject][case][c]
+#      snake_case     s[nake][case] || sc
+#
+#      VARIABLE_CASE  v[ar][ariable][case] || vc
+#
+#      Object.Case    o[bject][case] || oc
 #
 
 BEGIN {
+    tocase = tolower(tocase)
+    
     if (!tocase)
         pass = 1
     else if ("lowercase" ~ "^"tocase || "downcase" ~ "^"tocase || tocase ~ "^lc(ase)?$")
@@ -40,6 +44,8 @@ BEGIN {
         pc = 1
     else if ("camelcase" ~ "^"tocase || tocase ~ "^cc(ase)?$")
         cc = 1
+    else if ("uppercamelcase" ~ "^"tocase || tocase == "ucc")
+        ucc = 1
     else if ("snakecase" ~ "^"tocase || tocase ~ "^sc(ase)?$")
         sc = 1
     else if ("varcase" ~ "^"tocase || "variablecase" ~ "^"tocase || tocase ~ "^vc(ase)?$")
@@ -68,9 +74,15 @@ pc {
     print GenPC(Words[n_wds]); next
 }
 
-cc {
-    for (i = 1; i < n_wds; i++)
-        printf "%s", GenCC(Words[i], i)
+cc || ucc {
+    for (i = 1; i < n_wds; i++) {
+        if (ucc) {
+            printf "%s", GenCC(Words[i], 2)
+        }
+        else {
+            printf "%s", GenCC(Words[i], i)
+        }
+    }
     print GenCC(Words[n_wds], n_wds); next
 }
 
