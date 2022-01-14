@@ -5,6 +5,10 @@ DS_SCRIPT="$DS_LOC/scripts"
 DS_SUPPORT="$DS_LOC/support"
 source "$DS_SUPPORT/utils.sh"
 
+if [ ! "$1" ]; then
+    bash "$DS_SUPPORT/clean.sh"
+fi
+
 ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [re_source]
     [ "$2" ] && local utils="$DS_SUPPORT/utils.sh"
     [ "$3" ] && local re_source=0
@@ -31,16 +35,16 @@ ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [r
 
 ds:help() { # Print help for a given command: ds:help ds_command
     (ds:nset "$1" && [[ "$1" =~ "ds:" ]]) || ds:fail 'Command not found - to see all commands, run ds:commands'
-    [[ "$1" =~ ':reo' ]] && ds:reo -h && return
+    [[ "$1" =~ ':agg' ]] && ds:agg -h && return
+    [[ "$1" =~ ':diff_fields' ]] && ds:diff_fields -h && return
     [[ "$1" =~ ':fit' ]] && ds:fit -h && return
     [[ "$1" =~ ':join' ]] && ds:join -h && return
-    [[ "$1" =~ ':agg' ]] && ds:agg -h && return
-    [[ "$1" =~ ':stag' ]] && ds:stagger -h && return
-    [[ "$1" =~ ':pow' ]] && ds:pow -h && return
-    [[ "$1" =~ ':shape' ]] && ds:shape -h && return
-    [[ "$1" =~ ':subsep' ]] && ds:subsep -h && return
     [[ "$1" =~ ':pivot' ]] && ds:pivot -h && return
-    [[ "$1" =~ ':diff_fields' ]] && ds:diff_fields -h && return
+    [[ "$1" =~ ':pow' ]] && ds:pow -h && return
+    [[ "$1" =~ ':reo' ]] && ds:reo -h && return
+    [[ "$1" =~ ':shape' ]] && ds:shape -h && return
+    [[ "$1" =~ ':sortm' ]] && ds:sortm -h && return
+    [[ "$1" =~ ':subsep' ]] && ds:subsep -h && return
     ds:commands "" t | ds:reo "2, 2~$1 || 3~$1" "2[$1~. || 3[$1~."
 }
 
@@ -496,20 +500,22 @@ ds:src() { # Source a piece of shell code: ds:src file ["searchx" pattern] || [s
 }
 
 ds:fsrc() { # Show the source of a shell function: ds:fsrc func
-    local shell=$(ds:sh) tmp=$(ds:tmp 'ds_fsrc')
+    local shell=$(ds:sh)
     
     if [[ $shell =~ bash ]]; then
+        local tmp=$(ds:tmp 'ds_fsrc')
         bash --debugger -c 'echo' &> /dev/null
         [ $? -eq 0 ] && \
-            bash --debugger -c "source ~/.bashrc; declare -F $1" > $tmp
+            bash --debugger -c "source ~/.bashrc unclean; declare -F $1" > $tmp
         if [ ! -s $tmp ]; then
-            which "$1"
             rm $tmp
+            which "$1"
             return $?
         fi
-        local sourcefile=$(awk '{for(i=1;i<=NF;i++)if(i>2)printf "%s",$i}' $tmp \
+        local sourcefile=$(awk '{for(i=3;i<=NF;i++)printf "%s",$i}' $tmp \
             2>/dev/null | head -n1)
         awk -v f="$sourcefile" '{ print f ":" $2 }' $tmp
+        rm $tmp
     elif [[ $shell =~ zsh ]]; then
         local sourcefile="$(whence -v "$1" | grep -Eo 'from .+' | sed -E 's#^from ##g')"
         if [ ! -f "$sourcefile" ]
@@ -522,7 +528,6 @@ ds:fsrc() { # Show the source of a shell function: ds:fsrc func
     fi
 
     ds:searchx "$sourcefile" "$1" q
-    rm $tmp
 }
 
 ds:trace() { # Search shell trace for a pattern: ds:trace [command] [search] [strace] [strace_args]
@@ -932,7 +937,7 @@ ds:shape() { # ** Print data shape by length or pattern: ds:shape [-h|file*] [pa
         local _file=$(ds:tmp 'ds_shape') piped=0
         cat /dev/stdin > $_file
     else
-        ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/shape.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/shape.awk" \
           | tr -d "#" | less && return
         if [[ -f "$2" && -f "$1" ]]; then
             local w="\033[37;1m" nc="\033[0m"
@@ -990,7 +995,7 @@ ds:diff_fields() { # ** Get elementwise diff of two datasets (alias ds:df): ds:d
         local f1="$1"
         shift
     else
-        ds:test "(^| )(-h|--help)" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/diff_fields.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/diff_fields.awk" \
             | sed -E 's:^#::g' | less && return
         ds:file_check "$1"
         local f1="$(ds:fd_check "$1")"
@@ -1123,7 +1128,7 @@ ds:join() { # ** Join two datasets with any keyset (alias ds:jn): ds:join file [
         local f1="$1"
         shift
     else
-        ds:test "(^| )(-h|--help)" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/join.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/join.awk" \
             | sed -E 's:^#::g' | less && return
         ds:file_check "$1"
         local f1="$(ds:fd_check "$1")"
@@ -1369,7 +1374,7 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
         local _file=$(ds:tmp 'ds_fit') piped=0 hc=f
         cat /dev/stdin > $_file
     else
-        ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/fit_columns.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/fit_columns.awk" \
             | tr -d "#" | less && return
         if [[ -f "$2" && -f "$1" ]]; then
             local w="\033[37;1m" nc="\033[0m"
@@ -1414,7 +1419,7 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
 }
 
 ds:stagger() { # ** Print tabular data in staggered rows: ds:stagger [file] [stag_size]
-    ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/stagger.awk" \
+    ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/stagger.awk" \
         | sed -E 's:^#::g' | less && return
     if ds:pipe_open; then
         local _file=$(ds:tmp 'ds_stagger') piped=0
@@ -1467,7 +1472,7 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [r
         local _file=$(ds:tmp "ds_reo") piped=0
         cat /dev/stdin > $_file
     else
-        ds:test "(^| )(-h|--help)" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/reorder.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/reorder.awk" \
             | sed -E 's:^#::g' | less && return
         if [[ -f "$2" && -f "$1" ]]; then
             local w="\033[37;1m" nc="\033[0m"
@@ -1513,7 +1518,7 @@ ds:pivot() { # ** Pivot tabular data: ds:pivot [file] [y_keys] [x_keys] [z_keys=
         local _file=$(ds:tmp 'ds_pivot') piped=0
         cat /dev/stdin > $_file
     else
-        ds:test "(^| )(-h|--help)" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/pivot.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/pivot.awk" \
             | sed -E 's:^#::g' | less && return
         if [[ -f "$2" && -f "$1" ]]; then
             local w="\033[37;1m" nc="\033[0m"
@@ -1549,7 +1554,7 @@ ds:pivot() { # ** Pivot tabular data: ds:pivot [file] [y_keys] [x_keys] [z_keys=
 
     awk -v FS="$DS_SEP" -v OFS="$fs" -v x="${x_keys:-0}" -v y="${y_keys:-0}" \
         -v z="${z_keys:-_}" -v agg="${agg_type:-0}" ${args[@]} \
-        -f "$DS_SCRIPT/pivot.awk" "$prefield" 2>/dev/null \
+        -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/pivot.awk" "$prefield" 2>/dev/null \
         | ds:ttyf "$DS_SEP"
 
     ds:pipe_clean $_file; rm $prefield
@@ -1560,7 +1565,7 @@ ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file*] [r_aggs=+] [c_aggs
         local _file=$(ds:tmp 'ds_agg') piped=0
         cat /dev/stdin > $_file
     else
-        ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/agg.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/agg.awk" \
             | sed -E 's:^#::g' | less && return
         
         if [[ -f "$2" && -f "$1" ]]; then
@@ -1653,7 +1658,7 @@ ds:pow() { # ** Combinatorial frequency of data field values: ds:pow [file] [min
         local _file=$(ds:tmp 'ds_pow') piped=0
         cat /dev/stdin > $_file
     else
-        ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/power.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/power.awk" \
             | sed -E 's:^#::g' | less && return
         ds:file_check "$1"
         local _file="$(ds:fd_check "$1")"
@@ -1671,7 +1676,7 @@ ds:pow() { # ** Combinatorial frequency of data field values: ds:pow [file] [min
 
     awk -v FS="$DS_SEP" -v OFS="$fs" -v min=${min:-1} -v c_counts=${flds:-0} -v invert=${inv:-0} \
         ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/power.awk" $prefield 2>/dev/null \
-        | ds:sortm 1 a n -v FS="$fs" | sed 's///' | ds:ttyf "$fs" -v color=never
+        | ds:sortm 1 a n -v FS="$fs" -v deterministic=1 | sed 's///' | ds:ttyf "$fs" -v color=never
 
     ds:pipe_clean $_file; rm $prefield
 }
@@ -1731,6 +1736,39 @@ ds:fieldcounts() { # ** Print value counts (alias ds:fc): ds:fc [file] [fields=1
     ds:pipe_clean $_file; [ "$prefield" ] && rm $prefield; :
 }
 alias ds:fc="ds:fieldcounts"
+
+ds:uniq() { # ** Get unique values >= min (alias ds:u): ds:u [file] [fields=1] [min=1] [order=a]
+    if ds:pipe_open; then
+        local _file=$(ds:tmp 'ds_uniq') piped=0 
+        cat /dev/stdin > $_file
+    else 
+        ds:file_check "$1"
+        local _file="$(ds:fd_check "$1")"
+        shift
+    fi
+    local fields="${1:-a}" min="$2"; [ "$1" ] && shift; [ "$min" ] && shift
+    ([ "$min" ] && test "$min" -gt 0 2> /dev/null) || local min=1
+    let min=$min-1
+    if [ "$1" ]; then
+        ([ "$1" = d ] || [ "$1" = desc ]) && local order="r"
+        [[ ! "$1" =~ "-" ]] && shift
+    fi
+    local args=( "$@" ) fstmp=$(ds:tmp 'ds_extractfs')
+    if [ ! "$fields" = "a" ]; then
+        ds:extractfs > $fstmp
+        local fs="$(cat $fstmp; rm $fstmp)" prefield=$(ds:tmp "ds_uniq_prefield")
+        ds:prefield "$_file" "$fs" > $prefield
+        ds:test "\[.+\]" "$fs" && fs=" " 
+        awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v min="$min" -v fields="$fields" \
+            -f "$DS_SCRIPT/field_uniques.awk" $prefield 2>/dev/null | sort -n$order | ds:ttyf "$fs" -v color=never
+    else
+        rm $fstmp
+        awk ${args[@]} -v min="$min" -v fields="$fields" -f "$DS_SCRIPT/field_uniques.awk" \
+            "$_file" 2>/dev/null | sort -n$order | ds:ttyf "$fs" -v color=never
+    fi
+    ds:pipe_clean $_file; [ "$prefield" ] && rm $prefield; :
+}
+alias ds:u="ds:uniq"
 
 ds:newfs() { # ** Convert field separators - i.e. tsv -> csv: ds:newfs [file] [newfs=,] [awkargs]
     if ds:pipe_open; then
@@ -1839,7 +1877,7 @@ ds:subsep() { # ** Extend fields by a common subseparator: ds:subsep [-h|file] s
         local _file=$(ds:tmp 'ds_sbsp') piped=0
         cat /dev/stdin > $_file
     else
-        ds:test "(^| )(-h|--help)" "$@" && grep -E "^#( |$)" "$DS_SCRIPT/subseparator.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/subseparator.awk" \
             | sed -E 's:^#::g' | less && return
         ds:file_check "$1"
         local _file="$(ds:fd_check "$1")"
@@ -1950,13 +1988,23 @@ ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sort
         local file=$(ds:tmp 'ds_sortm') piped=0
         cat /dev/stdin > $file
     else
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/fields_qsort.awk" \
+            | sed -E 's:^#::g' | less && return
         ds:file_check "$1"
         local file="$(ds:fd_check "$1")"
         shift
     fi
-    ! grep -Eq '^-' <(echo "$1") && local keys="$1" && shift
-    [ "$keys" ] && grep -Eq '^[A-z]$' <(echo "$1") && local ord="$1" && shift
-    [ "$ord" ] && grep -Eq '^[A-z]$' <(echo "$1") && local type="$1" && shift
+    if [ "$1" ]; then
+        if ! grep -Eq '^-' <(echo "$1"); then
+            local keys="$1"
+            [[ "$2" || "$3" ]] && shift
+        fi
+    else
+        local keys="1" deterministic=(-v deterministic=1)
+        [[ "$2" || "$3" ]] && shift
+    fi
+    ! grep -Eq '^-' <(echo "$1") && local ord="$1" && [ "$2" ] && shift
+    ! grep -Eq '^-' <(echo "$1") && local type="$1" && [ "$1" ] && shift
     local args=( "$@" )
     [ "$keys" ] && local args=("${args[@]}" -v k="$keys")
     [ "$ord" ] && local args=("${args[@]}" -v order="$ord")
@@ -1965,9 +2013,11 @@ ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sort
     #TODO: Replace with consistent fs logic
     if ds:noawkfs; then
         local fs="$(ds:inferfs "$file" f true f f)"
-        awk -v FS="$fs" ${args[@]} -f "$DS_SCRIPT/fields_qsort.awk" "$file" 2>/dev/null
+        awk -v FS="$fs" ${args[@]} ${deterministic[@]} -f "$DS_SUPPORT/utils.awk" \
+                -f "$DS_SCRIPT/fields_qsort.awk" "$file" 2>/dev/null
     else
-        awk ${args[@]} -f "$DS_SCRIPT/fields_qsort.awk" "$file" 2>/dev/null
+        awk ${args[@]} ${deterministic[@]} -f "$DS_SUPPORT/utils.awk" \
+                -f "$DS_SCRIPT/fields_qsort.awk" "$file" 2>/dev/null
     fi
     ds:pipe_clean $file
 }
@@ -2077,18 +2127,24 @@ ds:sedi() { # Run global in place substitutions: ds:sedi file|dir search [replac
     [ "$1" ] && [ "$2" ] || ds:fail 'Missing required args: ds:sedi file|dir search [replace]'
     if [ -f "$1" ]; then
         local file="$1"
+        shift
     else
-        [ -d "$1" ] && local dir="$1" || local dir=.
-        local conf="$(ds:readp "Confirm replacement of \"$2\" -> \"$3\" on all files in $dir (y/n):")"
+        if [ -d "$1" ]; then
+            local dir="$1"
+            shift
+        else
+            local dir=.
+        fi
+        local conf="$(ds:readp "Confirm replacement of \"$1\" -> \"$2\" on all files in $dir (y/n):")"
         [ ! "$conf" = y ] && echo 'No change made!' && return 1
     fi
 
     if [ "$(printf "%q" _ > /dev/null)" ]; then
-        local search="$(printf "%q" "$2")"
-        [ "$3" ] && local replace="$(printf "%q" "$3")"
+        local search="$(printf "%q" "$1")"
+        [ "$2" ] && local replace="$(printf "%q" "$2")"
     else
-        local search="$2"
-        [ "$3" ] && local replace="$3"
+        local search="$1"
+        [ "$2" ] && local replace="$2"
     fi
 
     if ds:test '/' "${search}${replace}"; then
@@ -2222,7 +2278,7 @@ ds:case() { # ** Recase text data globally or in part: ds:case [string] [tocase=
     if ds:pipe_open; then
         cat /dev/stdin > $_file
     elif [ "$1" ]; then
-        ds:test "^(-h|--help)" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/case.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/case.awk" \
             | sed -E 's:^#::g' && ds:pipe_clean $_file && return
         echo "$1" > $_file; shift
     else

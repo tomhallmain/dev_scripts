@@ -1,11 +1,9 @@
 #!/bin/bash
 #
-#
-# This test script should produce no output if test run is successful.
-#
-#
 ## TODO: Git tests
 
+NC="\033[0m" # No Color
+GREEN="\033[0;32m"
 test_var=1
 tmp=/tmp/ds_commands_tests
 q=/dev/null
@@ -67,6 +65,8 @@ fi
 
 # BASICS TESTS
 
+echo -n "Running basic commands tests..."
+
 [[ $(ds:sh | grep -c "") = 1 && $(ds:sh) =~ sh ]]    || ds:fail 'sh command failed'
 
 ch="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
@@ -97,7 +97,11 @@ fi
 [ $(ds:git_recent_all | awk '{print $3}' | grep -c "") -gt 2 ] \
     || echo 'git recent all failed, possibly due to no git dirs in home'
 
+echo -e "${GREEN}PASS${NC}"
+
 # IFS TESTS
+
+echo -n "Running inferfs and inferh tests..."
 
 [ "$(ds:inferfs $jnf1)" = ',' ]                             || ds:fail 'inferfs failed extension case'
 [ "$(ds:inferfs $seps_base)" = '\&\%\#' ]                   || ds:fail 'inferfs failed custom separator case 1'
@@ -115,7 +119,11 @@ ds:inferh $ls_sq 2>$q                                       && ds:fail 'inferh f
 ds:inferh $simple_csv 2>$q                                  || ds:fail 'inferh failed basic headers case'
 ds:inferh $complex_csv3 2>$q                                || ds:fail 'inferh failed complex headers case'
 
+echo -e "${GREEN}PASS${NC}"
+
 # JOIN TESTS
+
+echo -n "Running join tests..."
 
 echo -e "a b c d\n1 2 3 4" > $tmp
 expected='a b c d b c
@@ -289,8 +297,11 @@ ds:comps $jnf1 $tmp                                         || ds:fail 'comps fa
 [ $(ds:matches $jnf1 $jnf2 -v k=1 -v verbose=1 | grep -c "") = 169 ] \
                                                             || ds:fail 'matches failed matches case'
 
+echo -e "${GREEN}PASS${NC}"
 
 # SORT TESTS
+
+echo -n "Running sort tests..."
 
 input="$(echo -e "1:3:a#\$:z\n:test:test:one two:2\n5r:test:2%f.:dew::")"
 actual="$(echo "$input" | ds:sort -k3)"
@@ -299,7 +310,7 @@ expected='5r:test:2%f.:dew::
 :test:test:one two:2'
 [ "$actual" = "$expected" ] || ds:fail 'sort failed'
 
-actual="$(cat $seps_base | ds:sortm 2,3,7 d)"
+actual="$(cat $seps_base | ds:sortm 2,3,7 d -v deterministic=1)"
 expected="$(cat $seps_sorted)"
 [ "$actual" = "$expected" ] || ds:fail 'sortm failed multikey case'
 
@@ -317,8 +328,8 @@ input="1\nJ\n98\n47\n9\n05\nj2\n9ju\n9\n9d"
 output='1
 05
 9
-9d
 9
+9d
 9ju
 47
 98
@@ -341,7 +352,32 @@ Yh,4304,45900,H
 ,a,1,'
 [ "$(echo -e "$input" | ds:sortm "Test.Header.2,Header,Test" a n)" = "$output" ] || ds:fail 'sortm failed numeric sort gen keys case'
 
+expected='a b c d
+b a d f
+c d e f
+h i o p'
+actual="$(echo -e "b a c d\nd c e f\na b d f\ni h o p" | ds:sortm -v multisort=1 | sed -E 's/[[:space:]]+$//g')"
+[ "$actual" = "$expected" ] || ds:fail 'Multisort simple char case ascending failed'
+
+expected='p o i h
+f e d c
+f d a b
+d c b a'
+actual="$(echo -e "b a c d\nd c e f\na b d f\ni h o p" | ds:sortm "" d -v multisort=1 | sed -E 's/[[:space:]]+$//g')"
+[ "$actual" = "$expected" ] || ds:fail 'Multisort simple char case descending failed'
+
+expected='2f 1
+4 30
+3oi 409'
+actual="$(echo -e "1 2f\n409 3oi\n30 4" | ds:sortm 1 a n -v multisort=1 | sed -E 's/[[:space:]]+$//g')"
+[ "$actual" = "$expected" ] || ds:fail 'Multisort number ascending case failed'
+
+echo -e "${GREEN}PASS${NC}"
+
+
 # PREFIELD TESTS
+
+echo -n "Running prefield tests..."
 
 expected='Last Name@@@Street Address@@@First Name
 Doe@@@120 jefferson st.@@@John
@@ -376,8 +412,11 @@ actual="$(ds:prefield $complex_csv4 , 1)"
 ds:prefield $complex_csv6 , > $tmp
 cmp $complex_csv6_prefield $tmp || ds:fail 'prefield failed complex newline quoted case'
 
+echo -e "${GREEN}PASS${NC}"
 
-# REO TESTS
+# REO TEST
+
+echo -n "Running reorder tests..."
 
 input='d c a b f
 f e c b a
@@ -589,9 +628,12 @@ round,raisedCurrency,raisedAmt,fundedDate,state,city,category,numEmps,company,pe
 actual="$(ds:reo $tmp '!~permalink && !~mycity,rev' rev)"
 [ "$actual" = "$expected" ] || ds:fail 'reo failed extended logic + rev cases'
 
+echo -e "${GREEN}PASS${NC}"
 
 
 # FIT TESTS
+
+echo -n "Running fit tests..."
 
 fit_var_present="$(echo -e "t 1\nte 2\ntes 3\ntest 4" | ds:fit -v color=never | awk '{cl=length($0);if(pl && pl!=cl) {print 1;exit};pl=cl}')"
 [ "$fit_var_present" = 1 ]                          && ds:fail 'fit failed pipe case'
@@ -878,8 +920,11 @@ cmp $tmp $emoji_fit_gridlines || ds:fail 'fit failed gridlines emoji case'
 ds:fit $cmds -v gridlines=1 -v color=never -v tty_size=120 | sed -E 's/[[:space:]]+$//g' > $tmp
 cmp $tmp $commands_fit_gridlines || ds:fail 'fit failed gridlines shrink field case'
 
+echo -e "${GREEN}PASS${NC}"
 
 # FC TESTS
+
+echo -n "Running fieldcounts and uniq tests..."
 
 expected='2 mozy,Mozy,26,web,American Fork,UT,1-May-05,1900000,USD,a
 2 zoominfo,ZoomInfo,80,web,Waltham,MA,1-Jul-04,7000000,USD,a'
@@ -893,15 +938,50 @@ expected='7,450,Palo Alto,facebook'
 actual="$(ds:fieldcounts $simple_csv 3,5,1 6)"
 [ "$expected" = "$actual" ] || ds:fail 'fieldcounts failed multifield case'
 
+input='a\nb\nc\n1\ne\nc\nb\na\ni\nc\n55\n3'
+expected='a
+b
+c
+e
+i
+1
+3
+55'
+[ "$(echo -e "$input" | ds:uniq)" = "$expected" ] || ds:fail 'uniq failed defaults case'
+
+expected='a
+b
+c'
+[ "$(echo -e "$input" | ds:uniq 0 2)" = "$expected" ] || ds:fail 'uniq failed min 2 case'
+
+expected='c'
+[ "$(echo -e "$input" | ds:uniq 1 3)" = "$expected" ] || ds:fail 'uniq failed min 3 case'
+
+expected='55
+3
+1
+i
+e
+c
+b
+a'
+[ "$(echo -e "$input" | ds:uniq 1 1 d)" = "$expected" ] || ds:fail 'uniq failed descending case'
+
+echo -e "${GREEN}PASS${NC}"
 
 # NEWFS TESTS
+
+echo -n "Running newfs tests..."
 
 expected='Joan "the bone", Anne::Jet::9th, at Terrace plc::Desert City::CO::00123'
 actual="$(ds:newfs $complex_csv1 :: | grep -h Joan)"
 [ "$expected" = "$actual" ] || ds:fail 'newfs command failed'
 
+echo -e "${GREEN}PASS${NC}"
 
 # SUBSEP TESTS
+
+echo -n "Running subsep tests..."
 
 actual="$(ds:subsep tests/data/subseps_test "SEP" | ds:reo 1,7 | cat)"
 expected='A;A;A;A
@@ -915,8 +995,11 @@ expected='cdatetime,,,address
 actual="$(ds:reo tests/data/testcrimedata.csv 1..5 1,2 | ds:subsep '/' "" -F,)"
 [ "$expected" = "$actual" ] || ds:fail 'sbsp failed readme case'
 
+echo -e "${GREEN}PASS${NC}"
 
 # POW TESTS
+
+echo -n "Running power tests..."
 
 expected="23,ACK,0
 24,Mark,0
@@ -936,26 +1019,27 @@ expected="0.22,3,5
 actual="$(ds:pow $complex_csv2 20 t | cat)"
 [ "$expected" = "$actual" ] || ds:fail 'pow failed combin counts case'
 
-expected='1 q b
+expected='1 a b
 1 e a
-1 q d
-1 a b
 1 e d
+1 q b
+1 q d
 2 a d
 2 b d'
 actual="$(echo -e "a b d\ne a d\nq b d" | ds:pow 1 f f -v choose=2)"
 [ "$expected" = "$actual" ] || ds:fail 'pow failed choose 2 3-base case'
 
-expected='1 q a
+
+expected='1 a b
+1 a c
+1 b c
 1 c d
 1 e a
-1 q b
 1 e b
-1 b c
 1 e d
+1 q a
+1 q b
 1 q d
-1 a b
-1 a c
 2 b a
 3 a d
 3 b d'
@@ -995,69 +1079,72 @@ expected='1 a b d c
 actual="$(echo -e "a b c d\na b c d\na b d c\na d b c" | ds:pow)"
 [ "$expected" = "$actual" ] || ds:fail 'pow failed combinations discrimination case'
 
-expected='1 a c d
+expected='1 a b c
 1 a b d
-1 b c d
-1 a b c'
+1 a c d
+1 b c d'
 actual="$(echo "a b c d" | ds:pow 1 f f -v choose=3)"
 [ "$expected" = "$actual" ] || ds:fail 'pow failed choose 3 4-base case'
 
-expected='1 c d e
+expected='1 a b c
 1 a b d
-1 b c d
-1 b d e
-1 a d e
 1 a b e
+1 a c d
 1 a c e
+1 a d e
+1 b c d
 1 b c e
-1 a b c
-1 a c d'
+1 b d e
+1 c d e'
 actual="$(echo "a b c d e" | ds:pow 1 f f -v choose=3)"
 [ "$expected" = "$actual" ] || ds:fail 'pow failed choose 3 5-base case'
 
-expected='1 c d f
+expected='1 a b c
 1 a b d
-1 b c d
-1 b c f
-1 a d f
-1 a b c
+1 a b e
 1 a b f
+1 a c d
+1 a c e
+1 a c f
+1 a d e
+1 a d f
 1 a e f
+1 b c d
+1 b c e
+1 b c f
+1 b d e
+1 b d f
 1 b e f
 1 c d e
-1 a c f
-1 b d f
-1 d e f
-1 b c e
+1 c d f
 1 c e f
-1 a c d
-1 b d e
-1 a b e
-1 a c e
-1 a d e'
+1 d e f'
 actual="$(echo "a b c d e f" | ds:pow 1 f f -v choose=3)"
 [ "$expected" = "$actual" ] || ds:fail 'pow failed choose 3 6-base case'
 
-expected='1 a b e f
-1 a b c f
-1 a c d e
-1 a c e f
-1 c d e f
-1 a c d f
-1 b c d e
-1 b c e f
+expected='1 a b c d
 1 a b c e
-1 b d e f
-1 a b d f
+1 a b c f
 1 a b d e
+1 a b d f
+1 a b e f
+1 a c d e
+1 a c d f
+1 a c e f
 1 a d e f
-1 a b c d
-1 b c d f'
+1 b c d e
+1 b c d f
+1 b c e f
+1 b d e f
+1 c d e f'
 actual="$(echo -e "a b c d e f" | ds:pow 1 f f -v choose=4)"
 [ "$expected" = "$actual" ] || ds:fail 'pow failed choose 4 6-base case'
 
+echo -e "${GREEN}PASS${NC}"
 
 # FIELD_REPLACE TESTS
+
+echo -n "Running field replace tests..."
 
 input='1:2:3:4:
 4:3:2:5:6
@@ -1077,7 +1164,11 @@ expected='1:11:3:4:
 actual="$(echo "$input" | ds:field_replace 'val > 2 ? -1 : 11' 2 '[0-9]')"
 [ "$expected" = "$actual" ] || ds:fail 'field_replace failed all args case'
 
+echo -e "${GREEN}PASS${NC}"
+
 # PIVOT TESTS
+
+echo -n "Running pivot tests..."
 
 input='1 2 3 4
 5 6 7 5
@@ -1148,8 +1239,12 @@ expected='halo \ wing::wind@@@2::4@@@6::5@@@6::8@@@
 actual="$(echo "$input" | ds:pivot halo win,win)"
 [ "$actual" = "$expected" ] || ds:fail 'pivot failed gen header keys double same-pattern case'
 
+echo -e "${GREEN}PASS${NC}"
+
 
 # AGG TESTS
+
+echo -n "Running aggregation tests..."
 
 echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" > $tmp
 
@@ -1558,8 +1653,12 @@ actual="$(ds:agg tests/data/ps_aux 0 'mean|5|1..2' | ds:decap 1 | sed -E 's/[[:s
 actual="$(ds:agg $tmp 'mean|5|1..2' | ds:decap 1 | sed -E 's/[[:space:]]+$//g' | awk '{gsub("\034","");print}')"
 [ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg range row mean case'
 
+echo -e "${GREEN}PASS${NC}"
+
 
 # DIFF_FIELDS TESTS
+
+echo -n "Running diff fields tests..."
 
 echo -e 'a 1 2 3 4\nb 3 4 2 1\nc 22 # , 2' > /tmp/ds_difffields_tests1
 echo -e 'a 1 5 60 5\nb 3 7 2 7\nc 22 # , 2' > /tmp/ds_difffields_tests2
@@ -1621,21 +1720,26 @@ c 0.333333 1 ,
 
 ROW FIELD LEFTDATA /tmp/ds_difffields_tests3 DIFF
 a 4 0.05 3 0.0166667
-b 5 0.142857 1 0.142857
 b 3 0.571429 4 0.142857
+b 5 0.142857 1 0.142857
 a 3 0.4 2 0.2
 a 5 0.8 4 0.2
 c 2 1 3 0.333333
 b 2 1 3 0.333333
 b 4 1 2 0.5'
 actual="$(ds:diff_fields /tmp/ds_difffields_tests1 /tmp/ds_difffields_tests2 \
-        /tmp/ds_difffields_tests3 / 1 -v diff_list=1 -v diff_list_sort=a | sed -E 's/[[:space:]]+$//g')"
+        /tmp/ds_difffields_tests3 / 1 -v diff_list=1 -v diff_list_sort=a \
+        -v deterministic=1 | sed -E 's/[[:space:]]+$//g')"
 [ "$actual" = "$expected" ] || ds:fail 'diff_fields failed multiple file diff list case'
 
 rm /tmp/ds_difffields_tests1 /tmp/ds_difffields_tests2 /tmp/ds_difffields_tests3
 
+echo -e "${GREEN}PASS${NC}"
+
 
 # CASE TESTS
+
+echo -n "Running case tests..."
 
 input='test_vAriANt Case'
 
@@ -1661,7 +1765,11 @@ expected='Test.V.Ari.Ant.Case'
 actual="$(ds:case "$input" ocase)"
 [ "$actual" = "$expected" ] || ds:fail 'case failed object case'
 
+echo -e "${GREEN}PASS${NC}"
+
 # GRAPH TESTS
+
+echo -n "Running graph tests..."
 
 input="1:2\n2:3\n3:4"
 expected='4:3:2:1'
@@ -1681,7 +1789,11 @@ expected='1
 actual="$(echo -e "$input" | ds:graph -v print_bases=1)"
 [ "$actual" = "$expected" ] || ds:fail 'graph failed print_bases case 2'
 
+echo -e "${GREEN}PASS${NC}"
+
 # SHAPE TESTS
+
+echo -n "Running shape tests..."
 
 expected='       lines: 7585
        lines with "AUBURN": 75
@@ -1744,8 +1856,11 @@ lineno distribution of "AUTO"                                   distribution of 
 actual="$(ds:shape "$simple_csv2" 'AUTO,INDECE,PUBLI,BURGL' 6 30 -v tty_size=238 | sed -E 's/[[:space:]]+$//g')"
 [ "$actual" = "$expected" ] || ds:fail 'shape command failed'
 
+echo -e "${GREEN}PASS${NC}"
 
 # ASSORTED COMMANDS TESTS
+
+echo -n "Running assorted commands tests..."
 
 [ "$(echo 1 2 3 | ds:join_by ', ')" = "1, 2, 3" ] || ds:fail 'join_by failed on pipe case'
 [ "$(ds:join_by ', ' 1 2 3)" = "1, 2, 3" ]        || ds:fail 'join_by failed on pipe case'
@@ -1803,10 +1918,10 @@ else
     [[ "$(ds:fsrc ds:noawkfs | head -n1)" =~ "$expected" ]]                || ds:fail 'fsrc failed'
 fi
 
-help_deps='ds:agg
+help_deps='ds:sortm
+ds:agg
 ds:diff_fields
 ds:fail
-ds:stagger
 ds:pow
 ds:fit
 ds:subsep
@@ -1868,9 +1983,12 @@ Hist: field 8 (latitude), cardinality 1905
      38.6592-38.6838 ++++++'
 [ "$(ds:hist "$simple_csv2" | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'hist command failed'
 
+echo -e "${GREEN}PASS${NC}"
+
 
 # INTEGRATION TESTS
 
+echo -n "Running integration tests..."
 
 # Integration Case 1 - Sum of all crimes by day of the month, only select a certain day 
 # of the week and the total where the total is greater than 300 crimes.
@@ -1958,28 +2076,7 @@ c   3   6   2.5   4   15.5000   180
 actual="$(echo -e "$input" | ds:agg '+,*' '\-,/' | ds:fit -v color=never)"
 [ "$actual" = "$expected" ] || ds:fail 'integration agg fit negative decimals case 2 failed'
 
-
-# MULTISORT TESTS
-
-expected='a b c d
-c d e f
-b a d f
-h i o p'
-actual="$(echo -e "b a c d\nd c e f\na b d f\ni h o p" | awk -f scripts/multisort.awk | sed -E 's/[[:space:]]+$//g')"
-[ "$actual" = "$expected" ] || ds:fail 'Multisort simple char case ascending failed'
-
-expected='p i o h
-f d e c
-f a d b
-d b c a'
-actual="$(echo -e "b a c d\nd c e f\na b d f\ni h o p" | awk -v order=d -f scripts/multisort.awk | sed -E 's/[[:space:]]+$//g')"
-[ "$actual" = "$expected" ] || ds:fail 'Multisort simple char case descending failed'
-
-expected='2f 1
-4 30
-3oi 409'
-actual="$(echo -e "1 2f\n409 3oi\n30 4" | awk -v type=n -f scripts/multisort.awk | sed -E 's/[[:space:]]+$//g')"
-[ "$actual" = "$expected" ] || ds:fail 'Multisort number asscending case failed'
+echo -e "${GREEN}PASS${NC}"
 
 # CLEANUP
 

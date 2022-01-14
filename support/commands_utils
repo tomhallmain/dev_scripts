@@ -116,6 +116,7 @@
 **@@@ds:transpose@@@ds:t@@@Transpose field values@@@ds:transpose [file*] [prefield=t] [awkargs]
 **@@@ds:ttyf@@@@@@Run ds:fit on output only if to a terminal@@@data | ds:ttyf [FS] [run_fit=t] [fit_awkargs]
 **@@@ds:unicode@@@@@@Get UTF-8 unicode for a character sequence@@@ds:unicode [str] [out=codepoint|hex|octet]
+**@@@ds:uniq@@@ds:u@@@Get unique values >= min@@@ds:u [file] [fields=1] [min=1] [order=a]
 @@@ds:vi@@@@@@Search for files and open in vim@@@ds:vi search [dir] [edit_all_match=f]
 @@@ds:websel@@@@@@Download and extract inner html by regex@@@ds:websel url [tag_re] [attrs_re]
 @@@@@@@@@@@@

@@ -27,7 +27,7 @@ test_base="##BASICS TESTS , "
 case "$tests" in
     inferfs)  test_context="IFS TESTS##JOIN TESTS"     ;;
     join)     test_context="JOIN TESTS##SORT TESTS"    ;;
-    sort)     test_context="SORT TESTS##PREFIELD TESTS" ;;
+    sort)     test_context="SORT TESTS##PREFIELD TEST" ;;
     prefield) test_context="PREFIELD TESTS##REO TESTS" ;;
     reo)      test_context="REO TESTS##FIT TESTS"      ;;
     fit)      test_context="FIT TESTS##FC TESTS"       ;;
@@ -35,16 +35,16 @@ case "$tests" in
     newfs)    test_context="NEWFS TESTS##SUBSEP TESTS" ;;
     todo)     test_context="~todo"                     ;;
     substr)   test_context="~substr"                   ;;
-    pow)      test_context="POW TESTS##PVT TESTS"      ;;
+    pow)      test_context="POW TESTS##FIELD_REPLAC"   ;;
+    fieldrep) test_context="FIELD_REPLAC##PIVOT TEST"  ;;
     pivot)    test_context="PIVOT TESTS##AGG TESTS"    ;;
     agg)      test_context="AGG TESTS##DIFF_FIELDS"    ;;
-    diff_f)   test_context="DIFF_FIELDS TESTS##CASE TESTS"  ;;
+    diff_f)   test_context="DIFF_FIELDS T##CASE TEST"  ;;
     case)     test_context="CASE TESTS##GRAPH"         ;;
     graph)    test_context="GRAPH TESTS##SHAPE TESTS"  ;;
     shape)    test_context="SHAPE TESTS##ASSORTED"     ;;
     deps)     test_context="help_deps##ds:deps"        ;;
-    int)      test_context="INTEGRATION##MULTISORT"    ;;
-    exper)    test_context="MULTISORT TESTS##"         ;;
+    int)      test_context="INTEGRATION##"             ;;
 esac
 
 if [ "$test_context" ]; then

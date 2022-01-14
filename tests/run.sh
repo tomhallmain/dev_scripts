@@ -12,5 +12,18 @@ else
     exit 1
 fi
 
-bash tests/commands_tests.sh || echo 'Failed bash run'
-zsh tests/commands_tests.sh || echo 'Failed zsh run'
+echo -e "\n---- Running bash commands tests ----\n"
+if ! bash tests/commands_tests.sh; then
+    echo 'Failed bash run'
+    err=1
+fi
+echo -e "\n---- Running zsh commands tests ----\n"
+if ! zsh tests/commands_tests.sh; then
+    echo 'Failed zsh run'
+    err=1
+fi
+if [ "$err" ]; then
+    echo -e "\nOne or more test failures observed."
+else
+    echo -e "\nTests completed with no failures."
+fi

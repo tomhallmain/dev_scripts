@@ -14,6 +14,7 @@ BEGIN {
     }
     else Fields[1] = 1
 
+    counts = !only_vals
     len_f = length(Fields)
     fs = "\|\|\|"
     fsre = "\\|\\|\\|"
@@ -36,10 +37,13 @@ BEGIN {
 END { 
     for (i in _) {
         if (_[i] > min) {
-            printf "%s", _[i] OFS
-      
-            if (!Fields[1])
+            if (counts) {
+                printf "%s", _[i] OFS
+            }
+
+            if (!Fields[1]) {
                 print i
+            }
             else {
                 split(i, Vals, fsre)
                 for (j = 1; j < len_f; j++)

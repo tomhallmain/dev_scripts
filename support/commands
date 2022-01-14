@@ -87,6 +87,7 @@
 @@@ds:trace@@@@@@Search shell trace for a pattern@@@ds:trace [command] [search] [strace] [strace_args]
 **@@@ds:transpose@@@ds:t@@@Transpose field values@@@ds:transpose [file*] [prefield=t] [awkargs]
 **@@@ds:unicode@@@@@@Get UTF-8 unicode for a character sequence@@@ds:unicode [str] [out=codepoint|hex|octet]
+**@@@ds:uniq@@@ds:u@@@Get unique values >= min@@@ds:u [file] [fields=1] [min=1] [order=a]
 @@@ds:vi@@@@@@Search for files and open in vim@@@ds:vi search [dir] [edit_all_match=f]
 @@@ds:websel@@@@@@Download and extract inner html by regex@@@ds:websel url [tag_re] [attrs_re]
 @@@@@@@@@@@@

@@ -177,6 +177,8 @@
 ├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
 │**│  ds:unicode   │         │  Get UTF-8 unicode for a chara│  ds:unicode [str] [out=codepoint|hex|octe│
 ├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
+│**│  ds:uniq      │  ds:u   │  Get unique values >= min     │  ds:u [file] [fields=1] [min=1] [order=a]│
+├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
 │  │  ds:vi        │         │  Search for files and open in │  ds:vi search [dir] [edit_all_match=f]   │
 ├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
 │  │  ds:websel    │         │  Download and extract inner ht│  ds:websel url [tag_re] [attrs_re]       │

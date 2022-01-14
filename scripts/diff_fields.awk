@@ -182,6 +182,9 @@ BEGIN {
         if (tolower(diff_list_sort) == "off") {
             sort_off = 1
         }
+        else if (!deterministic) {
+            SeedRandom()
+        }
     }
 
     "wc -l < \""ARGV[1]"\"" | getline f1nr; f1nr+=0 # Get number of rows in file1
@@ -449,51 +452,6 @@ function GetOrSetExtractVal(val) {
     return extract_val
 }
 
-function QSAN(A,left,right,    i,last) {
-    if (left >= right) return
-
-    S(A, left, left + int((right-left+1)*rand()))
-    last = left
-
-    for (i = left+1; i <= right; i++) {
-        if (GetN(A[i]) < GetN(A[left])) {
-            S(A, ++last, i)
-        }
-        else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]]) {
-            S(A, ++last, i)
-        }
-    }
-
-    S(A, left, last)
-    QSAN(A, left, last-1)
-    QSAN(A, last+1, right)
-}
-
-function QSDN(A,left,right,    i,last) {
-    if (left >= right) return
-
-    S(A, left, left + int((right-left+1)*rand()))
-    last = left
-
-    for (i = left+1; i <= right; i++) {
-        if (GetN(A[i]) > GetN(A[left])) {
-            S(A, ++last, i)
-        }
-        else if (GetN(A[i]) == GetN(A[left]) && A[i] < A[left]) {
-            S(A, ++last, i)
-        }
-    }
-
-    S(A, left, last)
-    QSDN(A, left, last-1)
-    QSDN(A, last+1, right)
-}
-
-function S(A,i,j,t,  _) {
-    t = A[i]; A[i] = A[j]; A[j] = t
-    t = _[i]; _[i] = _[j]; _[j] = t
-}
-
 function GetN(str) {
     if (NS[str]) {
         return NS[str]
@@ -503,5 +461,11 @@ function GetN(str) {
     n_val = Line[length(Line)]
     n_val = n_val + 0
     NS[str] = n_val
+    if (diff_list_row_header) {
+        NExt[str] = Line[2] _ Line[3] _ Line[4] _ Line[5]
+    }
+    else {
+        NExt[str] = Line[1] _ Line[2] _ Line[3] _ Line[4]
+    }
     return n_val
 }

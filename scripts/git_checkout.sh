@@ -36,7 +36,7 @@ if [[ ! ( -d .git || $(git rev-parse --is-inside-work-tree 2> /dev/null) ) ]]; t
 fi
 
 if [ $(git status --porcelain | wc -c | xargs) -gt 0 ]; then
-    echo "${ORANGE}Untracked changes found!${NC}"
+    echo -e "${ORANGE}Untracked changes found!${NC}"
     echo
     read -p $'\e[37;1m To stash untracked changes on the current branch, enter "stash": \e[0m' confirm
     if [ "$confirm" = 'stash' ]; then

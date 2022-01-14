@@ -130,7 +130,10 @@
 BEGIN {
     _ = SUBSEP
 
-    if (!sort_off) sort = 1
+    if (!sort_off) {
+        sort = 1
+        SeedRandom()
+    }
     if (!(FS ~ "\\[:.+:\\]")) OFS = FS
   
     if (!x || !y) {
@@ -451,91 +454,16 @@ function GenZKeys(nf, Z, ZKeys, XK, YK) {
     }
 }
 
-function QSA(A,left,right,    i,last) {
-    if (left >= right) return
-
-    S(A, left, left + int((right-left+1)*rand()))
-    last = left
-
-    for (i = left+1; i <= right; i++)
-        if (A[i] < A[left])
-            S(A, ++last, i)
-
-    S(A, left, last)
-    QSA(A, left, last-1)
-    QSA(A, last+1, right)
-}
-
-function QSD(A,left,right,    i,last) {
-    if (left >= right) return
-
-    S(A, left, left + int((right-left+1)*rand()))
-    last = left
-
-    for (i = left+1; i <= right; i++)
-        if (A[i] > A[left])
-            S(A, ++last, i)
-
-    S(A, left, last)
-    QSD(A, left, last-1)
-    QSD(A, last+1, right)
-}
-
-function QSAN(A,left,right,    i,last) {
-    if (left >= right) return
-
-    S(A, left, left + int((right-left+1)*rand()))
-    last = left
-
-    for (i = left+1; i <= right; i++) {
-        if (GetN(A[i]) < GetN(A[left])) {
-            S(A, ++last, i)
-        }
-        else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]]) {
-            S(A, ++last, i)
-        }
-    }
-
-    S(A, left, last)
-    QSAN(A, left, last-1)
-    QSAN(A, last+1, right)
-}
-
-function QSDN(A,left,right,    i,last) {
-    if (left >= right) return
-
-    S(A, left, left + int((right-left+1)*rand()))
-    last = left
-
-    for (i = left+1; i <= right; i++) {
-        if (GetN(A[i]) > GetN(A[left])) {
-            S(A, ++last, i)
-        }
-        else if (GetN(A[i]) == GetN(A[left]) && NExt[A[i]] < NExt[A[left]]) {
-            S(A, ++last, i)
-        }
-    }
-
-    S(A, left, last)
-    QSDN(A, left, last-1)
-    QSDN(A, last+1, right)
-}
-
-function S(A,i,j,t,  _) {
-    t = A[i]; A[i] = A[j]; A[j] = t
-    t = _[i]; _[i] = _[j]; _[j] = t
-}
-
 function GetN(str) {
     if (NS[str]) {
         return NS[str]
     }
     else if (match(str, n_re)) {
         n_end = RSTART + RLENGTH
-        n_str = substr(str, RSTART, n_end)
+        n_str = substr(str, RSTART, n_end - 1)
 
         if (n_str != str) {
-            NExt[str] = substr(str, n_end+1, length(str))
+            NExt[str] = substr(str, n_end, length(str))
         }
 
         n_str = sprintf("%f", n_str)
