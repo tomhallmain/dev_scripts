@@ -597,7 +597,7 @@ function AggregationExpr(agg_expr, call, call_idx, reparse) {
     else if (agg_expr ~ /[A-z]/) {
         KeyAgg[call, call_idx] = 1
     }
-    else if (agg_expr ~ /^(\$)?[0-9]+([\+\-\*\/][\+\-\*\/]?(\$)?[0-9]+)+$/) {
+    else if (agg_expr ~ /^(\$[0-9]+|[0-9\.]+)([\+\-\*\/][\+\-\*\/]?(\$[0-9]+|[0-9\.]+))+$/) {
         spec_agg = 1
     }
     else if (agg_expr ~ /^(\$)?[0-9]+$/) {

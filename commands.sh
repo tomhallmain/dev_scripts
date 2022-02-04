@@ -344,7 +344,7 @@ ds:fail() { # Safe failure that kills parent: ds:fail [error_message]
     if [[ "$shell" =~ "bash" ]]; then
         : "${_err_?$1}"
     else
-        echo -e "\e[31;1m$1"
+        echo -e "\e[31;1m$1" >&2
         : "${_err_?Operation intentionally failed by fail command}"
     fi
 }
@@ -827,7 +827,7 @@ ds:insert() { # ** Redirect input into a file at lineno or pattern: ds:insert fi
     fi
 
     ds:file_check "$1" t
-    local sink="$1" where="$2" _inplace="${4:f}"
+    local sink="$1" where="$2" _inplace="${4:-f}"
 
     if ds:test '$t(rue)?$' "$inplace"; then
         _tmp=$(ds:tmp 'ds_select')

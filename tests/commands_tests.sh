@@ -194,7 +194,7 @@ ds:join "$jnr1" "$jnr2" o 2,3,4,5 > $tmp
 cmp --silent $tmp $jnrjn1                                   || ds:fail 'ds:join failed repeats partial keyset case'
 ds:join "$jnr1" "$jnr2" o "h,j,f,total" > $tmp
 cmp --silent $tmp $jnrjn1                                   || ds:fail 'ds:join failed repeats partial keyset gen keys case'
-ds:join "$jnr3" "$jnr4" o merge -v merge_verbose=1 > $tmp
+ds:join "$jnr3" "$jnr4" o merge -v verbose=1 > $tmp
 cmp --silent $tmp $jnrjn2                                   || ds:fail 'ds:join failed repeats merge case'
 
 echo -e "a b d f\nd c e f" > /tmp/ds_join_test1

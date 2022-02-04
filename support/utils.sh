@@ -9,11 +9,11 @@ ds:file_check() { # Test for file validity and fail if invalid: ds:file_check te
     [ "$3" ] && ds:test 't(rue)?' "$3" && local allow_binary=0
     
     if [ "$2" ] && ds:test 't(rue)?' "$2"; then
-        [[ -w "$tf" && -f "$tf" ]] || ds:fail 'File is not writable!'
+        [[ -w "$tf" && -f "$tf" ]] || ds:fail "File \"$tf\" is not writable"
     elif [ "$enable_search" ]; then
         if [ "$filelike" ]; then
             if [ ! "$allow_binary" ] && ! grep -Iq "" "$tf"; then
-                ds:fail 'Binary files have been disallowed for this command!'
+                ds:fail "Found file \"$tf\" Binary files have been disallowed for this command"
             fi
             echo -n "$tf"
         else
@@ -24,15 +24,15 @@ ds:file_check() { # Test for file validity and fail if invalid: ds:file_check te
                 local f=$(ds:nset 'fd' && fd -t f -x grep -Il '.' {} \; "$tf" | head -n1 \
                     || find . -type f -name "*$tf*" -not -path '*/\.*' -exec grep -Il '.' {} \; | head -n1)
             fi
-            [[ -z "$f" || ! -f "$f" ]] && ds:fail 'File not provided or invalid!'
+            [[ -z "$f" || ! -f "$f" ]] && ds:fail "File \"$tf\" not provided or invalid"
             local conf=$(ds:readp "Arg is not a file - run on closest match ${f}? (y/n)")
-            [ "$conf" = "y" ] && echo -n "$f" || ds:fail 'File not provided or invalid!'
+            [ "$conf" = "y" ] && echo -n "$f" || ds:fail "File \"$f\" not provided or invalid"
         fi
         return
     fi
     
     if [ ! "$filelike" ]; then # TODO: Bash -e test fails on fds
-        ds:fail 'File not provided or invalid!'; fi
+        ds:fail "File \"$tf\" not provided or invalid"; fi
     if [[ ! "$allow_binary" && ! "$tf" =~ '/dev/fd/' ]] && ! grep -Iq "" "$tf"; then
         ds:fail 'Binary files have been disallowed for this command!'; fi
 }
@@ -261,7 +261,7 @@ ds:readp() { # Portable read prompt: ds:readp [message] [downcase=t]
 }
 
 ds:is_int() { # Tests if arg is an integer: ds:is_int arg
-    local int_re="^[0-9]+$"
+    local int_re="^-?[0-9]+$"
     [[ $1 =~ $int_re ]]
 }
 

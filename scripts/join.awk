@@ -139,9 +139,9 @@
 #
 #          -v ind=1
 #
-#   **  Merge with an extra column of output indicating files involved:
+#   **  Merge or join with an extra column of output indicating files involved:
 #
-#          -v merge_verbose=1
+#          -v verbose=1
 #
 #   **  Merge with custom labels in the verbose column:
 #
@@ -184,7 +184,7 @@
 #
 #
 # VERSION
-#       1.2
+#       1.3
 #
 # AUTHORS
 #       Tom Hall (tomhall.main@gmail.com)
@@ -203,32 +203,34 @@ BEGIN {
     else if (OFS ~ /\[\:.+\:\]/) {
         OFS = " "
     }
+    
+    if (merge_verbose) verbose = 1 # Handle old version awk arg
+
+    if (verbose) {
+        verbose = 1
+        file_labels = (ARGV[1] && ARGV[2] && ARGV[1] != ARGV[2])
+
+        if (!left_label) {
+            left_label = (file_labels ? ARGV[1] : "FILE1")
+        }
+        if (!right_label) {
+            right_label = (file_labels ? ARGV[2] : "FILE2")
+            right_label = piped ? "PIPEDATA" : right_label
+        }
+        if (!inner_label) {
+            inner_label = "BOTH"
+        }
+
+        left_label = left_label OFS
+        right_label = right_label OFS
+        inner_label = inner_label OFS
+    }
+    else {
+        left_label = ""; right_label = ""; inner_label = ""
+    }
 
     if (merge) {
         merge = 1
-        
-        if (merge_verbose) {
-            merge_verbose = 1
-            file_labels = (ARGV[1] && ARGV[2] && ARGV[1] != ARGV[2])
-
-            if (!left_label) {
-                left_label = (file_labels ? ARGV[1] : "FILE1")
-            }
-            if (!right_label) {
-                right_label = (file_labels ? ARGV[2] : "FILE2")
-                right_label = piped ? "PIPEDATA" : right_label
-            }
-            if (!inner_label) {
-                inner_label = "BOTH"
-            }
-
-            left_label = left_label OFS
-            right_label = right_label OFS
-            inner_label = inner_label OFS
-        }
-        else {
-            left_label = ""; right_label = ""; inner_label = ""
-        }
 
         if (bias_merge_keys) {
             bias_merge = 1
@@ -276,10 +278,6 @@ BEGIN {
         }
     }
     else {
-        left_label = ""
-        right_label = ""
-        inner_label = ""
-
         if (k) {
             k1 = k
             k2 = k
@@ -696,7 +694,7 @@ function GenRightOutputString(line2, K1, K2, nf1, nf2, fs2) {
 }
 
 function GenLeftOutputString(line1, line2, K1, nf1, nf2, fs1, fs2) {
-    jn = inner_label
+    jn = left_label
     
     if (full_bias) {
         split(line1, Line1, fs1)

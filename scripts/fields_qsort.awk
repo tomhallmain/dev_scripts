@@ -173,6 +173,7 @@ header_unset || gen_keys {
             
                 if (field ~ "^(\"|')*"key_pattern) {
                     Keys[i] = f
+                    KeyFields[f] = 1
                     key_found = 1
                     break
                 }

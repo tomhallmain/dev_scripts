@@ -100,7 +100,7 @@
 #          -v diff_list_sort=a[sc]
 #
 # VERSION
-#       0.1
+#       0.2
 #
 # AUTHORS
 #       Tom Hall (tomhall.main@gmail.com)
@@ -177,6 +177,10 @@ BEGIN {
         if (tolower(diff_list) == "only") {
             diff_list = 1
             diff_list_only = 1
+            has_diff = 0
+        }
+        else {
+            has_diff = 1
         }
 
         if (tolower(diff_list_sort) == "off") {
@@ -341,6 +345,10 @@ NR > FNR {
                         }
                     }
 
+                    if (diff_list_only && !has_diff && diff_val) {
+                        has_diff = 1
+                    }
+
                     if (diff_list_row_header) {
                         if (header) {
                             list_val = $diff_list_row_header _ Header[f] _ Stream1Line[f] _ $f _ diff_val
@@ -379,6 +387,10 @@ END {
         else {
             QSDN(DiffList, 1, diff_counter)
         }
+    }
+
+    if (!has_diff) {
+        exit
     }
 
     if (!diff_list_only) {

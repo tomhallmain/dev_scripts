@@ -34,7 +34,7 @@ The below functions are especially useful when working in the terminal, and can 
 
 Fits tabular data (including multibyte characters) dynamically into your terminal, and attempts to format it richly and intelligently as requested by the user. If the max field lengths for all fields combined is too long, the longest fields will be right-truncated until the terminal width is reached.
 
-Also supports file sets as arguments to a single call for quickly reporting on multiple disjoined files.
+Also supports file sets as arguments to a single call for quickly reporting on sets of files.
 
 ```
 $ head -n5 tests/data/taxables.csv
@@ -64,7 +64,7 @@ $ ds:fit $(fd -e csv) # Fit all CSVs in current dir with fd
 
 Select, reorder, slice data using inferred field separators. Supports expression evaluation, regex searches, exclusions, and/or logic, frame expressions, reversals, and more. Runs ds:fit on output if to a terminal.
 
-Also supports file sets as arguments to a single call for quickly reporting on multiple disjoined files.
+Also supports file sets as arguments to a single call for quickly reporting on sets of files.
 
 ```bash
 $ head -n5 tests/data/company_funding_data.csv
@@ -133,7 +133,7 @@ $ ds:join /tmp/jn_a /tmp/jn_b right 1,2,3,4 1,3,2,4
 a  c  b  d
 1  2  3  4
 
-$ ds:join /tmp/jn_a /tmp/jn_b outer merge -v merge_verbose=1
+$ ds:join /tmp/jn_a /tmp/jn_b outer merge -v verbose=1
 BOTH       a  b  c  d
 /tmp/jn_b  1  3  2  4
 /tmp/jn_a  1  2  3  4

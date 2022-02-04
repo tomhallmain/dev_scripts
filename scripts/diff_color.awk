@@ -17,31 +17,41 @@ BEGIN {
     cyan = "\033[1;36m"
     mag = "\033[1;35m"
     coloroff = "\033[0m"
+    
+    left_n_chars = tty_half - 2
+    diff_start = tty_half - 1
+    right_start = tty_half + 2
+    
+    if (tty_half % 2 == 0) {
+        left_n_chars -= 1
+        diff_start -= 1
+        right_start -= 1
+    }
 }
 
 {
-    left = substr($0, 0, tty_half - 2)
-    diff = substr($0, tty_half - 1, 3)
-    right = substr($0, tty_half + 2)
+    coloron = 0
+    left = substr($0, 0, left_n_chars)
+    diff = substr($0, diff_start, 3)
+    right = substr($0, right_start)
 
     # If only one side is diff, color all, else color diff chars
 
     if (diff ~ ldiff) {
         print cyan $0 coloroff
-
-    } else if (diff ~ rdiff) {
+    }
+    else if (diff ~ rdiff) {
         print red $0 coloroff
-
-    } else if (diff ~ bdiff) {
-
+    }
+    else if (diff ~ bdiff) {
         split(left, lchars, "")
         split(right, rchars, "")
         l_len = length(lchars)
         r_len = length(rchars)
-
-        j = 2
+        j = 1
         recap = 0
         recaps = 0
+        
         for (i = 1; i <= l_len; i++) {
             if (lchars[i] == rchars[j]) {
                 if (coloron) {

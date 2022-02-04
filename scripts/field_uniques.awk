@@ -12,7 +12,7 @@ BEGIN {
         else
             split(fields, Fields, "[ ,\|\:\;\.\_]+")
     }
-    else Fields[1] = 1
+    else Fields[1] = 0
 
     len_f = length(Fields)
 }
