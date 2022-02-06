@@ -131,6 +131,12 @@ elif ls -G -d . >/dev/null 2>&1; then
     echo
     echo 'To install GNU coreutils, please visit https://www.gnu.org/software/coreutils/'
     echo
+    echo 'Or if using homebrew, run `brew install coreutils` and then override the default'
+    echo 'commands in your PATH by adding the following line to your .bashrc or .zshrc:'
+    echo
+    echo '    `export PATH="$(brew --prefix coreutils)/libexec/gnubin:/usr/local/bin:$PATH"`'
+    echo
+    # TODO confirm to install coreutils from here
 else
     solaris_core=0
     echo 'Solaris configuration detected - functionality may be severely limited'

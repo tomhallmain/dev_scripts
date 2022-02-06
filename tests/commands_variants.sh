@@ -38,7 +38,7 @@ case "$tests" in
     pow)      test_context="POW TESTS##FIELD_REPLAC"   ;;
     fieldrep) test_context="FIELD_REPLAC##PIVOT TEST"  ;;
     pivot)    test_context="PIVOT TESTS##AGG TESTS"    ;;
-    agg)      test_context="AGG TESTS##DIFF_FIELDS"    ;;
+    agg)      test_context="AGG TESTS##DIFF_FIELDS T"  ;;
     diff_f)   test_context="DIFF_FIELDS T##CASE TEST"  ;;
     case)     test_context="CASE TESTS##GRAPH"         ;;
     graph)    test_context="GRAPH TESTS##SHAPE TESTS"  ;;

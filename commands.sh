@@ -987,6 +987,32 @@ ds:shape() { # ** Print data shape by length or pattern: ds:shape [-h|file*] [pa
     ds:pipe_clean $_file
 }
 
+ds:plot() { # Get a scatter plot of from two fields: ds:plot [file] [field_y=1] [field_x=index]
+    if ds:pipe_open; then
+        local _file=$(ds:tmp 'ds_plot') piped=0
+        cat /dev/stdin > $_file
+    else
+        local tmp=$(ds:tmp 'ds_plot')
+        ds:file_check "$1" f f t > $tmp
+        local _file="$(ds:fd_check "$(cat $tmp; rm $tmp)")"
+        shift
+    fi
+    if ds:is_int "$1"; then
+        local field_y="$1"
+    fi
+    [[ "$1" && ! "$1" = "-v" ]] && shift
+    if ds:is_int "$1"; then
+        local field_x="$1"
+    fi
+    [[ "$1" && ! "$1" = "-v" ]] && shift
+    local args=( "$@" ) tty_size=$(tput cols) fstmp=$(ds:tmp 'ds_extractfs')
+    ds:extractfs > $fstmp
+    local fs="$(cat $fstmp; rm $fstmp)"
+    awk -v FS="$fs" -v OFS="$fs" -v width=$tty_size -v height=50 ${args[@]} \
+        -f "$DS_SCRIPT/plot.awk" "$_file" 2>/dev/null
+    ds:pipe_clean $_file
+}
+
 ds:diff_fields() { # ** Get elementwise diff of two datasets (alias ds:df): ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]
     if ds:pipe_open; then
         local f2=$(ds:tmp 'ds_diff_fields') piped=1
@@ -1233,14 +1259,14 @@ ds:join() { # ** Join two datasets with any keyset (alias ds:jn): ds:join file [
             while [ "$ext_f" -ge "$file_anc" ]
             do
               let local file_anc+=1
-              awk -v FS="$DS_SEP" -v OFS="$fs1" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+              LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs1" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
                   -f "$DS_SCRIPT/join.awk" $pf1 $pf2 2>/dev/null > $ext_tmp
               ds:prefield "$ext_tmp" "$fs1" > $pf1
               ds:prefield "${ext_jnf[$file_anc]}" "$fs1" > $pf2
             done
             cat $ext_tmp | ds:ttyf "$fs1"; rm $ext_tmp; unset "ext_f"
         else
-            awk -v FS="$DS_SEP" -v OFS="$fs1" -v left_label="$f1" -v right_label="$f2" \
+            LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs1" -v left_label="$f1" -v right_label="$f2" \
                 -v piped=$piped ${args[@]} -f "$DS_SUPPORT/utils.awk" \
                 -f "$DS_SCRIPT/join.awk" $pf1 $pf2 2>/dev/null \
                 | ds:ttyf "$fs1"
@@ -1250,18 +1276,18 @@ ds:join() { # ** Join two datasets with any keyset (alias ds:jn): ds:join file [
         if [ "$ext_f" ]; then
             let local file_anc=$arr_base+1
             local ext_tmp1=$(ds:tmp 'ds_jn_ext1')
-            awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+            LC_ALL='C' awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
                 -f "$DS_SCRIPT/join.awk" "$f1" "$f2" 2>/dev/null > $ext_tmp1
             while [ "$ext_f" -gt "$file_anc" ]
             do
                 let local file_anc+=1
-                awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+                LC_ALL='C' awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
                     -f "$DS_SCRIPT/join.awk" $ext_tmp1 "${ext_jnf[$file_anc]}" 2>/dev/null > $ext_tmp
                 cat $ext_tmp > $ext_tmp1
             done
             cat $ext_tmp | ds:ttyf "$fs1"; rm $ext_tmp $ext_tmp1; unset "ext_f"
         else
-            awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" -v piped=$piped ${args[@]} \
+            LC_ALL='C' awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" -v piped=$piped ${args[@]} \
                 -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/join.awk" "$f1" "$f2" 2>/dev/null \
                 | ds:ttyf "$fs1"
         fi
@@ -1403,14 +1429,18 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
     local args=( "$@" ) buffer=${DS_FIT_BUFFER:-2} tty_size=$(tput cols) fstmp=$(ds:tmp 'ds_extractfs')
     ds:extractfs > $fstmp
     local fs="$(cat $fstmp; rm $fstmp)"
-    ds:awksafe && local args=( ${args[@]} -v awksafe=1 -f "$DS_SUPPORT/wcwidth.awk" )
+    if ds:awksafe; then
+        local args=( ${args[@]} -v awksafe=1 -f "$DS_SUPPORT/wcwidth.awk" )
+    else
+        echo "WARNING: AWK configuration does not support multibyte characters" >&2
+    fi
 
     if [ "$pf_off" ]; then
-        awk -v FS="$fs" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$_file" \
+        LC_ALL='C' awk -v FS="$fs" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$_file" \
             ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/fit_columns.awk" $_file{,} 2>/dev/null
     else
         ds:prefield "$_file" "$fs" 0 > $prefield
-        awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$_file" \
+        LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$_file" \
             ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/fit_columns.awk" $prefield{,} 2>/dev/null
         rm $prefield
     fi
@@ -1500,11 +1530,11 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [r
     local fs="$(cat $fstmp; rm $fstmp)"
 
     if [ "$pf_off" ]; then
-        awk -v FS="$fs" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+        LC_ALL='C' awk -v FS="$fs" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
             -f "$DS_SCRIPT/reorder.awk" "$_file" 2>/dev/null | ds:ttyf "$fs" "$run_fit"
     else
         ds:prefield "$_file" "$fs" 1 > $prefield
-        awk -v FS="$DS_SEP" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+        LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
             -f "$DS_SCRIPT/reorder.awk" $prefield 2>/dev/null | ds:ttyf "$fs" "$run_fit"
     fi
 
@@ -1552,7 +1582,7 @@ ds:pivot() { # ** Pivot tabular data: ds:pivot [file] [y_keys] [x_keys] [z_keys=
     local fs="$(cat $fstmp; rm $fstmp)"
     ds:prefield "$_file" "$fs" 1 > $prefield
 
-    awk -v FS="$DS_SEP" -v OFS="$fs" -v x="${x_keys:-0}" -v y="${y_keys:-0}" \
+    LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs" -v x="${x_keys:-0}" -v y="${y_keys:-0}" \
         -v z="${z_keys:-_}" -v agg="${agg_type:-0}" ${args[@]} \
         -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/pivot.awk" "$prefield" 2>/dev/null \
         | ds:ttyf "$DS_SEP"
@@ -1592,11 +1622,16 @@ ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file*] [r_aggs=+] [c_aggs
         local r_aggs='+|all' c_aggs='+|all'; fi
 
     local args=( "$@" ) prefield=$(ds:tmp "ds_agg_prefield") fstmp=$(ds:tmp 'ds_extractfs')
+    if ds:awksafe; then
+        local args=( ${args[@]} -v awksafe=1 )
+    else
+        echo "WARNING: AWK configuration does not support multibyte characters" >&2
+    fi
     ds:extractfs > $fstmp
     local fs="$(cat $fstmp; rm $fstmp)"
     ds:prefield "$_file" "$fs" > $prefield
 
-    awk -v FS="$DS_SEP" -v OFS="$fs" -v r_aggs="$r_aggs" -v c_aggs="$c_aggs" \
+    LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs" -v r_aggs="$r_aggs" -v c_aggs="$c_aggs" \
         ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/agg.awk" "$prefield" 2>/dev/null \
         | ds:ttyf "$fs" "" -v nofit='Cross__FS__Aggregation'
 
@@ -1820,7 +1855,7 @@ ds:hist() { # ** Print histograms for all number fields in data: ds:hist [file] 
     ds:extractfs > $fstmp
     local fs="$(cat $fstmp; rm $fstmp)"
     ds:prefield "$_file" "$fs" > $prefield
-    awk -v FS="$DS_SEP" -v OFS="$fs" -v n_bins=$n_bins -v max_bar_leb=$bar_len \
+    awk -v FS="$DS_SEP" -v OFS="$fs" -v n_bins=$n_bins -v max_bar_len=$bar_len \
         ${args[@]} -f "$DS_SCRIPT/hist.awk" $prefield 2>/dev/null
     ds:pipe_clean $_file; rm $prefield
 }
@@ -1868,7 +1903,7 @@ ds:enti() { # Print text entities separated by pattern: ds:enti [file] [sep= ] [
     ([ "$min" ] && test "$min" -gt 0 2>/dev/null) || min=1
     let min=$min-1
     local program="$DS_SCRIPT/separated_entities.awk"
-    LC_All='C' awk -v sep="$sep" -v min=$min -f $program "$_file" 2>/dev/null | LC_ALL='C' sort -n$order
+    LC_ALL='C' awk -v sep="$sep" -v min=$min -f $program "$_file" 2>/dev/null | LC_ALL='C' sort -n$order
     ds:pipe_clean $_file
 }
 
@@ -1890,7 +1925,7 @@ ds:subsep() { # ** Extend fields by a common subseparator: ds:subsep [-h|file] s
     local fs="$(cat $fstmp; rm $fstmp)"
     ds:prefield "$_file" "$fs" > $prefield
 
-    awk -v FS="$DS_SEP" -v OFS="$fs"  ${ssp[@]} ${nmh[@]} ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+    LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs"  ${ssp[@]} ${nmh[@]} ${args[@]} -f "$DS_SUPPORT/utils.awk" \
         -f "$DS_SCRIPT/subseparator.awk" "$prefield"{,} 2>/dev/null
 
     ds:pipe_clean $_file; rm $prefield
@@ -2211,9 +2246,9 @@ ds:line() { # ** Execute commands on var line: ds:line [seed_cmds] line_cmds [IF
     fi
     local OLD_IFS="$IFS"
     [ "$2" ] && local sep="$2" || local sep=$'\n'
-    while IFS=$sep read -r line; do
+    while IFS=$sep read -u 9 -r line; do
         eval "$1"; [ $? -gt 0 ] && local stts=1
-    done < <([ "$piped" ] && cat $_file || eval "$seed_cmds")
+    done 9< <([ "$piped" ] && cat $_file || eval "$seed_cmds")
     ds:pipe_clean $_file
     IFS="$OLD_IFS"
     return $stts
@@ -2297,6 +2332,9 @@ ds:random() { # ** Generate a random number 0-1 or randomize text: ds:random [nu
 }
 
 ds:websel() { # Download and extract inner html by regex: ds:websel url [tag_re] [attrs_re]
+    if ! wget --version &> /dev/null; then
+        echo "wget is required by this command, but it was not found."
+    fi
     local location="$1" tr_file="$DS_SUPPORT/named_entities_escaped.sed"
     local tag="${2:-[a-z]+}" attrs="${3:-[^>]*}"
     local unescaped="$( wget -qO- "$location" |

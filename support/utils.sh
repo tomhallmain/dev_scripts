@@ -115,10 +115,10 @@ ds:prefield() { # Infer and transform FS for complex field patterns: ds:prefield
     local _file="$1" fs="$2" dequote=${3:-0}
     [[ "$_file" =~ "^/tmp" ]] && ds:dostounix "$_file"
     if [[ ! "${@:4}" =~ "-v OFS" && ! "${@:4}" =~ "-v ofs" ]]; then
-        awk -v OFS="$DS_SEP" -v FS="$fs" -v retain_outer_quotes="$dequote" ${@:4} \
+        LC_ALL='C' awk -v OFS="$DS_SEP" -v FS="$fs" -v retain_outer_quotes="$dequote" ${@:4} \
             -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/quoted_fields.awk" "$_file" 2>/dev/null
     else
-        awk -v FS="$fs" -v retain_outer_quotes="$dequote" ${@:4} -f "$DS_SUPPORT/utils.awk" \
+        LC_ALL='C' awk -v FS="$fs" -v retain_outer_quotes="$dequote" ${@:4} -f "$DS_SUPPORT/utils.awk" \
             -f "$DS_SCRIPT/quoted_fields.awk" "$_file" 2>/dev/null; fi
 }
 

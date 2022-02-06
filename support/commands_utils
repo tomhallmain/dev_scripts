@@ -83,6 +83,7 @@
 @@@ds:pipe_clean@@@@@@Remove tmpfile created via STDIN if piping detected@@@piped=0; tmp=$(mktemp tmp); ds:pipe_clean $tmp
 **@@@ds:pipe_open@@@@@@Detect if pipe is open@@@if ds:pipe_open; then [...]
 **@@@ds:pivot@@@@@@Pivot tabular data@@@ds:pivot [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
+@@@ds:plot@@@@@@Get a scatter plot of from two fields@@@ds:plot [file] [field_y=1] [field_x=index]
 **@@@ds:pow@@@@@@Combinatorial frequency of data field values@@@ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
 @@@ds:prefield@@@@@@Infer and transform FS for complex field patterns@@@ds:prefield file fs [dequote] [awkOFSargs]
 **@@@ds:prod@@@@@@Return product multiset of filelines@@@ds:pow file [file*] [awkargs]

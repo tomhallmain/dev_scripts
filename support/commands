@@ -61,6 +61,7 @@
 @@@ds:path_elements@@@@@@Return dirname/filename/extension from filepath@@@ds:path_elements file
 **@@@ds:pipe_check@@@@@@Detect if pipe has data or over [n_lines]@@@data | ds:pipe_check [n_lines]
 **@@@ds:pivot@@@@@@Pivot tabular data@@@ds:pivot [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
+@@@ds:plot@@@@@@Get a scatter plot of from two fields@@@ds:plot [file] [field_y=1] [field_x=index]
 **@@@ds:pow@@@@@@Combinatorial frequency of data field values@@@ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
 **@@@ds:prod@@@@@@Return product multiset of filelines@@@ds:pow file [file*] [awkargs]
 **@@@ds:random@@@@@@Generate a random number 0-1 or randomize text@@@ds:random [number|text]

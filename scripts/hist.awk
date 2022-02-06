@@ -37,6 +37,11 @@ BEGIN {
         if (!Counts[f, fval]) Rec[f]++
         Counts[f, fval]++
 
+        if (!MaxFSet[f]) {
+            Max[f] = fval
+            MaxFSet[f] = 1
+        }
+
         if (fval < Min[f] || !Min[f]) Min[f] = fval
         else if (fval > Max[f]) Max[f] = fval
     }
@@ -44,7 +49,7 @@ BEGIN {
 
 END {
     for (f in Rec) {
-        if (!Max[f]) continue
+        if (!MaxFSet[f]) continue
         if (length(Max[f]) > max_len) max_len = length(Max[f])
         if (length(Min[f]) > max_len) max_len = length(Min[f])
         BuildBins(f, Bins, Max[f], Min[f], n_bins)
@@ -55,13 +60,14 @@ END {
         f = CountDesc[1]
         val = CountDesc[2]
         split(Bins[f], FBins, ",")
-        for (b = 1; b <= n_bins; b++)
+        for (b = 1; b <= n_bins; b++) {
             if (val <= FBins[b]) {
                 Bin[f, b]++
                 if (Bin[f, b] > MaxBin[f]) MaxBin[f] = Bin[f, b]
                 break
             }
         }
+    }
 
     edges_len = max_len * 2 + 6
     PrintBins(Rec, Bin, Bins, MaxBin, Min, n_bins, bar)
@@ -83,9 +89,10 @@ function PrintBins(Rec, Bin, Bins, MaxBin, Min, n_bins, bar) {
         len_mod = (MaxBin[f] > max_bar_len && MaxBin[f] != 0) ? max_bar_len / MaxBin[f] : 1
         for (b = 1; b <= n_bins; b++) {
             starting_edge = b == 1 ? Min[f] : FBins[b-1]
-            printf "%"edges_len"s ", starting_edge"-"FBins[b]
+            printf "%"edges_len"s ", starting_edge" - "FBins[b]
             printf "%.*s\n", Bin[f, b] * len_mod, bar }
-        print "" }
+        print ""
+    }
 }
 
 function AnyFmtNum(str) {

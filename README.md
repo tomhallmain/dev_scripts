@@ -23,6 +23,13 @@ source "$DS_LOC/commands.sh"
 
 To verify the installation, open a new terminal and run `ds:commands`.
 
+Note that some commands require the default \*nix commands to be overloaded by the GNU coreutils. To set this up using homebrew:
+
+```
+$ brew install coreutils
+$ echo "export PATH=\"$(brew --prefix coreutils)/libexec/gnubin:/usr/local/bin:$PATH\"" >> ~/.zshrc # OR ~/.bashrc if using bash
+```
+
 
 ## Usage and Selected Functions
 
@@ -95,7 +102,7 @@ LifeLock     1-May-07
 company      fundedDate
 ```
 
-Multibyte characters are supported by `ds:fit` and `ds:reo`.
+If your awk version supports it, multibyte characters are supported by `ds:fit` and `ds:reo`.
 
 ```bash
 $ head -n4 tests/data/emoji
@@ -174,23 +181,28 @@ c  3   6   2.5   4  180    15   0
 *  3  36  30.0  16    0  1080   0
 ```
 
-#### `ds:fieldcounts`
+#### `ds:uniq` / `ds:fieldcounts`
 
-Get count data for unique lines or sets of fields. Runs ds:fit on output if to a terminal.
+Get unique lines or sets of fields with optional counts data. Runs ds:fit on output if to a terminal.
 
 ```bash
-$ cat /tmp/fc_ex
+$ cat /tmp/ex
 a:1
 a:2
 a:1
 b:1
 
-$ ds:fieldcounts /tmp/fc_ex | cat
+$ ds:uniq /tmp/ex
+a:1
+a:2
+b:1
+
+$ ds:fieldcounts /tmp/ex | cat
 1 a:2
 1 b:1
 2 a:1
 
-$ ds:fieldcounts /tmp/fc_ex 2
+$ ds:fieldcounts /tmp/ex 2
 1  2
 3  1
 ```

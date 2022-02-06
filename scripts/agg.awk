@@ -770,8 +770,7 @@ function GetOrSetIndexNA(agg, idx, call) {
                         f = Fs[f_i]; op = Ops[f_i+1]
                         if (f ~ /\$[0-9]+/) {
                             gsub(/(\$|[[:space:]]+)/, "", f)
-                            val = f ? (call ? _[f, idx] : $f) : ""
-                            gsub(/(\$|\£|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
+                            val = f ? CleanVal(call ? _[f, idx] : $f) : ""
                         }
                         else {
                             val = f # Expects a static number value
@@ -869,8 +868,7 @@ function GenRExpr(agg) {
 
             if (f ~ /\$[0-9]+/) {
                 gsub(/(\$|[[:space:]]+)/, "", f)
-                val = f ? $f : ""
-                gsub(/(\$|\£|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
+                val = f ? CleanVal($f) : ""
             }
             else {
                 val = f # Expects a static number value
@@ -891,6 +889,16 @@ function GenRExpr(agg) {
     }
 
     return expr
+}
+
+function CleanVal(val) {
+    if (awksafe) {
+        gsub(/(\$|\£|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
+    }
+    else {
+        gsub(/(\$|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
+    }
+    return val
 }
 
 function AdvanceCarryVector(column_agg_i, nf, agg_amort, carry) { # TODO: This is wildly inefficient
@@ -936,7 +944,7 @@ function AdvanceCarryVector(column_agg_i, nf, agg_amort, carry) { # TODO: This i
             t_carry = t_carry sep CarryVec[f] margin_operator
         }
         else {
-            gsub(/(\$|\£|\(|\)|^[[:space:]]+|[[:space:]]+$)/, "", val)
+            val = CleanVal(val)
             extract_val = GetOrSetExtractVal(val)
       
             if (!extract_val && extract_val != 0) {
