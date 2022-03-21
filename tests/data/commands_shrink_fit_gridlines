@@ -119,7 +119,7 @@
 ├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
 │  │  ds:ntype     │         │  Get name type - function, ali│  ds:ntype name                           │
 ├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:path_eleme│         │  Return dirname/filename/exten│  ds:path_elements file                   │
+│  │  ds:path_eleme│         │  Return dirname/filename/exten│  read -r dirpath filename extension <<< "│
 ├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
 │**│  ds:pipe_check│         │  Detect if pipe has data or ov│  data | ds:pipe_check [n_lines]          │
 ├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤

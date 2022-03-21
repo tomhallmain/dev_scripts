@@ -66,6 +66,7 @@
 #          + - elementwise addition
 #          * - elementwise multiplication
 #          / - elementwise division
+#          b/binary - elementwise test for presence of a diff
 #
 #       exclude_fields will default to the first field. To set multiple exclude fields, 
 #       list their indices separated by commas:
@@ -172,6 +173,9 @@ BEGIN {
     else if (op == "%") pc = 1
     else if (op == "*") mult = 1
     else if (op == "/") div = 1
+    else if (tolower(op) == "b" || tolower(op) == "bin" || tolower(op) == "binary") {
+        bin = 1
+    }
 
     if (diff_list) {
         if (tolower(diff_list) == "only") {
@@ -244,6 +248,45 @@ NR > FNR {
         s1_val = Stream1Line[f]
         s2_val = $f
         
+        if (bin) {
+            diff_val = (s1_val != s2_val)
+            PrintDiffField(diff_val)
+            
+            if (diff_list) {
+                if (div) {
+                    if (diff_val == 1) {
+                        break
+                    }
+                }
+                else {
+                    if (diff_val == 0) {
+                        break
+                    }
+                }
+
+                if (diff_list_only && !has_diff && diff_val) {
+                    has_diff = 1
+                }
+
+                if (diff_list_row_header) {
+                    if (header) {
+                        list_val = $diff_list_row_header _ Header[f] _ Stream1Line[f] _ $f _ diff_val
+                    }
+                    else {
+                        list_val = $diff_list_row_header _ f _ Stream1Line[f] _ $f _ diff_val
+                    }
+                }
+                else {
+                    list_val = FNR _ f _ Stream1Line[f] _ $f _ diff_val
+                }
+
+                DiffList[++diff_counter] = list_val
+            }
+
+            if (f < NF) PrintDiffField(OFS)
+            continue
+        }
+
         if (f in ExcludeFields) { 
             PrintDiffField($f)
         }

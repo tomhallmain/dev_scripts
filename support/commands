@@ -58,7 +58,7 @@
 **@@@ds:newfs@@@@@@Convert field separators - i.e. tsv -> csv@@@ds:newfs [file] [newfs=,] [awkargs]
 @@@ds:nset@@@@@@Test name (function/alias/variable) is defined@@@ds:nset name [search_vars=f]
 @@@ds:ntype@@@@@@Get name type - function, alias, variable@@@ds:ntype name
-@@@ds:path_elements@@@@@@Return dirname/filename/extension from filepath@@@ds:path_elements file
+@@@ds:path_elements@@@@@@Return dirname/filename/extension from filepath@@@read -r dirpath filename extension <<< "$(ds:path_elements file)"
 **@@@ds:pipe_check@@@@@@Detect if pipe has data or over [n_lines]@@@data | ds:pipe_check [n_lines]
 **@@@ds:pivot@@@@@@Pivot tabular data@@@ds:pivot [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
 @@@ds:plot@@@@@@Get a scatter plot of from two fields@@@ds:plot [file] [field_y=1] [field_x=index]

@@ -124,14 +124,14 @@ ds:grepvi() { # Grep and open vim on match (alias ds:gvi): ds:gvi search [file|d
         ds:test 't(rue)?' "$all" || local singlefile=0
         local tmp=$(ds:tmp 'ds_gvi')
         [ -d "$2" ] && local dir="$2"
-        
+
         if [ -z $dir ]; then
             local dir="." basedir_f=($(find . -maxdepth 0 -type f | grep -v ":"))
             [ ! "$2" = "" ] && local filesearch="1~$2" || local filesearch=a
         else
             local basedir_f=($(find "$dir" -maxdepth 0 -type f | grep -v ":"))
         fi
-        
+
         if ds:nset 'rg'; then
             rg -Hno --no-heading --hidden --color=never -g '!*:*' -g '!.git' \
                 "$search" ${basedir_f[@]} "$dir" | head -n1000 > $tmp
@@ -139,22 +139,22 @@ ds:grepvi() { # Grep and open vim on match (alias ds:gvi): ds:gvi search [file|d
             grep -HInors --color=never --exclude ':' --excludedir '.git' \
                 "$search" ${basedir_f[@]} "$dir" | head -n1000 > $tmp
         fi
-        
+
         local fileline="$(ds:reo $tmp "$filesearch" 1,2 -F: -v q=1 | head -n500 | sed -E 's#^\./##g' | sort)"
         local matchcount="$(echo -e "$fileline" | wc -l | xargs)"
         local fileset="$(echo -e "$fileline" | ds:fc 1 1 -v FS=: | ds:reo a 2 -F: | sort)"
         local filematchcount="$(echo -e "$fileset" | wc -l | xargs)"
         ! ds:is_int "$matchcount" && rm $tmp && ds:fail 'gvi encountered an error while processing match data'
         ! ds:is_int "$filematchcount" && rm $tmp && ds:fail 'gvi encountered an error while processing match data'
-        
+
         if [ "$singlefile" ]; then
             if [ "$matchcount" -gt 1 ]; then
                 if [ "$filematchcount" -gt 1 ]; then
                     echo 'Multiple matches found - select a file:'
-                    
+
                     while [ ! "$confirmed" ]; do
                         echo -e "$fileset" | ds:index 1 -F: | ds:fit -v FS=: -v color=never
-                        
+
                         while [ ! "$_matched_" ]; do
                             local choice="$(ds:readp 'Enter a number from the set of files or a pattern:' f)"
                             if [ -z "$choice" ]; then
@@ -181,9 +181,9 @@ ds:grepvi() { # Grep and open vim on match (alias ds:gvi): ds:gvi search [file|d
             fi
             local file="${fileline%:*}" line=${fileline##*:}
         fi
-    
+
         rm $tmp
-    
+
         if [[ "$singlefile" && ! -f "$file" ]]; then echo "$file"
             if [ -f "$search" ]; then
                 vi "$search" && return
@@ -215,20 +215,20 @@ ds:grepvi() { # Grep and open vim on match (alias ds:gvi): ds:gvi search [file|d
         fi
 
         vi +$line "$file" || return 1
-    
+
     else
         echo 'Running vim on all file matches. To move to the next file quit the current one.'
         echo 'To quit the loop press Ctrl+C after quitting a file.'
         sleep 4
         local OLD_IFS="$IFS"
         IFS=$'\n'
-        
+
         for fl in $(echo -e "$fileline"); do
             local file="${fl%:*}" line="${fl##*:}"
             [ -f "$file" ] && ds:is_int "$line" || continue
             ds:test "${file}${DS_SEP}" "$seenfiles" && continue
             local seenfiles="${seenfiles}${file}${DS_SEP}"
-            [ -f ".$file.swp" ] && echo "File $file already open - can't open matchline $line" && continue 
+            [ -f ".$file.swp" ] && echo "File $file already open - can't open matchline $line" && continue
             sleep 1; vi +$line "$file"
         done
 
@@ -241,7 +241,7 @@ ds:cd() { # cd to higher or lower level dirs: ds:cd [search]
     [ ! "$1" ] && cd "$HOME" && return
     local search="$1"
     [ -d "$search" ] && cd "$search" && return
-    
+
     if fd --version &>/dev/null; then
         local _FD=0 dirset="$(fd -t d "$search" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
     elif fd-find --version &>/dev/null; then
@@ -249,16 +249,16 @@ ds:cd() { # cd to higher or lower level dirs: ds:cd [search]
     else
         local dirset="$(find "$dir" -type d -name "$search" -maxdepth 10 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
     fi
-    
+
     local matchcount="$(echo -e "$dirset" | wc -l | xargs)"
-    
+
     if [ "$dirset" ] && ds:is_int "$matchcount"; then
         if [ "$matchcount" -gt 1 ]; then
             echo 'Multiple matches found - select a directory:'
-            
+
             while [ ! "$confirmed" ]; do
                 echo -e "$dirset" | ds:index 1 -F: | ds:fit -v FS=: -v color=never
-                
+
                 while [ ! "$_matched_" ]; do
                     local choice="$(ds:readp 'Enter a number from the set of directories or a pattern:')"
                     if ds:is_int "$choice" && [[ $choice -gt 0 && $choice -le $matchcount ]]; then
@@ -270,14 +270,14 @@ ds:cd() { # cd to higher or lower level dirs: ds:cd [search]
                         continue
                     fi
                 done
-                
+
                 local dirset="$(echo -e "$dirset" | ds:reo "${_patt_}${choice}" off)"
                 local matchcount="$(echo -e "$dirset" | wc -l | xargs)"
                 ! ds:is_int "$matchcount" && ds:fail 'Unable to find a match with current args'
                 [ "$matchcount" -gt 1 ] && unset _matched_ && continue
                 local confirmed=0
             done
-            
+
             local dirchoice="$dirset"
             [ -d "$dirchoice" ] && cd "$dirchoice" && return
         else
@@ -298,7 +298,7 @@ ds:cd() { # cd to higher or lower level dirs: ds:cd [search]
             local testdir="../$testdir"
             let local counter+=1
         done
-        
+
         ds:fail 'Unable to find a match with current args'
     fi
 }
@@ -432,8 +432,8 @@ ds:embrace() { # Enclose a string on each side by args: embrace str [left={] [ri
 }
 
 ds:filename_str() { # Add string to filename, preserving path: ds:filename_str file str [prepend|append|replace] [abs_path=t]
-    read -r dirpath filename extension <<<$(ds:path_elements "$1")
-    [ ! -d "$dirpath" ] && echo 'Filepath given is invalid' && return 1
+    IFS=$'\t' read -r dirpath filename extension <<<"$(ds:path_elements "$1")"
+    [ ! -f "${dirpath}${filename}${extension}" ] && echo 'Filepath given is invalid' && return 1
     if [ "$dirpath" = "./" ]
     then
         dirpath=""
@@ -447,7 +447,7 @@ ds:filename_str() { # Add string to filename, preserving path: ds:filename_str f
         replace) filename="${add}${extension}"            ;;
         *)       ds:help 'ds:filename_str'; return 1      ;;
     esac
-    
+
     if [ "$abs_path" ]
     then
         printf "${dirpath}${filename}"
@@ -456,18 +456,17 @@ ds:filename_str() { # Add string to filename, preserving path: ds:filename_str f
     fi
 }
 
-ds:path_elements() { # Return dirname/filename/extension from filepath: ds:path_elements file
+ds:path_elements() { # Return dirname/filename/extension from filepath: read -r dirpath filename extension <<< "$(ds:path_elements file)"
     local filepath="$1" dirpath=$(dirname "$1") filename=$(basename "$1")
     local extension=$([[ "$filename" = *.* ]] && echo ".${filename##*.}" || echo '')
     local filename="${filename%.*}"
-    local out=( "$dirpath/" "$filename" "$extension" )
-    printf '%s\t' "${out[@]}"
+    printf '%s\t%s\t%s' "$dirpath/" "$filename" "$extension"
 }
 
 ds:src() { # Source a piece of shell code: ds:src file ["searchx" pattern] || [start end] || [search linesafter]
     local tmp=$(ds:tmp 'ds_src')
     ds:file_check "$1"; local file="$(ds:fd_check "$1")"
-    
+
     if [ "$2" = "searchx" ]; then
         [ "$3" ] && ds:searchx "$file" "$3" > $tmp
         if ds:is_cli; then
@@ -480,9 +479,9 @@ ds:src() { # Source a piece of shell code: ds:src file ["searchx" pattern] || [s
         [ "$confirm" ] && echo -e "Selection confirmed - new code sourced"
         return
     fi
-    
+
     if ds:is_int "$2"; then
-        local line=$2 
+        local line=$2
         if ds:is_int "$3"; then
             local endline=$3
             ds:reo "$file" "$line..$endline" > $tmp
@@ -501,7 +500,7 @@ ds:src() { # Source a piece of shell code: ds:src file ["searchx" pattern] || [s
 
 ds:fsrc() { # Show the source of a shell function: ds:fsrc func
     local shell=$(ds:sh)
-    
+
     if [[ $shell =~ bash ]]; then
         local tmp=$(ds:tmp 'ds_fsrc')
         bash --debugger -c 'echo' &> /dev/null
@@ -541,7 +540,7 @@ ds:trace() { # Search shell trace for a pattern: ds:trace [command] [search] [st
     fi
 
     local search="$1" run_strace="$2"
-    
+
     if [ -z "$run_strace" ]; then
         grep --color=always "$1" <(set -x &> /dev/null; eval "$cmd" 2>&1)
     else
@@ -628,7 +627,7 @@ alias ds:gb="ds:git_branch"
 ds:git_add_com_push() { # Add, commit with message, push (alias ds:gacp): ds:gacp commit_message [prompt=t]
     ds:not_git && return 1
     local commit_msg="$1" prompt="${2:-t}"
-    
+
     if [ "$(ds:os)" = 'MacOSX' ]; then
         if fd --version &>/dev/null; then
             rm $(fd -t f --hidden '.DS_Store' 2>/dev/null) 2>/dev/null
@@ -654,15 +653,15 @@ ds:git_add_com_push() { # Add, commit with message, push (alias ds:gacp): ds:gac
             fi
         fi
     fi
-    
+
     git add "$(git rev-parse --show-toplevel)"
-    
+
     if [ "$commit_msg" ]; then
         git commit -am "$commit_msg"
     else
         git commit
     fi
-    
+
     if ! git rev-parse --abbrev-ref --symbolic-full-name @{u} >/dev/null; then
         git push --set-upstream origin "$(git rev-parse --abbrev-ref HEAD)"
         echo -e "\nSet a new upstream branch for current branch."
@@ -693,18 +692,18 @@ ds:git_recent_all() { # Display recent commits for local repos (alias ds:gra): d
     local refs="$1"
     [ -d "$2" ] && cd "$2" || cd ~
     echo -e "${w}repo@@@   ${w}branch@@@sortfield@@@${w}commit time@@@${w}hash@@@${w}commit message@@@${w}author${nc}" > $all_recent
-    
+
     while IFS=$'\n' read -r dir; do
         [ -d "${dir}/.git" ] && \
             (cd "$dir" &>/dev/null 3>/dev/null 4>/dev/null 5>/dev/null 6>/dev/null && \
                 (ds:git_recent "$refs" parse | awk -v repo="$dir" -F"$DS_SEP" '
                     {print "\033[1;31m" repo "@@@", $0}') >> $all_recent)
     done < <(find * -maxdepth 0 -type d)
-    
+
     echo
     ds:sortm $all_recent -v order=d -F"$DS_SEP" -v k=3 2>/dev/null \
         | ds:reo "a" "NF!=3" -F"$DS_SEP" -v OFS="$DS_SEP" | ds:ttyf "$DS_SEP" "" -v color=never
-    
+
     local stts=$?
     echo; rm $all_recent; cd "$start_dir"; return $stts
 }
@@ -765,26 +764,26 @@ ds:searchx() { # Search for a C-lang/curly-brace object: ds:searchx file|dir [se
         else
             grep -Er --files-with-matches "$2" "$1" 2>/dev/null > $tmp
         fi
-        
+
         for fl in $(cat $tmp); do
             if [ -f "$fl" ] && grep -q '{' "$fl" 2>/dev/null; then
                 echo -e "\n${w}${fl}${nc}"
                 ds:searchx "$fl" "$2" "$3" "$4"; fi; done
-        
+
         local stts=$?
         rm $tmp
         return $stts
     fi
-    
+
     ds:file_check "$1"
-    
+
     if ds:test '^q$' "$3"; then
         if [ "$2" ]; then
             awk -f "$DS_SCRIPT/top_curly.awk" -v search="$2" "$1" 2>/dev/null && return
         else
             awk -f "$DS_SCRIPT/top_curly.awk" "$1" 2>/dev/null && return
         fi
-    else 
+    else
         if [ "$2" ]; then
             if [ "$4" ]; then
                 awk -f "$DS_SCRIPT/curlies.awk" -v search="$2" "$1" 2>/dev/null | ds:pipe_check
@@ -795,7 +794,7 @@ ds:searchx() { # Search for a C-lang/curly-brace object: ds:searchx file|dir [se
                 awk -f "$DS_SCRIPT/curlies.awk" "$1" 2>/dev/null | ds:pipe_check
             else
                 awk -f "$DS_SCRIPT/top_curly.awk" "$1" 2>/dev/null | ds:pipe_check; fi; fi; fi
-  
+
     # TODO: Add variable search
 }
 
@@ -895,7 +894,7 @@ ds:space() { # ** Modify file space or tab counts: ds:space [file] from=$'\t' ta
         local _file="$1"
         shift
     fi
-    
+
     local _from="${1:-2}" _target="${2:-4}"
     [ "$_from" = "$_target" ] && ds:fail "From and target spaces are the same."
     if [ "$_from" = $'\t' ]; then
@@ -1043,7 +1042,9 @@ ds:diff_fields() { # ** Get elementwise diff of two datasets (alias ds:df): ds:d
     fi
 
     if [ "$1" ]; then
-        if [ "$1" = '-' ]; then
+        if [[ "$1" = '-' || "$1" = '\-' ]]; then
+            local op="-" && shift
+        elif [[ "$1" = b || "$1" = bin || "$1" = binary ]]; then
             local op="$1" && shift
         else
             ds:test '^[\+\-\%\/\*]$' "$1" && local op="$1" && shift
@@ -1057,7 +1058,7 @@ ds:diff_fields() { # ** Get elementwise diff of two datasets (alias ds:df): ds:d
     else
         local exclude_fields=0
     fi
-    
+
     local args=( "$@" -v "exclude_fields=$exclude_fields" )
     [ "$op" ] && local args=("${args[@]}" -v "op=$op")
 
@@ -1376,7 +1377,7 @@ ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [c
     local file="$(ds:fd_check "$1")" reparse="${2:-f}" custom="${3:-t}" file_ext="${4:-true}" hc="${5:-f}"
 
     if [ "$file_ext" = true ]; then
-        read -r dirpath filename extension <<<$(ds:path_elements "$file")
+        IFS=$'\t' read -r dirpath filename extension <<<$"(ds:path_elements "$file")"
         if [ "$extension" ]; then
             [ ".csv" = "$extension" ] && echo ',' && return
             [ ".tsv" = "$extension" ] && echo "\t" && return
@@ -1483,7 +1484,7 @@ ds:index() { # ** Attach an index to lines from a file or STDIN (alias ds:i): ds
     fi
     local args=( "${@:2}" )
     [ -t 1 ] || local pipe_out=1
-    
+
     # TODO: Replace with consistent fs logic
     if ds:noawkfs; then
         local fs="$(ds:inferfs "$_file" true)"
@@ -1597,7 +1598,7 @@ ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file*] [r_aggs=+] [c_aggs
     else
         ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/agg.awk" \
             | sed -E 's:^#::g' | less && return
-        
+
         if [[ -f "$2" && -f "$1" ]]; then
             local w="\033[37;1m" nc="\033[0m"
             while [ -f "$1" ]; do
@@ -1720,7 +1721,7 @@ ds:prod() { # ** Return product multiset of filelines: ds:pow file [file*] [awka
     if ds:pipe_open; then
         local _file=$(ds:tmp 'ds_pow') piped=0
         cat /dev/stdin > $file
-    else 
+    else
         ds:file_check "$1"
         local _file="$(ds:fd_check "$1")"; shift; fi
     local files=("$_file")
@@ -1741,9 +1742,9 @@ ds:prod() { # ** Return product multiset of filelines: ds:pow file [file*] [awka
 
 ds:fieldcounts() { # ** Print value counts (alias ds:fc): ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
     if ds:pipe_open; then
-        local _file=$(ds:tmp 'ds_fieldcounts') piped=0 
+        local _file=$(ds:tmp 'ds_fieldcounts') piped=0
         cat /dev/stdin > $_file
-    else 
+    else
         ds:file_check "$1"
         local _file="$(ds:fd_check "$1")"
         shift
@@ -1760,7 +1761,7 @@ ds:fieldcounts() { # ** Print value counts (alias ds:fc): ds:fc [file] [fields=1
         ds:extractfs > $fstmp
         local fs="$(cat $fstmp; rm $fstmp)" prefield=$(ds:tmp "ds_fc_prefield")
         ds:prefield "$_file" "$fs" > $prefield
-        ds:test "\[.+\]" "$fs" && fs=" " 
+        ds:test "\[.+\]" "$fs" && fs=" "
         awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v min="$min" -v fields="$fields" \
             -f "$DS_SCRIPT/field_counts.awk" $prefield 2>/dev/null | sort -n$order | ds:ttyf "$fs" -v color=never
     else
@@ -1774,9 +1775,9 @@ alias ds:fc="ds:fieldcounts"
 
 ds:uniq() { # ** Get unique values >= min (alias ds:u): ds:u [file] [fields=1] [min=1] [order=a]
     if ds:pipe_open; then
-        local _file=$(ds:tmp 'ds_uniq') piped=0 
+        local _file=$(ds:tmp 'ds_uniq') piped=0
         cat /dev/stdin > $_file
-    else 
+    else
         ds:file_check "$1"
         local _file="$(ds:fd_check "$1")"
         shift
@@ -1793,7 +1794,7 @@ ds:uniq() { # ** Get unique values >= min (alias ds:u): ds:u [file] [fields=1] [
         ds:extractfs > $fstmp
         local fs="$(cat $fstmp; rm $fstmp)" prefield=$(ds:tmp "ds_uniq_prefield")
         ds:prefield "$_file" "$fs" > $prefield
-        ds:test "\[.+\]" "$fs" && fs=" " 
+        ds:test "\[.+\]" "$fs" && fs=" "
         awk ${args[@]} -v FS="$DS_SEP" -v OFS="$fs" -v min="$min" -v fields="$fields" \
             -f "$DS_SCRIPT/field_uniques.awk" $prefield 2>/dev/null | sort -n$order | ds:ttyf "$fs" -v color=never
     else
@@ -1820,7 +1821,7 @@ ds:newfs() { # ** Convert field separators - i.e. tsv -> csv: ds:newfs [file] [n
     local program='BEGIN{is_comma_ofs = OFS == ","}
         {
             for(i=1;i<=NF;i++) {
-                if (is_comma_ofs && $i ~ OFS && !($i ~ /^[[:space:]]*"/)) { 
+                if (is_comma_ofs && $i ~ OFS && !($i ~ /^[[:space:]]*"/)) {
                     gsub("\"", "\"\"", $i)
                     $i = "\"" $i "\""
                 }
@@ -1881,7 +1882,7 @@ ds:graph() { # ** Extract graph relationships from DAG base data: ds:graph [file
 ds:asgn() { # Print lines matching assignment pattern: ds:asgn file
     ds:file_check "$1"
     if ds:nset 'rg'; then
-        rg "[[:alnum:]_<>\[\]\-]+ *= *(\S)+" $1 
+        rg "[[:alnum:]_<>\[\]\-]+ *= *(\S)+" $1
     else
         egrep -n --color=always -e "[[:alnum:]_<>\[\]\-]+ *= *(\S)+" $1
     fi
@@ -2002,7 +2003,7 @@ ds:sort() { # ** Sort with inferred field sep of 1 char: ds:sort [unix_sort_args
     if ds:pipe_open; then
         local _file=$(ds:tmp 'ds_sort') piped=0
         cat /dev/stdin > $_file
-    else 
+    else
         let last_arg=${#args[@]}-1
         local _file="${args[@]:$last_arg:1}"
         ds:file_check "$_file"
@@ -2362,7 +2363,7 @@ ds:dups() { # Report duplicate files with option for deletion: ds:dups [dir] [co
         local of_file="$3"
         bash "$DS_SCRIPT/dup_files.sh" -s "$dir" -f "$of_file" $delete $use_fd $use_pv $all_files
     else
-        bash "$DS_SCRIPT/dup_files.sh" -s "$dir" $delete $use_fd $use_pv 
+        bash "$DS_SCRIPT/dup_files.sh" -s "$dir" $delete $use_fd $use_pv
     fi
 }
 
@@ -2393,7 +2394,7 @@ ds:gexec() { # Generate script from parts of another and run: ds:gexec run=f src
     [ "$3" ] || ds:fail 'arg 2 must be a match pattern set'
     local src="$(ds:fd_check "$1")" scriptdir="$2" r_args="$3" clean="$4"
     [ "$5" ] && local run_verbose=-x
-    read -r dirpath filename extension <<<$(ds:path_elements "$src")
+    IFS=$'\t' read -r dirpath filename extension <<<"$(ds:path_elements "$src")"
     local gscript="$scriptdir/ds_gexec_from_$filename$extension"
 
     ds:reo "$src" "$r_args" 'off' false > "$gscript"
@@ -2411,4 +2412,3 @@ ds:gexec() { # Generate script from parts of another and run: ds:gexec run=f src
     [ $clean ] && rm "$gscript" && echo -e "\n\033[0;33mRemoved file $gscript\033[0m"
     if [ "$stts" ]; then return "$stts"; fi
 }
-

@@ -26,13 +26,13 @@ jnr4="tests/data/jn_repeats4"
 jnrjn1="tests/data/jn_repeats_jnd1"
 jnrjn2="tests/data/jn_repeats_jnd2"
 seps_base="tests/data/seps_test_base"
-seps_sorted="tests/data/seps_test_sorted" 
+seps_sorted="tests/data/seps_test_sorted"
 simple_csv="tests/data/company_funding_data.csv"
 simple_csv2="tests/data/testcrimedata.csv"
 complex_csv1="tests/data/addresses.csv"
 complex_csv3="tests/data/addresses_reordered"
 complex_csv2="tests/data/Sample100.csv"
-complex_csv4="tests/data/quoted_fields_with_newline.csv" 
+complex_csv4="tests/data/quoted_fields_with_newline.csv"
 complex_csv5="tests/data/taxables.csv"
 complex_csv6="tests/data/quoted_multiline_fields.csv"
 complex_csv6_prefield="tests/data/quoted_multiline_fields_prefield"
@@ -324,7 +324,7 @@ f e c b a
 e d c b a'
 [ "$(echo "$input" | ds:sortm -v k=5,1 -v order=d)" = "$output" ] || ds:fail 'sortm failed awkargs case'
 
-input="1\nJ\n98\n47\n9\n05\nj2\n9ju\n9\n9d" 
+input="1\nJ\n98\n47\n9\n05\nj2\n9ju\n9\n9d"
 output='1
 05
 9
@@ -492,7 +492,8 @@ actual="$(echo "$input" | ds:reo rev rev -v idx=1)"
 [ "$actual" = "$expected" ] || ds:fail 'reo failed rev idx case'
 
 actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>130' off)"
-expected='**@@@ds:diff_fields@@@ds:df@@@Get elementwise diff of two datasets@@@ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]'
+expected='**@@@ds:diff_fields@@@ds:df@@@Get elementwise diff of two datasets@@@ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]
+@@@ds:path_elements@@@@@@Return dirname/filename/extension from filepath@@@read -r dirpath filename extension <<< "$(ds:path_elements file)"'
 [ "$actual" = "$expected" ] || ds:fail 'reo failed full row len case'
 
 actual="$(ds:commands | grep 'ds:' | ds:reo 'len(4)>46' 2)"
@@ -551,9 +552,9 @@ expected='-1 nah
 -15 test'
 [ "$(echo "$input" | ds:reo "2<0, 3~test" "31!=14")" = "$expected" ] || ds:fail 'reo failed extended cases'
 
-input="$(for i in $(seq -10 20); do 
+input="$(for i in $(seq -10 20); do
       [ $i -eq -10 ] && ds:iter test 23 " " && echo && ds:iter _TeST_ 20 " " && echo
-      for j in $(seq -2 20); do 
+      for j in $(seq -2 20); do
           [ $i -ne 0 ] && printf "%s " "$(echo "scale=2; $j/$i" | bc -l)"
       done
       [ $i -ne 0 ] && echo; done)"
@@ -1876,7 +1877,7 @@ echo -n "Running assorted commands tests..."
 
 path_el_arr=( tests/data/ infer_join_fields_test1 '.csv' )
 [ -z $bsh ] && let count=1 || let count=0
-for el in $(IFS='\t' ds:path_elements $jnf1); do
+for el in $(IFS=$'\t' ds:path_elements $jnf1); do
     test_el=${path_el_arr[count]}
     [ $el = $test_el ] || ds:fail "path_elements failed on $test_el"
     let count+=1
@@ -2011,7 +2012,7 @@ echo -e "${GREEN}PASS${NC}"
 
 echo -n "Running integration tests..."
 
-# Integration Case 1 - Sum of all crimes by day of the month, only select a certain day 
+# Integration Case 1 - Sum of all crimes by day of the month, only select a certain day
 # of the week and the total where the total is greater than 300 crimes.
 
 expected='@@@PIVOT@@@7@@@14@@@21@@@28@@@+|all@@@

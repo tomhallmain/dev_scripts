@@ -78,7 +78,7 @@
 @@@ds:ntype@@@@@@Get name type - function, alias, variable@@@ds:ntype name
 @@@ds:opts@@@@@@General flag opts handling@@@ds:opts $@
 @@@ds:os@@@@@@Return computer operating system if supported@@@ds:os
-@@@ds:path_elements@@@@@@Return dirname/filename/extension from filepath@@@ds:path_elements file
+@@@ds:path_elements@@@@@@Return dirname/filename/extension from filepath@@@read -r dirpath filename extension <<< "$(ds:path_elements file)"
 **@@@ds:pipe_check@@@@@@Detect if pipe has data or over [n_lines]@@@data | ds:pipe_check [n_lines]
 @@@ds:pipe_clean@@@@@@Remove tmpfile created via STDIN if piping detected@@@piped=0; tmp=$(mktemp tmp); ds:pipe_clean $tmp
 **@@@ds:pipe_open@@@@@@Detect if pipe is open@@@if ds:pipe_open; then [...]

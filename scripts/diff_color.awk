@@ -11,7 +11,7 @@
 BEGIN {
     bdiff = " \\|( |$)"
     ldiff = " <$"
-    rdiff = " > "
+    rdiff = " >$"
 
     red = "\033[1;31m"
     cyan = "\033[1;36m"
