@@ -141,7 +141,7 @@ ds:die() { # Output to STDERR and exit with error: ds:die
 }
 
 ds:pipe_open() { # ** Detect if pipe is open: if ds:pipe_open; then [...]
-    [ -p /dev/stdin ]
+    [ ! -t 0 ]
 }
 
 ds:ttyf() { # ** Run ds:fit on output only if to a terminal: data | ds:ttyf [FS] [run_fit=t] [fit_awkargs]

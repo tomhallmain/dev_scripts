@@ -270,7 +270,7 @@ Press enter to trace last command
 +ds:trace:7> eval 'ds:test '\''t(rue)?'\'' true'
 +(eval):1> ds:test 't(rue)?' true
 +ds:test:1> ds:pipe_open
-+ds:pipe_open:1> [ -p /dev/stdin ']'
++ds:pipe_open:1> [ '!' -t 0 ']'
 +ds:test:2> [[ "$3" -regex-match t ]]
 +ds:test:3> echo true
 +ds:test:3> grep -Eq 't(rue)?'

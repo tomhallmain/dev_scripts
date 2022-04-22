@@ -48,6 +48,8 @@ emoji_fit_gridlines="tests/data/emoji_fit_gridlines"
 commands_fit_gridlines="tests/data/commands_shrink_fit_gridlines"
 number_comma_format="tests/data/number_comma_format"
 
+SECONDS=0
+
 if [[ $shell =~ 'bash' ]]; then
     bsh=0
     cd "${BASH_SOURCE%/*}/.."
@@ -2105,6 +2107,9 @@ actual="$(echo -e "$input" | ds:agg '+,*' '\-,/' | ds:fit -v color=never)"
 [ "$actual" = "$expected" ] || ds:fail 'integration agg fit negative decimals case 2 failed'
 
 echo -e "${GREEN}PASS${NC}"
+
+duration=SECONDS
+echo "$(($duration / 60))m$(($duration % 60))s elapsed."
 
 # CLEANUP
 
