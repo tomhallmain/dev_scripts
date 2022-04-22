@@ -433,7 +433,7 @@ ds:embrace() { # Enclose a string on each side by args: embrace str [left={] [ri
 
 ds:filename_str() { # Add string to filename, preserving path: ds:filename_str file str [prepend|append|replace] [abs_path=t]
     IFS=$'\t' read -r dirpath filename extension <<<"$(ds:path_elements "$1")"
-    [ ! -f "${dirpath}${filename}${extension}" ] && echo 'Filepath given is invalid' && return 1
+    [ ! -d "$dirpath" ] && echo 'Filepath given is invalid' && return 1
     if [ "$dirpath" = "./" ]
     then
         dirpath=""
@@ -980,7 +980,7 @@ ds:shape() { # ** Print data shape by length or pattern: ds:shape [-h|file*] [pa
     let local _span=$_lines/$_printlns
 
     awk -v FS="${fs:- }" -v measures="$measures" -v fields="$fields" -v span=${_span:-15} \
-        -v tty_size="$(tput cols)" -v lines="$_lines" -v simple="$_simple" \
+        -v tty_size="$(ds:term_width)" -v lines="$_lines" -v simple="$_simple" \
         -f "$DS_SUPPORT/utils.awk" $@ -f "$DS_SCRIPT/shape.awk" "$_file" 2>/dev/null
 
     ds:pipe_clean $_file
@@ -1004,7 +1004,7 @@ ds:plot() { # Get a scatter plot of from two fields: ds:plot [file] [field_y=1] 
         local field_x="$1"
     fi
     [[ "$1" && ! "$1" = "-v" ]] && shift
-    local args=( "$@" ) tty_size=$(tput cols) fstmp=$(ds:tmp 'ds_extractfs')
+    local args=( "$@" ) tty_size=$(ds:term_width) fstmp=$(ds:tmp 'ds_extractfs')
     ds:extractfs > $fstmp
     local fs="$(cat $fstmp; rm $fstmp)"
     awk -v FS="$fs" -v OFS="$fs" -v width=$tty_size -v height=50 ${args[@]} \
@@ -1427,7 +1427,7 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
     else
         local prefield=$(ds:tmp "ds_fit_prefield")
     fi
-    local args=( "$@" ) buffer=${DS_FIT_BUFFER:-2} tty_size=$(tput cols) fstmp=$(ds:tmp 'ds_extractfs')
+    local args=( "$@" ) buffer=${DS_FIT_BUFFER:-2} tty_size=$(ds:term_width) fstmp=$(ds:tmp 'ds_extractfs')
     ds:extractfs > $fstmp
     local fs="$(cat $fstmp; rm $fstmp)"
     if ds:awksafe; then
@@ -1460,7 +1460,7 @@ ds:stagger() { # ** Print tabular data in staggered rows: ds:stagger [file] [sta
         local _file="$(ds:fd_check "$1")"; shift
     fi
     ds:is_int "$1" && local stag_size=$1 && shift
-    local args=( "$@" ) tty_size=$(tput cols)
+    local args=( "$@" ) tty_size=$(ds:term_width)
 
     if ds:noawkfs; then
         local fs="$(ds:inferfs "$_file" true)"
@@ -2220,7 +2220,7 @@ ds:diff() { # ** Diff shortcut for an easier to read view: ds:diff file1 [file2]
     ds:file_check "$1"
     local file2="$(ds:fd_check "$1")"
     [ "$2" ] && local sup=--suppress-common-lines
-    local tty_size=$(tput cols) color="${3:-t}"
+    local tty_size=$(ds:term_width) color="${3:-t}"
     let local tty_half=$tty_size/2
     if ds:test 't(rue)?' "$color"; then
         diff -b -y -W $tty_size $sup "$file1" "$file2" | expand | awk -v tty_half=$tty_half \

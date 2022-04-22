@@ -17,7 +17,7 @@ BEGIN {
     if (!stag_size) stag_size = 5
     space = "                                                                             "
     stag = sprintf("%.*s", stag_size, space)
-    if (!tty_size) "tput cols" | getline tty_size; tty_size += 0
+    if (!tty_size) "[ \"$TERM\" ] && tput cols || echo 100" | getline tty_size; tty_size += 0
 }
 
 {

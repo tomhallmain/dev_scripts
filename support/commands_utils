@@ -109,6 +109,7 @@
 **@@@ds:subsep@@@@@@Extend fields by a common subseparator@@@ds:subsep [-h|file] subsep_pattern [nomatch_handler= ]
 @@@ds:subsh@@@@@@Detect if in a subshell@@@ds:subsh
 **@@@ds:substr@@@@@@Extract a substring with regex@@@ds:substr str [leftanc] [rightanc]
+@@@ds:term_width@@@@@@Get a terminal width that doesn't fail if TERM isn't set@@@ds:term_width
 @@@ds:termcolors@@@@@@Check terminal colors@@@ds:termcolors
 **@@@ds:test@@@@@@Test input quietly with extended regex@@@ds:test regex [str|file] [test_file=f]
 @@@ds:tmp@@@@@@Shortcut for quiet mktemp@@@ds:tmp filename

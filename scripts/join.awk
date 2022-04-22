@@ -184,7 +184,7 @@
 #
 #
 # VERSION
-#       1.3
+#       1.3.1
 #
 # AUTHORS
 #       Tom Hall (tomhall.main@gmail.com)
@@ -345,6 +345,7 @@ BEGIN {
     null_field = null_off ? "" : "<NULL>"
 
     "wc -l < \""ARGV[1]"\"" | getline f1nr; f1nr+=0 # Get number of rows in file1
+    stream1_has_data = f1nr > 0
 }
 
 FNR < 2 {
@@ -370,7 +371,7 @@ merge && header_unset {
 
 ## Save first stream
 
-NR == FNR {
+stream1_has_data && NR == FNR {
     #if (k1 > NF) { print "Key out of range in file 1"; err = 1; exit }
 
     if (NF > max_nf1) max_nf1 = NF
@@ -405,7 +406,7 @@ NR == FNR {
 
 ## Print matches and second file unmatched
 
-NR > FNR { 
+NR > FNR || !stream1_has_data { 
     #if (k2 > NF) { print "Key out of range in file 2";  err = 1; exit }
     if (NF > max_nf2) max_nf2 = NF
 
@@ -685,7 +686,7 @@ function GenRightOutputString(line2, K1, K2, nf1, nf2, fs2) {
     }
 
     for (f = 1; f <= nf2; f++) {
-        if (f in K2) continue
+        if (nf1 > 0 && f in K2) continue
         if (bias_merge && f in BiasMergeKeys) continue
         jn = jn OFS $f
     }

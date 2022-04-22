@@ -12,7 +12,7 @@ ds:file_check() { # Test for file validity and fail if invalid: ds:file_check te
         [[ -w "$tf" && -f "$tf" ]] || ds:fail "File \"$tf\" is not writable"
     elif [ "$enable_search" ]; then
         if [ "$filelike" ]; then
-            if [ ! "$allow_binary" ] && ! grep -Iq "" "$tf"; then
+            if [[ ! "$allow_binary" && ! "$tf" =~ '/dev/fd/' && -s "$tf" ]] && ! grep -Iq "" "$tf"; then
                 ds:fail "Found file \"$tf\" Binary files have been disallowed for this command"
             fi
             echo -n "$tf"
@@ -240,6 +240,13 @@ ds:is_cli() { # Detect if shell is interactive: ds:is_cli
         [ $? = 1 ]
     else
         ds:fail 'This shell unsupported at this time'
+    fi
+}
+
+ds:term_width() { # Get a terminal width that doesn't fail if TERM isn't set: ds:term_width
+    if ! tput cols
+    then
+        echo 100
     fi
 }
 

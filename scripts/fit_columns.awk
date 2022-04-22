@@ -204,7 +204,7 @@ BEGIN {
     float_re = "^[[:space:]]*-?[0-9]\.[0-9]+(E|e)(\\+|-)?[0-9]+[[:space:]]*$"
 
     if (!tty_size) {
-        "tput cols" | getline tty_size; tty_size += 0
+        "[ \"$TERM\" ] && tput cols || echo 100" | getline tty_size; tty_size += 0
     }
 }
 
