@@ -1621,10 +1621,10 @@ function Swap(A,B,x,y,z) {
 }
 
 
-function DebugPrint(case, arg) {
-    if (case == -1) {
+function DebugPrint(_case, arg) {
+    if (_case == -1) {
         print "----------- ARGS TESTS -------------" }
-    else if (case == 0) {
+    else if (_case == 0) {
         print "---------- ARGS FINDINGS -----------"
         print_reo_r_count = pass_r ? "all/undefined" : reo_r_count
         print "Reorder count (row): " print_reo_r_count
@@ -1644,15 +1644,15 @@ function DebugPrint(case, arg) {
         }
         if (max_nr) print "max_nr: " max_nr
     }
-    else if (case == 1) {
+    else if (_case == 1) {
         print "i: "i ", r_i: "o_i ", r_len: "len ", token: "token }
-    else if (case == 1.5) {
+    else if (_case == 1.5) {
         print "i: "i ", c_i: "o_i ", c_len: "len ", token: "token }
-    else if (case == 2) {
+    else if (_case == 2) {
         print "FillRange start: " start ", end: " end }
-    else if (case == 3) {
+    else if (_case == 3) {
         print "arg: "arg", tk: "tk", tk_loc: "tk_loc }
-    else if (case == 4) {
+    else if (_case == 4) {
         print "----------- CASE MATCHES -----------"
         if (indx) print "index case"
         if (base) print "base case"
@@ -1680,9 +1680,9 @@ function DebugPrint(case, arg) {
         if (idx) print "index number case"
         if (uniq) print "unique output case" }
 
-    else if (case == 5) {
+    else if (_case == 5) {
         print "NR: "NR ", f: "f", anchor: "anchor", apply to: "base_expr", evals to: "eval", compare: "comp, compval }
-    else if (case == 6) {
+    else if (_case == 6) {
         if (length(RRExprs)) { print "------------- RRExprs --------------"
             for (ex in RRExprs) print ex " " ExprRO[ex] }
         if (length(RRSearches)) { print "------------- RRSearches -------------"
@@ -1696,24 +1696,24 @@ function DebugPrint(case, arg) {
         if (length(RCFrames)) { print "------------- RCFrames ---------------"
             for (fr in RCFrames) print fr }
     }
-    else if (case == 7) {
+    else if (_case == 7) {
         print "------ EVALS OR BASIC OUTPUT -------" }
-    else if (case == 8) {
+    else if (_case == 8) {
         print "------------- OUTPUT ---------------" }
-    else if (case == 9) {
+    else if (_case == 9) {
         print "NR: "NR ", f: "f ", search: "search ", base search: "base_search ", startf: "start ", endf: "end ", fieldval: "field }
-    else if (case == 10) {
+    else if (_case == 10) {
         print "----------- REMAINDERS ------------" }
-    else if (case == 11) {
+    else if (_case == 11) {
         print "all_reo: " all_reo " rem_idx: " rem_idx }
-    else if (case == 12) {
+    else if (_case == 12) {
         print "----- RESOLVING EXTENDED LOGIC -----"
         for (ex in RExtensions) print "RowExt: "ex", Reorder span: "RExtensions[ex]" ExtRowOrder: "ExtRO[ex]
         for (ex in CExtensions) print "ColExt: "ex", Reorder span: "CExtensions[ex]" ExtFieldOrder: "ExtFO[ex] }
-    else if (case == 13) {
+    else if (_case == 13) {
         print "-------- RESOLVE ROW FRAME --------"
         frame = fr_type == "re" ? search : expr
         print "frame: "frame", fr_type: "fr_type", FrameFields[frame]: "FrameFields[frame]", FrameRowFields[frame]: "FrameRowFields[frame] }
-    else if (case == 14) {
+    else if (_case == 14) {
         print "rf: "rf, "row: "row, "field: "field }
 }

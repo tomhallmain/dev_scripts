@@ -105,7 +105,7 @@
 #         -v endfit_col=10
 #
 # VERSION
-#       1.3
+#       1.3.1
 #
 # AUTHORS
 #       Tom Hall (tomhallmain@gmail.com)
@@ -178,20 +178,32 @@ BEGIN {
     }
 
     if (!buffer) buffer = 2
-    if (!(color == "never" || color == "off")) {
-        color_on = 1
-        color_pending = 1
-    }
-    
     space_str = "                                                                   "
     buffer_str = bufferchar space_str
 
-    if (!(color == "never")) {
-        hl = "\033[1;36m"
-        white = "\033[1:37m"
-        orange = "\033[38;2;255;165;1m"
-        red = "\033[1;31m"
-        no_color = "\033[0m"
+    if (!(color == "never" || color == "off")) {
+        if (color == "always" || termcolor_support) {
+            hl = "\033[1;36m"
+            white = "\033[1:37m"
+            orange = "\033[38;2;255;165;1m"
+            red = "\033[1;31m"
+            no_color = "\033[0m"
+            color_on = 1
+            color_pending = 1
+        }
+        else {
+            "tput colors &>/dev/null && echo on || echo never" | getline color
+            
+            if (!(color == "never")) {
+                hl = "\033[1;36m"
+                white = "\033[1:37m"
+                orange = "\033[38;2;255;165;1m"
+                red = "\033[1;31m"
+                no_color = "\033[0m"
+                color_on = 1
+                color_pending = 1
+            }
+        }
     }
 
     # TODO: Support more complex color defs like orange above
@@ -874,36 +886,36 @@ function PrintGridline(mode, max_nf) {
     print end_char
 }
 
-function DebugPrint(case) {
+function DebugPrint(_case) {
     # Switch statement not supported in all Awk implementations
     if (debug_col && i != debug_col) return
-    if (case == 1) {
+    if (_case == 1) {
         if (!debug1_title_printed) { debug1_title_printed=1
             printf "%-20s%5s%5s%5s%5s%5s%5s\n", "", "FNR", "i", "len", "ogmx", "fmxi", "ldf" }
         printf "%-20s%5s%5s%5s%5s%5s%5s", "max change: ", FNR, i, len, orig_max, FieldMax[i], len_diff }
-    else if (case == 2) {
+    else if (_case == 2) {
         if (!debug2_title_printed) { debug2_title_printed=1
             printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s\n", "", "FNR", "i", "d", "i_ln", "d_ln", "t_ln", "nmax", "dmax", "omax", "len", "i_df", "d_df", "l_df", "t_df", "f_df", "tval" }
         printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s", "decimal setting: ", FNR, i, d, int_len, dec_len, t_len, NumberMax[i], 0, orig_max, len, int_diff, decimal_diff, len_diff, t_diff, field_diff, tval }
-    else if (case == 3) {
+    else if (_case == 3) {
         if (!debug3_title_printed) { debug3_title_printed=1
             printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s\n", "", "FNR", "i", "d", "i_ln", "d_ln", "t_ln", "nmax", "dmax", "omax", "len", "i_df", "d_df", "l_df", "t_df", "f_df", "tval" }
         printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s", "decimal adjustment: ", FNR, i, d, int_len, dec_len, t_len, NumberMax[i], DecimalMax[i], orig_max, len, int_diff, decimal_diff, len_diff, t_diff, field_diff, tval }
-    else if (case == 4) {
+    else if (_case == 4) {
         if (!s_title_printed) { s_title_printed=1
             printf "%-15s%5s%5s%5s%5s%5s%5s%5s\n", "", "i", "fmxi", "avfl", "mxnf", "rdsc", "tfl", "ttys" }
         printf "%-15s%15s%5s%5s%5s%5s", "shrink step: ", average_field_len, max_nf, reduction_scaler, total_fields_len, tty_size }
-    else if (case == 5)
+    else if (_case == 5)
         printf "%-15s%5s%5s", "shrink field: ", i, FieldMax[i]
-    else if (case == 6)
+    else if (_case == 6)
         { print ""; print i, fmt_str, $i, value; print "" }
-    else if (case == 7)
+    else if (_case == 7)
         printf "%s %s %s", "Number pattern set for col:", NR, i
-    else if (case == 8) 
+    else if (_case == 8) 
         printf "%s %s %s", "Number pattern overset for col:", NR, i
-    else if (case == 9) 
+    else if (_case == 9) 
         printf "%s %s %s", "g_max_cut: "cut_len, "MaxFieldLen[i]: "MaxFieldLen[i], "total_fields_len: "total_fields_len
-    else if (case == 10)
+    else if (_case == 10)
         printf "%s %s %s %s %s %s %s %s", "wcwdiff! NR: " NR, " f: "f, "i: "i, " init_len: "init_len, "len: "len, "wcw_diff: "wcw_diff, " wcw: "wcw, " f_wcw_kludge: "len_wcw_kludge
 
     print ""

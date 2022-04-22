@@ -255,8 +255,8 @@ function InnerCloseBrace(char) {
     } else
         return 0
 }
-function DebugPrint(case) {
-    if (case == 1) {
+function DebugPrint(_case) {
+    if (_case == 1) {
         print NR, i, char, curly, entityCounter, activeBrace, BraceMatch(activeBrace)#, Entities[entityCounter, curly]
         print innerCurly, innerBrace, activeInnerBrace[innerBrace], comment
     }

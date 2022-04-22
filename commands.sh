@@ -344,7 +344,12 @@ ds:fail() { # Safe failure that kills parent: ds:fail [error_message]
     if [[ "$shell" =~ "bash" ]]; then
         : "${_err_?$1}"
     else
-        echo -e "\e[31;1m$1" >&2
+        if [ $DS_COLOR_SUP ]; then
+            local r="\e[31;1m"
+        else
+            local r=""
+        fi
+        echo -e "${r}${1}" >&2
         : "${_err_?Operation intentionally failed by fail command}"
     fi
 }
@@ -675,12 +680,20 @@ ds:git_recent() { # Display commits sorted by recency (alias ds:gr): ds:gr [refs
     ds:not_git && return 1
     local refs="${1:-heads}" run_context="${2:-display}"
     if [ "$run_context" = display ]; then
-        local format='%(color:white)%(HEAD) %(color:bold yellow)%(refname:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
+        if [ $DS_COLOR_SUP ]; then
+            local format='%(color:white)%(HEAD) %(color:bold yellow)%(refname:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
+        else
+            local format='%(HEAD) %(refname:short)@@@%(committerdate:relative)@@@%(subject)@@@%(authorname)'
+        fi
         git for-each-ref --sort=-committerdate refs/"$refs" \
               --format="$format" --color=always | ds:fit -F"$DS_SEP" -v color=never
     else
         # If not for immediate display, return extra field for further parsing
-        local format='%(color:white)%(HEAD) %(color:bold yellow)%(refname:short)@@@%(committerdate:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:cyan)%(objectname:short)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
+        if [ $DS_COLOR_SUP ]; then
+            local format='%(color:white)%(HEAD) %(color:bold yellow)%(refname:short)@@@%(committerdate:short)@@@%(color:bold green)%(committerdate:relative)@@@%(color:cyan)%(objectname:short)@@@%(color:blue)%(subject)@@@%(color:magenta)%(authorname)%(color:reset)'
+        else
+            local format='%(HEAD) %(refname:short)@@@%(committerdate:short)@@@%(committerdate:relative)@@@%(objectname:short)@@@%(subject)@@@%(authorname)'
+        fi
         git for-each-ref refs/$refs --format="$format" --color=always
     fi
 }
@@ -688,7 +701,11 @@ alias ds:gr="ds:git_recent"
 
 ds:git_recent_all() { # Display recent commits for local repos (alias ds:gra): ds:gra [refs=heads] [repos_dir=~]
     local start_dir="$PWD" all_recent=$(ds:tmp 'ds_git_recent_all')
-    local w="\033[37;1m" nc="\033[0m"
+    if [ $DS_COLOR_SUP ]; then
+        local w="\033[37;1m" b='\033[1;31m' nc="\033[0m"
+    else
+        local w="" b="" nc=""
+    fi
     local refs="$1"
     [ -d "$2" ] && cd "$2" || cd ~
     echo -e "${w}repo@@@   ${w}branch@@@sortfield@@@${w}commit time@@@${w}hash@@@${w}commit message@@@${w}author${nc}" > $all_recent
@@ -696,8 +713,8 @@ ds:git_recent_all() { # Display recent commits for local repos (alias ds:gra): d
     while IFS=$'\n' read -r dir; do
         [ -d "${dir}/.git" ] && \
             (cd "$dir" &>/dev/null 3>/dev/null 4>/dev/null 5>/dev/null 6>/dev/null && \
-                (ds:git_recent "$refs" parse | awk -v repo="$dir" -F"$DS_SEP" '
-                    {print "\033[1;31m" repo "@@@", $0}') >> $all_recent)
+                (ds:git_recent "$refs" parse | awk -v repo="$dir" -F"$DS_SEP" "
+                    {print \"${b}\" repo \"@@@\", \$0}") >> $all_recent)
     done < <(find * -maxdepth 0 -type d)
 
     echo
@@ -758,7 +775,12 @@ ds:todo() { # List todo items found in paths: ds:todo [searchpaths=.]
 
 ds:searchx() { # Search for a C-lang/curly-brace object: ds:searchx file|dir [search] [q] [multilevel]
     if [[ -d "$1" && "$2" ]]; then
-        local tmp="$(ds:tmp 'ds_searchx')" w="\033[37;1m" nc="\033[0m"
+        local tmp="$(ds:tmp 'ds_searchx')"
+        if [ $DS_COLOR_SUP ]; then
+            w="\033[37;1m" nc="\033[0m"
+        else
+            w="" nc=""
+        fi
         if ds:nset 'rg'; then
             rg --files-with-matches "$2" "$1" 2>/dev/null > $tmp
         else
@@ -939,7 +961,11 @@ ds:shape() { # ** Print data shape by length or pattern: ds:shape [-h|file*] [pa
         ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/shape.awk" \
           | tr -d "#" | less && return
         if [[ -f "$2" && -f "$1" ]]; then
-            local w="\033[37;1m" nc="\033[0m"
+            if [ $DS_COLOR_SUP ]; then
+                w="\033[37;1m" nc="\033[0m"
+            else
+                w="" nc=""
+            fi
             while [ -f "$1" ]; do
                 local fls=("${fls[@]}" "$1")
                 shift
@@ -1404,7 +1430,11 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
         ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/fit_columns.awk" \
             | tr -d "#" | less && return
         if [[ -f "$2" && -f "$1" ]]; then
-            local w="\033[37;1m" nc="\033[0m"
+            if [ $DS_COLOR_SUP ]; then
+                local w="\033[37;1m" nc="\033[0m"
+            else
+                local w="" nc=""
+            fi
             while [ -f "$1" ]; do
                 local fls=("${fls[@]}" "$1")
                 shift
@@ -1437,11 +1467,11 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
     fi
 
     if [ "$pf_off" ]; then
-        LC_ALL='C' awk -v FS="$fs" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$_file" \
+        LC_ALL='C' awk -v FS="$fs" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$_file" -v termcolor_support=$DS_COLOR_SUP \
             ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/fit_columns.awk" $_file{,} 2>/dev/null
     else
         ds:prefield "$_file" "$fs" 0 > $prefield
-        LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$_file" \
+        LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$_file" -v termcolor_support=$DS_COLOR_SUP \
             ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/fit_columns.awk" $prefield{,} 2>/dev/null
         rm $prefield
     fi
@@ -1506,7 +1536,11 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [r
         ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/reorder.awk" \
             | sed -E 's:^#::g' | less && return
         if [[ -f "$2" && -f "$1" ]]; then
-            local w="\033[37;1m" nc="\033[0m"
+            if [ $DS_COLOR_SUP ]; then
+                local w="\033[37;1m" nc="\033[0m"
+            else
+                local w="" nc=""
+            fi
             while [ -f "$1" ]; do
               local fls=("${fls[@]}" "$1"); shift; done
             for fl in ${fls[@]}; do
@@ -1552,7 +1586,11 @@ ds:pivot() { # ** Pivot tabular data: ds:pivot [file] [y_keys] [x_keys] [z_keys=
         ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/pivot.awk" \
             | sed -E 's:^#::g' | less && return
         if [[ -f "$2" && -f "$1" ]]; then
-            local w="\033[37;1m" nc="\033[0m"
+            if [ $DS_COLOR_SUP ]; then
+                local w="\033[37;1m" nc="\033[0m"
+            else
+                local w="" nc=""
+            fi
             while [ -f "$1" ]; do
                 local fls=("${fls[@]}" "$1")
                 shift
@@ -1600,7 +1638,11 @@ ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file*] [r_aggs=+] [c_aggs
             | sed -E 's:^#::g' | less && return
 
         if [[ -f "$2" && -f "$1" ]]; then
-            local w="\033[37;1m" nc="\033[0m"
+            if [ $DS_COLOR_SUP ]; then
+                local w="\033[37;1m" nc="\033[0m"
+            else
+                local w="" nc=""
+            fi
             while [ -f "$1" ]; do
                 local fls=("${fls[@]}" "$1")
                 shift
@@ -1938,7 +1980,11 @@ ds:dostounix() { # ** Remove ^M / CR characters in place: ds:dostounix [file*]
         cat /dev/stdin > $_file
     else
         if [[ -f "$2" && -f "$1" ]]; then
-            local w="\033[37;1m" nc="\033[0m"
+            if [ $DS_COLOR_SUP ]; then
+                local w="\033[37;1m" nc="\033[0m"
+            else
+                local w="" nc=""
+            fi
             while [ -f "$1" ]; do
                 local fls=("${fls[@]}" "$1")
                 shift
@@ -1972,7 +2018,11 @@ ds:mini() { # ** Crude minify, remove whitespace and newlines: ds:mini [file*] [
         cat /dev/stdin > $_file
     else
         if [[ -f "$2" && -f "$1" ]]; then
-            local w="\033[37;1m" nc="\033[0m"
+            if [ $DS_COLOR_SUP ]; then
+                local w="\033[37;1m" nc="\033[0m"
+            else
+                local w="" nc=""
+            fi
             while [ -f "$1" ]; do
                 local fls=("${fls[@]}" "$1")
                 shift
@@ -2222,7 +2272,7 @@ ds:diff() { # ** Diff shortcut for an easier to read view: ds:diff file1 [file2]
     [ "$2" ] && local sup=--suppress-common-lines
     local tty_size=$(ds:term_width) color="${3:-t}"
     let local tty_half=$tty_size/2
-    if ds:test 't(rue)?' "$color"; then
+    if [ "$DS_COLOR_SUP" ] && ds:test 't(rue)?' "$color"; then
         diff -b -y -W $tty_size $sup "$file1" "$file2" | expand | awk -v tty_half=$tty_half \
           -f "$DS_SCRIPT/diff_color.awk" 2>/dev/null | less
     else

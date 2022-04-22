@@ -195,12 +195,12 @@ NR > FNR {
 }
 
 
-function DebugPrint(case) {
-    if (case == 1) {
+function DebugPrint(_case) {
+    if (_case == 1) {
         print "\nFNR: "FNR" f: "f" shift: "shift" nos: "n_outer_subfields" sf_part: "subfield_partitions" cofs: "conditional_ofs }
-    else if (case == 2) {
+    else if (_case == 2) {
         print "\nFNR: "FNR" f: "f" shift: "shift" nos: "n_outer_subfields" sf_part: "subfield_partitions" cofs: "conditional_ofs" osf: "outer_subfield" k: "k
         print "num_subseps < n_outer_subfields - shift: "(num_subseps < n_outer_subfields - shift) }
-    else if (case == 3) {
+    else if (_case == 3) {
         print "FNR: "FNR" f: "f" MaxSubseps set to: "num_subseps }
 }

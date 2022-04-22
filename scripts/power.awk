@@ -634,30 +634,30 @@ function JoinIndexedHash(hash, sep,    result, i) {
     return result
 }
 
-function DebugPrint(case) {
-    if (case == 0) {
+function DebugPrint(_case) {
+    if (_case == 0) {
         print "----------- NEW RECORD ------------"
         print $0
         printf "%5s%5s%7s%15s%15s  %s\n", "[i]", "[j]", "[2*j]", "[i % (2*j)]", "[2^(j-1)]", "[str]" }
-    else if (case == 1) {
+    else if (_case == 1) {
         printf "%5s%5s%7s%15s%15s  %s\n", i, j, 2*j, i % (2*j), 2^(j-1), str }
-    else if (case == 0.5) {
+    else if (_case == 0.5) {
         printf "%s\n\n", "SAVE COMBIN:  " combin_str }
-    else if (case == 1.5) {
+    else if (_case == 1.5) {
         printf "%5s  %-80s%10s%10s  %-80s\n", "[combin_count]", "[combin]", "CombinCounts[combin_count]", "[metakey]", "M[metakey]" }
-    else if (case == 2) {
+    else if (_case == 2) {
         printf "%5s  %-80s%10s%10s  %-80s\n", combin_count, combin, CombinCounts[combin_count], metakey, M[metakey] }
-    else if (case == 3) {
+    else if (_case == 3) {
         print "------- COMBIN COMP --------"
         printf "%-12s%-10s%-10s%-10s%s\n", "[iOFSj] " j, metakey1, " [l1] " l1, " Combins[t1] " Combins[t1], " [t1] " t1
         printf "%-12s%-10s%-10s%-10s%s\n", "[iOFSk] " k, metakey2, " [l2] " l2, " Combins[t2] " Combins[t2], " [t2] " t2 }
-    else if (case == 4) {
+    else if (_case == 4) {
         print "<< delete [t2] "t2
         print ">> keep   [t1] "t1"\n" }
-    else if (case == 5) {
+    else if (_case == 5) {
         print "<< delete [t1] "t1
         print ">> keep   [t2] "t2"\n" }
-    else if (case == 6) {
+    else if (_case == 6) {
         print "[ " i, j " ]" }
 }
 

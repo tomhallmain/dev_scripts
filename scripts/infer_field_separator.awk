@@ -390,43 +390,43 @@ function GetFieldsQuote(line, sep) {
     sq_sep_re = QuotedFieldsRe(sep, sq)
     if (match(line, sq_sep_re)) return sq
 }
-function DebugPrint(case) {
-    if (case == 1) {
+function DebugPrint(_case) {
+    if (_case == 1) {
         print "char: " char, char_nf
-    } else if (case == 2) {
+    } else if (_case == 2) {
         print "twochar: " twochar, twochar_nf
-    } else if (case == 3) {
+    } else if (_case == 3) {
         print "thrchar: " thrchar, thrchar_nf
-    } else if (case == 4) {
+    } else if (_case == 4) {
         print "NR: "NR", s: \""s"\", fs: \""fs"\", nf: "nf
         if (Q[s]) print "Q[s]: "Q[s]", QFRe[s]: "QFRe[s]
-    } else if (case == 5) {
+    } else if (_case == 5) {
         printf "%s", s " average nf: " average_nf
         print (average_nf >= 2 ? ", will calc var" : "")
-    } else if (case == 6) {
+    } else if (_case == 6) {
         print "sep: "s" FSVar: " FSVar[s]
-    } else if (case == 7) {
+    } else if (_case == 7) {
         print "NoVar winning_s set to CommonFS[\""s"\"] = \""CommonFS[s]"\""
-    } else if (case == 8) {
+    } else if (_case == 8) {
         print "winning_s set to CommonFS[\""s"\"] = \""CommonFS[s]"\""
-    } else if (case == 10) {
+    } else if (_case == 10) {
         print "NoVar winning_s set to CustomFS \""s"\""
-    } else if (case == 11) {
+    } else if (_case == 11) {
         print "NoVar winning_s set to CustomFS \""s"\""
-    } else if (case == 12) {
+    } else if (_case == 12) {
         print " ---- NoVar handling case ----"
         print "s: \""s"\", fs1: \""fs1"\""
         print "compare_s: \""compare_s"\", fs2: \""fs2"\""
         print "matches:", fs1 ~ fs2
         print "len winner: "length(Winners[s])", len fs1: "length(fs1)", len fs2: "length(fs2)
-    } else if (case == 13) {
+    } else if (_case == 13) {
         print "s: \""s"\", compare_s: \""compare_s"\", winning_s switched to: \""compare_s"\""
-    } else if (case == 14) {
+    } else if (_case == 14) {
         print "compare_s: \""compare_s"\", s: \""s"\", winning_s switched to: \""s"\""
-    } else if (case == 15) {
+    } else if (_case == 15) {
         print s, Q[s], RSTART, RLENGTH
         print qf_line
-    } else if (case == 16) {
+    } else if (_case == 16) {
         print "Sectional override set for sep \""s"\" at nf "nf" with weight "chunk_weight" composite "chunk_weight_composite
     }
 }

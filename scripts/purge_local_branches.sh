@@ -1,12 +1,15 @@
 #!/bin/bash
 set -o pipefail
 
-ORANGE="\033[0;33m"
-RED="\033[0;31m"
-WHITE="\033[1;37m"
-BLUE="\033[0;34m"
-GREEN="\033[0;32m"
-NC="\033[0m" # No Color
+if tput colors &> /dev/null; then
+    ORANGE="\033[0;33m"
+    RED="\033[0;31m"
+    WHITE="\033[1;37m"
+    BLUE="\033[0;34m"
+    GREEN="\033[0;32m"
+    NC="\033[0m" # No Color
+    DS_COLOR_SUP=true
+fi
 
 [ -d "$1" ] && BASE_DIR="$1" || BASE_DIR="$HOME"
 cd "$BASE_DIR"
@@ -121,14 +124,22 @@ while [ ! $confirmed ]; do
     echo -e "\n${WHITE} Purgeable branches are listed below - you will be asked to confirm selection${NC}\n"
     printf '%s\n' "${UNIQ_BRANCHES[@]}" | awk '{printf "%5s  %s\n", NR, $0}'
     echo
-    read -p $'\e[37m Enter branch numbers or search patterns to purge separated by spaces: \e[0m' to_purge
+    if [ $DS_COLOR_SUP ] ; then
+        read -p $'\e[37m Enter branch numbers or search patterns to purge separated by spaces: \e[0m' to_purge
+    else
+        read -p $' Enter branch numbers or search patterns to purge separated by spaces: ' to_purge
+    fi
 
     to_purge=( $(printf '%s\n' "${to_purge[@]}") )
 
     while [ ! $selections_confirmed ]; do
         while [[ -z "${to_purge[@]// }" ]]; do
             echo -e "\n${ORANGE} No value found, please try again. To quit the script, press Ctrl+C${NC}\n"
-            read -p $'\e[37m Enter branch numbers or search patterns to purge separated by spaces: \e[0m' to_purge
+            if [ $DS_COLOR_SUP ] ; then
+                read -p $'\e[37m Enter branch numbers or search patterns to purge separated by spaces: \e[0m' to_purge
+            else
+                read -p $' Enter branch numbers or search patterns to purge separated by spaces: ' to_purge
+            fi
         done
 
         for i in ${to_purge[@]}; do
@@ -136,7 +147,13 @@ while [ ! $confirmed ]; do
                 while [[ $i -lt 1 || $i -gt $BRANCH_COUNT ]]; do
                     to_purge=()
                     echo -e "\n${ORANGE} Only input indices of the set provided. To quit the script, press Ctrl+C${NC}\n"
-                    read -p $'\e[37m Enter branch numbers or search patterns to purge separated by spaces: \e[0m' to_purge
+                    
+                    if [ $DS_COLOR_SUP ] ; then
+                        read -p $'\e[37m Enter branch numbers or search patterns to purge separated by spaces: \e[0m' to_purge
+                    else
+                        read -p $' Enter branch numbers or search patterns to purge separated by spaces: ' to_purge
+                    fi
+
                     to_purge=( $(printf '%s\n' "${to_purge[@]}") )
                     break 2
                 done
@@ -150,13 +167,25 @@ while [ ! $confirmed ]; do
     PURGE_BRANCHES=($(printf '%s\n' "${UNIQ_BRANCHES[@]}" | awk "$filter"))
 
     echo -e "\n${ORANGE} Confirm branch purge selection below - BE CAREFUL, confirmation will attempt local deletion in all repos!${NC}\n"
-    printf '\e[31m%s\n\e[m' "${PURGE_BRANCHES[@]}" | awk '{print " " $1}'
-    read -p $'\e[37m Enter "confirm" to delete branches: \e[0m' confirm_input
+    
+    if [ $DS_COLOR_SUP ]; then
+        printf '\e[31m%s\n\e[0m' "${PURGE_BRANCHES[@]}" | awk '{print " " $1}'
+        read -p $'\e[37m Enter "confirm" to delete branches: \e[0m' confirm_input
+    else
+        printf '%s\n' "${PURGE_BRANCHES[@]}" | awk '{print " " $1}'
+        read -p $' Enter "confirm" to delete branches: ' confirm_input
+    fi
+
     confirm_input=$(echo "${confirm_input}" | tr "[:upper:]" "[:lower:]")
     if [[ "$confirm_input" = 'confirm' ]]; then confirmed=true; continue; fi
 
     echo -e "\n${ORANGE} Selection not confirmed. Would you like to modify your selection?${NC}\n"
-    read -p $'\e[37m Enter "y" to modify selection or "continue" to proceed with current purge selection: \e[0m' modify
+    
+    if [ $DS_COLOR_SUP ]; then
+        read -p $'\e[37m Enter "y" to modify selection or "continue" to proceed with current purge selection: \e[0m' modify
+    else
+        read -p $' Enter "y" to modify selection or "continue" to proceed with current purge selection: ' modify
+    fi
 
     modify=$(echo "${modify}" | tr "[:upper:]" "[:lower:]")
 

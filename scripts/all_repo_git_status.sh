@@ -1,13 +1,18 @@
 #!/bin/bash
 set -o pipefail
 
-CYAN="\033[0;36m"
-ORANGE="\033[0;33m"
-RED="\033[0;31m"
-GRAY="\033[0:37m"
-WHITE="\033[1:35m"
-GREEN="\033[0;32m"
-NC="\033[0m" # No Color
+if tput colors &> /dev/null; then
+    CYAN="\033[0;36m"
+    ORANGE="\033[0;33m"
+    RED="\033[0;31m"
+    GRAY="\033[0:37m"
+    WHITE="\033[1:35m"
+    GREEN="\033[0;32m"
+    NC="\033[0m" # No Color
+    git_color=always
+else
+    git_color=never
+fi
 
 # shellcheck disable=SC1009
 
@@ -29,7 +34,7 @@ for repo in ${REPOS[@]} ; do
     cd "${repo}"
 
     echo -e "${WHITE} ${repo}${NC}"
-    git -c color.ui=always status || echo -e "${RED} Error reqesting status. ${NC}"
+    git -c color.ui=$git_color status || echo -e "${RED} Error reqesting status. ${NC}"
     wait
 
     echo -e "\n"

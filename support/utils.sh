@@ -2,6 +2,11 @@
 
 DS_SEP=$'@@@'
 
+if tput colors &> /dev/null
+then
+    DS_COLOR_SUP=true
+fi
+
 ds:file_check() { # Test for file validity and fail if invalid: ds:file_check testfile [check_writable=f] [allow_binary=f] [enable_search]
     [ -z "$1" ] && ds:fail 'File not provided!'
     local tf="$1" enable_search="$4"

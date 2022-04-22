@@ -2,9 +2,13 @@
 #
 # Script to select and check out a branch based on a pattern
 
-ORANGE="\033[0;33m"
-WHITE="\033[1;37m"
-NC="\033[0m" # No Color
+if tput colors &> /dev/null; then
+    ORANGE="\033[0;33m"
+    WHITE="\033[1;37m"
+    NC="\033[0m" # No Color
+    DS_COLOR_SUP=true
+fi
+
 int_re='^[0-9]+$'
 
 testInt() {
@@ -38,7 +42,13 @@ fi
 if [ $(git status --porcelain | wc -c | xargs) -gt 0 ]; then
     echo -e "${ORANGE}Untracked changes found!${NC}"
     echo
-    read -p $'\e[37;1m To stash untracked changes on the current branch, enter "stash": \e[0m' confirm
+
+    if [ $DS_COLOR_SUP ]; then
+        read -p $'\e[37;1m To stash untracked changes on the current branch, enter "stash": \e[0m' confirm
+    else
+        read -p $' To stash untracked changes on the current branch, enter "stash": ' confirm
+    fi
+    
     if [ "$confirm" = 'stash' ]; then
         git stash
     else
@@ -59,7 +69,11 @@ else
     while [ ! $confirmed ]; do
         printf "%s\n" "${LOCAL_BRANCHES[@]}" | awk '{printf "%5s  %s\n", NR, $0}'
         echo
-        read -p $'\e[37;1m Enter branch number or pattern to check out: \e[0m' to_ck
+        if [ $DS_COLOR_SUP ]; then
+            read -p $'\e[37;1m Enter branch number or pattern to check out: \e[0m' to_ck
+        else
+            read -p $' Enter branch number or pattern to check out: ' to_ck
+        fi
         if isInt "$to_ck"; then
             testInt "$to_ck" $n_matches
         else
@@ -76,7 +90,11 @@ fi
 let n_matches=${#MATCH_BRANCHES[@]}
 
 if [[ -z $n_matches || $n_matches -lt 1 ]]; then
-    read -p $'\e[37;1m No local branches found for search on current repo. Search remote or checkout new branch (r[emote]/n[ew branch]): \e[0m' choice
+    if [ $DS_COLOR_SUP ]; then
+        read -p $'\e[37;1m No local branches found for search on current repo. Search remote or checkout new branch (r[emote]/n[ew branch]): \e[0m' choice
+    else
+        read -p $' No local branches found for search on current repo. Search remote or checkout new branch (r[emote]/n[ew branch]): ' choice
+    fi
     choice="$(echo "${choice}" | tr -d " " | tr "[:upper:]" "[:lower:]")"
     if echo "newbranch" | grep -Eq "^$choice" 2>/dev/null; then
         git checkout -b "$1"
@@ -107,7 +125,11 @@ else
         echo 'Multiple branches found matching search:'
         printf "%s\n" "${MATCH_BRANCHES[@]}" | awk '{printf "%5s  %s\n", NR, $0}'
         echo
-        read -p $'\e[37;1m Enter branch number or pattern to check out: \e[0m' to_ck
+        if [ $DS_COLOR_SUP ]; then
+            read -p $'\e[37;1m Enter branch number or pattern to check out: \e[0m' to_ck
+        else
+            read -p $' Enter branch number or pattern to check out: ' to_ck
+        fi
         if isInt "$to_ck"; then
             testInt "$to_ck" $n_matches
         else

@@ -223,21 +223,21 @@ function CalcSims(Keys1, Keys2) {
 
     if (debug) print "--- end calc sim ---"
 }
-function DebugPrint(case) {
-    if (case == 1) {
+function DebugPrint(_case) {
+    if (_case == 1) {
         print "New row: " NR, FNR, k1[1], k2[1], rcount1, rcount2
-    } else if (case == 2) {
+    } else if (_case == 2) {
         if (position == 1 && FNR < 3 && matchcount!=10) print position, matches, Keys[position, m], m
         print "k1 " k1[position, 1], "k2 " k2[position, 1]
-    } else if (case == 3) {
+    } else if (_case == 3) {
         print kscore1, kscore2
-    } else if (case == 4) {
+    } else if (_case == 4) {
         print k, l, scores[k, l]
-    } else if (case == "endbfsf1") {
+    } else if (_case == "endbfsf1") {
         print "--- end bfs f1 ----"
-    } else if (case == "endbfsf2") {
+    } else if (_case == "endbfsf2") {
         print "--- end bfs f2 ----"
-    } else if (case == 7) {
+    } else if (_case == 7) {
         print i, j, scores[i, j]
     }
 }

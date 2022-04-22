@@ -85,19 +85,21 @@ if [ $VERBOSE ]; then
         echo "Deep search opt set: Running for all repos found in base directory"
     fi
     [ $OVERRIDE_REPOS ] && echo "Override repos opt set: All filepaths provided must be valid repos"
-    [ $DISPLAY_STATUS ] && echo "Status opt set: Branches with untracked changes will be marked in red"
+    [ $DISPLAY_STATUS ] && echo "Status opt set: Branches with untracked changes will be marked in red if color supported"
     [ $INCLUDE_MASTER_ONLYS ] && echo "Master opt set: Repos with only master/main branch will be included"
 fi
 
 # Initialize variables
 
-CYAN="\033[0;36m"
-ORANGE="\033[0;33m"
-RED="\033[0;31m"
-GRAY="\033[0:37m"
-WHITE="\033[1:35m"
-BLUE="\033[0;34m"
-NC="\033[0m" # No Color
+if tput colors &> /dev/null; then
+    CYAN="\033[0;36m"
+    ORANGE="\033[0;33m"
+    RED="\033[0;31m"
+    GRAY="\033[0:37m"
+    WHITE="\033[1:35m"
+    BLUE="\033[0;34m"
+    NC="\033[0m" # No Color
+fi
 
 TABLE_DATA="${WHITE}BRANCHES_____________\_____________REPOS${GRAY}"
 [ "$BASE_DIR" ] || BASE_DIR="$HOME"

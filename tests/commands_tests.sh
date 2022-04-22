@@ -2,8 +2,11 @@
 #
 ## TODO: Git tests
 
-NC="\033[0m" # No Color
-GREEN="\033[0;32m"
+if tput colors &> /dev/null; then
+    NC="\033[0m" # No Color
+    GREEN="\033[0;32m"
+fi
+
 test_var=1
 tmp=/tmp/ds_commands_tests
 q=/dev/null

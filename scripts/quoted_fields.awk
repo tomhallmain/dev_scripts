@@ -341,18 +341,18 @@ function QuoteDiff(line, QRe, quote_set) {
     if (debug) print "n_starts: "n_starts", n_ends: "n_ends
     return n_starts - n_ends
 }
-function DebugPrint(case) {
-    if (case == 0) {
+function DebugPrint(_case) {
+    if (_case == 0) {
         print "-------- SETUP --------"
         print "retain_outer_quotes: "retain_outer_quotes" quote_cut_len: "quote_cut_len" mod_f_len0: "mod_f_len0" mod_f_len1: "mod_f_len1
         print "---- CALCS / OUTPUT ----" }
-    else if (case == 1 ) {
+    else if (_case == 1 ) {
         print "----- CALCS FIELD "i" ------"
         print "NR: "NR" quote_set: " quote_set " len0: " len0 " $0: " $0
         print "previous_i: " pi
         print "index_fieldsep: "index_fieldsep" index_quote: "index_quote" index_quote_fieldsep: "index_quote_fieldsep" index_fieldsep_quote: "index_fieldsep_quote" index_quotequote: "index_quotequote 
         if (balance_outstanding) print "balance outstanding: "balance_outstanding", index_quote_imbal_start: "index_quote_imbal_start }
-    else if (case == 2) {
+    else if (_case == 2) {
         if (close_multiline_field) {
             print "_["i"] = _[save_i] substr($0, "startf", "endf")"
             print "$0 = substr($0, "endf" + "len_fieldsep" + "quote_cut" + 1)"
@@ -368,16 +368,16 @@ function DebugPrint(case) {
             print ""
         }
     }
-    else if (case == 3) {
+    else if (_case == 3) {
         print ""
         print "NR: "NR", $0: "$0
         print "match_start: "match($0, QRe["start"])", RLENGTH: "RLENGTH" QRe[\"s\"]"QRe["start"]
         print "match_field: "match($0, QRe["field"])", RLENGTH: "RLENGTH" QRe[\"f\"]"QRe["field"] }
-    else if (case == 4)
+    else if (_case == 4)
         print "bal: "balance_outstanding
-    else if (case == 5)
+    else if (_case == 5)
         print "newbal: "balance_outstanding
-    else if (case == 6)
+    else if (_case == 6)
         print "NR: "NR", save_i: "save_i", _[save_i]: "_[save_i]
 }
 
