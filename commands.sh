@@ -821,7 +821,7 @@ ds:searchx() { # Search for a C-lang/curly-brace object: ds:searchx file|dir [se
 }
 
 ds:select() { # ** Select code by regex anchors: ds:select file [startpattern endpattern]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local file=$(ds:tmp 'ds_select') piped=0 start="$2" end="$3"
         cat /dev/stdin > $file
     else
@@ -833,7 +833,7 @@ ds:select() { # ** Select code by regex anchors: ds:select file [startpattern en
 }
 
 ds:insert() { # ** Redirect input into a file at lineno or pattern: ds:insert file [lineno|pattern] [srcfile] [inplace=f]
-    if ds:pipe_open; then
+    if ds:pipe_open "$3"; then
         local _source=$(ds:tmp 'ds_selectsource') piped=0
         cat /dev/stdin > $_source
     else
@@ -885,7 +885,7 @@ ds:insert() { # ** Redirect input into a file at lineno or pattern: ds:insert fi
 }
 
 ds:field_replace() { # ** Overwrite field val if matches pattern: ds:field_replace [file] val_replace_func [key=1] [pattern=]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_field_replace') piped=0
         cat /dev/stdin > $_file
     else
@@ -908,7 +908,7 @@ ds:field_replace() { # ** Overwrite field val if matches pattern: ds:field_repla
 }
 
 ds:space() { # ** Modify file space or tab counts: ds:space [file] from=$'\t' target=4
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_space') piped=0
         cat /dev/stdin > $_file
     else
@@ -954,7 +954,7 @@ ds:space() { # ** Modify file space or tab counts: ds:space [file] from=$'\t' ta
 }
 
 ds:shape() { # ** Print data shape by length or pattern: ds:shape [-h|file*] [patterns] [fields] [chart_size=15ln] [awkargs]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_shape') piped=0
         cat /dev/stdin > $_file
     else
@@ -1013,7 +1013,7 @@ ds:shape() { # ** Print data shape by length or pattern: ds:shape [-h|file*] [pa
 }
 
 ds:plot() { # Get a scatter plot of from two fields: ds:plot [file] [field_y=1] [field_x=index]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_plot') piped=0
         cat /dev/stdin > $_file
     else
@@ -1039,7 +1039,7 @@ ds:plot() { # Get a scatter plot of from two fields: ds:plot [file] [field_y=1] 
 }
 
 ds:diff_fields() { # ** Get elementwise diff of two datasets (alias ds:df): ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]
-    if ds:pipe_open; then
+    if ds:pipe_open "$2"; then
         local f2=$(ds:tmp 'ds_diff_fields') piped=1
         cat /dev/stdin > $f2
         ds:file_check "$1"
@@ -1174,7 +1174,7 @@ ds:diff_fields() { # ** Get elementwise diff of two datasets (alias ds:df): ds:d
 alias ds:df="ds:diff_fields"
 
 ds:join() { # ** Join two datasets with any keyset (alias ds:jn): ds:join file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
-    if ds:pipe_open; then
+    if ds:pipe_open "$2"; then
         local f2=$(ds:tmp 'ds_jn') piped=1
         cat /dev/stdin > $f2
         ds:file_check "$1"
@@ -1328,7 +1328,7 @@ alias ds:jn="ds:join"
 ds:matches() { # ** Get match lines from two datasets: ds:matches file [file] [awkargs]
     ds:file_check "$1"
     local f1="$(ds:fd_check "$1")"; shift
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local f2=$(ds:tmp 'ds_matches') piped=1
         cat /dev/stdin > "$f2"
     else
@@ -1351,7 +1351,7 @@ ds:matches() { # ** Get match lines from two datasets: ds:matches file [file] [a
 ds:comps() { # ** Get non-matching lines from two datasets: ds:comps file [file] [awkargs]
     ds:file_check "$1"
     local f1="$(ds:fd_check "$1")"; shift
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local f2=$(ds:tmp 'ds_comps') piped=1
         cat /dev/stdin > "$f2"
     else
@@ -1423,7 +1423,7 @@ ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [c
 }
 
 ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*] [prefield=t] [awkargs]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_fit') piped=0 hc=f
         cat /dev/stdin > $_file
     else
@@ -1482,7 +1482,7 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
 ds:stagger() { # ** Print tabular data in staggered rows: ds:stagger [file] [stag_size]
     ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/stagger.awk" \
         | sed -E 's:^#::g' | less && return
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_stagger') piped=0
         cat /dev/stdin > $_file
     else
@@ -1504,7 +1504,7 @@ ds:stagger() { # ** Print tabular data in staggered rows: ds:stagger [file] [sta
 }
 
 ds:index() { # ** Attach an index to lines from a file or STDIN (alias ds:i): ds:i [file] [startline=1]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_idx') piped=0
         cat /dev/stdin > $_file
     else
@@ -1528,7 +1528,7 @@ ds:index() { # ** Attach an index to lines from a file or STDIN (alias ds:i): ds
 alias ds:i="ds:index"
 
 ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [rows] [cols] [prefield=t] [awkargs]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local rows="${1:-a}" cols="${2:-a}" base=3
         local _file=$(ds:tmp "ds_reo") piped=0
         cat /dev/stdin > $_file
@@ -1579,7 +1579,7 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [r
 }
 
 ds:pivot() { # ** Pivot tabular data: ds:pivot [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_pivot') piped=0
         cat /dev/stdin > $_file
     else
@@ -1630,7 +1630,7 @@ ds:pivot() { # ** Pivot tabular data: ds:pivot [file] [y_keys] [x_keys] [z_keys=
 }
 
 ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file*] [r_aggs=+] [c_aggs=+]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_agg') piped=0
         cat /dev/stdin > $_file
     else
@@ -1682,7 +1682,7 @@ ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file*] [r_aggs=+] [c_aggs
 }
 
 ds:decap() { # ** Remove up to n_lines from the start of a file: ds:decap [file] [n_lines=1]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_decap') piped=0
         cat /dev/stdin > $_file
     else
@@ -1698,7 +1698,7 @@ ds:decap() { # ** Remove up to n_lines from the start of a file: ds:decap [file]
 }
 
 ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file*] [prefield=t] [awkargs]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_transpose') piped=0
         cat /dev/stdin > $_file
     else
@@ -1732,7 +1732,7 @@ ds:transpose() { # ** Transpose field values (alias ds:t): ds:transpose [file*] 
 alias ds:t="ds:transpose"
 
 ds:pow() { # ** Combinatorial frequency of data field values: ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_pow') piped=0
         cat /dev/stdin > $_file
     else
@@ -1760,7 +1760,7 @@ ds:pow() { # ** Combinatorial frequency of data field values: ds:pow [file] [min
 }
 
 ds:prod() { # ** Return product multiset of filelines: ds:pow file [file*] [awkargs]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_pow') piped=0
         cat /dev/stdin > $file
     else
@@ -1783,7 +1783,7 @@ ds:prod() { # ** Return product multiset of filelines: ds:pow file [file*] [awka
 }
 
 ds:fieldcounts() { # ** Print value counts (alias ds:fc): ds:fc [file] [fields=1] [min=1] [order=a] [awkargs]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_fieldcounts') piped=0
         cat /dev/stdin > $_file
     else
@@ -1816,7 +1816,7 @@ ds:fieldcounts() { # ** Print value counts (alias ds:fc): ds:fc [file] [fields=1
 alias ds:fc="ds:fieldcounts"
 
 ds:uniq() { # ** Get unique values >= min (alias ds:u): ds:u [file] [fields=1] [min=1] [order=a]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_uniq') piped=0
         cat /dev/stdin > $_file
     else
@@ -1849,7 +1849,7 @@ ds:uniq() { # ** Get unique values >= min (alias ds:u): ds:u [file] [fields=1] [
 alias ds:u="ds:uniq"
 
 ds:newfs() { # ** Convert field separators - i.e. tsv -> csv: ds:newfs [file] [newfs=,] [awkargs]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_newfs') piped=0
         cat /dev/stdin > $_file
     else
@@ -1882,7 +1882,7 @@ ds:newfs() { # ** Convert field separators - i.e. tsv -> csv: ds:newfs [file] [n
 }
 
 ds:hist() { # ** Print histograms for all number fields in data: ds:hist [file] [n_bins] [bar_len] [awkargs]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_hist') piped=0
         cat /dev/stdin > $_file
     else
@@ -1904,7 +1904,7 @@ ds:hist() { # ** Print histograms for all number fields in data: ds:hist [file] 
 }
 
 ds:graph() { # ** Extract graph relationships from DAG base data: ds:graph [file]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_graph') piped=0
         cat /dev/stdin > $_file
     else
@@ -1932,7 +1932,7 @@ ds:asgn() { # Print lines matching assignment pattern: ds:asgn file
 }
 
 ds:enti() { # Print text entities separated by pattern: ds:enti [file] [sep= ] [min=1] [order=a]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_enti') piped=0
         cat /dev/stdin > $_file
     else
@@ -1951,7 +1951,7 @@ ds:enti() { # Print text entities separated by pattern: ds:enti [file] [sep= ] [
 }
 
 ds:subsep() { # ** Extend fields by a common subseparator: ds:subsep [-h|file] subsep_pattern [nomatch_handler= ]
-    if ds:pipe_open; then
+    if [ "$1" = "**" ] || ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_sbsp') piped=0
         cat /dev/stdin > $_file
     else
@@ -1975,7 +1975,7 @@ ds:subsep() { # ** Extend fields by a common subseparator: ds:subsep [-h|file] s
 }
 
 ds:dostounix() { # ** Remove ^M / CR characters in place: ds:dostounix [file*]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_dostounix_piped') piped=0
         cat /dev/stdin > $_file
     else
@@ -2013,7 +2013,7 @@ ds:dostounix() { # ** Remove ^M / CR characters in place: ds:dostounix [file*]
 }
 
 ds:mini() { # ** Crude minify, remove whitespace and newlines: ds:mini [file*] [newline_sep=;] [blank_only=f]
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_mini') piped=0
         cat /dev/stdin > $_file
     else
@@ -2050,7 +2050,7 @@ ds:mini() { # ** Crude minify, remove whitespace and newlines: ds:mini [file*] [
 
 ds:sort() { # ** Sort with inferred field sep of 1 char: ds:sort [unix_sort_args] [file]
     local args=( "$@" )
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_sort') piped=0
         cat /dev/stdin > $_file
     else
@@ -2070,7 +2070,7 @@ ds:sort() { # ** Sort with inferred field sep of 1 char: ds:sort [unix_sort_args
 
 ds:sortm() { # ** Sort with inferred field sep of >=1 char (alias ds:s): ds:sortm [file] [keys] [order=a|d] [sort_type] [awkargs]
     # TODO: Default to infer header
-    if ds:pipe_open; then
+    if ds:pipe_open "$1"; then
         local file=$(ds:tmp 'ds_sortm') piped=0
         cat /dev/stdin > $file
     else
@@ -2259,7 +2259,7 @@ ds:sedi() { # Run global in place substitutions: ds:sedi file|dir search [replac
 ds:diff() { # ** Diff shortcut for an easier to read view: ds:diff file1 [file2] [suppress_common] [color=t]
     # TODO: dynamic width if short lines on one or more files
     # TODO: diff >2 files
-    if ds:pipe_open; then
+    if ds:pipe_open "$2"; then
         local file1=$(ds:tmp 'ds_dff') piped=0
         cat /dev/stdin > $file1
     else

@@ -4,7 +4,12 @@ DS_SEP=$'@@@'
 
 if tput colors &> /dev/null
 then
-    DS_COLOR_SUP=true
+    DS_COLOR_SUP=1
+fi
+
+if [ "$TERM" = dumb ]
+then
+    DS_DUMB_TERM=1
 fi
 
 ds:file_check() { # Test for file validity and fail if invalid: ds:file_check testfile [check_writable=f] [allow_binary=f] [enable_search]
@@ -140,8 +145,8 @@ ds:die() { # Output to STDERR and exit with error: ds:die
     if ds:sub_sh || ds:nested; then kill $$; fi
 }
 
-ds:pipe_open() { # ** Detect if pipe is open: if ds:pipe_open; then [...]
-    [ ! -t 0 ]
+ds:pipe_open() { # ** Detect if pipe is open: if ds:pipe_open [possible_file_arg]; then [...]
+    [ $DS_DUMB_TERM ] && [[ "$1" && ! -f "$1" || ! -t 0 ]] || [ ! -t 0 ]
 }
 
 ds:ttyf() { # ** Run ds:fit on output only if to a terminal: data | ds:ttyf [FS] [run_fit=t] [fit_awkargs]
