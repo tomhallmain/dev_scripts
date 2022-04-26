@@ -378,7 +378,7 @@ ds:dup_input() { # ** Duplicate standard input in aggregate: data | ds:dup_input
 ds:join_by() { # ** Join a shell array by given delimiter: ds:join_by delimiter [join_array]
     local d=$1; shift
 
-    if ds:pipe_open; then
+    if [ -p /dev/stdin ]; then
         local pipeargs=($(cat /dev/stdin))
         local arr_base=$(ds:arr_base)
         let join_start=$arr_base+1
@@ -395,13 +395,13 @@ ds:join_by() { # ** Join a shell array by given delimiter: ds:join_by delimiter 
 }
 
 ds:test() { # ** Test input quietly with extended regex: ds:test regex [str|file] [test_file=f]
-    ds:pipe_open && grep -Eq "$1" && return $?
+    [ -p /dev/stdin ] && grep -Eq "$1" && return $?
     [[ "$3" =~ t ]] && [ -f "$2" ] && grep -Eq "$1" "$2" && return $?
     echo "$2" | grep -Eq "$1"
 }
 
 ds:substr() { # ** Extract a substring with regex: ds:substr str [leftanc] [rightanc]
-    if ds:pipe_open; then
+    if [ -p /dev/stdin ]; then
         local str="$(cat /dev/stdin)"
     else
         local str="$1"; shift
@@ -1951,7 +1951,7 @@ ds:enti() { # Print text entities separated by pattern: ds:enti [file] [sep= ] [
 }
 
 ds:subsep() { # ** Extend fields by a common subseparator: ds:subsep [-h|file] subsep_pattern [nomatch_handler= ]
-    if [ "$1" = "**" ] || ds:pipe_open "$1"; then
+    if [[ "$1" = "**" || "$1" = "*" ]] || ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_sbsp') piped=0
         cat /dev/stdin > $_file
     else
@@ -2288,7 +2288,7 @@ ds:git_word_diff() { # Git word diff shortcut (alias ds:gwdf): ds:gwdf [git_diff
 alias ds:gwdf="ds:git_word_diff"
 
 ds:line() { # ** Execute commands on var line: ds:line [seed_cmds] line_cmds [IFS=\n]
-    if ds:pipe_open; then
+    if [ -p /dev/stdin ]; then
         local _file="$(ds:tmp 'ds_line')" piped=0
         cat /dev/stdin > $_file
     else
@@ -2345,7 +2345,7 @@ ds:jira() { # Open Jira at specified workspace issue / search: ds:jira workspace
 ds:unicode() { # ** Get UTF-8 unicode for a character sequence: ds:unicode [str] [out=codepoint|hex|octet]
     ! ds:nset 'xxd' && ds:fail 'Utility xxd required for this command'
     [ "$2" ] && ds:test '(hex|octet)' "$2" || local codepoint=0
-    local sq=($(ds:pipe_open && grep -ho . || echo "$1" | grep -ho .))
+    local sq=($([ -p /dev/stdin ] && grep -ho . || echo "$1" | grep -ho .))
     for i in ${sq[@]}; do
         local code="$(printf "$i" | xxd -b \
             | awk -F"[[:space:]]+" -v to="${2:-codepoint}" -f "$DS_SCRIPT/unicode.awk" 2>/dev/null \
@@ -2361,7 +2361,7 @@ ds:unicode() { # ** Get UTF-8 unicode for a character sequence: ds:unicode [str]
 
 ds:case() { # ** Recase text data globally or in part: ds:case [string] [tocase=proper] [filter]
     local _file=$(ds:tmp 'ds_case') piped=0
-    if ds:pipe_open; then
+    if [ -p /dev/stdin ]; then
         cat /dev/stdin > $_file
     elif [ "$1" ]; then
         ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/case.awk" \
@@ -2375,7 +2375,7 @@ ds:case() { # ** Recase text data globally or in part: ds:case [string] [tocase=
 }
 
 ds:random() { # ** Generate a random number 0-1 or randomize text: ds:random [number|text]
-    if ds:pipe_open; then
+    if [ -p /dev/stdin ]; then
         awk -v FS="" -v mode="$1" -f $DS_SCRIPT/randomize.awk
     else
         echo "" | awk -v FS="" -v mode="$1" -f $DS_SCRIPT/randomize.awk
