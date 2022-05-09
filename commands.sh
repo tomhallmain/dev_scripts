@@ -49,8 +49,7 @@ ds:help() { # Print help for a given command: ds:help ds_command
 }
 
 ds:vi() { # Search for files and open in vim: ds:vi search [dir] [edit_all_match=f]
-    [ ! "$1" ] && echo 'Filename search pattern missing!' && ds:help ds:vi && return 1
-    local search="${1}" dir="${2:-.}" all="${3:-f}"
+    local search="${1:-.}" dir="${2:-.}" all="${3:-f}"
     ds:test 't(rue)?' "$all" || local singlefile=0
     if fd --version &>/dev/null; then
         local fileset="$(fd -t f "$search" "$dir" 2>/dev/null | head -n100 | sed -E 's#^\./##g')"
@@ -113,7 +112,7 @@ ds:vi() { # Search for files and open in vim: ds:vi search [dir] [edit_all_match
 }
 
 ds:grepvi() { # Grep and open vim on match (alias ds:gvi): ds:gvi search [file|dir] [edit_all_match=f]
-    local search="$1" all="${3:-f}"
+    local search="${1:-.}" all="${3:-f}"
     if [ -f "$2" ]; then local file="$2"
         if ds:nset 'rg'; then
             local line=$(rg --line-number "$search" "$file" | head -n1 | ds:reo 1 1 -v FS=":")
