@@ -16,7 +16,7 @@
 ## TODO: Infer absence of separator (output low confidence true)
 
 BEGIN {
-    CommonFSOrder[1] = "w"; CommonFS["s"] = " "; FixedStringFS["s"] = "\\"
+    CommonFSOrder[1] = "s"; CommonFS["s"] = " "; FixedStringFS["s"] = "\\"
     CommonFSOrder[2] = "t"; CommonFS["t"] = "\t"; FixedStringFS["t"] = "\\"
     CommonFSOrder[3] = "p"; CommonFS["p"] = "\|"; FixedStringFS["p"] = "\\"
     CommonFSOrder[4] = "m"; CommonFS["m"] = ";"; FixedStringFS["m"] = "\\"
@@ -29,14 +29,19 @@ BEGIN {
     DS_SEP = "@@@"
     sq = "\'"
     dq = "\""
+    n_valid_rows = 0
 
     if (!max_rows) max_rows = 500
     custom = length(custom)
 }
 
-NR > max_rows { exit }
+$0 ~ /^ *$/ { next }
 
-NR < 10 {
+{ n_valid_rows++ }
+
+n_valid_rows > max_rows { exit }
+
+n_valid_rows < 10 {
     if ($0 ~ DS_SEP) {
         ds_sep = 1
         print DS_SEP
@@ -44,7 +49,7 @@ NR < 10 {
     }
 }
 
-custom && NR == 1 {
+custom && n_valid_rows == 1 {
     # Remove leading and trailing spaces
     gsub(/^[[:space:]]+|[[:space:]]+$/,"")
   
@@ -90,7 +95,7 @@ custom && NR == 1 {
     }
 }
 
-custom && NR == 2 {
+custom && n_valid_rows == 2 {
     gsub(/^[[:space:]]+|[[:space:]]+$/,"")
     Line[NR] = $0
 
@@ -143,7 +148,8 @@ custom && NR == 2 {
                 if (RSTART) {
                     nf++
                     if (RSTART > 1)
-                        nf += split(substr(qf_line, 1, RSTART-1), _, fs) }
+                        nf += split(substr(qf_line, 1, RSTART-1), _, fs)
+                }
                 else {
                     nf += split(qf_line, _, fs)
                     break
@@ -179,8 +185,8 @@ custom && NR == 2 {
         CommonFSNFConsecCounts[s, nf]++
     }
 
-    if (custom && NR > 2) {
-        if (NR == 3) {
+    if (custom && n_valid_rows > 2) {
+        if (n_valid_rows == 3) {
             for (i = 1; i < 3; i++) {
                 for (fs in CustomFS) {
                     nf = split(Line[i], _, fs)
@@ -203,7 +209,7 @@ custom && NR == 2 {
 END {
     if (ds_sep) exit
 
-    if (max_rows > NR) max_rows = NR
+    if (max_rows > n_valid_rows) max_rows = n_valid_rows
 
     # Calculate variance for each separator
     if (debug) print "\n ---- common sep variance calcs ----"

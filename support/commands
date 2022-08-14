@@ -8,13 +8,13 @@
 **@@@ds:comps@@@@@@Get non-matching lines from two datasets@@@ds:comps file [file] [awkargs]
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [file] [n_lines=1]
-@@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=(FUNC|ALIAS)] [caller] [ndata]
+@@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=FUNC|ALIAS] [caller] [ndata]
 **@@@ds:diff@@@@@@Diff shortcut for an easier to read view@@@ds:diff file1 [file2] [suppress_common] [color=t]
 **@@@ds:diff_fields@@@ds:df@@@Get elementwise diff of two datasets@@@ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]
 **@@@ds:dostounix@@@@@@Remove ^M / CR characters in place@@@ds:dostounix [file*]
 **@@@ds:dup_input@@@@@@Duplicate standard input in aggregate@@@data | ds:dup_input
 @@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir] [confirm=f] [of_file] [try_nonmatch_ext=f]
-@@@ds:embrace@@@@@@Enclose a string on each side by args@@@embrace str [left={] [right=}]
+@@@ds:embrace@@@@@@Enclose a string on each side by args@@@ds:embrace str [left={] [right=}]
 @@@ds:enti@@@@@@Print text entities separated by pattern@@@ds:enti [file] [sep= ] [min=1] [order=a]
 @@@ds:fail@@@@@@Safe failure that kills parent@@@ds:fail [error_message]
 **@@@ds:field_replace@@@@@@Overwrite field val if matches pattern@@@ds:field_replace [file] val_replace_func [key=1] [pattern=]
@@ -25,6 +25,7 @@
 @@@ds:gexec@@@@@@Generate script from parts of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
 @@@ds:git_add_com_push@@@ds:gacp@@@Add, commit with message, push@@@ds:gacp commit_message [prompt=t]
 @@@ds:git_branch@@@ds:gb@@@Run git branch for all repos@@@ds:gb
+@@@ds:git_branch_refs@@@ds:gbr@@@List branches merged to a branch@@@ds:git_branch_refs [branch=develop] [invert=f]
 @@@ds:git_checkout@@@ds:gco@@@Checkout branch matching pattern@@@ds:gco [branch_pattern] [new_branch=f]
 @@@ds:git_cross_view@@@ds:gcv@@@Display table of git repos vs branches@@@ds:gcv [:ab:Dfhmo:sv]
 @@@ds:git_diff@@@@@@Diff shortcut for exclusions@@@ds:git_diff obj obj exclusions

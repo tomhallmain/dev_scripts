@@ -13,13 +13,18 @@ ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [r
     [ "$2" ] && local utils="$DS_SUPPORT/utils.sh"
     [ "$3" ] && local re_source=0
     [ "$utils" ] && local DS_COMMANDS="$DS_SUPPORT/commands_utils" || local DS_COMMANDS="$DS_SUPPORT/commands"
+    ds:nset 'rg' && local RG=true
 
+    # Get all the function definitions from this file and utils file into a table format.
     if [ "$re_source" ] || ! ds:test "@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE" "$DS_COMMANDS" t; then
-        grep -Eh 'ds:[[:alnum:]_]+\(\)' "$DS_LOC/commands.sh" "$utils" 2>/dev/null | sort \
+        (if [ "$RG" ]; then rg -HIN 'ds:[[:alnum:]_]+\(\)' "$DS_LOC/commands.sh" "$utils" 2>/dev/null
+            else grep -Eh 'ds:[[:alnum:]_]+\(\)' "$DS_LOC/commands.sh" "$utils" 2>/dev/null; fi) \
+            | sort \
             | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
             | ds:subsep '**' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" \
             | ds:subsep ":[[:space:]]" "888" -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" \
-            | ds:subsep '\\\(alias ' '$' -v apply_to_fields=3 | sed 's/)@/@/' \
+            | ds:subsep '\\\(alias ' '$' -v apply_to_fields=3 \
+            | sed 's/)@/@/' \
             | awk -v FS="$DS_SEP" '
                 BEGIN { print "COMMAND" FS FS "DESCRIPTION" FS "ALIAS" FS "USAGE\n" }
                       { print }
@@ -28,7 +33,19 @@ ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [r
     fi
 
     echo
-    cat "$DS_COMMANDS" | ds:ttyf "$DS_SEP" t -v bufferchar="${1:- }"
+
+    # Fit table to shell and add color highlights if applicable.
+    if [ -t 1 ]; then
+        ds:fit "$DS_COMMANDS" -v FS="$DS_SEP" -v bufferchar="${1:- }" \
+            | ([ "$RG" ] && rg -HIN -C 100 --color=always --colors='match:fg:green' --colors='match:style:nobold' '\[[^\[]+\]' \
+                || GREP_COLOR='00;32' grep -E -C40 --color=always '\[[^[]+\]') \
+            | ([ "$RG" ] && rg -HIN -C 100 --color=always --colors='match:fg:cyan' --colors='match:style:nobold' 'ds:[a-z_]+' \
+                || GREP_COLOR='00;36' grep -E -C40 --color=always 'ds:[a-z_]+') \
+            | awk '{if (!($0 ~ "^[ \t]+$") && _[$0]) next; _[$0] = 1; if ($0 == "--") next; print}'
+    else
+        cat "$DS_COMMANDS"
+    fi
+
     echo "** - function supports receiving piped data"
     echo
 }
@@ -45,7 +62,14 @@ ds:help() { # Print help for a given command: ds:help ds_command
     [[ "$1" =~ ':shape' ]] && ds:shape -h && return
     [[ "$1" =~ ':sortm' ]] && ds:sortm -h && return
     [[ "$1" =~ ':subsep' ]] && ds:subsep -h && return
-    ds:commands "" t | ds:reo "2, 2~$1 || 3~$1" "2[$1~. || 3[$1~."
+    if [ -t 1 ]; then
+        ds:nset 'rg' && local RG=true
+        ds:commands "" t | ds:reo "2, 2~$1 || 3~$1" "2[$1~. || 3[$1~." \
+            | ds:fit -v FS="$DS_SEP" -v bufferchar=" " \
+            | GREP_COLOR='00;36' grep -E -C40 --color=always 'ds:[a-z_]+'
+    else
+        ds:commands "" t | ds:reo "2, 2~$1 || 3~$1" "2[$1~. || 3[$1~."
+    fi
 }
 
 ds:vi() { # Search for files and open in vim: ds:vi search [dir] [edit_all_match=f]
@@ -428,7 +452,7 @@ ds:iter() { # Repeat a string: ds:iter str [n=1] [fs]
     echo -n "$out"
 }
 
-ds:embrace() { # Enclose a string on each side by args: embrace str [left={] [right=}]
+ds:embrace() { # Enclose a string on each side by args: ds:embrace str [left={] [right=}]
     local val="$1"
     [ -z "$2" ] && local l="{" || local l="$2"
     [ -z "$3" ] && local r="}" || local r="$3"
@@ -701,7 +725,7 @@ alias ds:gr="ds:git_recent"
 ds:git_recent_all() { # Display recent commits for local repos (alias ds:gra): ds:gra [refs=heads] [repos_dir=~]
     local start_dir="$PWD" all_recent=$(ds:tmp 'ds_git_recent_all')
     if [ $DS_COLOR_SUP ]; then
-        local w="\033[37;1m" b='\033[1;31m' nc="\033[0m"
+        local w='\033[37;1m' b='\033[1;31m' nc='\033[0m'
     else
         local w="" b="" nc=""
     fi
@@ -749,6 +773,75 @@ ds:git_diff() { # Diff shortcut for exclusions: ds:git_diff obj obj exclusions
         git diff "$from_object" "$to_object" -b $@ -- . ${FILE_EXCLUSIONS[@]}
     fi
 }
+
+ds:git_branch_refs() { # List branches merged to a branch (alias ds:gbr): ds:git_branch_refs [branch=develop] [invert=f]
+    ds:not_git && return 1
+    ds:nset 'rg' && local RG=true
+    local branch="${1}"
+    local current_branch="$(git branch --show-current)"
+    local invert="${2:-f}"
+    local LOCAL_BRANCHES=($(git for-each-ref --format='%(refname:short)' refs/heads 2> /dev/null | sort))
+
+    if [ ! "$branch" ]; then
+        local branch="$current_branch"
+    elif [[ ! " ${LOCAL_BRANCHES[@]} " =~ " $branch " ]]; then
+        ds:fail "Branch not found: ${branch}"
+    fi
+
+    git fetch &>/dev/null || ds:fail "Failed to fetch."
+    
+    if [ $(git status --porcelain | wc -c | xargs) -eq 0 ]; then
+        git checkout "$branch" &>/dev/null || echo "Failed to checkout ${branch} to pull latest changes."
+        git pull &>/dev/null || echo "Error on pull for ${branch}."
+    else
+        echo "WARNING: Unable to pull latest version of ${branch} as local untracked changes exist."
+    fi
+
+    # NOTE In some situations it is not feasible to determine whether a branch has
+    # been merged to another branch, especially if the effective commits differ
+    # slightly for some reason.
+
+    if ds:test '[Tt](rue)?' "$invert"; then
+        echo "Unmerged branches on ${branch}:\n"
+        for t_branch in ${LOCAL_BRANCHES[@]}; do
+            if [ "$RG" ]; then
+                if ! git branch --contains "$t_branch" | rg -q " $branch"; then
+                    if ! git log | rg -q "$t_branch"; then
+                        echo "$t_branch"
+                    fi
+                fi
+            else
+                if ! git branch --contains "$t_branch" | grep -q " $branch"; then
+                    if ! git log | rg -q "$t_branch"; then
+                        echo "$t_branch"
+                    fi
+                fi
+            fi
+        done | sort
+    else
+        echo "Merged branches on ${branch} (invert by passing t/true to arg 2):\n"
+        for t_branch in ${LOCAL_BRANCHES[@]}; do
+            if [ "$RG" ]; then
+                if git branch --contains "$t_branch" | rg -q " $branch"; then
+                    echo "$t_branch"
+                elif git log | rg -q "$t_branch"; then # These branches may be partially merged
+                    echo "$t_branch"
+                fi
+            else
+                if git branch --contains "$t_branch" | grep -q " $branch"; then
+                    echo "$t_branch"
+                elif git log | grep -q "$t_branch"; then
+                    echo "$t_branch"
+                fi
+            fi
+        done | sort
+    fi
+
+    if [ ! "$branch" = "$current_branch" ]; then
+        git checkout "$current_branch" &>/dev/null
+    fi
+}
+alias ds:gbr="ds:git_branch_refs"
 
 ds:todo() { # List todo items found in paths: ds:todo [searchpaths=.]
     ds:nset 'rg' && local RG=true
@@ -2416,7 +2509,7 @@ ds:dups() { # Report duplicate files with option for deletion: ds:dups [dir] [co
     fi
 }
 
-ds:deps() { # Identify the dependencies of a shell function: ds:deps name [filter] [ntype=(FUNC|ALIAS)] [caller] [ndata]
+ds:deps() { # Identify the dependencies of a shell function: ds:deps name [filter] [ntype=FUNC|ALIAS] [caller] [ndata]
     [ "$1" ] || (ds:help ds:deps && return 1)
     local tmp=$(ds:tmp 'ds_deps') srch="$2"
     [ "$3" ] && local scope="$3" || local scope="(FUNC|ALIAS)"

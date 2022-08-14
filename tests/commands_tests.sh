@@ -114,8 +114,9 @@ echo -n "Running inferfs and inferh tests..."
 echo -e "wefkwefwl=21\nkwejf ekej=qwkdj\nTEST 349=|" > $tmp
 [ "$(ds:inferfs $tmp)" = '\=' ]                             || ds:fail 'inferfs failed custom separator case 3'
 [ "$(ds:inferfs $ls_sq)" = '[[:space:]]+' ]                 || ds:fail 'inferfs failed quoted fields case'
-[ "$(ds:inferfs $complex_csv3)" = ',' ]                     || ds:fail 'inferfs failed quoted fields case'
+[ "$(ds:inferfs $complex_csv3 f t f f)" = ',' ]             || ds:fail 'inferfs failed quoted fields case'
 [ "$(ds:inferfs $inferfs_chunks)" = ',' ]                   || ds:fail 'inferfs failed simple chunks case'
+[ "$(ds:inferfs tests/data/cities.csv f t f f)" = ',' ]     || ds:fail 'inferfs failed comma blank lines case'
 
 # INFERH TESTS
 

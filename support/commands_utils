@@ -13,14 +13,14 @@
 **@@@ds:comps@@@@@@Get non-matching lines from two datasets@@@ds:comps file [file] [awkargs]
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [file] [n_lines=1]
-@@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=(FUNC|ALIAS)] [caller] [ndata]
+@@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=FUNC|ALIAS] [caller] [ndata]
 @@@ds:die@@@@@@Output to STDERR and exit with error@@@ds:die
 **@@@ds:diff@@@@@@Diff shortcut for an easier to read view@@@ds:diff file1 [file2] [suppress_common] [color=t]
 **@@@ds:diff_fields@@@ds:df@@@Get elementwise diff of two datasets@@@ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]
 **@@@ds:dostounix@@@@@@Remove ^M / CR characters in place@@@ds:dostounix [file*]
 **@@@ds:dup_input@@@@@@Duplicate standard input in aggregate@@@data | ds:dup_input
 @@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir] [confirm=f] [of_file] [try_nonmatch_ext=f]
-@@@ds:embrace@@@@@@Enclose a string on each side by args@@@embrace str [left={] [right=}]
+@@@ds:embrace@@@@@@Enclose a string on each side by args@@@ds:embrace str [left={] [right=}]
 @@@ds:enti@@@@@@Print text entities separated by pattern@@@ds:enti [file] [sep= ] [min=1] [order=a]
 @@@ds:extractfs@@@@@@Infer or extract single awk FS from args@@@ds:extractfs
 @@@ds:fail@@@@@@Safe failure that kills parent@@@ds:fail [error_message]
@@ -35,6 +35,7 @@
 @@@ds:gexec@@@@@@Generate script from parts of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
 @@@ds:git_add_com_push@@@ds:gacp@@@Add, commit with message, push@@@ds:gacp commit_message [prompt=t]
 @@@ds:git_branch@@@ds:gb@@@Run git branch for all repos@@@ds:gb
+@@@ds:git_branch_refs@@@ds:gbr@@@List branches merged to a branch@@@ds:git_branch_refs [branch=develop] [invert=f]
 @@@ds:git_checkout@@@ds:gco@@@Checkout branch matching pattern@@@ds:gco [branch_pattern] [new_branch=f]
 @@@ds:git_cross_view@@@ds:gcv@@@Display table of git repos vs branches@@@ds:gcv [:ab:Dfhmo:sv]
 @@@ds:git_diff@@@@@@Diff shortcut for exclusions@@@ds:git_diff obj obj exclusions
@@ -81,7 +82,7 @@
 @@@ds:path_elements@@@@@@Return dirname/filename/extension from filepath@@@read -r dirpath filename extension <<< "$(ds:path_elements file)"
 **@@@ds:pipe_check@@@@@@Detect if pipe has data or over [n_lines]@@@data | ds:pipe_check [n_lines]
 @@@ds:pipe_clean@@@@@@Remove tmpfile created via STDIN if piping detected@@@piped=0; tmp=$(mktemp tmp); ds:pipe_clean $tmp
-**@@@ds:pipe_open@@@@@@Detect if pipe is open@@@if ds:pipe_open; then [...]
+**@@@ds:pipe_open@@@@@@Detect if pipe is open@@@if ds:pipe_open [possible_file_arg]; then [...]
 **@@@ds:pivot@@@@@@Pivot tabular data@@@ds:pivot [file] [y_keys] [x_keys] [z_keys=count_xy] [agg_type]
 @@@ds:plot@@@@@@Get a scatter plot of from two fields@@@ds:plot [file] [field_y=1] [field_x=index]
 **@@@ds:pow@@@@@@Combinatorial frequency of data field values@@@ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]

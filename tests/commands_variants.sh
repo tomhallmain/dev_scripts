@@ -25,6 +25,7 @@ tests="$1"
 test_base="##BASICS TESTS , "
 
 case "$tests" in
+    basics)   test_context="BASICS TESTS##IFS TESTS"   ;;
     inferfs)  test_context="IFS TESTS##JOIN TESTS"     ;;
     join)     test_context="JOIN TESTS##SORT TESTS"    ;;
     sort)     test_context="SORT TESTS##PREFIELD TEST" ;;
