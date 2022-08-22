@@ -11,17 +11,17 @@
 BEGIN {
     bdiff = " \\|( |$)"
     ldiff = " <$"
-    rdiff = " >$"
+    rdiff = " > ?$"
 
     red = "\033[1;31m"
     cyan = "\033[1;36m"
     mag = "\033[1;35m"
     coloroff = "\033[0m"
-    
+
     left_n_chars = tty_half - 2
     diff_start = tty_half - 1
     right_start = tty_half + 2
-    
+
     if (tty_half % 2 == 0) {
         left_n_chars -= 1
         diff_start -= 1
@@ -51,7 +51,7 @@ BEGIN {
         j = 1
         recap = 0
         recaps = 0
-        
+
         for (i = 1; i <= l_len; i++) {
             if (lchars[i] == rchars[j]) {
                 if (coloron) {
@@ -132,4 +132,3 @@ BEGIN {
         print coloroff $0
     }
 }
-

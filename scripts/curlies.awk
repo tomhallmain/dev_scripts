@@ -7,14 +7,15 @@
 #
 ## TODO multiline and language-specific comment handling
 ## TODO maybe try simple shift of base level from 1 to 2 for java function/class searches
-## 1-base index (entityCounter)
+## 1-base index (entity)
 ## 2-depth index (curly)
 ## 3-atDepth index
 
 BEGIN {
+    _ = SUBSEP
     curly = 0
     innerBrace = 1
-    entityCounter = 0
+    entity = 0
     OpenEntities[0, 0] = 1
   
     if (search) {
@@ -25,27 +26,27 @@ BEGIN {
 
 NR > 1 {
     if (inMultilineComment) {
-        multilineJavaCommentClose = match($0, /(\*)?\*\//)
+        multilineCommentClose = match($0, /\**\*\//)
 
-        if (multilineJavaCommentClose)
+        if (multilineCommentClose)
             inMultilineComment = 0
 
         next
     }
     else {
-        multilineJavaComment = match($0, /\/\*\*/)
+        multilineComment = match($0, /\/\*\**/)
 
-        if (multilineJavaComment) {
-            $0 = substr($0, 1, RSTART)
-            inMultilineComment = 1
+        if (multilineComment) {
+            inMultilineComment = !($0 ~ /(\*)*\*\/ *$/)
+            $0 = substr($0, 1, RSTART - 1)
             if ($0 ~ /^[[:space:]]*$/)
                 next
         }
     }
 
     if (!prevLineBlank) {
-        for (ecCurly in OpenEntities) {
-            addr = ecCurly SUBSEP CurlyIdx[ecCurly]
+        for (entityCurly in OpenEntities) {
+            addr = entityCurly _ CurlyIdx[entityCurly]
 
             if (Entities[addr] ~ /^[[:space:]]*$/)
                 continue
@@ -58,6 +59,10 @@ NR > 1 {
 }
 
 {
+    if (debug) {
+        print $0
+        print "prevAddr " prevAddr " curAddr " curAddr
+    }
     comment = 0
     notComment = 1
     potentialComment = 0
@@ -67,35 +72,37 @@ NR > 1 {
 
     if (searching && $0 ~ search) {
         searchMatch = 1
-        MatchLine[entityCounter, curly, CurlyIdx[entityCounter, curly]] = $0
+        MatchLine[entity, curly, CurlyIdx[entity, curly]] = $0
         searching = 0
     }
 
     for (char_i = 1; !comment && char_i <= length(Chars); char_i++) {
         char = Chars[char_i]
-        closeCurly = 0
+        if (char == "0" && prevChar == "\\") {
+            char = "\\0" # Don't output null chars
+        }
 
         if (OpenCurly(char)) {
-            previousAddr = entityCounter SUBSEP curly SUBSEP CurlyIdx[entityCounter, curly]
+            prevAddr = entity _ curly _ CurlyIdx[entity, curly]
 
             if (curly < 1) {
-                entityCounter++
+                entity++
             }
 
             curly++
-            OpenEntities[entityCounter, curly]++
-            CurlyIdx[entityCounter, curly]++
-            currentAddr = entityCounter SUBSEP curly SUBSEP CurlyIdx[entityCounter, curly]
+            OpenEntities[entity, curly]++
+            CurlyIdx[entity, curly]++
+            curAddr = entity _ curly _ CurlyIdx[entity, curly]
 
             if (searchMatch) {
-                AddrJoin[currentAddr] = previousAddr
-                FoundEntities[currentAddr] = 1
+                AddrJoin[curAddr] = prevAddr
+                FoundEntities[curAddr] = 1
                 searchMatch = 0
-                resolvingSearch = curly
+                resolvingSearch = curly - 1
             }
 
-            for (ecCurly in OpenEntities) {
-                split(ecCurly, ECCurly, SUBSEP)
+            for (entityCurly in OpenEntities) {
+                split(entityCurly, ECCurly, _)
                 ec = ECCurly[1]
                 c = ECCurly[2]
                 Curlies[ec]++
@@ -105,24 +112,23 @@ NR > 1 {
 
             activeBrace = char
         }
-
-        else if (InnerOpenBrace(char) && ! BraceMatch(char, activeInnerBrace[innerBrace])) {
+        else if (InnerOpenBrace(char) && \
+                ! BraceMatch(char, activeInnerBrace[innerBrace])) {
             innerBrace++
             activeInnerBrace[innerBrace] = char
         }
-
-        else if (innerBrace > 1 && InnerCloseBrace(char) && BraceMatch(char, activeInnerBrace[innerBrace])) {
+        else if (innerBrace > 1 && InnerCloseBrace(char) \
+                && BraceMatch(char, activeInnerBrace[innerBrace])) {
             delete activeInnerBrace[innerBrace]
             innerBrace--
         }
-
         else if (char == "/" && !(prevChar == "/")) {
             potentialComment = 1
             prevChar = char
             continue
         }
-
-        else if (innerBrace == 1 && !quote && (char == "#" || char == "/")) {
+        else if (innerBrace == 1 && !quote \
+                && (char == "#" || char == "/")) {
             comment = 1
         }
 
@@ -141,35 +147,32 @@ NR > 1 {
                 add = char
             }
 
-            closeCurly = CloseCurly(char)
-
-            for (ecCurly in OpenEntities) {
-                addr = ecCurly SUBSEP CurlyIdx[ecCurly]
+            for (entityCurly in OpenEntities) {
+                addr = entityCurly _ CurlyIdx[entityCurly]
                 Entities[addr] = Entities[addr] add
             }
 
-            if (closeCurly) {
-                if (resolvingSearch == curly && FoundEntities[currentAddr]) {
+            if (CloseCurly(char)) {
+                --curly
+                --Curlies[entity]
+                if (resolvingSearch == curly && curAddr in FoundEntities) {
                     resolvingSearch = 0
                     exit # TODO: Make full scope search - awk keeps adding false positives on array test above -_-
-                    break
                 }
-                currentAddr = previousAddr
-                --curly
-                --Curlies[entityCounter]
+                curAddr = entity _ curly _ CurlyIdx[entity, curly]
                 activeBrace = ""
-                for (ecCurly in OpenEntities) {
-                    split(ecCurly, ECCurly, SUBSEP)
+                for (entityCurly in OpenEntities) {
+                    split(entityCurly, ECCurly, _)
                     ec = ECCurly[1]
                     c = ECCurly[2]
                     if (!Curlies[ec]) {
-                        delete OpenEntities[ecCurly]
+                        delete OpenEntities[entityCurly]
                     }
                 }
             }
         }
 
-        if (debug && char != " ") DebugPrint(1)
+#        if (debug && char != " ") DebugPrint(1)
 
         escaped = ((char == "\\" && !(prevChar == "\\")) || (char == "$" && !(prevChar == "$")))
         prevChar = char
@@ -187,7 +190,7 @@ END {
     else {
         print Entities[ec, c, i]
 
-        for (ec = 1; ec <= entityCounter; ec++) {
+        for (ec = 1; ec <= entity; ec++) {
             for (c = 1; c <= PositiveCurlies[ec]; c++) {
                 for (i = 1; i <= CurlyIdx[ec, c]; i++) {
                     if (length(Entities[ec, c, i])) {
@@ -257,7 +260,7 @@ function InnerCloseBrace(char) {
 }
 function DebugPrint(_case) {
     if (_case == 1) {
-        print NR, i, char, curly, entityCounter, activeBrace, BraceMatch(activeBrace)#, Entities[entityCounter, curly]
+        print NR, i, char, curly, entity, activeBrace, BraceMatch(activeBrace)#, Entities[entity, curly]
         print innerCurly, innerBrace, activeInnerBrace[innerBrace], comment
     }
 }

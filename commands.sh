@@ -17,11 +17,15 @@ ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [r
 
     # Get all the function definitions from this file and utils file into a table format.
     if [ "$re_source" ] || ! ds:test "@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE" "$DS_COMMANDS" t; then
-        (if [ "$RG" ]; then rg -HIN 'ds:[[:alnum:]_]+\(\)' "$DS_LOC/commands.sh" "$utils" 2>/dev/null
-            else grep -Eh 'ds:[[:alnum:]_]+\(\)' "$DS_LOC/commands.sh" "$utils" 2>/dev/null; fi) \
+        (if [ "$RG" ]; then
+            rg -HIN 'ds:[[:alnum:]_]+\(\)' "$DS_LOC/commands.sh" "$utils" 2>/dev/null
+        else
+            grep -Eh 'ds:[[:alnum:]_]+\(\)' "$DS_LOC/commands.sh" "$utils" 2>/dev/null
+        fi) \
             | sort \
             | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
-            | ds:subsep '**' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" \
+            | ds:subsep '**' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 \
+                -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" \
             | ds:subsep ":[[:space:]]" "888" -v apply_to_fields=3 -v FS="$DS_SEP" -v OFS="$DS_SEP" \
             | ds:subsep '\\\(alias ' '$' -v apply_to_fields=3 \
             | sed 's/)@/@/' \
@@ -37,10 +41,12 @@ ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [r
     # Fit table to shell and add color highlights if applicable.
     if [ -t 1 ]; then
         ds:fit "$DS_COMMANDS" -v FS="$DS_SEP" -v bufferchar="${1:- }" \
-            | ([ "$RG" ] && rg -HIN -C 100 --color=always --colors='match:fg:green' --colors='match:style:nobold' '\[[^\[]+\]' \
+            | ([ "$RG" ] && rg -HIN -C 100 --color=always --colors='match:fg:green' \
+                  --colors='match:style:nobold' '\[[^\[]+\]' \
                 || GREP_COLOR='00;32' grep -E -C40 --color=always '\[[^[]+\]') \
-            | ([ "$RG" ] && rg -HIN -C 100 --color=always --colors='match:fg:cyan' --colors='match:style:nobold' 'ds:[a-z_]+' \
-                || GREP_COLOR='00;36' grep -E -C40 --color=always 'ds:[a-z_]+') \
+            | ([ "$RG" ] && rg -HIN -C 100 --color=always --colors='match:fg:cyan' \
+                  --colors='match:style:nobold' 'ds:[a-z0-9_]+' \
+                || GREP_COLOR='00;36' grep -E -C40 --color=always 'ds:[a-z0-9_]+') \
             | awk '{if (!($0 ~ "^[ \t]+$") && _[$0]) next; _[$0] = 1; if ($0 == "--") next; print}'
     else
         cat "$DS_COMMANDS"
@@ -240,7 +246,7 @@ ds:grepvi() { # Grep and open vim on match (alias ds:gvi): ds:gvi search [file|d
         vi +$line "$file" || return 1
 
     else
-        echo 'Running vim on all file matches. To move to the next file quit the current one.'
+        echo 'Running vim on all file matches. To move to the next file, quit the current one.'
         echo 'To quit the loop press Ctrl+C after quitting a file.'
         sleep 4
         local OLD_IFS="$IFS"
@@ -452,12 +458,17 @@ ds:iter() { # Repeat a string: ds:iter str [n=1] [fs]
     echo -n "$out"
 }
 
-ds:embrace() { # Enclose a string on each side by args: ds:embrace str [left={] [right=}]
-    local val="$1"
-    [ -z "$2" ] && local l="{" || local l="$2"
-    [ -z "$3" ] && local r="}" || local r="$3"
-    echo -n "${l}${val}${r}"
-}
+ds:embrace() { # ** Enclose a string on each side by args: ds:embrace [str] [left={] [right=}]
+    if ds:pipe_open; then
+        [ -z "$1" ] && local l="{" || local l="$1"
+        [ -z "$2" ] && local r="}" || local r="$2"
+        awk -v l="$l" -v r="$r" '{printf "%s%s%s", l, $0, r}'
+    else
+        [ -z "$2" ] && local l="{" || local l="$2"
+        [ -z "$3" ] && local r="}" || local r="$3"
+        echo -n "${l}${1}${r}"
+    fi
+ }
 
 ds:filename_str() { # Add string to filename, preserving path: ds:filename_str file str [prepend|append|replace] [abs_path=t]
     IFS=$'\t' read -r dirpath filename extension <<<"$(ds:path_elements "$1")"
@@ -789,7 +800,7 @@ ds:git_branch_refs() { # List branches merged to a branch (alias ds:gbr): ds:git
     fi
 
     git fetch &>/dev/null || ds:fail "Failed to fetch."
-    
+
     if [ $(git status --porcelain | wc -c | xargs) -eq 0 ]; then
         git checkout "$branch" &>/dev/null || echo "Failed to checkout ${branch} to pull latest changes."
         git pull &>/dev/null || echo "Error on pull for ${branch}."
@@ -869,9 +880,9 @@ ds:searchx() { # Search for a C-lang/curly-brace object: ds:searchx file|dir [se
     if [[ -d "$1" && "$2" ]]; then
         local tmp="$(ds:tmp 'ds_searchx')"
         if [ $DS_COLOR_SUP ]; then
-            w="\033[37;1m" nc="\033[0m"
+            local w="\033[37;1m" nc="\033[0m"
         else
-            w="" nc=""
+            local w="" nc=""
         fi
         if ds:nset 'rg'; then
             rg --files-with-matches "$2" "$1" 2>/dev/null > $tmp
@@ -882,7 +893,9 @@ ds:searchx() { # Search for a C-lang/curly-brace object: ds:searchx file|dir [se
         for fl in $(cat $tmp); do
             if [ -f "$fl" ] && grep -q '{' "$fl" 2>/dev/null; then
                 echo -e "\n${w}${fl}${nc}"
-                ds:searchx "$fl" "$2" "$3" "$4"; fi; done
+                ds:searchx "$fl" "$2" "$3" "$4"
+            fi
+        done
 
         local stts=$?
         rm $tmp
@@ -902,12 +915,16 @@ ds:searchx() { # Search for a C-lang/curly-brace object: ds:searchx file|dir [se
             if [ "$4" ]; then
                 awk -f "$DS_SCRIPT/curlies.awk" -v search="$2" "$1" 2>/dev/null | ds:pipe_check
             else
-                awk -f "$DS_SCRIPT/top_curly.awk" -v search="$2" "$1" 2>/dev/null | ds:pipe_check; fi
+                awk -f "$DS_SCRIPT/top_curly.awk" -v search="$2" "$1" 2>/dev/null | ds:pipe_check
+            fi
         else
             if [ "$4" ]; then
                 awk -f "$DS_SCRIPT/curlies.awk" "$1" 2>/dev/null | ds:pipe_check
             else
-                awk -f "$DS_SCRIPT/top_curly.awk" "$1" 2>/dev/null | ds:pipe_check; fi; fi; fi
+                awk -f "$DS_SCRIPT/top_curly.awk" "$1" 2>/dev/null | ds:pipe_check
+            fi
+        fi
+    fi
 
     # TODO: Add variable search
 }
@@ -1054,9 +1071,9 @@ ds:shape() { # ** Print data shape by length or pattern: ds:shape [-h|file*] [pa
           | tr -d "#" | less && return
         if [[ -f "$2" && -f "$1" ]]; then
             if [ $DS_COLOR_SUP ]; then
-                w="\033[37;1m" nc="\033[0m"
+                local w="\033[37;1m" nc="\033[0m"
             else
-                w="" nc=""
+                local w="" nc=""
             fi
             while [ -f "$1" ]; do
                 local fls=("${fls[@]}" "$1")
@@ -2451,6 +2468,46 @@ ds:unicode() { # ** Get UTF-8 unicode for a character sequence: ds:unicode [str]
     echo
 }
 
+ds:color() { # ** Get RGB from hex or hex from RGB: ds:color [hex|rgb|r] [g] [b]
+    if ds:pipe_open; then
+        # Only support hex -> RGB case when piped
+        sed 's/#//g' | ds:case up \
+            | awk -v FS="" '{for (i = 1; i <= NF; i += 2) { print "ibase=16; " $i $(i+1) }}' \
+            | bc 2>/dev/null \
+            | ds:transpose \
+            | ds:join_by "," \
+            | ds:embrace "rgb(" ")"
+    elif [ -z "$1" ]; then
+        ds:fail "Expected hex or rgb values."
+    else
+        local hex_pattern="^#?[0-9A-Fa-f]{6}$"
+        local color_value="[0-9]{1,3}"
+        local rgb_pattern="^(rgb)?(\\()?$color_value, *$color_value, *$color_value(\\))?\$"
+        if echo "$1" | grep -Eq "$hex_pattern"; then
+            echo "$1" \
+                | sed 's/#//g' \
+                | ds:case up \
+                | awk -v FS="" '{for (i = 1; i <= NF; i += 2) { print "ibase=16; " $i $(i+1) }}' \
+                | bc 2>/dev/null \
+                | ds:transpose \
+                | ds:join_by "," \
+                | ds:embrace "rgb(" ")"
+        elif echo -n "$1" | grep -Eq "$rgb_pattern"; then
+            local rgb=($(echo -n "$1" | grep -Eo "$color_value"))
+            let local r=$(ds:arr_base)
+            let local g=r+1
+            let local b=r+2
+            echo "#$(echo "obase=16;${rgb[$r]}" | bc)$(echo "obase=16;${rgb[$g]}" | bc)$(echo "obase=16;${rgb[$b]}" | bc)"
+        elif echo -n "$1" | grep -Eq "^$color_value\$" \
+            && echo -n "$2" | grep -Eq "^$color_value\$" \
+            && echo -n "$3" | grep -Eq "^$color_value\$"; then
+            echo "#$(echo "obase=16;$1" | bc)$(echo "obase=16;$2" | bc)$(echo "obase=16;$3" | bc)"
+        else
+            ds:fail "Malformed or missing hex or rgb values provided."
+        fi
+    fi
+}
+
 ds:case() { # ** Recase text data globally or in part: ds:case [string] [tocase=proper] [filter]
     local _file=$(ds:tmp 'ds_case') piped=0
     if [ -p /dev/stdin ]; then
@@ -2509,7 +2566,7 @@ ds:dups() { # Report duplicate files with option for deletion: ds:dups [dir] [co
     fi
 }
 
-ds:deps() { # Identify the dependencies of a shell function: ds:deps name [filter] [ntype=FUNC|ALIAS] [caller] [ndata]
+ds:deps() { # Identify dependencies of a shell function: ds:deps name [filter] [ntype=FUNC|ALIAS] [caller] [ndata]
     [ "$1" ] || (ds:help ds:deps && return 1)
     local tmp=$(ds:tmp 'ds_deps') srch="$2"
     [ "$3" ] && local scope="$3" || local scope="(FUNC|ALIAS)"
@@ -2527,6 +2584,63 @@ ds:deps() { # Identify the dependencies of a shell function: ds:deps name [filte
     awk -v search="$srch" -v calling_func="$cf" -f "$DS_SCRIPT/shell_deps.awk" $tmp $ndt
     rm $tmp
     [ "$rm_dt" ] && rm $ndt
+}
+
+ds:deps2() { # Identify dependencies of C, Java functions: ds:deps2 file
+    ds:nset 'rg' || ds:fail 'ripgrep is required for this command.'
+    ds:file_check "$1"
+    local file="$(ds:fd_check "$1")"
+    local tmp=$(ds:tmp 'ds_deps')
+    local tmp1=$(ds:tmp 'ds_deps')
+    local tmp2=$(ds:tmp 'ds_deps')
+    IFS=$'\t' read -r dirpath filename extension <<< "$(ds:path_elements "$file")"
+    # Get the defined function names
+    if [[ "$extension" = '.c' || "$extension" = '.cpp' ]]
+    then
+        local sys_fnc="^(if|while|for|sizeof|free|close|fstat|exit|printf|flush|fstat|munmap|error|die|ntohl|memset|memcpy|memcmp|memset|strcpy|strcmp|strchr|fn|cmp)\$"
+        local rex='^(static *)?(extern *)?(inline *)?(struct *)?(#define +|[a-zA-Z_][a-zA-Z0-9_\[\]]*( +\*? *| *\*? +))([a-zA-Z_][a-zA-Z0-9_]+) *\(.+'
+        local name_group='$7'
+        rg -HINo "$rex" "$file" > $tmp
+        rg -HINor "$name_group" "$rex" "$file" > $tmp1
+
+    elif [ "$extension" = '.java' ]
+    then
+        local sys_fnc="^(if|while|for|exit|error|die|name|println)\$"
+        local rex='^[ \t]*(public|protected|private)? *(synchronized *)?(static *)?(volatile *)?[a-zA-Z_][a-zA-Z0-9_<>\[\]]* +([a-zA-Z_][a-zA-Z0-9_]+) *\(.+'
+        local name_group='$5'
+        rg -HINo "$rex" "$file" > $tmp
+        rg -HINor "$name_group" "$rex" "$file" > $tmp1
+    else
+        ds:fail "File type not handled: $extension"
+    fi
+    # For function names found, get and print dependencies if any exist
+    while read -r func_def
+    do
+        local fnc_def="$(echo "$func_def" | sed -E 's#^ *##g;s# *$##g')"
+        local f="$(echo -n "$func_def" | rg -HINor "$name_group" "$rex")"
+        local func_block="$(ds:searchx $file "(\t| |\\\\*)$f *\\\\(" f t)"
+        echo -n > $tmp2
+        for f1 in $(echo "$func_block" | rg -HINo '[a-zA-Z_][a-zA-Z0-9_]* *\(' | sed 's# *(##g')
+        do
+            if echo "$f1" | rg -q "$sys_fnc"
+            then
+                continue
+            elif [ "$f" = "$f1" ]
+            then
+                continue
+                #printf "%-45sRECURSE\n" "$f1"
+            elif rg -q "^$f1\$" $tmp1 || echo "$fnc_def" | rg -q " $f1(,| )"
+            then
+                printf "%-45s\n" "$f1" >> $tmp2
+            else
+                printf "%-45sEXTERNAL\n" "$f1" >> $tmp2
+            fi
+        done
+        echo -e "\n$fnc_def"
+        ds:uniq $tmp2 | sort
+        :
+    done < $tmp
+    rm $tmp $tmp1 $tmp2
 }
 
 ds:gexec() { # Generate script from parts of another and run: ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]

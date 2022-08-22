@@ -29,7 +29,7 @@ mode {
         chars_seen++
 
         # Soft randomization, only randomize these character classes
-        if ($f ~ /[A-z0-9]/) { 
+        if ($f ~ /[0-9A-Za-z]/) { 
             if(chars_seen % 150 == 0) {
                 SeedRandom()
             }

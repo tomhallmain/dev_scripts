@@ -1,9 +1,9 @@
 #!/usr/bin/awk
 #
-# Infers a field separator in a text data file based on likelihood of common field 
+# Infers a field separator in a text data file based on likelihood of common field
 # separators and commonly found substrings in the data of up to three characters.
-# 
-# The newline separator is not inferable via this script. Custom field separators 
+#
+# The newline separator is not inferable via this script. Custom field separators
 # containing alphanumeric characters are also not supported.
 #
 # Run as:
@@ -24,7 +24,7 @@ BEGIN {
     CommonFSOrder[6] = "o"; CommonFS["o"] = ","; FixedStringFS["o"] = "\\"
     CommonFSOrder[7] = "w"; CommonFS["w"] = "[[:space:]]+"
     CommonFSOrder[8] = "2w"; CommonFS["2w"] = "[[:space:]]{2,}"
-  
+
     n_common = length(CommonFS)
     DS_SEP = "@@@"
     sq = "\'"
@@ -52,7 +52,7 @@ n_valid_rows < 10 {
 custom && n_valid_rows == 1 {
     # Remove leading and trailing spaces
     gsub(/^[[:space:]]+|[[:space:]]+$/,"")
-  
+
     Line[NR] = $0
     split($0, Nonwords, /[A-z0-9(\^\\)"']+/)
 
@@ -86,9 +86,9 @@ custom && n_valid_rows == 1 {
                 twoprevchar = "\\" Chars[j-2]
                 thrchar = twoprevchar prevchar char
                 thrchar_nf = split($0, thrchartest, thrchar)
-        
+
                 if (debug) DebugPrint(3)
-        
+
                 if (thrchar_nf > 1) ThrCharFSCount[thrchar] = thrchar_nf
             }
         }
@@ -103,7 +103,7 @@ custom && n_valid_rows == 2 {
         split(Nonwords[i], Chars, "")
         for (j in Chars) {
             if (Chars[j]) char = "\\" Chars[j]
-      
+
             char_nf = split($0, chartest, char)
             if (CharFSCount[char] == char_nf)
                 CustomFS[char] = 1
@@ -121,7 +121,7 @@ custom && n_valid_rows == 2 {
                 thrchar = twoprevchar prevchar char
                 thrchar_nf = split($0, thrchartest, thrchar)
                 if (ThrCharFSCount[thrchar] == thrchar_nf) {
-                    CustomFS[thrchar] = 1 
+                    CustomFS[thrchar] = 1
                 }
             }
         }
@@ -166,12 +166,12 @@ custom && n_valid_rows == 2 {
 
         CommonFSCount[s, NR] = nf
         CommonFSTotal[s] += nf
-    
+
         if (PrevNF[s] && nf != PrevNF[s] \
                     && !(CommonFSNFConsecCounts[s, PrevNF[s]] > 2)) {
             delete CommonFSNFConsecCounts[s, PrevNF[s]]
         }
-    
+
         PrevNF[s] = nf
 
         if (nf < 2) continue
@@ -213,19 +213,19 @@ END {
 
     # Calculate variance for each separator
     if (debug) print "\n ---- common sep variance calcs ----"
-  
+
     for (i = 1; i <= n_common; i++) {
-    
+
         s = CommonFSOrder[i]
         average_nf = CommonFSTotal[s] / max_rows
         nf_chunks = CommonFSNFSpec[s]
 
         if (nf_chunks) {
-      
+
             split(nf_chunks, NFChunks, ",")
-      
+
             for (nf_i in NFChunks) {
-        
+
                 nf = NFChunks[nf_i]
                 chunk_weight = CommonFSNFConsecCounts[s, nf] / max_rows
 
@@ -236,13 +236,13 @@ END {
 
                 SectionalOverride[s] = 1
                 chunk_weight_composite = chunk_weight * nf
-        
+
                 if (!max_chunk_weight) {
                     max_chunk_weight = chunk_weight_composite
                 }
 
                 if (debug) DebugPrint(16)
-        
+
                 if (chunk_weight_composite >= max_chunk_weight) {
                     max_chunk_sep = s
                 }
@@ -280,7 +280,7 @@ END {
 
     if (custom) {
         for (s in CustomFS) {
-      
+
             average_nf = CustomFSTotal[s] / max_rows
 
             if (debug) DebugPrint(5)
@@ -299,12 +299,12 @@ END {
                 NoVar[s] = s
                 winning_s = s
                 Winners[s] = s
-        
+
                 if (debug) DebugPrint(10)
             }
             else if ( !winning_s || FSVar[s] < FSVar[winning_s]) {
                 winning_s = s
-                Winners[s] = s 
+                Winners[s] = s
 
                 if (debug) DebugPrint(11)
             }
@@ -324,10 +324,10 @@ END {
 
         for (s in NoVar) {
             Seen[s] = 1
-      
+
             for (compare_s in NoVar) {
                 if (Seen[compare_s]) continue
-        
+
                 fs1 = NoVar[s]
                 fs2 = NoVar[compare_s]
 
@@ -341,7 +341,7 @@ END {
                 }
 
                 split(fs2, Tmp, "")
-        
+
                 for (i = 1; i <= length(Tmp); i++) {
                     char = Tmp[i]
                     fs2re = (char == "\\" || char == "\|") ? fs2re "\\" char : fs2re = fs2re char
@@ -354,13 +354,13 @@ END {
                     if (length(Winners[winning_s]) < length(fs2) \
                             && length(fs1) < length(fs2)) {
                         winning_s = compare_s
-            
+
                         if (debug) DebugPrint(13)
                     }
                     else if (length(Winners[winning_s]) < length(fs1) \
                             && length(fs1) > length(fs2)) {
                         winning_s = s
-            
+
                         if (debug) DebugPrint(14)
                     }
                 }

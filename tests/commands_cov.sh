@@ -18,9 +18,12 @@ command_funcs=$(grep -ho '[[:alnum:]_:]*()' "$DS_LOC/commands.sh" \
     | sed 's/^  function //' | sed 's/()//' | sort)
 util_funcs=$(grep -ho '[[:alnum:]_:]*()' "$DS_SUPPORT/utils.sh" \
     | sed 's/^  function //' | sed 's/()//' | sort)
-test_funcs=$(grep -Eho 'ds:[a-z_]+' tests/commands_tests.sh | sort)
-test_funcs="$test_funcs\n$(grep -Eho 'ds:[a-z_]+' tests/commands_cov.sh | sort)"
-test_funcs="$test_funcs\n$(grep -Eho 'ds:[a-z_]+' tests/commands_variants.sh | sort)"
+test_funcs=$(grep -Eho 'ds:[a-z0-9_]+' \
+    tests/t_* \
+    tests/commands_tests.sh \
+    tests/commands_cov.sh \
+    tests/commands_variants.sh \
+    | ds:uniq | sort)
 
 awk 'FNR == 1 {f++}
       f == 1 { Funcs[$0]++ }

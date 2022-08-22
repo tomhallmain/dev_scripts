@@ -1,53 +1,92 @@
 #!/bin/bash
-#
-# Generates and runs a test file for a single set of tests
 
-tmp=/tmp/commands_tests
-q=/dev/null
-shell=$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')
+# Run a single test file
+
+# SETUP
+
+if tput colors &> /dev/null; then
+    export NC="\033[0m" # No Color
+    export GREEN="\033[0;32m"
+fi
+
+export tmp=/tmp/ds_commands_tests
+export q=/dev/null
+export shell="$(ps -ef | awk '$2==pid {print $8}' pid=$$ | awk -F'/' '{ print $NF }')"
 
 if [[ $shell =~ 'bash' ]]; then
     bsh=0
-    cd "${BASH_SOURCE%/*}/.."; source commands.sh
-    $(ds:fail 'testfail' &> $tmp); testfail=$(cat $tmp)
+    MAIN="${BASH_SOURCE%/*}/.."
+    cd "$MAIN"
+    source commands.sh
+    $(ds:fail 'testfail' &> $tmp)
+    testfail=$(cat $tmp)
     [[ $testfail =~ '_err_: testfail' ]] || echo 'fail command failed in bash case'
 elif [[ $shell =~ 'zsh' ]]; then
-    cd "$(dirname $0)/.."; source commands.sh
-    $(ds:fail 'testfail' &> $tmp); testfail=$(cat $tmp)
+    MAIN="$(dirname $0)/.."
+    cd "$MAIN"
+    source commands.sh
+    $(ds:fail 'testfail' &> $tmp)
+    testfail=$(cat $tmp)
     [[ $testfail =~ '_err_: Operation intentionally failed' ]] || echo 'fail command failed in zsh case'
 else
     echo 'unhandled shell detected - only zsh/bash supported at this time'
     exit 1
 fi
 
-tests="$1"
+if [[ $shell =~ 'bash' ]]; then
+    $shell "$DS_SUPPORT/clean.sh" > $q
+fi
 
-test_base="##BASICS TESTS , "
+show_options() {
+    echo -e "Available test options:"
+    ds:reo "$0" '^case##^esac' off \
+        | grep -Eo '^    [a-z_|*]+' \
+        | sed 's# *##g' \
+        | grep -Ev '^\*$'
+}
+
+# RUN
+
+
+if [ ! "$1" ]
+then
+    show_options
+    exit 1
+fi
+
+tests="$1"
+debug="$2"
 
 case "$tests" in
-    basics)   test_context="BASICS TESTS##IFS TESTS"   ;;
-    inferfs)  test_context="IFS TESTS##JOIN TESTS"     ;;
-    join)     test_context="JOIN TESTS##SORT TESTS"    ;;
-    sort)     test_context="SORT TESTS##PREFIELD TEST" ;;
-    prefield) test_context="PREFIELD TESTS##REO TESTS" ;;
-    reo)      test_context="REO TESTS##FIT TESTS"      ;;
-    fit)      test_context="FIT TESTS##FC TESTS"       ;;
-    fc)       test_context="FC TESTS##NEWFS TESTS"     ;;
-    newfs)    test_context="NEWFS TESTS##SUBSEP TESTS" ;;
-    todo)     test_context="~todo"                     ;;
-    substr)   test_context="~substr"                   ;;
-    pow)      test_context="POW TESTS##FIELD_REPLAC"   ;;
-    fieldrep) test_context="FIELD_REPLAC##PIVOT TEST"  ;;
-    pivot)    test_context="PIVOT TESTS##AGG TESTS"    ;;
-    agg)      test_context="AGG TESTS##DIFF_FIELDS T"  ;;
-    diff_f)   test_context="DIFF_FIELDS T##CASE TEST"  ;;
-    case)     test_context="CASE TESTS##GRAPH"         ;;
-    graph)    test_context="GRAPH TESTS##SHAPE TESTS"  ;;
-    shape)    test_context="SHAPE TESTS##ASSORTED"     ;;
-    deps)     test_context="help_deps##ds:deps"        ;;
-    int)      test_context="INTEGRATION##"             ;;
+    agg*)       _test="aggregation"  ;;
+    basic*)     _test="basic"   ;;
+    case)       _test="case"         ;;
+    diff_f*)    _test="diff_fields"  ;;
+    fc|fieldcounts|uniq)     _test="fieldcounts"     ;;
+    fieldrep*|field_replace) _test="field_replace"  ;;
+    fit)        _test="fit"       ;;
+    graph)      _test="graph"  ;;
+    infer*)     _test="infer"     ;;
+    join|jn)    _test="join"    ;;
+    newfs)      _test="newfs" ;;
+    pivot)      _test="pivot"    ;;
+    pow*)       _test="power" ;;
+    prefield)   _test="prefield" ;;
+    reo*)       _test="reorder"      ;;
+    search*|dep*)  _test="searchx"        ;;
+    shape|hist) _test="shape"     ;;
+    sort*)      _test="sort" ;;
+    int*) _test="integration" ;;
+    *) ds:fail "Invalid option: $tests"
+        show_options
+        exit 1
+        ;;
 esac
 
-if [ "$test_context" ]; then
-    ds:gexec true tests/commands_tests.sh tests "${test_base}${test_context}"
+if [ "$debug" ]; then
+    $shell -x ./tests/t_${_test}.sh
+else
+    $shell ./tests/t_${_test}.sh
 fi
+
+#rm $tmp

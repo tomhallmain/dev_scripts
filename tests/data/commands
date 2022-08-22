@@ -4,17 +4,19 @@
 @@@ds:asgn@@@@@@Print lines matching assignment pattern@@@ds:asgn file
 **@@@ds:case@@@@@@Recase text data globally or in part@@@ds:case [string] [tocase=proper] [filter]
 @@@ds:cd@@@@@@cd to higher or lower level dirs@@@ds:cd [search]
+**@@@ds:color@@@@@@Get RGB from hex or hex from RGB@@@ds:color [hex|rgb|r] [g] [b]
 @@@ds:commands@@@@@@List dev_scripts commands@@@ds:commands [bufferchar] [utils] [re_source]
 **@@@ds:comps@@@@@@Get non-matching lines from two datasets@@@ds:comps file [file] [awkargs]
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [file] [n_lines=1]
-@@@ds:deps@@@@@@Identify the dependencies of a shell function@@@ds:deps name [filter] [ntype=FUNC|ALIAS] [caller] [ndata]
+@@@ds:deps@@@@@@Identify dependencies of a shell function@@@ds:deps name [filter] [ntype=FUNC|ALIAS] [caller] [ndata]
+@@@ds:deps2@@@@@@Identify dependencies of C, Java functions@@@ds:deps2 file
 **@@@ds:diff@@@@@@Diff shortcut for an easier to read view@@@ds:diff file1 [file2] [suppress_common] [color=t]
 **@@@ds:diff_fields@@@ds:df@@@Get elementwise diff of two datasets@@@ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]
 **@@@ds:dostounix@@@@@@Remove ^M / CR characters in place@@@ds:dostounix [file*]
 **@@@ds:dup_input@@@@@@Duplicate standard input in aggregate@@@data | ds:dup_input
 @@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir] [confirm=f] [of_file] [try_nonmatch_ext=f]
-@@@ds:embrace@@@@@@Enclose a string on each side by args@@@ds:embrace str [left={] [right=}]
+**@@@ds:embrace@@@@@@Enclose a string on each side by args@@@ds:embrace [str] [left={] [right=}]
 @@@ds:enti@@@@@@Print text entities separated by pattern@@@ds:enti [file] [sep= ] [min=1] [order=a]
 @@@ds:fail@@@@@@Safe failure that kills parent@@@ds:fail [error_message]
 **@@@ds:field_replace@@@@@@Overwrite field val if matches pattern@@@ds:field_replace [file] val_replace_func [key=1] [pattern=]
