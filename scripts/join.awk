@@ -668,8 +668,11 @@ function GenRightOutputString(line2, K1, K2, nf1, nf2, fs2) {
     jn = right_label
 
     for (f = 1; f <= nf1; f++) {
-        if (f in K1) {
-            jn = jn $K1[f]
+        if (f in K2) {
+            jn = jn $K2[f]
+            #print(f)
+            #print(K1[f])
+            #print($K1[f])
         }
         else if (bias_merge && f in BiasMergeKeys) {
             if (length($f) == 0) {

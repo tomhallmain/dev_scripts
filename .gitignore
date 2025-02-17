@@ -7,3 +7,4 @@
 *.DS_Store
 *.swp
 tests/ds_gexec_from_commands_tests.sh
+temp_*

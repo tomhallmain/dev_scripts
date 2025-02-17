@@ -1303,7 +1303,7 @@ ds:join() { # ** Join two datasets with any keyset (alias ds:jn): ds:join file [
     local arr_base=$(ds:arr_base)
 
     if [ -f "$1" ]; then
-        local ext_tmp=$(ds:tmp 'ds_jn_ext') ext_jnf=("$f1" "$f2")
+        local ext_tmp='/tmp/ds_jn_ext' ext_jnf=("$f1" "$f2")
         while [ -f "$1" ]; do
             local ext_jnf=(${ext_jnf[@]} "$1")
             shift
@@ -1411,7 +1411,7 @@ ds:join() { # ** Join two datasets with any keyset (alias ds:jn): ds:join file [
         ! ds:test '(-|=)' "${args[$arr_base]}" && local args=("${args[@]:1}")
         if [ "$ext_f" ]; then
             let local file_anc=$arr_base+1
-            local ext_tmp1=$(ds:tmp 'ds_jn_ext1')
+            local ext_tmp1='/tmp/ds_jn_ext1'
             LC_ALL='C' awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
                 -f "$DS_SCRIPT/join.awk" "$f1" "$f2" 2>/dev/null > $ext_tmp1
             while [ "$ext_f" -gt "$file_anc" ]
