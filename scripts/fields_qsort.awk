@@ -44,9 +44,9 @@
 #
 #       order - if not d[esc], will default to ascending
 #
-#       sort_type - use this to set numeric sort:
+#       sort_type - use this to set numeric sort (n), or case-insensitive (i):
 #
-#          ds:sortm file "" "" n
+#          ds:sortm file "" "" ni
 #
 # AWKARG OPTS
 #       If headers are present, set the header variable to any value to ensure header 
@@ -71,19 +71,20 @@
 #
 #
 ## TODO: Multikey numeric sort
+## TODO: Case-insensitive multisort
 ## TODO: Float tests
 ## TODO: Length sort
 
 BEGIN {
     n_keys = 0
     SeedRandom()
-    
+
     if (multisort) {
         _OInit()
     }
     else if (k) {
         n_keys = split(k, Keys, /,+/)
-        
+
         for (i = 1; i <= n_keys; i++) {
             gsub(/^[[:space:]]+|[[:space:]]+$/, "", Keys[i])
             key = Keys[i]
@@ -106,10 +107,14 @@ BEGIN {
 
     desc = (order && "desc" ~ "^"order)
 
-    if (type && "numeric" ~ "^"type) {
-        n = 1
+    if (type && type ~ "n") {
+        numeric_sort = 1
         n_re = "^[[:space:]]*\\$?[[:space:]]?-?\\$?([0-9]{,3},)*[0-9]*\\.?[0-9]+((E|e)(\\+|-)?[0-9]+)?"
         f_re = "^[[:space:]]*-?[0-9]\.[0-9]+(E|e)(\\+|-)?[0-9]+[[:space:]]*$"
+    }
+
+    if (type && type ~ "i") {
+        case_insensitive = 1
     }
 
     err = 0
@@ -127,11 +132,11 @@ $0 ~ /^[[:space:]]*$/ {
 
 multisort {
     _R[NR] = NR
-    
+
     for (f = 1; f <= NF; f++) {
         _[NR, f] = $f
         _C[f] = f
-        if (n) {
+        if (numeric_sort) {
             n_str = GetN($f)
             if (n_str ~ n_re) {
                 RN[NR] += n_str
@@ -157,11 +162,11 @@ header_unset || gen_keys {
 
         for (i = 1; i <= n_keys; i++) {
             key_pattern = Keys[i]
-            
+
             if (key_pattern == "NF") {
                 continue
             }
-            
+
             key_found = 0
 
             if (!case_sensitive) {
@@ -170,7 +175,7 @@ header_unset || gen_keys {
 
             for (f = 1; f <= NF; f++) {
                 field = case_sensitive ? $f : tolower($f)
-            
+
                 if (field ~ "^(\"|')*"key_pattern) {
                     Keys[i] = f
                     KeyFields[f] = 1
@@ -191,11 +196,11 @@ header_unset || gen_keys {
             exit
         }
     }
-    
+
     if (header_unset) {
         header_unset = 0
     }
-    
+
     header = $0
     next
 }
@@ -206,13 +211,14 @@ header_unset || gen_keys {
 
     for (i = 1; i <= n_keys; i++) {
         kf = Keys[i]
-        
+
         if (!kf) continue
         else if (kf < 0) kf = NF + kf
         else if (kf == "NF") kf = NF
-        
-        sort_key = has_started_sort_key ? sort_key FS $kf : $kf
-        
+
+        kf_value = case_insensitive ? tolower($kf) : $kf
+        sort_key = has_started_sort_key ? sort_key FS kf_value : kf_value
+
         if (!has_started_sort_key) {
             has_started_sort_key = 1
         }
@@ -240,14 +246,14 @@ END {
 
     if (multisort) {
         if (!max_nf) exit 1
-        
+
         if (debug) print ""
         if (debug) print "----- CONTRACTING ROW VALS -----"
         ContractCharVals(NR, RSums, RCounts, RCCounts, RVals)
         if (debug) print "----- CONTRACTING COL VALS -----"
         ContractCharVals(max_nf, CSums, CCounts, CCCounts, CVals)
 
-        if (n) {
+        if (numeric_sort) {
             if (desc) {
                 if (debug) print "----- SORTING ROW VALS -----"
                 SDN(RN, RVals, _R, 1, NR)
@@ -310,8 +316,8 @@ END {
 
     }
     else {
-        
-        if (n) {
+
+        if (numeric_sort) {
             if (desc) QSDN(A, 1, sort_nr)
             else      QSAN(A, 1, sort_nr)
         }
@@ -327,7 +333,7 @@ END {
         for (i = 1; i <= sort_nr; i++) {
             print ___[i]
         }
-    
+
     }
 }
 
@@ -405,7 +411,7 @@ function ContractCharVals(max_base, SumsArr, BaseCounts, CharIdxCounts, ValsArr)
             }
         }
     }
-    
+
     if (debug) print ""
 }
 
@@ -414,11 +420,11 @@ function SA(A,TieBack,left,right,    i,last) {
 
     SM(A, TieBack, left, left + int((right-left+1)*rand()))
     last = left
-    
+
     for (i = left+1; i <= right; i++) {
         len_i_vals = split(A[i], i_vals, SUBSEP)
         len_left_vals = split(A[left], left_vals, SUBSEP)
-        
+
         for (j = 1; j <= len_i_vals; j++) {
             if (!left_vals[j] || i_vals[j] > left_vals[j]) {
                 break
@@ -446,7 +452,7 @@ function SD(A,TieBack,left,right,    i,last) {
     for (i = left+1; i <= right; i++) {
         len_i_vals = split(A[i], i_vals, SUBSEP)
         len_left_vals = split(A[left], left_vals, SUBSEP)
-        
+
         for (j = 1; j <= len_i_vals; j++) {
             if (!i_vals[j] || i_vals[j] < left_vals[j]) {
                 break
@@ -478,7 +484,7 @@ function SAN(AN,A,TieBack,left,right,    i,last) {
         else if (AN[i] == AN[left]) {
             len_i_vals = split(A[i], i_vals, SUBSEP)
             len_left_vals = split(A[left], left_vals, SUBSEP)
-            
+
             for (j = 1; j <= len_i_vals; j++) {
                 if (!i_vals[j] || i_vals[j] < left_vals[j]) {
                     break
@@ -513,7 +519,7 @@ function SDN(AN,A,TieBack,left,right,    i,last) {
         else if (AN[i] == AN[left]) {
             len_i_vals = split(A[i], i_vals, SUBSEP)
             len_left_vals = split(A[left], left_vals, SUBSEP)
-            
+
             for (j = 1; j <= len_i_vals; j++) {
                 if (!i_vals[j] || i_vals[j] < left_vals[j]) {
                     break
@@ -568,7 +574,7 @@ function _OInit(    low, high, i, t) {
 
 function Round(val) {
     int_val = int(val)
-  
+
     if (val - int_val >= 0.5)
         return int_val++
     else
