@@ -263,11 +263,11 @@ if ds:awksafe; then
 ├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
 │T R       │    5555.00│     -│    2000.00│    7555.00│  T Eré     │
 ├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
-│C A       │           │      │           │           │  A d’ent   │
+│C A       │           │      │           │           │  A d'ent   │
 ├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
 │525 345 44│  250000.00│     -│          -│  250000.00│  525 345 44│
 ├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
-│T C A     │  250000.00│     -│          -│  250000.00│  T A d’e   │
+│T C A     │  250000.00│     -│          -│  250000.00│  T A d'e   │
 ├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
 │N-L       │           │      │           │           │  N-l       │
 ├──────────┼───────────┼──────┼───────────┼───────────┼────────────┤
@@ -302,5 +302,81 @@ fi
 
 ds:fit tests/data/commands -v gridlines=1 -v color=never -v tty_size=120 | sed -E 's/[[:space:]]+$//g' > $tmp
 cmp $tmp tests/data/commands_shrink_fit_gridlines || ds:fail 'fit failed gridlines shrink field case'
+
+# Edge cases
+input=''
+expected=''
+actual="$(echo -e "$input" | ds:fit -v color=never)"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed empty input case'
+
+input='single_column
+data1
+data2
+data3'
+expected='single_column
+data1      
+data2      
+data3      '
+actual="$(echo -e "$input" | ds:fit -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed single column case'
+
+input='header1,header2,header3'
+expected='header1  header2  header3'
+actual="$(echo -e "$input" | ds:fit -F, -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed headers only case'
+
+# Special characters
+input=$'col1\tcol2\tcol3\ndata1\tdata2\tdata3'
+expected='col1   col2   col3
+data1  data2  data3'
+actual="$(echo -e "$input" | ds:fit -F'\t' -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed tab separator case'
+
+input=$'col1,col2,col3\rdata1,data2,data3'
+expected='col1   col2   col3
+data1  data2  data3'
+actual="$(echo -e "$input" | ds:fit -F, -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed carriage return case'
+
+input='col1,col2,"data\nwith\nnewlines",col4'
+expected='col1  col2  data\nwith\nnewlines  col4'
+actual="$(echo -e "$input" | ds:fit -F, -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed escaped newlines case'
+
+# Number formatting
+input='col1,col2,col3
+1e16,1e-16,1000000000000000'
+expected='col1              col2    col3            
+10000000000000000  1e-16   1000000000000000'
+actual="$(echo -e "$input" | ds:fit -F, -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed extreme numbers case'
+
+input='col1,col2,col3
+1.23456,1.2,1.234567890'
+expected='col1     col2  col3       
+1.23456  1.20  1.23456789'
+actual="$(echo -e "$input" | ds:fit -F, -v color=never -v d=8 | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed mixed precision case'
+
+input='Amount,Currency
+1234.56,USD
+789.10,EUR
+42.00,GBP'
+expected='Amount    Currency
+1234.56  USD    
+ 789.10  EUR    
+  42.00  GBP    '
+actual="$(echo -e "$input" | ds:fit -F, -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed currency alignment case'
+
+# Varying columns
+input='col1,col2,col3
+data1,data2
+data1,data2,data3,data4'
+expected='col1   col2   col3   
+data1  data2        
+data1  data2  data3  data4'
+actual="$(echo -e "$input" | ds:fit -F, -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed varying columns case'
 
 echo -e "${GREEN}PASS${NC}"
