@@ -6,8 +6,13 @@ source commands.sh
 
 echo -n "Running aggregation tests..."
 
+# Create test data files
 echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" > $tmp
 
+# Create statistical test data
+echo -e "metric value1 value2 value3\n1 2 2 3\n2 2 3 3\n3 3 3 4\n4 4 4 4\n5 5 5 5" > ${tmp}_stats
+
+# Test existing functionality
 expected='one two three four $3+$2
 1 2 3 4 5
 4 3 2 1 5
@@ -412,5 +417,92 @@ actual="$(ds:agg tests/data/ps_aux 0 'mean|5|1..2' | ds:decap 1 | sed -E 's/[[:s
 [ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg range field mean case'
 actual="$(ds:agg $tmp 'mean|5|1..2' | ds:decap 1 | sed -E 's/[[:space:]]+$//g' | awk '{gsub("\034","");print}')"
 [ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg range row mean case'
+
+# New Statistical Function Tests
+
+# Median Tests
+expected='metric value1 value2 value3 med|all
+1 2 2 3 2
+2 2 3 3 3
+3 3 3 4 3
+4 4 4 4 4
+5 5 5 5 5'
+[ "$(ds:agg ${tmp}_stats 'med|all')" = "$expected" ] || ds:fail 'agg failed R median all case'
+
+expected='metric value1 value2 value3
+1 2 2 3
+2 2 3 3
+3 3 3 4
+4 4 4 4
+5 5 5 5
+3 3 3 4'
+[ "$(ds:agg ${tmp}_stats 0 'med|all')" = "$expected" ] || ds:fail 'agg failed C median all case'
+
+# Mode Tests
+echo -e "category value1 value2 value3\nA 1 1 2\nB 1 1 1\nC 2 2 1\nD 3 2 2" > ${tmp}_mode
+expected='category value1 value2 value3 mode|all
+A 1 1 2 1
+B 1 1 1 1
+C 2 2 1 2
+D 3 2 2 2'
+[ "$(ds:agg ${tmp}_mode 'mode|all')" = "$expected" ] || ds:fail 'agg failed R mode all case'
+
+# Quartile Tests
+expected='metric value1 value2 value3 q1|all q2|all q3|all
+1 2 2 3 2 2 3
+2 2 3 3 2 3 3
+3 3 3 4 3 3 4
+4 4 4 4 4 4 4
+5 5 5 5 5 5 5'
+[ "$(ds:agg ${tmp}_stats 'q1|all,q2|all,q3|all')" = "$expected" ] || ds:fail 'agg failed R quartiles case'
+
+# Standard Deviation Tests
+echo -e "group val1 val2 val3\nA 10 10 10\nB 10 20 30\nC 0 50 100" > ${tmp}_stddev
+expected='group val1 val2 val3 sd|all
+A 10 10 10 0
+B 10 20 30 10
+C 0 50 100 50'
+[ "$(ds:agg ${tmp}_stddev 'sd|all')" = "$expected" ] || ds:fail 'agg failed R standard deviation case'
+
+# Combined Statistical Operations
+expected='group val1 val2 val3 med|all sd|all mean|all
+A 10 10 10 10 0 10
+B 10 20 30 20 10 20
+C 0 50 100 50 50 50'
+[ "$(ds:agg ${tmp}_stddev 'med|all,sd|all,mean|all')" = "$expected" ] || ds:fail 'agg failed R combined stats case'
+
+# Edge Cases
+echo -e "type value\nA 1\nA 1\nA 1\nB \nB 2\nB 2" > ${tmp}_edge
+expected='type value mode|all med|all sd|all
+A 1 1 1 0
+B 2 2 2 0'
+[ "$(ds:agg ${tmp}_edge 'mode|all,med|all,sd|all')" = "$expected" ] || ds:fail 'agg failed edge case handling'
+
+# Search with Statistical Operations
+expected='type value med|~A sd|~B
+A 1 1 0
+A 1 1 0
+A 1 1 0
+B  0 0
+B 2 0 0
+B 2 0 0'
+[ "$(ds:agg ${tmp}_edge 'med|~A,sd|~B')" = "$expected" ] || ds:fail 'agg failed search with stats case'
+
+# Cross Aggregation with Statistics
+echo -e "region product sales\nNA Widget 100\nNA Gadget 200\nEU Widget 150\nEU Gadget 250\nASIA Widget 120\nASIA Gadget 220" > ${tmp}_cross
+expected='Cross Aggregation: med|3 grouped by field 1
+NA 150
+EU 200
+ASIA 170'
+[ "$(ds:agg ${tmp}_cross 'med|$3|$1')" = "$expected" ] || ds:fail 'agg failed cross aggregation with median'
+
+# Conditional Aggregation with Statistics
+echo -e "dept salary bonus\nIT 1000 100\nIT 2000 200\nHR 1500 150\nHR 2500 250" > ${tmp}_cond
+expected='dept salary bonus med|$2>1500
+IT 1000 100 2000
+IT 2000 200 2000
+HR 1500 150 2500
+HR 2500 250 2500'
+[ "$(ds:agg ${tmp}_cond 'med|$2>1500')" = "$expected" ] || ds:fail 'agg failed conditional aggregation with median'
 
 echo -e "${GREEN}PASS${NC}"
