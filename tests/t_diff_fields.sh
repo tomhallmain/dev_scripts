@@ -78,6 +78,85 @@ actual="$(ds:diff_fields /tmp/ds_df_tests1 /tmp/ds_df_tests2 \
         -v deterministic=1 | sed -E 's/[[:space:]]+$//g')"
 [ "$actual" = "$expected" ] || ds:fail 'diff_fields failed multiple file diff list case'
 
+# New test cases for statistical operations
+expected='Field Statistics:
+---------------
+MAD [2]: 3
+MAD [3]: 19
+MAD [4]: 3.5
+MAD [5]: 2'
+actual="$(ds:diff_fields /tmp/ds_df_tests1 /tmp/ds_df_tests2 m 1 | grep -v '^$')"
+[ "$actual" = "$expected" ] || ds:fail 'diff_fields failed MAD case'
+
+expected='Field Statistics:
+---------------
+RMSD [2]: 3.605551
+RMSD [3]: 32.909321
+RMSD [4]: 3.535534
+RMSD [5]: 4.242641'
+actual="$(ds:diff_fields /tmp/ds_df_tests1 /tmp/ds_df_tests2 r 1 -v precision=6 | grep -v '^$')"
+[ "$actual" = "$expected" ] || ds:fail 'diff_fields failed RMSD case'
+
+expected='Field Statistics:
+---------------
+Stats [2]:
+  Min: 3
+  Max: 3
+  Mean: 3
+  StdDev: 0
+Stats [3]:
+  Min: 19
+  Max: 57
+  Mean: 38
+  StdDev: 26.870058
+Stats [4]:
+  Min: 1
+  Max: 6
+  Mean: 3.5
+  StdDev: 3.535534
+Stats [5]:
+  Min: 1
+  Max: 3
+  Mean: 2
+  StdDev: 1.414214'
+actual="$(ds:diff_fields /tmp/ds_df_tests1 /tmp/ds_df_tests2 s 1 -v precision=6 | grep -v '^$')"
+[ "$actual" = "$expected" ] || ds:fail 'diff_fields failed stats case'
+
+# Test precision formatting
+expected=' 0.00 -3.00 -57.00 -1.00
+ 0.00 -3.00 0.00 -6.00
+ 0.00   0.00'
+actual="$(ds:diff_fields /tmp/ds_df_tests1 /tmp/ds_df_tests2 - 1 -v precision=2)"
+[ "$actual" = "$expected" ] || ds:fail 'diff_fields failed precision formatting case'
+
+# Test highlighting threshold
+expected=' 0 \033[1;31m-3\033[0m \033[1;31m-57\033[0m -1
+ 0 \033[1;31m-3\033[0m 0 \033[1;31m-6\033[0m
+ 0   0'
+actual="$(ds:diff_fields /tmp/ds_df_tests1 /tmp/ds_df_tests2 - 1 -v highlight_threshold=2)"
+[ "$actual" = "$expected" ] || ds:fail 'diff_fields failed highlight threshold case'
+
+# Test difference threshold filtering (above)
+expected=' 0 -3 -57 0
+ 0 -3 0 -6
+ 0   0'
+actual="$(ds:diff_fields /tmp/ds_df_tests1 /tmp/ds_df_tests2 - 1 -v diff_threshold=2 -v threshold_mode=below)"
+[ "$actual" = "$expected" ] || ds:fail 'diff_fields failed threshold above case'
+
+# Test difference threshold filtering (below)
+expected=' 0 0 -57 0
+ 0 0 0 -6
+ 0   0'
+actual="$(ds:diff_fields /tmp/ds_df_tests1 /tmp/ds_df_tests2 - 1 -v diff_threshold=2 -v threshold_mode=above)"
+[ "$actual" = "$expected" ] || ds:fail 'diff_fields failed threshold below case'
+
+# Test default behavior without formatting
+expected=' 0 -3 -57 -1
+ 0 -3 0 -6
+ 0   0'
+actual="$(ds:diff_fields /tmp/ds_df_tests1 /tmp/ds_df_tests2)"
+[ "$actual" = "$expected" ] || ds:fail 'diff_fields failed default no formatting case'
+
 rm /tmp/ds_df_tests1 /tmp/ds_df_tests2 /tmp/ds_df_tests3
 
 echo -e "${GREEN}PASS${NC}"
