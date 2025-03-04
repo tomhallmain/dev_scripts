@@ -89,7 +89,7 @@
 @@@ds:plot@@@@@@Get a scatter plot of from two fields@@@ds:plot [file] [field_y=1] [field_x=index]
 **@@@ds:pow@@@@@@Combinatorial frequency of data field values@@@ds:pow [file] [min] [return_fields=f] [invert=f] [awkargs]
 @@@ds:prefield@@@@@@Infer and transform FS for complex field patterns@@@ds:prefield file fs [dequote] [awkOFSargs]
-**@@@ds:prod@@@@@@Return product multiset of filelines@@@ds:pow file [file*] [awkargs]
+**@@@ds:prod@@@@@@Return product multiset of filelines@@@ds:prod file [file*] [awkargs]
 **@@@ds:random@@@@@@Generate a random number 0-1 or randomize text@@@ds:random [number|text]
 @@@ds:readlink@@@@@@Portable readlink@@@ds:readlink [file|dir]
 @@@ds:readp@@@@@@Portable read prompt@@@ds:readp [message] [downcase=t]
