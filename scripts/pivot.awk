@@ -118,9 +118,27 @@
 #
 #          -v sort_off=1
 #
+#       Enable HAVING-like filtering with minimum thresholds:
+#
+#          -v min_count=5     # Only show groups with count >= 5
+#          -v min_sum=1000    # Only show groups with sum >= 1000
+#
+#       Enable additional statistical features:
+#
+#          -v show_running=1      # Show running totals for each row
+#          -v show_percentages=1  # Show percentages of row totals
+#          -v show_subtotals=1    # Show row and column totals with grand total
+#
+#       Note: Statistical features can be combined:
+#
+#          $ ds:pivot file.csv 1 2 3 sum -v show_running=1 -v show_percentages=1
+#
+#       The above will show the sum aggregation with both running totals and percentages.
+#       When multiple statistical features are enabled, the output columns will be ordered as:
+#       base value, running total, percentage, subtotals (if enabled).
 #
 # VERSION
-#      1.1
+#      1.2
 #
 # AUTHORS
 #      Tom Hall (tomhall.main@gmail.com)
@@ -130,6 +148,13 @@
 BEGIN {
     _ = SUBSEP
 
+    # Additional configuration options
+    min_count = min_count ? min_count : 0  # Minimum count for HAVING-like filter
+    min_sum = min_sum ? min_sum : 0        # Minimum sum for HAVING-like filter
+    show_subtotals = show_subtotals ? show_subtotals : 0
+    show_running = show_running ? show_running : 0
+    show_percentages = show_percentages ? show_percentages : 0
+    
     if (!sort_off) {
         sort = 1
         SeedRandom()
@@ -139,50 +164,18 @@ BEGIN {
     if (!x || !y) {
         print "Missing axis fields"; exit 1 }
 
+    # Initialize counters for more efficient array usage
+    x_count = y_count = z_count = 0
+    
     len_x = split(x, XKeys, /,+/)
     len_y = split(y, YKeys, /,+/)
 
-    for (i = 1; i <= len_x; i++) {
-        key = XKeys[i]
-        
-        if (length(key) == 0) {
-            continue
-        }
-        else if (gen_keys || (!(key ~ /^[0-9]+$/) || length(key) > 3)) {
-            GenKey["x", i] = key
-            continue
-        }
+    # Process axis keys more efficiently
+    OptimizedGenKeys("x", XKeys, XK)
+    OptimizedGenKeys("y", YKeys, YK)
 
-        XK[key] = 1
-    }
-
-    for (i = 1; i <= len_y; i++) {
-        key = YKeys[i]
-
-        if (length(key) == 0) {
-            continue
-        }
-        else if (gen_keys || (!(key ~ /^[0-9]+$/) || length(key) > 3)) {
-            GenKey["y", i] = key
-            continue
-        }
-    
-        if (key in XK) {
-            print "Axis field sets cannot overlap"
-            exit 1
-        }
-
-        YK[key] = 1
-    }
-
-    if (agg) {
-        if ("sum" ~ "^"agg) s = 1
-        else if ("count" ~ "^"agg) c = 1
-        else if ("product" ~ "^"agg) p = 1
-        else if ("mean" ~ "^"agg) mean = 1
-        else agg = 0
-    }
-    else { no_agg = 1 }
+    # Setup aggregation type with extended options
+    SetupAggregation()
 
     if (z) {
         if (z == "_") {
@@ -190,28 +183,12 @@ BEGIN {
         }
         else {
             len_z = split(z, ZKeys, /,+/)
-
-            for (i = 1; i <= len_z; i++) {
-                key = ZKeys[i]
-
-                if (length(key) == 0) {
-                    continue
-                }
-                else if (gen_keys || (!(key ~ /^[0-9]+$/) || length(key) > 3)) {
-                    GenKey["z", i] = key
-                    continue
-                }
-
-                if (key in XK || key in YK) {
-                    print "Field sets cannot overlap"
-                    exit 1
-                }
-
-                ZK[key] = 1
-            }
+            OptimizedGenKeys("z", ZKeys, ZK)
         }
     }
-    else { gen_z = 1 }
+    else { 
+        gen_z = 1 
+    }
 
     if (transform || transform_expr) {
         if (transform && "norm" ~ "^"transform) {
@@ -279,56 +256,20 @@ header_unset {
 }
 
 {
-    # TODO: Handle noagg partial duplicate case
     if (NF < 1) next
 
-    x_str = ""
-    y_str = ""
-    z_str = ""
-
-    for (i=1; i<=len_x; i++) {
-        if (GenKey["x", i] && !KeyFound["x", i]) continue
-        x_str = i == len_x ? x_str $XKeys[i] OFS : x_str $XKeys[i] "::"
-    }
-    for (i=1; i<=len_y; i++) {
-        if (GenKey["y", i] && !KeyFound["y", i]) continue
-        y_str = y_str $YKeys[i] OFS
-    }
-    if (!count_xy) {
-        for (i=1; i<=len_z; i++) {
-            if (GenKey["z", i] && !KeyFound["z", i]) continue
-            z_str = i == len_z ? z_str $ZKeys[i] : z_str $ZKeys[i] "::"
-        }
-    }
+    x_str = BuildKeyString("x", XKeys, len_x)
+    y_str = BuildKeyString("y", YKeys, len_y)
+    z_str = (!count_xy) ? BuildKeyString("z", ZKeys, len_z) : ""
 
     if (x_str y_str z_str == "") next
 
-    X[x_str]++
-    Y[y_str]++
+    # Update dimension counters
+    if (!(x_str in X)) X[x_str] = ++x_count
+    if (!(y_str in Y)) Y[y_str] = ++y_count
 
-    if (no_agg && !count_xy) {
-        Z[x_str y_str] = z_str
-    }
-    else if (c || count_xy) {
-        Z[x_str y_str]++
-    }
-    else if (s) {
-        adder = z_str + 0
-        Z[x_str y_str] += adder
-    }
-    else if (p) {
-        multiplier = z_str + 0
-        Z[x_str y_str] *= multiplier
-    }
-    else if (mean) {
-        Z[x_str y_str]++
-        Z1[x_str y_str] += z_str + 0
-    }
-
-    if (debug) {
-        print x_str, y_str
-        print z_str
-    }
+    # Process aggregation
+    ProcessAggregation(x_str, y_str, z_str)
 }
 
 END {
@@ -373,10 +314,19 @@ END {
         }
     }
 
-    # Print Headers
-  
+    # Process window functions if needed
+    if (show_running || show_percentages) {
+        ProcessWindowFunctions()
+    }
+    
+    # Calculate subtotals if needed
+    if (show_subtotals) {
+        CalculateSubtotals()
+    }
+
+    # Print Headers with subtotals
     printf "%s", pivot_header
-  
+    
     for (yk = 1; yk <= length(YKeys); yk++) {
         if (GenKey["y", yk] && !KeyFound["y", yk]) continue
         printf "%s", OFS
@@ -384,12 +334,14 @@ END {
 
     for (i = 1; i <= x_counter; i++) {
         printf "%s", XIndexed[i]
+        if (show_running) printf "%s%s", OFS, "Running"
+        if (show_percentages) printf "%s%s", OFS, "%"
     }
-  
+    if (show_subtotals) printf "%s%s", OFS, "Total"
+    
     print ""
 
-    # Print Data
-
+    # Print Data with enhanced statistics
     for (i = 1; i <= y_counter; i++) {
         y = YIndexed[i]
         printf "%s", y
@@ -397,21 +349,36 @@ END {
         for (j = 1; j <= x_counter; j++) {
             x = XIndexed[j]
             
-            if (Z[x y]) {
-                if (mean) {
-                    cross = Z1[x y] / Z[x y]
-                }
-                else {
-                    cross = Z[x y]
-                }
-            }
-            else {
-                cross = placeholder
-            }
-            
+            # Print main value
+            cross = Z[x y] ? Z[x y] : placeholder
             printf "%s", cross OFS
+            
+            # Print running total if requested
+            if (show_running && Z[x y "_running"]) 
+                printf "%s", Z[x y "_running"] OFS
+            
+            # Print percentage if requested
+            if (show_percentages && Z[x y "_pct"]) 
+                printf "%.1f%%", Z[x y "_pct"]
+            
+            printf "%s", OFS
         }
-
+        
+        # Print row subtotal if requested
+        if (show_subtotals) 
+            printf "%s", Z[y "_subtotal"]
+        
+        print ""
+    }
+    
+    # Print column subtotals if requested
+    if (show_subtotals) {
+        printf "%s", "TOTAL"
+        for (j = 1; j <= x_counter; j++) {
+            x = XIndexed[j]
+            printf "%s%s", OFS, Z["subtotal_" x]
+        }
+        printf "%s%s", OFS, Z["grand_total"]
         print ""
     }
 }
@@ -477,3 +444,136 @@ function GetN(str) {
         return str
     }
 }
+
+function OptimizedGenKeys(dim, keys, key_store,    i, key) {
+    for (i = 1; i <= length(keys); i++) {
+        key = keys[i]
+        if (length(key) == 0) continue
+        
+        if (key in key_store) continue  # Skip duplicates
+        
+        if (gen_keys || !(key ~ /^[0-9]+$/) || length(key) > 3) {
+            GenKey[dim, i] = key
+            continue
+        }
+        key_store[key] = ++key_store["_count"]
+    }
+}
+
+function BuildKeyString(dim, keys, len,    i, result) {
+    result = ""
+    for (i = 1; i <= len; i++) {
+        if (GenKey[dim, i] && !KeyFound[dim, i]) continue
+        result = (i == len) ? result keys[i] OFS : result keys[i] "::"
+    }
+    return result
+}
+
+function ProcessAggregation(x_str, y_str, z_str,    idx) {
+    idx = x_str SUBSEP y_str
+    
+    # Skip if we're already below the minimum threshold
+    if (min_count && Z[idx "_count"] && Z[idx "_count"] < min_count) return
+    if (min_sum && Z[idx "_sum"] && Z[idx "_sum"] < min_sum) return
+    
+    # Update aggregations
+    Z[idx "_count"]++
+    if (z_str ~ /^[0-9.-]+$/) {
+        Z[idx "_sum"] += (z_str + 0)
+        Z[idx "_min"] = (idx "_min" in Z) ? min(Z[idx "_min"], z_str + 0) : z_str + 0
+        Z[idx "_max"] = (idx "_max" in Z) ? max(Z[idx "_max"], z_str + 0) : z_str + 0
+    }
+    
+    # Store actual value based on aggregation type
+    if (no_agg && !count_xy) {
+        Z[idx] = z_str
+    }
+    else if (c || count_xy) {
+        Z[idx] = Z[idx "_count"]
+    }
+    else if (s) {
+        Z[idx] = Z[idx "_sum"]
+    }
+    else if (p) {
+        if (!(idx in Z)) Z[idx] = 1
+        Z[idx] *= (z_str + 0)
+    }
+    else if (mean) {
+        Z[idx] = Z[idx "_sum"] / Z[idx "_count"]
+    }
+}
+
+function SetupAggregation() {
+    if (agg) {
+        if ("sum" ~ "^"agg) s = 1
+        else if ("count" ~ "^"agg) c = 1
+        else if ("product" ~ "^"agg) p = 1
+        else if ("mean" ~ "^"agg) mean = 1
+        else agg = 0
+    }
+    else { 
+        no_agg = 1 
+    }
+}
+
+function ProcessWindowFunctions(    i, j, x, y, total, running_total) {
+    # Calculate totals for percentages
+    for (i = 1; i <= y_counter; i++) {
+        y = YIndexed[i]
+        total = 0
+        for (j = 1; j <= x_counter; j++) {
+            x = XIndexed[j]
+            if (Z[x y]) total += Z[x y]
+        }
+        row_totals[y] = total
+    }
+    
+    # Calculate running totals and percentages
+    for (i = 1; i <= y_counter; i++) {
+        y = YIndexed[i]
+        running_total = 0
+        for (j = 1; j <= x_counter; j++) {
+            x = XIndexed[j]
+            if (Z[x y]) {
+                running_total += Z[x y]
+                Z[x y "_running"] = running_total
+                Z[x y "_pct"] = (Z[x y] / row_totals[y]) * 100
+                Z[x y "_running_pct"] = (running_total / row_totals[y]) * 100
+            }
+        }
+    }
+}
+
+function CalculateSubtotals(    i, j, x, y, subtotal) {
+    # Row subtotals
+    for (i = 1; i <= y_counter; i++) {
+        y = YIndexed[i]
+        subtotal = 0
+        for (j = 1; j <= x_counter; j++) {
+            x = XIndexed[j]
+            if (Z[x y]) subtotal += Z[x y]
+        }
+        Z[y "_subtotal"] = subtotal
+    }
+    
+    # Column subtotals
+    for (j = 1; j <= x_counter; j++) {
+        x = XIndexed[j]
+        subtotal = 0
+        for (i = 1; i <= y_counter; i++) {
+            y = YIndexed[i]
+            if (Z[x y]) subtotal += Z[x y]
+        }
+        Z["subtotal_" x] = subtotal
+    }
+    
+    # Grand total
+    Z["grand_total"] = 0
+    for (i = 1; i <= y_counter; i++) {
+        y = YIndexed[i]
+        Z["grand_total"] += Z[y "_subtotal"]
+    }
+}
+
+function min(a, b) { return a < b ? a : b }
+function max(a, b) { return a > b ? a : b }

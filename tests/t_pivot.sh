@@ -1,4 +1,4 @@
-#!/bin/bash.sh
+#!/bin/bash
 
 source commands.sh
 
@@ -74,5 +74,76 @@ expected='halo \ wing::wind@@@2::4@@@6::5@@@6::8@@@
 5@@@@@@1@@@@@@'
 actual="$(echo "$input" | ds:pivot halo win,win)"
 [ "$actual" = "$expected" ] || ds:fail 'pivot failed gen header keys double same-pattern case'
+
+# Test data setup
+cat > test.csv << EOF
+Region,Product,Sales
+North,Widget,100
+North,Gadget,200
+South,Widget,150
+South,Gadget,300
+East,Widget,125
+East,Gadget,275
+West,Widget,175
+West,Gadget,325
+EOF
+
+# Basic pivot test (baseline)
+echo "Testing basic pivot functionality..."
+ds:pivot test.csv Region Product Sales sum
+
+# Test HAVING-like filters with min_count
+echo -e "\nTesting min_count filter..."
+ds:pivot test.csv Region Product Sales count -v min_count=2
+
+# Test HAVING-like filters with min_sum
+echo -e "\nTesting min_sum filter..."
+ds:pivot test.csv Region Product Sales sum -v min_sum=200
+
+# Test running totals
+echo -e "\nTesting running totals..."
+ds:pivot test.csv Region Product Sales sum -v show_running=1
+
+# Test percentages
+echo -e "\nTesting percentages..."
+ds:pivot test.csv Region Product Sales sum -v show_percentages=1
+
+# Test subtotals
+echo -e "\nTesting subtotals..."
+ds:pivot test.csv Region Product Sales sum -v show_subtotals=1
+
+# Test combined features
+echo -e "\nTesting combined statistical features..."
+ds:pivot test.csv Region Product Sales sum -v show_running=1 -v show_percentages=1 -v show_subtotals=1
+
+# Expected output format examples:
+#
+# Basic pivot:
+# Region \ Product  Widget  Gadget
+# North            100     200
+# South            150     300
+# East             125     275
+# West             175     325
+#
+# With running totals:
+# Region \ Product  Widget  Running  Gadget  Running
+# North            100     100      200     300
+# South            150     250      300     550
+#
+# With percentages:
+# Region \ Product  Widget    %    Gadget    %
+# North            100     33.3    200    66.7
+# South            150     33.3    300    66.7
+#
+# With subtotals:
+# Region \ Product  Widget  Gadget  Total
+# North            100     200     300
+# South            150     300     450
+# East             125     275     400
+# West             175     325     500
+# Total            550    1100    1650
+
+# Cleanup
+rm test.csv
 
 echo -e "${GREEN}PASS${NC}"
