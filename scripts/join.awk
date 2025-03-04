@@ -738,3 +738,33 @@ function GenLeftOutputString(line1, line2, K1, nf1, nf2, fs1, fs2) {
 
     return jn
 }
+
+# Add sorting functions at the top of the file
+function GetSortedKeys(arr, sorted_arr,    i, n) {
+    n = 0
+    for (i in arr) {
+        n++
+        sorted_arr[n] = i
+    }
+    quicksort(sorted_arr, 1, n)
+    return n
+}
+
+function quicksort(arr, left, right,    i, last) {
+    if (left >= right)
+        return
+    swap(arr, left, left + int((right-left+1)*rand()))
+    last = left
+    for (i = left + 1; i <= right; i++)
+        if (arr[i] < arr[left])
+            swap(arr, ++last, i)
+    swap(arr, left, last)
+    quicksort(arr, left, last-1)
+    quicksort(arr, last+1, right)
+}
+
+function swap(arr, i, j,    temp) {
+    temp = arr[i]
+    arr[i] = arr[j]
+    arr[j] = temp
+}
