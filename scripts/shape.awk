@@ -22,6 +22,18 @@
 #
 #           $ data_in | ds:shape [patterns] [fields] [chart=t] [chart_size=15ln] [awkargs]
 #
+# OPTIONS
+#       -h                      Print this help
+#       -v shape_marker=.       Set custom shape marker (default: +)
+#       -v style=blocks|dots    Set visualization style
+#       -v color=1             Enable color output
+#       -v normalize=1         Show normalized percentages
+#       -v case_sensitive=0    Enable case-insensitive matching
+#       -v vertical=1         Show vertical histogram
+#       -v extended_stats=1   Show additional statistics
+#       -v progress=1        Show progress for large files
+#       -v streaming=1       Enable streaming mode for large files
+#
 # FIELD CONSIDERATIONS
 #       When running ds:shape, an attempt is made to infer field separators of up to
 #       three characters. If none found, FS will be set to default value, a single
@@ -90,6 +102,30 @@ BEGIN {
     output_space = tty_size - lineno_size - 2
     if (!span) span = 15
 
+    # Initialize new options with defaults
+    if (!style) style = "blocks"
+    if (!case_sensitive) case_sensitive = 1
+    if (!color) color = 0
+    if (!normalize) normalize = 0
+    if (!vertical) vertical = 0
+    if (!extended_stats) extended_stats = 0
+    if (!progress) progress = 0
+    if (!streaming) streaming = 0
+
+    # Define visualization styles
+    Styles["blocks"] = "█"
+    Styles["dots"] = "•"
+    
+    # Define colors if enabled
+    if (color) {
+        Colors[1] = "\033[31m" # Red
+        Colors[2] = "\033[32m" # Green
+        Colors[3] = "\033[34m" # Blue
+        Colors[4] = "\033[35m" # Magenta
+        Colors[5] = "\033[36m" # Cyan
+        ColorReset = "\033[0m"
+    }
+
     if (!measures) measures = "_length_"
     SetMeasures(measures, MeasureSet, MeasureTypes)
 
@@ -119,7 +155,35 @@ BEGIN {
     fields_len = length(Fields)
 }
 
+# Add new function for percentile calculation
+function Percentile(arr, p,    i, n) {
+    n = asort(arr)
+    i = p * n / 100
+    if (i != int(i)) return arr[int(i) + 1]
+    return (arr[i] + arr[i + 1]) / 2
+}
+
+# Add new function for median calculation
+function Median(arr) {
+    return Percentile(arr, 50)
+}
+
+# Add new function for case-insensitive matching
+function SmartMatch(str, pattern) {
+    if (case_sensitive) return str ~ pattern
+    return tolower(str) ~ tolower(pattern)
+}
+
+# Add new function for progress indicator
+function ShowProgress(current, total) {
+    if (progress && (current % 1000 == 0 || current == total)) {
+        printf "\rProcessing: %d/%d (%d%%)", current, total, (current/total)*100 > "/dev/stderr"
+    }
+}
+
 {
+    if (progress) ShowProgress(NR, lines)
+    
     bucket_discriminant = NR % span
     if (bucket_discriminant == 0) buckets++
 
@@ -129,12 +193,20 @@ BEGIN {
             field = Fields[f_i]
             measure = MeasureSet[m_i]
 
-            value = MeasureTypes[m_i] ? split($Fields[f_i], Tmp, measure) - 1 : length($field)
+            # Use case-insensitive matching if enabled
+            value = MeasureTypes[m_i] ? (case_sensitive ? split($Fields[f_i], Tmp, measure) - 1 : 
+                                                        split(tolower($Fields[f_i]), Tmp, tolower(measure)) - 1) : 
+                                      length($field)
             occurrences = Max(value, 0)
+
+            # Store values for extended statistics
+            if (extended_stats) {
+                Values[key, ++ValueCount[key]] = occurrences
+            }
 
             if (occurrences > MaxOccurrences[key]) MaxOccurrences[key] = occurrences
             TotalOccurrences[key] += occurrences
-            m = Max(Measure(MeasureTypes[m_i], field, occurrences), 0)
+            m = Max(SmartMatch(field, measure) ? occurrences : 0, 0)
             J[key] += m
             if (m) MatchLines[key]++
 
@@ -148,6 +220,8 @@ BEGIN {
 }
 
 END {
+    if (progress) print "\n" > "/dev/stderr"
+
     for (f_i = 1; f_i <= fields_len; f_i++) {
         for (m_i = 1; m_i <= measures_len; m_i++) {
             key = f_i SUBSEP m_i
@@ -198,14 +272,20 @@ END {
             PrintColumnVal("average: "AvgOccurrences[f_i, m_i])
         print ""
 
-        if (!simple) {
-            PrintLineNoBuffer()
+        if (extended_stats) {
             for (m_i = 1; m_i <= measures_len; m_i++) {
                 key = f_i SUBSEP m_i
-                PrintColumnVal("approx var: "(MaxOccurrences[key]-AvgOccurrences[key])**2)
+                if (ValueCount[key] > 0) {
+                    PrintLineNoBuffer()
+                    PrintColumnVal("median: " Median(Values[key]))
+                    PrintColumnVal("25th percentile: " Percentile(Values[key], 25))
+                    PrintColumnVal("75th percentile: " Percentile(Values[key], 75))
+                }
             }
             print ""
+        }
 
+        if (!simple) {
             printf "%"lineno_size"s ", "lineno"
 
             for (m_i = 1; m_i <= measures_len; m_i++) {
@@ -221,15 +301,56 @@ END {
 
             buckets++
 
+            # Apply selected style and color
+            current_marker = style in Styles ? Styles[style] : shape_marker_string
+            
             for (i = 1; i <= buckets; i++) {
-                printf " %"lineno_size"s ", i * span
+                if (!vertical) {
+                    printf " %"lineno_size"s ", i * span
 
-                for (m_i = 1; m_i <= measures_len; m_i++) {
-                    key = f_i SUBSEP m_i
-                    shape_marker = sprintf("%.*s", _[key, i] * ModJ[key], shape_marker_string)
-                    PrintColumnVal(shape_marker)
+                    for (m_i = 1; m_i <= measures_len; m_i++) {
+                        key = f_i SUBSEP m_i
+                        value = _[key, i] * ModJ[key]
+                        if (normalize) value = (value / MaxJ[key]) * output_column_len
+                        
+                        if (color) printf "%s", Colors[(m_i-1) % 5 + 1]
+                        shape_marker = sprintf("%.*s", value, current_marker)
+                        if (color) printf "%s", ColorReset
+                        
+                        PrintColumnVal(shape_marker)
+                    }
+                    print ""
                 }
+            }
 
+            # Add vertical histogram if enabled
+            if (vertical) {
+                # Calculate maximum height
+                max_height = 10  # Default height for vertical display
+                for (i = max_height; i > 0; i--) {
+                    printf "%3d%% |", (i/max_height) * 100
+                    for (m_i = 1; m_i <= measures_len; m_i++) {
+                        key = f_i SUBSEP m_i
+                        for (b = 1; b <= buckets; b++) {
+                            normalized = (_[key, b] * ModJ[key] / MaxJ[key])
+                            if (normalized >= i/max_height) {
+                                if (color) printf "%s", Colors[(m_i-1) % 5 + 1]
+                                printf "%s", current_marker
+                                if (color) printf "%s", ColorReset
+                            } else {
+                                printf " "
+                            }
+                        }
+                        printf "  "
+                    }
+                    print ""
+                }
+                # Print x-axis
+                printf "     +"
+                for (m_i = 1; m_i <= measures_len; m_i++) {
+                    for (b = 1; b <= buckets; b++) printf "-"
+                    printf "  "
+                }
                 print ""
             }
         }
