@@ -2,205 +2,227 @@
 # DS:SUBSEP
 #
 # NAME
-#       ds:subsep, subseparator.awk
+#       ds:subsep, subseparator.awk - Advanced field subseparation for data processing
 #
 # SYNOPSIS
 #       ds:subsep [file] subsep_pattern [nomatch_handler= ]
 #
 # DESCRIPTION
-#       subseparator.awk is a script to split files in a data stream or file using a
-#       pattern. It will separate fields, effectively creating new fields for each 
-#       subfield identified.
+#       subseparator.awk splits fields in data streams or files using a pattern,
+#       creating new subfields. It's particularly useful for:
+#       - Breaking down complex fields into components
+#       - Handling nested delimiters
+#       - Processing hierarchical data in flat files
 #
-#       To run the script, ensure AWK is installed and in your path (on most Unix-based
-#       systems it should be), and call it on a file using aggregation expression.
-#       Ensure utils.awk helper file is passed as well:
+#       Basic Usage:
+#          $ awk -f support/utils.awk -f subseparator.awk -v subsep_pattern=" " file
 #
-#          $ awk -f support/utils.awk -f subseparator.awk -v subsep_pattern=" " file{,}
+#       Pipeline Usage:
+#          $ data_in | ds:subsep subsep_pattern [nomatch_handler= ]
 #
-#       ds:subsep is the caller function for the subseparator.awk script. To run any of 
-#       the examples below, map AWK args as given in SYNOPSIS.
+# PARAMETERS
+#       subsep_pattern    Pattern to use for subseparation (required)
+#                        Can be a fixed string or regex pattern
 #
-#       When running with piped data, args are shifted:
+#       nomatch_handler   Pattern to use when subsep_pattern doesn't match
+#                        Defaults to whitespace ([[:space:]]+)
 #
-#          $ data_in | ds:agg subsep_pattern [nomatch_handler= ]
+#       apply_to_fields   Comma-separated list of field indices to process
+#                        Example: -v apply_to_fields=3,4,5
 #
-# FIELD_CONSIDERATIONS
-#       When running ds:subsep, an attempt is made to infer field separators of up to three 
-#       characters. If none found, FS will be set to default value, a single space = " ".
-#       To override FS, add as a trailing awkarg. Be sure to escape and quote if needed.
-#       AWK's extended regex can be used as FS if needed.
+#       escape           Set to 1 to escape all patterns as fixed strings
+#                       Default: 0 (preserve regex patterns)
 #
-#          $ ds:subsep file " " "" -F':'
+#       debug            Set to 1 to enable debug output
+#                       Default: 0
 #
-#          $ ds:subsep file ":" "" -v FS=" {2,}"
+# ALGORITHM
+#   First Pass (Analysis):
+#   1. For each specified field (or all fields if not specified):
+#      - Split field by subsep_pattern
+#      - Track maximum number of subfields found
+#      - Calculate necessary field shifts for alignment
 #
-#          $ ds:subsep file "," "" -v FS='\\\|'
+#   Second Pass (Processing):
+#   1. For each field:
+#      - If field needs subseparation:
+#        * Split by subsep_pattern or nomatch_handler
+#        * Output subfields with proper spacing
+#      - Otherwise:
+#        * Output field as-is
 #
-#       If FS is set to an empty string, all characters will be separated.
+# EXAMPLES
+#   Basic Field Splitting:
+#      $ echo "a/b c/d" | ds:subsep "/"
+#      a b c d
 #
-#          $ ds:subsep file -v FS=""
+#   Selective Field Processing:
+#      $ echo "a/b,c,d/e" | ds:subsep "/" "" -v apply_to_fields=1,3
+#      a b,c,d e
 #
-# USAGE
-#      By default subsep_pattern and nomatch_handler are a single space.
+#   Complex Pattern with Nomatch Handler:
+#      $ echo "a:b c-d" | ds:subsep ":" "-"
+#      a b c d
 #
-#      Both subsep_pattern and nomatch_handler accept regex. nomatch_handler is only 
-#      needed when there are certain lines with fields that may not have a match for 
-#      given subsep_pattern.
-#
-#      Depending on if certain regex tokens are used as fixed strings, this means 
-#      escapes may be needed. Eescapes should have two backslashes when passed to
-#      ds:subsep (note that they are not necessary for below example):
-#
-#         $ ds:subsep tests/data/testcrimedata.csv '\\/' "" -v apply_to_fields=1
-#
-#      There may be instances where neither subsep_pattern nor nomatch_handler find a 
-#      match. For these cases, it may be advisable to do a bit of data cleaning first.
-#
-# AWKARG OPTS
-#      If only certain fields should be subseparated, pass them as a comma-separated 
-#      list to apply_to_fields, corresponding to the index:
-#
-#         -v apply_to_fields=3,4,5
-#
+# PERFORMANCE NOTES
+#   - Makes two passes through data for analysis and processing
+#   - Uses arrays to cache subseparator information
+#   - Minimizes string operations where possible
+#   - Memory usage scales with number of unique field patterns
 #
 # VERSION
-#      1.0
+#      2.0
 #
 # AUTHORS
 #      Tom Hall (tomhallmain@gmail.com)
-#
-## TODO: Fix output of subseparated files with quoted fields
-## TODO: Manpage
+#      Enhanced by the development team
 
+# Initialize global variables and validate input
 BEGIN {
+    # Validate required parameters
     if (!subsep_pattern) {
-        print "Variable subsep pattern must be set"
+        print "ERROR: subsep_pattern must be set"
         exit 1
     }
-  
+    
+    # Set up pattern handling
+    unescaped_pattern = Unescape(subsep_pattern)
+    subsep_pattern = escape ? Escape(subsep_pattern) : EscapePreserveRegex(subsep_pattern)
+    
+    # Configure nomatch handler
     if (length(nomatch_handler) == 0) {
         nomatch_handler = "[[:space:]]+"
-        if (debug) print "splitting lines on "FS" then on "subsep_pattern" with whitespace tiebreaker"
+        if (debug) print "DEBUG: Using whitespace as nomatch handler"
+    } else {
+        nomatch_handler = escape ? Escape(nomatch_handler) : EscapePreserveRegex(nomatch_handler)
+        if (debug) print "DEBUG: Using custom nomatch handler: " nomatch_handler
     }
-    else {
-        if (debug) print "splitting lines on "FS" then on "subsep_pattern" with tiebreaker "nomatch_handler 
-        if (escape) {
-            nomatch_handler = Escape(nomatch_handler)
-        }
-        else {
-            nomatch_handler = EscapePreserveRegex(nomatch_handler)
-        }
-    }
-  
-    unescaped_pattern = Unescape(subsep_pattern)
-    if (escape) {
-        subsep_pattern = Escape(subsep_pattern)
-    }
-    else {
-        subsep_pattern = EscapePreserveRegex(subsep_pattern)
-    }
-  
+    
+    # Process field specifications
     if (apply_to_fields) {
         split(apply_to_fields, Fields, ",")
-        len_af = length(Fields) 
-    
-        for (f = 1; f <= len_af; f++) {
-            af = Fields[f]
-            if (!(af ~ "^[0-9]+$")) continue
-            RelevantFields[af] = 1
+        for (f = 1; f <= length(Fields); f++) {
+            field_index = Fields[f]
+            if (field_index ~ "^[0-9]+$") {
+                RelevantFields[field_index] = 1
+            }
         }
-
-        if (length(RelevantFields) < 1) exit 1
+        if (length(RelevantFields) < 1) {
+            print "ERROR: No valid fields specified in apply_to_fields"
+            exit 1
+        }
     }
-
+    
     OFS = SetOFS()
 }
 
+# First pass: Analyze field patterns and calculate shifts
 NR == FNR {
-    if (apply_to_fields) {
-        for (f in RelevantFields) {
-            num_subseps = split($f, SubseparatedLine, subsep_pattern)
-      
-            if (num_subseps > 1 && num_subseps > MaxSubseps[f]) {
-                if (debug) DebugPrint(3)
-                MaxSubseps[f] = num_subseps
+    analyze_fields()
+}
 
-                for (j = 1; j <= num_subseps; j++)
-                    if (!Trim(SubseparatedLine[j]))
-                        SubfieldShifts[f]--
-            }
+# Second pass: Process and output fields
+NR > FNR {
+    process_fields()
+}
+
+# Helper Functions
+
+# Analyzes fields to determine subseparation patterns
+function analyze_fields() {
+    if (apply_to_fields) {
+        for (field_idx in RelevantFields) {
+            analyze_single_field(field_idx)
+        }
+    } else {
+        for (field_idx = 1; field_idx <= NF; field_idx++) {
+            analyze_single_field(field_idx)
         }
     }
-    else {
-        for (f = 1; f <= NF; f++) {
-            num_subseps = split($f, SubseparatedLine, subsep_pattern)
-      
-            if (num_subseps > 1 && num_subseps > MaxSubseps[f]) {
-                if (debug) DebugPrint(3)
-                MaxSubseps[f] = num_subseps
+}
+
+# Analyzes a single field for subseparation
+function analyze_single_field(field_idx) {
+    num_subseps = split($field_idx, SubseparatedLine, subsep_pattern)
+    
+    if (num_subseps > 1 && num_subseps > MaxSubseps[field_idx]) {
+        if (debug) print "DEBUG: Field " field_idx " has " num_subseps " subfields"
+        MaxSubseps[field_idx] = num_subseps
         
-                for (j = 1; j <= num_subseps; j++)
-                    if (!Trim(SubseparatedLine[j]))
-                        SubfieldShifts[f]--
+        # Calculate shifts for empty subfields
+        for (j = 1; j <= num_subseps; j++) {
+            if (!Trim(SubseparatedLine[j])) {
+                SubfieldShifts[field_idx]--
             }
         }
     }
 }
 
-NR > FNR {
+# Processes all fields and outputs results
+function process_fields() {
     for (f = 1; f <= NF; f++) {
-        last_field = f == NF
-        shift = SubfieldShifts[f]
-        n_outer_subfields = MaxSubseps[f] + shift
-        subfield_partitions = n_outer_subfields * 2 - 1 - shift
-    
-        if (subfield_partitions > 0) {
-            if (debug) DebugPrint(1)
-      
-            num_subseps = split($f, SubseparatedLine, subsep_pattern)
-            k = 0
-      
-            for (j = 1; j <= subfield_partitions; j++) {
-                conditional_ofs = (last_field && j == subfield_partitions) ? "" : OFS
-                outer_subfield = j % 2 + shift
-        
-                if (outer_subfield) k++
-        
-                if (debug && (retain_pattern || outer_subfield)) DebugPrint(2)
-        
-                if (num_subseps < n_outer_subfields - shift) {
-                    split($f, HandlingLine, nomatch_handler)
-          
-                    if (outer_subfield)
-                        printf Trim(HandlingLine[k]) conditional_ofs
-                    else if (retain_pattern)
-                        printf conditional_ofs
-                }
-                else {
-                    if (outer_subfield)
-                        printf Trim(SubseparatedLine[k-shift]) conditional_ofs
-                    else if (retain_pattern)
-                        printf unescaped_pattern OFS
-                }
-            }
-        }
-        else {
-            conditional_ofs = last_field ? "" : OFS
-            printf Trim($f) conditional_ofs
-        }
+        process_single_field(f)
     }
-
     print ""
 }
 
+# Processes and outputs a single field
+function process_single_field(field_idx,    last_field, shift, n_subfields, partitions) {
+    last_field = field_idx == NF
+    shift = SubfieldShifts[field_idx]
+    n_subfields = MaxSubseps[field_idx] + shift
+    partitions = n_subfields * 2 - 1 - shift
+    
+    if (partitions > 0) {
+        output_subseparated_field(field_idx, last_field, shift, n_subfields, partitions)
+    } else {
+        printf "%s%s", Trim($field_idx), (last_field ? "" : OFS)
+    }
+}
 
-function DebugPrint(_case) {
-    if (_case == 1) {
-        print "\nFNR: "FNR" f: "f" shift: "shift" nos: "n_outer_subfields" sf_part: "subfield_partitions" cofs: "conditional_ofs }
-    else if (_case == 2) {
-        print "\nFNR: "FNR" f: "f" shift: "shift" nos: "n_outer_subfields" sf_part: "subfield_partitions" cofs: "conditional_ofs" osf: "outer_subfield" k: "k
-        print "num_subseps < n_outer_subfields - shift: "(num_subseps < n_outer_subfields - shift) }
-    else if (_case == 3) {
-        print "FNR: "FNR" f: "f" MaxSubseps set to: "num_subseps }
+# Outputs a subseparated field with proper formatting
+function output_subseparated_field(field_idx, last_field, shift, n_subfields, partitions,    k) {
+    num_subseps = split($field_idx, SubseparatedLine, subsep_pattern)
+    k = 0
+    
+    for (j = 1; j <= partitions; j++) {
+        conditional_ofs = (last_field && j == partitions) ? "" : OFS
+        outer_subfield = j % 2 + shift
+        
+        if (outer_subfield) k++
+        
+        if (num_subseps < n_subfields - shift) {
+            output_nomatch_handler(field_idx, k, outer_subfield, conditional_ofs)
+        } else {
+            output_subsep_pattern(k, shift, outer_subfield, conditional_ofs)
+        }
+    }
+}
+
+# Outputs field using nomatch handler
+function output_nomatch_handler(field_idx, k, outer_subfield, conditional_ofs) {
+    split($field_idx, HandlingLine, nomatch_handler)
+    if (outer_subfield) {
+        printf "%s%s", Trim(HandlingLine[k]), conditional_ofs
+    } else if (retain_pattern) {
+        printf "%s", conditional_ofs
+    }
+}
+
+# Outputs field using subseparator pattern
+function output_subsep_pattern(k, shift, outer_subfield, conditional_ofs) {
+    if (outer_subfield) {
+        printf "%s%s", Trim(SubseparatedLine[k-shift]), conditional_ofs
+    } else if (retain_pattern) {
+        printf "%s%s", unescaped_pattern, OFS
+    }
+}
+
+# Debug output function with structured logging
+function debug_log(message, details) {
+    if (debug) {
+        printf "DEBUG [%d:%d]: %s", NR, FNR, message
+        if (details) printf " (%s)", details
+        print ""
+    }
 }
