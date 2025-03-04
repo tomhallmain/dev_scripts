@@ -136,10 +136,10 @@
 #
 ## TODO: Link between fields and combination sets
 ## TODO: Refactor as set, not as left->right ordered combination (may not be
-## feasible performance wise
+## feasible performance wise)
 ## TODO: Add functionality to remove combinations intersecting with
 ## low-variance fields as these do not add more info - this would have to be
-## done BEFORE or WHILE permorming exclusions relating to contained fields
+## done BEFORE or WHILE performing exclusions relating to contained fields
 ## TODO: Output single fields based on their interaction characteristic value
 
 BEGIN {

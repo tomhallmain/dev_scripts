@@ -1864,12 +1864,13 @@ ds:pow() { # ** Combinatorial frequency of data field values: ds:pow [file] [min
 
     awk -v FS="$DS_SEP" -v OFS="$fs" -v min=${min:-1} -v c_counts=${flds:-0} -v invert=${inv:-0} \
         ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/power.awk" $prefield 2>/dev/null \
-        | ds:sortm 1 a n -v FS="$fs" -v deterministic=1 | sed 's///' | ds:ttyf "$fs" -v color=never
+        | ds:sortm 1 a n -v FS="$fs" -v deterministic=1 | sed 's/
+//' | ds:ttyf "$fs" -v color=never
 
     ds:pipe_clean $_file; rm $prefield
 }
 
-ds:prod() { # ** Return product multiset of filelines: ds:pow file [file*] [awkargs]
+ds:prod() { # ** Return product multiset of filelines: ds:prod file [file*] [awkargs]
     if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_pow') piped=0
         cat /dev/stdin > $file
