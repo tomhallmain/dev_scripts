@@ -1,58 +1,189 @@
 #!/bin/bash
+#
+# Dev Scripts Installation
+# Installs and configures development scripts for bash and zsh shells
+#
+# Features:
+# - Automatic shell detection and configuration
+# - Dependency verification
+# - Backup of existing configurations
+# - Installation verification
+# - Support for GNU and BSD environments
+#
+# Usage: ./install.sh
 
-echo 'Setting up...'
+set -e  # Exit on error
 
+# Version tracking
+DS_VERSION="1.0.0"
+
+# Enhanced directory resolution with error handling
 readlink_dir() {
     local target_f="$1"
-    cd "$(dirname "$target_f")"
-    echo "$(pwd -P)"
+    if [ ! -e "$target_f" ]; then
+        echo "Error: Path '$target_f' does not exist" >&2
+        return 1
+    }
+    
+    local dir
+    dir="$(dirname "$target_f")"
+    if ! cd "$dir" 2>/dev/null; then
+        echo "Error: Cannot access directory of '$target_f'" >&2
+        return 1
+    }
+    
+    pwd -P || {
+        echo "Error: Cannot resolve physical path" >&2
+        return 1
+    }
 }
 
-ds:verify() {
-    cmds_heads="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
-    tmp="tests/data/ds_setup_tmp"
-    echo > $tmp
-    if [ "$1" = zsh ]; then
-        zsh -ic 'ds:commands "" "" 0' 2>/dev/null > $tmp
+# Improved shell detection
+detect_shell() {
+    if [ -n "$($SHELL -c 'echo $ZSH_VERSION')" ]; then
+        echo "zsh"
+    elif [ -n "$($SHELL -c 'echo $BASH_VERSION')" ]; then
+        echo "bash"
     else
-        bash -ic 'ds:commands "" "" 0' 2>/dev/null > $tmp
+        echo "unknown"
+    fi
+}
+
+# Enhanced verification with better error messages
+ds:verify() {
+    local shell_type="$1"
+    if [[ ! "$shell_type" =~ ^(zsh|bash)$ ]]; then
+        echo "Error: Invalid shell type '$shell_type'" >&2
+        return 1
+    }
+    
+    local cmds_heads="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
+    local tmp="tests/data/ds_setup_tmp"
+    
+    # Ensure test directory exists
+    mkdir -p "$(dirname "$tmp")" || {
+        echo "Error: Cannot create test directory" >&2
+        return 1
+    }
+    
+    echo > "$tmp" || {
+        echo "Error: Cannot write to test file" >&2
+        return 1
+    }
+    
+    if [ "$shell_type" = "zsh" ]; then
+        zsh -ic 'ds:commands "" "" 0' 2>/dev/null > "$tmp" || true
+    else
+        bash -ic 'ds:commands "" "" 0' 2>/dev/null > "$tmp" || true
     fi
     wait
-    grep -q "$cmds_heads" $tmp
-    local stts=$?
-    rm $tmp
-    return $stts
+    
+    grep -q "$cmds_heads" "$tmp"
+    local status=$?
+    rm -f "$tmp"
+    return $status
 }
 
+# Backup functionality
+backup_rc() {
+    local rc_file="$1"
+    if [ -f "$rc_file" ]; then
+        local backup_file="${rc_file}.ds_backup_$(date +%Y%m%d_%H%M%S)"
+        if ! cp "$rc_file" "$backup_file" 2>/dev/null; then
+            echo "Warning: Failed to create backup of $rc_file" >&2
+            return 1
+        fi
+        echo "Created backup: $backup_file"
+        return 0
+    fi
+    return 1
+}
+
+# Dependency checking
+check_dependencies() {
+    local missing=()
+    for cmd in readlink grep awk sed; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            missing+=("$cmd")
+        fi
+    done
+    
+    if [ ${#missing[@]} -gt 0 ]; then
+        echo "Error: Missing required dependencies: ${missing[*]}" >&2
+        return 1
+    fi
+    return 0
+}
+
+# Enhanced error handling
 error_exit() {
-    echo
-    echo 'Issues detected with current install.'
-    echo
-    echo 'You may need to override the DS_LOC variable in case ~ alias is invalid for your shell.'
-    echo 'To do this, add DS_LOC=/path/to/dev_scripts to your .bashrc and/or .zshrc and ensure this var'
-    echo 'is defined before the source call to commands.sh.'
-    echo
+    local msg="$1"
+    echo >&2
+    echo "Installation Error: ${msg:-Issues detected with current install.}" >&2
+    echo >&2
+    echo "Troubleshooting steps:" >&2
+    echo "1. Ensure you have write permissions to your home directory" >&2
+    echo "2. Check that all dependencies are installed" >&2
+    echo "3. Verify that your shell configuration files are writable" >&2
+    echo >&2
+    echo "You may need to override the DS_LOC variable if ~ alias is invalid for your shell." >&2
+    echo "Add DS_LOC=/path/to/dev_scripts to your .bashrc and/or .zshrc before the source call to commands.sh" >&2
+    echo >&2
     exit 1
 }
 
-if [ -n "$($SHELL -c 'echo $ZSH_VERSION')" ]; then
+# Progress indication
+show_progress() {
+    echo -n "$1... "
+}
+
+finish_progress() {
+    if [ $? -eq 0 ]; then
+        echo "Done"
+        return 0
+    else
+        echo "Failed"
+        return 1
+    fi
+}
+
+# Main installation logic
+echo 'Setting up Dev Scripts...'
+
+# Check dependencies first
+show_progress "Checking dependencies"
+check_dependencies || error_exit "Missing required dependencies"
+finish_progress
+
+# Detect shell and set up variables
+CURRENT_SHELL=$(detect_shell)
+if [ "$CURRENT_SHELL" = "unknown" ]; then
+    error_exit "Unsupported shell detected. Only bash and zsh are supported."
+fi
+
+# Determine installation location
+if [ "$CURRENT_SHELL" = "zsh" ]; then
+    DS_LOC="$(readlink_dir "$0")" || error_exit "Cannot determine installation location"
     zzsh=0
-    DS_LOC="$(readlink_dir "$0")"
+elif [ "$CURRENT_SHELL" = "bash" ]; then
+    DS_LOC="$(readlink_dir "${BASH_SOURCE[0]}")" || error_exit "Cannot determine installation location"
+else
+    error_exit "Shell detection failed"
+fi
+
+# Rest of existing installation logic
+if [ -n "$($SHELL -c 'echo $ZSH_VERSION')" ]; then
+    show_progress "Checking zsh configuration"
     [ -f ~/.zshrc ] && grep -q "dev_scripts/commands.sh" ~/.zshrc && zshrc_set=0
     if [ "$zshrc_set" ]; then
         zshrc_preset=0
     else
+        backup_rc ~/.zshrc
         echo "export DS_LOC=\"$DS_LOC\"" >> ~/.zshrc
         echo 'source "$DS_LOC/commands.sh"' >> ~/.zshrc
     fi
-elif [ -n "$($SHELL -c 'echo $BASH_VERSION')" ]; then
-    DS_LOC="$(readlink_dir "$BASH_SOURCE")"
-else
-    echo 'Unhandled shell detected! Only bash and zsh are supported at this time.'
-    echo 'Please run this script using zsh or bash, or refer to README for install instructions.'
-    exit 1
+    finish_progress
 fi
-
 
 if [ -f /bin/bash ]; then
     bazh=0
@@ -163,23 +294,26 @@ if [[ "$zsh_install_issue" || "$bash_install_issue" ]]; then
     error_exit
 fi
 
-echo 'Installation complete!'
+echo 'Installation completed successfully!'
 echo
-echo 'You may want to override the DS_LOC variable in case ~ alias is invalid for your shell.'
-echo 'To do this, add DS_LOC=/path/to/dev_scripts to your ~/.bashrc and/or ~/.zshrc and ensure this var'
-echo 'is defined before the source call to commands.sh.'
+echo 'Configuration Summary:'
+echo "- Installation path: $DS_LOC"
+echo "- Detected shell: $CURRENT_SHELL"
+[ "$gnu_core" ] && echo "- GNU coreutils: Yes" || echo "- GNU coreutils: No"
 echo
-echo 'Shell session refresh is required before commands will be usable.'
+echo 'Next Steps:'
+echo "1. Refresh your shell session (restart terminal or run 'exec $SHELL')"
+echo "2. Run 'ds:commands' to see available commands"
 echo
-conf="$(ds:readp 'Would you like to refresh now? (y/n)')"
+
+# Offer to refresh shell
+conf="$(ds:readp 'Would you like to refresh your shell now? (y/n)')"
 if [ "$conf" = y ]; then
     echo
-    echo 'Dev Scripts now installed - restarting shell in 5 seconds'
-    echo
-    echo "For a list of available commands, run \`ds:commands\`"
+    echo 'Restarting shell in 5 seconds...'
     echo
     sleep 5
     clear
-    if [ "$zzsh" ]; then zsh; else bash; fi
+    exec "$SHELL"
 fi
 
