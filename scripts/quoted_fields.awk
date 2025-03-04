@@ -9,9 +9,20 @@
 ## TODO: Fix keep outer quotes case
 
 BEGIN {
+    # Constants
     singlequote = "'"
     doublequote = "\""
-
+    ESCAPED_QUOTE = "\\\""
+    ESCAPED_SINGLE = "\\'"
+    
+    # Configuration
+    max_line_length = max_line_length ? max_line_length : 1048576
+    max_field_length = max_field_length ? max_field_length : 32767
+    quote_chars = quote_chars ? quote_chars : "\"\'"
+    
+    # Initialize quote handling
+    split(quote_chars, QUOTE_TYPES, "")
+    
     FS = EscapePreserveRegex(FS)
     spaced_fs = "[[:space:]]*" FS "[[:space:]]*"
 
@@ -47,7 +58,14 @@ BEGIN {
 }
 
 {
-    gsub(/\015$/, "") # Remove Carriage Returns "\r"
+    # Handle all types of line endings (DOS, Mac, Unix)
+    gsub(/\r\n|\r|\n/, "\n")
+    
+    # Validate input
+    if (length($0) > max_line_length) {
+        printf "Warning: Line %d exceeds maximum length of %d characters\n", 
+               NR, max_line_length > "/dev/stderr"
+    }
 }
 
 not_applicable || (!quote_rebalance && !($0 ~ FS) && q && !($0 ~ q)) {
@@ -131,157 +149,54 @@ quote_rebalance && !($0 ~ QRe["end"]) {
 
     if (run_prefield && (quote_rebalance || $0 ~ q)) {
         i_seed = save_i ? save_i : 1
+        field_count = 0
         
-        for (i = i_seed; i < 500; i++) {
+        # Process fields with memory management
+        while (length($0) > 0 && field_count < 10000) {  # Safety limit
+            field_count++
+            
             gsub(quotequote, quotequote_marker, $0)
             gsub(init_space, "", $0)
             len0 = length($0)
             if (len0 < 1) break
 
-            match($0, quote_fieldsep)
-            index_quote_fieldsep = RSTART
-            len_index_quote_fieldsep = RLENGTH
+            # Process field boundaries
+            if (!ProcessFieldBoundaries()) continue
             
-            while (substr($0, index_quote_fieldsep - 1, 1) == q \
-                    && substr($0, index_quote_fieldsep - 2, 1) != q) {
-                match(substr($0, index_quote_fieldsep, len0), quote_fieldsep)
-                index_quote_fieldsep = RSTART
-                len_index_quote_fieldsep = RLENGTH
-            }
-
-            if (close_multiline_field) {
-                match($0, QRe["end_imbal"])
-                startf = 1
-                endf = RLENGTH - mod_f_len0
-                quote_cut = mod_f_len0
-            }
-            else {
-                match($0, fieldsep_quote)
-                index_fieldsep_quote = RSTART
-                len_index_fieldsep_quote = RLENGTH
-                match($0, FS)
-                index_fieldsep = RSTART
-                len_fieldsep = Max(RLENGTH, 1)
-                index_quote = index($0, q)
-                index_quotequote = index($0, quotequote_marker)
-                
-                if (balance_outstanding) {
-                    match($0, QRe["start_imbal"])
-                    index_quote_imbal_start = RSTART
-                    match($0, QRe["sep_exc"])
-                    inquote_fieldsep = RSTART
-                }
-                
-                if (index_quote == 1 && !(index_quotequote == 1)) {
-                    quote_set = 1
-                }
-                
-                quote_cut = 0
-
-                if (debug) {
-                    previous_i = i - 1
-                    if (_[previous_i]) pi = _[previous_i]
-                    DebugPrint(1)
-                }
-
-                if (quote_set) {
-                    quote_set = 0
-                    quote_cut = quote_cut_len
-                    startf = balance_outstanding ? mod_f_len1 : len_fieldsep + mod_f_len0
-                    endf = index_quote_fieldsep - quote_cut_len
-                    
-                    if (endf < 1) {
-                        if (index_quote != 1 && !balance_outstanding) {
-                            startf++
-                        }
-                        endf = len0 - quote_cut_len
-                    }
-                }
-                else {
-                    if (index_quote == 0 && index_fieldsep == 0) {
-                        startf = 1
-                        endf = len0
-                    }
-                    else if (index_quote_imbal_start > 0 \
-                            && index_quote_imbal_start <= inquote_fieldsep \
-                            && index_quote_imbal_start < index_quote \
-                            && index_quote_imbal_start < index_fieldsep) {
-                        
-                        if (retain_outer_quotes) {
-                            startf = index_quote_bal
-                            endf = len0
-                        }
-                        else {
-                            startf = index_quote_bal + 1
-                            endf = len0 - 1
-                        }
-                    }
-                    else if (index_quote == index_quotequote \
-                            && (index_quote_fieldsep - 1 == index_quote \
-                                    || index_fieldsep == 0)) {
-                        
-                        if (retain_outer_quotes) {
-                            startf = index_quote
-                            endf = index_quote + 2
-                        }
-                        else {
-                            startf = index_quote + 1
-                            endf = index_quote + 1
-                        }
-                    }
-                    else if ((index_quote_fieldsep > 0 || substr($0,len0) == q) \
-                            && index_fieldsep_quote == index_fieldsep) {
-                        startf = 1
-                        endf = index_fieldsep_quote - 1
-                        quote_set = 1
-                    }
-                    else if (index_fieldsep == 0) {
-                        startf = len_fieldsep + 1
-                        endf = len0 - 1
-                    }
-                    else if (index_quote - index_fieldsep == 1) {
-                        if (index_quote_fieldsep || index(substr($0,2),q) == len0) {
-                            quote_set = 1
-                            startf = 1
-                            endf = index_fieldsep - mod_f_len1
-                        }
-                        else {
-                            startf = len_fieldsep
-                            endf = index_fieldsep - mod_f_len0
-                        }
-                    }
-                    else if (index_quote == 0) {
-                        startf = 1
-                        endf = index_fieldsep - 1
-                    }
-                    else if (index_quote - index_fieldsep > 1 \
-                            || index_fieldsep - index_quote > 1) {
-                        startf = 1
-                        endf = index_fieldsep - 1
-                    }
-                    else {
-                        startf = 1
-                        endf = index_fieldsep - 1
-                    }
-                }
-            }
-
             f_part = substr($0, startf, endf)
+            if (!ValidateField(f_part)) {
+                printf "Error: Invalid field at line %d, field %d\n", NR, field_count > "/dev/stderr"
+                next
+            }
+            
+            f_part = ProcessQuotedField(f_part)
             _[i] = close_multiline_field ? _[i] f_part : f_part
             
-            # Field is empty if only has two quotes
+            # Clean up field content
             gsub(empty_field_re, quotequote_replace0, _[i])
-            # Any remaining quotequotes assumed escaped quotes
             gsub("_qqqq_", quotequote_replace1, _[i])
             
             $0 = substr($0, endf + len_fieldsep + quote_cut + 1)
             if (debug) DebugPrint(2)
             close_multiline_field = 0
+            
+            # Memory management - clear processed fields periodically
+            if (i % 1000 == 0) {
+                for (j = i - 1000; j < i - 100; j++) {
+                    if (j > 0) delete _[j]
+                }
+            }
+        }
+        
+        if (field_count >= 10000) {
+            printf "Warning: Exceeded maximum field count at line %d\n", NR > "/dev/stderr"
         }
     }
     else {
-        for (i = 1; i <= NF; i++)
-            _[i] = $i
+        for (i = 1; i <= NF; i++) {
+            if (!ValidateField($i)) continue
+            _[i] = ProcessQuotedField($i)
+        }
     }
 
     if (balance_outstanding) {
@@ -379,5 +294,56 @@ function DebugPrint(_case) {
         print "newbal: "balance_outstanding
     else if (_case == 6)
         print "NR: "NR", save_i: "save_i", _[save_i]: "_[save_i]
+}
+
+function ValidateField(field,    len) {
+    len = length(field)
+    if (len > max_field_length) {
+        printf "Warning: Field at line %d exceeds maximum length of %d characters\n",
+               NR, max_field_length > "/dev/stderr"
+        return 0
+    }
+    return 1
+}
+
+function ProcessQuotedField(field,    tmp, quote_count) {
+    # Handle escaped quotes
+    gsub(ESCAPED_QUOTE, "\x02", field)  # Temporary placeholder
+    gsub(ESCAPED_SINGLE, "\x03", field) # Temporary placeholder
+    
+    # Count quotes
+    quote_count = gsub(/"/, "", tmp = field) + gsub(/'/, "", tmp)
+    
+    if (quote_count % 2 != 0) {
+        printf "Warning: Unbalanced quotes in field at line %d\n", NR > "/dev/stderr"
+    }
+    
+    # Restore escaped quotes
+    gsub(/\x02/, ESCAPED_QUOTE, field)
+    gsub(/\x03/, ESCAPED_SINGLE, field)
+    
+    return field
+}
+
+function ProcessFieldBoundaries(    success) {
+    success = 1
+    
+    match($0, quote_fieldsep)
+    index_quote_fieldsep = RSTART
+    len_index_quote_fieldsep = RLENGTH
+    
+    # Handle escaped field separators
+    while (substr($0, index_quote_fieldsep - 1, 1) == q \
+            && substr($0, index_quote_fieldsep - 2, 1) != q) {
+        match(substr($0, index_quote_fieldsep, len0), quote_fieldsep)
+        if (RSTART == 0) {
+            success = 0
+            break
+        }
+        index_quote_fieldsep = RSTART
+        len_index_quote_fieldsep = RLENGTH
+    }
+    
+    return success
 }
 
