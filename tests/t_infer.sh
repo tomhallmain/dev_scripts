@@ -31,6 +31,139 @@ echo -e "wefkwefwl=21\nkwejf ekej=qwkdj\nTEST 349=|" > $tmp
 [ "$(ds:inferfs tests/data/cities.csv f t f f)" = ',' ] \
     || ds:fail 'inferfs failed comma blank lines case'
 
+# Test multi-character custom separators
+cat > "$tmp1" << EOF
+field1=><=field2=><=field3=><=field4
+value1=><=value2=><=value3=><=value4
+data1=><=data2=><=data3=><=data4
+test1=><=test2=><=test3=><=test4
+more1=><=more2=><=more3=><=more4
+EOF
+[ "$(ds:inferfs "$tmp1" f t f f)" = '\=\>\<\=' ] \
+    || ds:fail 'inferfs failed multi-character separator case'
+
+# Test quoted fields with embedded separators
+cat > "$tmp1" << EOF
+"field,1"|"field,2"|"field,3"|"field,4"
+"value|1"|value2|"value,3"|value4
+"data|1"|"data,2"|data3|"data,4"
+test1|"test,2"|"test|3"|test4
+"more,1"|more2|"more|3"|"more,4"
+EOF
+[ "$(ds:inferfs "$tmp1" f t f f)" = '\|' ] \
+    || ds:fail 'inferfs failed quoted fields with embedded separators case'
+
+# Test mixed separators (should choose most consistent)
+cat > "$tmp1" << EOF
+field1,field2;field3,field4
+value1,value2,value3,value4
+data1,data2,data3,data4
+test1,test2,test3,test4
+more1,more2,more3,more4
+EOF
+[ "$(ds:inferfs "$tmp1" f t f f)" = ',' ] \
+    || ds:fail 'inferfs failed mixed separators case'
+
+# Test high certainty mode
+cat > "$tmp1" << EOF
+field1##field2##field3##field4
+value1##value2##value3##value4
+data1##data2##data3##data4
+test1##test2##test3##test4
+more1##more2##more3##more4
+EOF
+[ "$(ds:inferfs "$tmp1" f t f t)" = '\#\#' ] \
+    || ds:fail 'inferfs failed high certainty case'
+
+# Test with CRLF in quoted fields
+cat > "$tmp1" << EOF
+"field
+1"|"field
+2"|field3|field4
+"value
+1"|value2|"value
+3"|value4
+data1|"data
+2"|data3|"data
+4"
+test1|test2|"test
+3"|test4
+EOF
+[ "$(ds:inferfs "$tmp1" f t f f)" = '\|' ] \
+    || ds:fail 'inferfs failed CRLF in quoted fields case'
+
+# Test with special characters
+cat > "$tmp1" << EOF
+field1⌘field2⌘field3⌘field4
+value1⌘value2⌘value3⌘value4
+data1⌘data2⌘data3⌘data4
+test1⌘test2⌘test3⌘test4
+EOF
+[ "$(ds:inferfs "$tmp1" f t f f)" = '\⌘' ] \
+    || ds:fail 'inferfs failed special characters case'
+
+# Test with inconsistent field counts but clear separator
+cat > "$tmp1" << EOF
+field1@@field2@@field3@@field4
+value1@@value2@@value3
+data1@@data2@@data3@@data4@@data5
+test1@@test2
+more1@@more2@@more3@@more4
+EOF
+[ "$(ds:inferfs "$tmp1" f t f f)" = '\@\@' ] \
+    || ds:fail 'inferfs failed inconsistent field counts case'
+
+# Test with escaped quotes
+cat > "$tmp1" << EOF
+"field\"1"|"field\"2"|field3|"field\"4"
+value1|"value\"2"|value3|value4
+"data\"1"|data2|"data\"3"|data4
+test1|"test\"2"|test3|"test\"4"
+EOF
+[ "$(ds:inferfs "$tmp1" f t f f)" = '\|' ] \
+    || ds:fail 'inferfs failed escaped quotes case'
+
+# Test with empty fields
+cat > "$tmp1" << EOF
+field1%%field2%%%%field4
+value1%%%%value3%%value4
+%%%%data3%%data4
+test1%%test2%%test3%%
+%%more2%%more3%%more4
+EOF
+[ "$(ds:inferfs "$tmp1" f t f f)" = '\%\%' ] \
+    || ds:fail 'inferfs failed empty fields case'
+
+# Test with whitespace variations
+cat > "$tmp1" << EOF
+field1   field2     field3   field4
+value1  value2   value3      value4
+data1    data2  data3   data4
+test1     test2    test3  test4
+EOF
+[ "$(ds:inferfs "$tmp1" f t f f)" = '[[:space:]]+' ] \
+    || ds:fail 'inferfs failed whitespace variations case'
+
+# Test with file extension override
+cat > "$tmp1.csv" << EOF
+field1⌘field2⌘field3
+value1⌘value2⌘value3
+data1⌘data2⌘data3
+EOF
+[ "$(ds:inferfs "$tmp1.csv" f t t f)" = ',' ] \
+    || ds:fail 'inferfs failed file extension override case'
+
+# Test with no separator (single field)
+cat > "$tmp1" << EOF
+field1
+value1
+data1
+test1
+more1
+EOF
+[ "$(ds:inferfs "$tmp1" f t f t)" = '[[:space:]]+' ] \
+    || ds:fail 'inferfs failed no separator case'
+
 # INFERH TESTS
 
 # Basic header detection tests
