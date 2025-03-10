@@ -125,10 +125,10 @@
 ## TODO: Diff by unordered join keys
 
 function abs(x) { return x < 0 ? -x : x }
-function sqrt(x) { return x <= 0 ? 0 : exp(log(x) / 2) }
+function _sqrt(x) { return x <= 0 ? 0 : exp(log(x) / 2) }
 function mean(sum, count) { return count > 0 ? sum / count : 0 }
 function stddev(sumsq, sum, n) {
-    return n > 1 ? sqrt((sumsq - (sum * sum / n)) / (n - 1)) : 0
+    return n > 1 ? _sqrt((sumsq - (sum * sum / n)) / (n - 1)) : 0
 }
 
 function is_numeric(val) {
@@ -299,55 +299,180 @@ NR > FNR {
     split(S1[FNR], Stream1Line, fs1)
     
     for (f = 1; f <= NF; f++) {
-        if (f in ExcludeFields) continue
-        
         s1_val = Stream1Line[f]
         s2_val = $f
-        
-        if (!is_numeric(s1_val) || !is_numeric(s2_val)) {
-            if (s1_val != s2_val) {
-                diff = bin ? 1 : s2_val
-            } else {
-                diff = 0
-            }
-        } else {
-            s1_num = s1_val + 0
-            s2_num = s2_val + 0
+
+        if (bin) {
+            diff_val = (s1_val != s2_val)
+            PrintDiffField(diff_val)
             
-            if (subtract) diff = s2_num - s1_num
-            else if (add) diff = s2_num + s1_num
-            else if (pc) diff = s1_num ? ((s2_num - s1_num) / s1_num * 100) : 0
-            else if (mult) diff = s2_num * s1_num
-            else if (div) diff = s1_num ? (s2_num / s1_num) : 0
-            else if (bin) diff = (s2_num != s1_num) ? 1 : 0
+            if (diff_list) {
+                if (div) {
+                    if (diff_val == 1) {
+                        break
+                    }
+                }
+                else {
+                    if (diff_val == 0) {
+                        break
+                    }
+                }
+
+                if (diff_list_only && !has_diff && diff_val) {
+                    has_diff = 1
+                }
+
+                if (diff_list_row_header) {
+                    if (header) {
+                        list_val = $diff_list_row_header _ Header[f] _ Stream1Line[f] _ $f _ diff_val
+                    }
+                    else {
+                        list_val = $diff_list_row_header _ f _ Stream1Line[f] _ $f _ diff_val
+                    }
+                }
+                else {
+                    list_val = FNR _ f _ Stream1Line[f] _ $f _ diff_val
+                }
+
+                DiffList[diff_counter++] = list_val
+            }
+        }
+
+        if (f in ExcludeFields) {
+            PrintDiffField($f)
+            if (f < NF) PrintDiffField(OFS)
+            continue
+        }
+
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", s1_val)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", s2_val)
+        
+        while (s1_val != "" || s2_val != "") {
+            if (s1_val == "") {
+                s1_val = 0
+                s2_val = GetOrSetExtractVal(s2_val)
+
+                if (!s2_val && s2_val != 0) {
+                    PrintDiffField($f)
+                    break
+                }
+
+                s2_val = GetOrSetTruncVal(s1_val)
+            }
+            else if (s2_val == "") {
+                s1_val = GetOrSetExtractVal(s1_val)
+                s2_val = 0
+                
+                if (!s1_val && s1_val != 0) {
+                    PrintDiffField(Stream1Line[f])
+                    break
+                }
+
+                s1_val = GetOrSetTruncVal(s1_val)
+            }
+            else {
+                s1_val = GetOrSetExtractVal(s1_val)
+                s2_val = GetOrSetExtractVal(s2_val)
+
+                if (!s1_val && s1_val != 0) {
+                    if (!s2_val && s2_val != 0) {
+                        break
+                    }
+                    else {
+                        PrintDiffField($f)
+                        break
+                    }
+                }
+                else if (!s2_val && s2_val != 0) {
+                    PrintDiffField(Stream1Line[f])
+                    break
+                }
+
+                s1_val = GetOrSetTruncVal(s1_val)
+                s2_val = GetOrSetTruncVal(s2_val)
+            }
+
+            if (pc) {
+                if (s1_val == 0) {
+                    if (s2_val == 0) {
+                        diff_val = 0
+                    }
+                    else {
+                        diff_val = 1
+                    }
+                }
+                else {
+                    diff_val = (s2_val - s1_val) / s1_val
+                    
+                    if (s1_val < 0 && s2_val < 0) {
+                        diff_val *= -1
+                    }
+                }
+            }
+            else if (subtract) diff_val = s1_val - s2_val
+            else if (add) diff_val = s1_val + s2_val
+            else if (mult) diff_val = s1_val * s2_val
+            else if (div) diff = s2_val ? (s1_val / s2_val) : 0
             else if (mad || rmsd || stats) {
-                diff = s2_num - s1_num
-                abs_diff = abs(diff)
+                diff_val = s1_num - s2_num
+                abs_diff = abs(diff_val)
                 
                 field_diffs[f] = field_diffs[f] + abs_diff
-                field_diffs_sq[f] = field_diffs_sq[f] + (diff * diff)
+                field_diffs_sq[f] = field_diffs_sq[f] + (diff_val * diff_val)
                 field_counts[f]++
                 
                 if (!field_min[f] || abs_diff < field_min[f]) field_min[f] = abs_diff
                 if (!field_max[f] || abs_diff > field_max[f]) field_max[f] = abs_diff
             }
+        
+            if ((diff_threshold && threshold_mode == "above" && abs(diff_val) <= diff_threshold) ||
+                    (diff_threshold && threshold_mode == "below" && abs(diff_val) >= diff_threshold)) {
+                if (f < NF) PrintDiffField(OFS)
+                continue
+            }
+            
+            if (highlight_threshold) {
+                diff_val = highlight_value(format_number(diff_val, precision), highlight_threshold)
+            } else if (precision) {
+                diff_val = format_number(diff_val, precision)
+            }
+
+#            print("\n" f " Reached PrintDiffField")
+
+            PrintDiffField(diff_val)
+
+            if (diff_list) {
+                if (div) {
+                    if (diff_val == 1) break
+                }
+                else if (diff_val == 0) break
+
+                if (diff_list_only && !has_diff && diff_val) {
+                    has_diff = 1
+                }
+
+                if (diff_list_row_header) {
+                    if (header) {
+                        list_val = $diff_list_row_header _ Header[f] _ Stream1Line[f] _ $f _ diff_val
+                    }
+                    else {
+                        list_val = $diff_list_row_header _ f _ Stream1Line[f] _ $f _ diff_val
+                    }
+                }
+                else {
+                    list_val = FNR _ f _ Stream1Line[f] _ $f _ diff_val
+                }
+
+                DiffList[++diff_counter] = list_val
+            }
+
+            break
         }
-
-        if (diff_threshold && threshold_mode == "above" && abs(diff) <= diff_threshold) continue
-        if (diff_threshold && threshold_mode == "below" && abs(diff) >= diff_threshold) continue
-
-        if (highlight_threshold) {
-            diff = highlight_value(format_number(diff, precision), highlight_threshold)
-        } else if (precision) {
-            diff = format_number(diff, precision)
-        }
-
-        $f = diff
+        
+        if (f < NF) PrintDiffField(OFS)
     }
 
-    if (!diff_list_only) {
-        print
-    }
+    PrintDiffField("\n")
 }
 
 END {
@@ -396,7 +521,7 @@ END {
                 printf "MAD [%s]: %s\n", field_name, format_number(mad_val, precision)
             }
             if (rmsd) {
-                rmsd_val = sqrt(mean(field_diffs_sq[f], count))
+                rmsd_val = _sqrt(mean(field_diffs_sq[f], count))
                 printf "RMSD [%s]: %s\n", field_name, format_number(rmsd_val, precision)
             }
             if (stats) {
