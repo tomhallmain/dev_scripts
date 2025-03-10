@@ -412,7 +412,7 @@ NR > FNR {
             else if (subtract) diff_val = s1_val - s2_val
             else if (add) diff_val = s1_val + s2_val
             else if (mult) diff_val = s1_val * s2_val
-            else if (div) diff = s2_val ? (s1_val / s2_val) : 0
+            else if (div) diff_val = s2_val ? (s1_val / s2_val) : 0
             else if (mad || rmsd || stats) {
                 diff_val = s1_num - s2_num
                 abs_diff = abs(diff_val)
@@ -436,8 +436,6 @@ NR > FNR {
             } else if (precision) {
                 diff_val = format_number(diff_val, precision)
             }
-
-#            print("\n" f " Reached PrintDiffField")
 
             PrintDiffField(diff_val)
 

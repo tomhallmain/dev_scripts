@@ -58,13 +58,15 @@ c 484 #  4'
 actual="$(ds:diff_fields /tmp/ds_df_tests1 /tmp/ds_df_tests2 '*' 1,3 -v header=1)"
 [ "$actual" = "$expected" ] || ds:fail 'diff_fields failed multiply fields header case'
 
+# TODO fix intermediary step not preserving field separators in [[:space:]]+ FS case
 expected='a 1 0.2 0.0166667 0.2
 b 0.333333 0.142857 0.5 0.142857
-c 0.333333 1 ,
+c 0.333333 1 , 0
 
 
 
 ROW FIELD LEFTDATA /tmp/ds_df_tests3 DIFF
+c 5  2 0
 a 4 0.05 3 0.0166667
 b 3 0.571429 4 0.142857
 b 5 0.142857 1 0.142857

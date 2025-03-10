@@ -1259,6 +1259,7 @@ ds:diff_fields() { # ** Get elementwise diff of two datasets (alias ds:df): ds:d
         if [ "$ext_f" ]; then
             let local file_anc=$arr_base+1
             local ext_tmp1=$(ds:tmp 'ds_diff_fields_ext1')
+            # TODO preserve fields during intermediary steps 
             awk -v fs1="$fs1" -v fs2="$fs2" -v OFS="$fs1" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
                 -f "$DS_SCRIPT/diff_fields.awk" "$f1" "$f2" 2>/dev/null > $ext_tmp1
             while [ "$ext_f" -gt "$file_anc" ]
