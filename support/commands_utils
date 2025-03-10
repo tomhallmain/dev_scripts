@@ -17,7 +17,7 @@
 @@@ds:deps@@@@@@Identify dependencies of a shell function@@@ds:deps name [filter] [ntype=FUNC|ALIAS] [caller] [ndata]
 @@@ds:deps2@@@@@@Identify dependencies of C, Java functions@@@ds:deps2 file
 @@@ds:die@@@@@@Output to STDERR and exit with error@@@ds:die
-**@@@ds:diff@@@@@@Diff shortcut for an easier to read view@@@ds:diff file1 [file2] [suppress_common] [color=t]
+**@@@ds:diff@@@@@@Diff shortcut for an easier to read view@@@ds:diff file1|str1 [file2|str2] [suppress_common] [color=t]
 **@@@ds:diff_fields@@@ds:df@@@Get elementwise diff of two datasets@@@ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]
 **@@@ds:dostounix@@@@@@Remove ^M / CR characters in place@@@ds:dostounix [file*]
 **@@@ds:dup_input@@@@@@Duplicate standard input in aggregate@@@data | ds:dup_input

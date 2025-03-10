@@ -1,12 +1,13 @@
-#!/usr/bin/awk
+#!/usr/bin/awk -f
 #
 # Conversion of character byte output from xxd to various code point forms
+# Used with xxd -b output format
 
 BEGIN {
     if (!to || "codepoint" ~ to)
-    to = 0
+        to = 0
     else if ("octet" ~ to || "hex" ~ to)
-    to = 1
+        to = 1
 }
 
 to < 1 {
@@ -27,7 +28,7 @@ to < 1 {
     }
 
     for (i = 1; i <= length(b); i++)
-    d = d b[i]
+        d = d b[i]
 }
 
 to == 1 {

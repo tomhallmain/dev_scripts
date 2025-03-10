@@ -1179,7 +1179,7 @@ ds:diff_fields() { # ** Get elementwise diff of two datasets (alias ds:df): ds:d
     if [ "$1" ]; then
         if [[ "$1" = '-' || "$1" = '\-' ]]; then
             local op="-" && shift
-        elif [[ "$1" = b || "$1" = bin || "$1" = binary ]]; then
+        elif [[ "$1" = b || "$1" = bin || "$1" = binary || "$1" = m || "$1" = mad || "$1" = r || "$1" = rmsd || "$1" = s || "$1" = stats ]]; then
             local op="$1" && shift
         else
             ds:test '^[\+\-\%\/\*]$' "$1" && local op="$1" && shift
@@ -2366,19 +2366,25 @@ ds:sedi() { # Run global in place substitutions: ds:sedi file|dir search [replac
     fi
 }
 
-ds:diff() { # ** Diff shortcut for an easier to read view: ds:diff file1 [file2] [suppress_common] [color=t]
+ds:diff() { # ** Diff shortcut for an easier to read view: ds:diff file1|str1 [file2|str2] [suppress_common] [color=t]
     # TODO: dynamic width if short lines on one or more files
     # TODO: diff >2 files
     if ds:pipe_open "$2"; then
         local file1=$(ds:tmp 'ds_dff') piped=0
         cat /dev/stdin > $file1
     else
-        ds:file_check "$1"
         local file1="$(ds:fd_check "$1")"
+        if [ ! -f "$file1" ]; then # assume text
+            local file1=$(ds:tmp 'ds_dff') ds_tmp1_created=0
+            echo -e "$1" > "$file1"
+        fi
         shift
     fi
-    ds:file_check "$1"
     local file2="$(ds:fd_check "$1")"
+    if [ ! -f "$file2" ]; then
+        local file2=$(ds:tmp 'ds_dff') ds_tmp2_created=0
+        echo -e "$1" > "$file2"
+    fi
     [ "$2" ] && local sup=--suppress-common-lines
     local tty_size=$(ds:term_width) color="${3:-t}"
     let local tty_half=$tty_size/2
@@ -2388,7 +2394,9 @@ ds:diff() { # ** Diff shortcut for an easier to read view: ds:diff file1 [file2]
     else
         diff -b -y -W $tty_size $sup "$file1" "$file2" | expand | less
     fi
-#    ds:pipe_clean $file1
+    ds:pipe_clean $file1
+    [ "$ds_tmp1_created" ] && rm "$file1" && unset ds_temp1_created
+    [ "$ds_tmp2_created" ] && rm "$file2" && unset ds_temp2_created
 }
 
 ds:git_word_diff() { # Git word diff shortcut (alias ds:gwdf): ds:gwdf [git_diff_args]
@@ -2455,17 +2463,34 @@ ds:jira() { # Open Jira at specified workspace issue / search: ds:jira workspace
 ds:unicode() { # ** Get UTF-8 unicode for a character sequence: ds:unicode [str] [out=codepoint|hex|octet]
     ! ds:nset 'xxd' && ds:fail 'Utility xxd required for this command'
     [ "$2" ] && ds:test '(hex|octet)' "$2" || local codepoint=0
-    local sq=($([ -p /dev/stdin ] && grep -ho . || echo "$1" | grep -ho .))
-    for i in ${sq[@]}; do
-        local code="$(printf "$i" | xxd -b \
-            | awk -F"[[:space:]]+" -v to="${2:-codepoint}" -f "$DS_SCRIPT/unicode.awk" 2>/dev/null \
-            | bc | awk '{_ = _ $0}END{print _}' 2>/dev/null)"
-        if [ "$codepoint" ]; then
-            printf "\\\U$code"
-        else
-            printf "%s" "%$code"
-        fi
-    done
+    if [ -p /dev/stdin ]; then
+        local sq=($(grep -ho .))
+        for i in ${sq[@]}; do
+            local code="$(printf "$i" | xxd -b \
+                | awk -F"[[:space:]]+" -v to="${2:-codepoint}" -f "$DS_SCRIPT/unicode.awk" 2>/dev/null \
+                | bc | awk '{_ = _ $0}END{print _}' 2>/dev/null)"
+            if [ "$codepoint" ]; then
+                printf "\\\U$code"
+            else
+                printf "%s" "%$code"
+            fi
+        done
+    else
+        # Read from argument
+        local input="$1"
+        while [ -n "$input" ]; do
+            char="${input:0:1}"
+            input="${input:1}"
+            local code="$(printf "%s" "$char" | xxd -b \
+                | awk -F"[[:space:]]+" -v to="${2:-codepoint}" -f "$DS_SCRIPT/unicode.awk" 2>/dev/null \
+                | bc | awk '{_ = _ $0}END{print _}' 2>/dev/null)"
+            if [ "$codepoint" ]; then
+                printf "\\\U$code"
+            else
+                printf "%s" "%$code"
+            fi
+        done
+    fi
     echo
 }
 

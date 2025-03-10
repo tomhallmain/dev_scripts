@@ -213,6 +213,8 @@ BEGIN {
         }
     }
 
+    stats_op = 0
+
     if (op == "-") subtract = 1
     else if (op == "+") add = 1
     else if (op == "%") pc = 1
@@ -223,12 +225,15 @@ BEGIN {
     }
     else if (tolower(op) == "m" || tolower(op) == "mad") {
         mad = 1
+        stats_op = 1
     }
     else if (tolower(op) == "r" || tolower(op) == "rmsd") {
         rmsd = 1
+        stats_op = 1
     }
     else if (tolower(op) == "s" || tolower(op) == "stats") {
         stats = 1
+        stats_op = 1
     }
 
     if (diff_list) {
@@ -248,6 +253,8 @@ BEGIN {
             SeedRandom()
         }
     }
+
+    threshold_above = threshold_mode == "below" ? 0 : 1
 
     "wc -l < \""ARGV[1]"\"" | getline f1nr; f1nr+=0 # Get number of rows in file1
 }
@@ -357,7 +364,7 @@ NR > FNR {
                     break
                 }
 
-                s2_val = GetOrSetTruncVal(s1_val)
+            #    s2_val = GetOrSetTruncVal(s1_val)
             }
             else if (s2_val == "") {
                 s1_val = GetOrSetExtractVal(s1_val)
@@ -367,8 +374,6 @@ NR > FNR {
                     PrintDiffField(Stream1Line[f])
                     break
                 }
-
-                s1_val = GetOrSetTruncVal(s1_val)
             }
             else {
                 s1_val = GetOrSetExtractVal(s1_val)
@@ -413,8 +418,8 @@ NR > FNR {
             else if (add) diff_val = s1_val + s2_val
             else if (mult) diff_val = s1_val * s2_val
             else if (div) diff_val = s2_val ? (s1_val / s2_val) : 0
-            else if (mad || rmsd || stats) {
-                diff_val = s1_num - s2_num
+            else if (stats_op) {
+                diff_val = s1_val - s2_val
                 abs_diff = abs(diff_val)
                 
                 field_diffs[f] = field_diffs[f] + abs_diff
@@ -424,20 +429,24 @@ NR > FNR {
                 if (!field_min[f] || abs_diff < field_min[f]) field_min[f] = abs_diff
                 if (!field_max[f] || abs_diff > field_max[f]) field_max[f] = abs_diff
             }
-        
-            if ((diff_threshold && threshold_mode == "above" && abs(diff_val) <= diff_threshold) ||
-                    (diff_threshold && threshold_mode == "below" && abs(diff_val) >= diff_threshold)) {
+
+            if ((diff_threshold && threshold_above && abs(diff_val) <= diff_threshold) ||
+                    (diff_threshold && !threshold_above && abs(diff_val) >= diff_threshold)) {
                 if (f < NF) PrintDiffField(OFS)
-                continue
-            }
-            
-            if (highlight_threshold) {
-                diff_val = highlight_value(format_number(diff_val, precision), highlight_threshold)
-            } else if (precision) {
-                diff_val = format_number(diff_val, precision)
+                break
             }
 
-            PrintDiffField(diff_val)
+            if (highlight_threshold) {
+                formatted_diff_val = highlight_value(format_number(diff_val, precision), highlight_threshold)
+            }
+            else if (precision) {
+                formatted_diff_val = format_number(diff_val, precision)
+            }
+            else {
+                formatted_diff_val = diff_val
+            }
+
+            PrintDiffField(formatted_diff_val)
 
             if (diff_list) {
                 if (div) {
@@ -445,23 +454,23 @@ NR > FNR {
                 }
                 else if (diff_val == 0) break
 
-                if (diff_list_only && !has_diff && diff_val) {
-                    has_diff = 1
-                }
-
                 if (diff_list_row_header) {
                     if (header) {
-                        list_val = $diff_list_row_header _ Header[f] _ Stream1Line[f] _ $f _ diff_val
+                        list_val = $diff_list_row_header _ Header[f] _ Stream1Line[f] _ $f _ formatted_diff_val
                     }
                     else {
-                        list_val = $diff_list_row_header _ f _ Stream1Line[f] _ $f _ diff_val
+                        list_val = $diff_list_row_header _ f _ Stream1Line[f] _ $f _ formatted_diff_val
                     }
                 }
                 else {
-                    list_val = FNR _ f _ Stream1Line[f] _ $f _ diff_val
+                    list_val = FNR _ f _ Stream1Line[f] _ $f _ formatted_diff_val
                 }
 
                 DiffList[++diff_counter] = list_val
+            }
+            
+            if (!has_diff && diff_val) {
+                has_diff = 1
             }
 
             break
@@ -475,7 +484,7 @@ NR > FNR {
 
 END {
     if (err) exit err
-    if (!diff_list) {
+    if (!(diff_list || mad || rmsd || stats)) {
         exit
     }
 
@@ -489,22 +498,25 @@ END {
     }
 
     if (!has_diff) {
+        print("Test")
         exit
     }
 
-    if (!diff_list_only) {
+    if (!(diff_list_only || stats_op)) {
         print "\n\n"
     }
 
-    print "ROW" OFS "FIELD" OFS left_label OFS right_label OFS "DIFF"
+    if (diff_list) {
+        print "ROW" OFS "FIELD" OFS left_label OFS right_label OFS "DIFF"
 
-    for (i = 1; i <= diff_counter; i++) {
-        gsub(_, OFS, DiffList[i])
-        print DiffList[i]
+        for (i = 1; i <= diff_counter; i++) {
+            gsub(_, OFS, DiffList[i])
+            print DiffList[i]
+        }
     }
 
-    if (mad || rmsd || stats) {
-        print "\nField Statistics:"
+    if (stats_op) {
+        print "Field Statistics:"
         print "---------------"
         for (f = 1; f <= length(field_counts); f++) {
             if (f in ExcludeFields) continue
@@ -534,7 +546,7 @@ END {
 }
 
 function PrintDiffField(field_val) {
-    if (diff_list_only) {
+    if (diff_list_only || stats_op) {
         return
     }
 

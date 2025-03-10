@@ -1,6 +1,8 @@
 #!/bin/bash
 
 source commands.sh
+tmp=/tmp/ds_commands_tests
+q=/dev/null
 
 # BASICS TESTS
 

@@ -159,6 +159,7 @@ ds:ttyf() { # ** Run ds:fit on output only if to a terminal: data | ds:ttyf [FS]
 }
 
 ds:pipe_clean() { # Remove tmpfile created via STDIN if piping detected: piped=0; tmp=$(mktemp tmp); ds:pipe_clean $tmp
+    # TODO scope the piped var better to avoid falsely triggering, unset it after removal if possible
     if [ $piped ]; then rm "$1" &> /dev/null; fi
 }
 
