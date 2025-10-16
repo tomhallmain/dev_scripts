@@ -1,3 +1,20 @@
+"""
+Conda Environment Details Analyzer
+
+Lists conda environments with detailed information including Python versions,
+package counts, directory sizes, and installation paths. Supports table and JSON
+output formats with flexible sorting options.
+
+Usage:
+    python conda_env_details.py [--json] [--sort {name,size,python}]
+
+Use Cases:
+- Environment management and cleanup
+- Comparing Python versions across environments
+- Identifying large environments
+- Generating environment inventory reports
+"""
+
 import json
 import os
 import subprocess
