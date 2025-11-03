@@ -159,68 +159,64 @@ fi
 
 # HIST TESTS
 
-expected='Hist: field 3 (district), cardinality 6
-               1 - 1.5 +
-               1.5 - 2 +
-               2 - 2.5
-               2.5 - 3 +
-               3 - 3.5
-               3.5 - 4 +
-               4 - 4.5
-               4.5 - 5 +
-               5 - 5.5
-               5.5 - 6 +
+expected='Hist: district (field 3), cardinality 6
+                        1 ++++++++ (868)
+                        2 +++++++++++++ (1462)
+                        3 +++++++++++++++ (1575)
+                        4 +++++++++++ (1161)
+                        5 +++++++++++ (1159)
+                        6 ++++++++++++ (1359)
 
-Hist: field 5 (grid), cardinality 539
-           102 - 257.9 ++++++++
-         257.9 - 413.8 ++++++
-         413.8 - 569.7 ++++++++++++++
-         569.7 - 725.6 +++++++
-         725.6 - 881.5 +++++++++++++++
-        881.5 - 1037.4 ++++++++++++++
-       1037.4 - 1193.3 +++++++++
-       1193.3 - 1349.2 +++++++++++++
-       1349.2 - 1505.1 ++++++++++
-         1505.1 - 1661 ++++++
+Hist: grid (field 5), cardinality 539
+                102 - 257 ++++ (383)
+                258 - 413 +++ (303)
+                414 - 569 +++++++++++++++ (1269)
+                570 - 725 +++++++ (593)
+                726 - 881 ++++++++++++++ (1187)
+               882 - 1037 ++++++++++++ (1091)
+              1038 - 1193 ++++++++ (692)
+              1194 - 1349 +++++ (471)
+              1350 - 1505 +++++++++ (833)
+              1506 - 1661 +++++++++ (762)
 
-Hist: field 7 (ucr_ncic_code), cardinality 88
-          909 - 1628.3 +++++++++++
-       1628.3 - 2347.6 ++++++++++++++
-       2347.6 - 3066.9 ++++++++++++++
-       3066.9 - 3786.2 ++++++++++++++
-       3786.2 - 4505.5 +++++
-       4505.5 - 5224.8 ++++++++++++++
-       5224.8 - 5944.1 +++++++++++
-       5944.1 - 6663.4
-       6663.4 - 7382.7 ++
-         7382.7 - 8102 +++
+Hist: ucr_ncic_code (field 7), cardinality 88
+               909 - 1628 +++ (534)
+              1629 - 2347 ++++++++ (1429)
+              2348 - 3066 ++++++++++ (1787)
+              3067 - 3786 ++ (368)
+              3787 - 4505  (56)
+              4506 - 5224 + (176)
+              5225 - 5944 ++++ (731)
+              5945 - 6663  (0)
+              6664 - 7382 +++++++++++++++ (2471)
+              7383 - 8102  (32)
 
-Hist: field 8 (latitude), cardinality 1905
-      38.438 - 38.4626 +++++++
-     38.4626 - 38.4872 +++++++++++++
-     38.4872 - 38.5117 +++++++++++++
-     38.5117 - 38.5363 ++++++++++++++
-     38.5363 - 38.5609 ++++++++++++++
-     38.5609 - 38.5855 ++++++++++++++
-     38.5855 - 38.6101 +++++++++
-     38.6101 - 38.6346 ++++++++++++++
-     38.6346 - 38.6592 +++++++++++
-     38.6592 - 38.6838 ++++++
+Hist: latitude (field 8), cardinality 1906
+            38.44 - 38.46 ++ (228)
+            38.46 - 38.49 +++++++++ (779)
+            38.49 - 38.51 +++++++ (676)
+            38.51 - 38.54 +++++++++++ (1002)
+            38.54 - 38.56 +++++++++++++ (1149)
+            38.56 - 38.59 +++++++++++++++ (1291)
+            38.59 - 38.61 ++++++ (555)
+            38.61 - 38.63 +++++++++++++ (1176)
+            38.63 - 38.66 ++++++ (577)
+            38.66 - 38.68 + (151)
 
-Hist: field 9 (longitude), cardinality 187
-   -121.556 - -121.537 +++++++++++++++
-   -121.537 - -121.518 ++++++++++++++
-   -121.518 - -121.499 ++++++++++++++
-    -121.499 - -121.48 ++++++++++++++
-    -121.48 - -121.461 ++++++++++++++
-   -121.461 - -121.441 +++++++++++++++
-   -121.441 - -121.422 ++++++++++++++
-   -121.422 - -121.403 ++++++++++++++
-   -121.403 - -121.384 ++++++++++++++
-   -121.384 - -121.365 ++++++++++'
+Hist: longitude (field 9), cardinality 187
+        -121.56 - -121.54 + (121)
+        -121.54 - -121.52 +++ (337)
+        -121.52 - -121.50 +++++++ (769)
+        -121.50 - -121.48 ++++++++++++++ (1414)
+        -121.48 - -121.46 +++++++++++++++ (1480)
+        -121.46 - -121.44 +++++++++++++ (1283)
+        -121.44 - -121.42 +++++++++++++ (1330)
+        -121.42 - -121.40 ++++++ (652)
+        -121.40 - -121.38 + (117)
+        -121.38 - -121.36  (81)'
 [ "$(ds:hist tests/data/testcrimedata.csv | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'hist command failed'
 
-# Create test data for new hist features
+# Create test data for hist features
 cat > "${tmp}_hist_data" << EOL
 value,category
 1.2,A
@@ -237,30 +233,85 @@ EOL
 
 # Test logarithmic binning
 echo "Testing logarithmic histogram..."
-expected='EXPECTED_LOG_OUTPUT'
+expected='Hist: value (field 1), cardinality 10
+                1.2 - 2.2 + (1)
+                2.2 - 4.0 ++ (2)
+                4.0 - 7.3  (0)
+               7.3 - 13.4 + (1)
+              13.4 - 24.5 + (1)
+              24.5 - 44.8 + (1)
+              44.8 - 81.9  (0)
+             81.9 - 149.7 + (1)
+            149.7 - 273.6 ++ (2)
+            273.6 - 500.1 + (1)'
 [ "$(ds:hist "${tmp}_hist_data" -v log_scale=1 -v header=1 -v fields=1 | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'histogram log scale test failed'
 
 # Test different styles
 echo "Testing histogram styles..."
-expected='EXPECTED_STYLE_OUTPUT'
+expected='Hist: value (field 1), cardinality 10
+              1.2 - 101.0 ███████ (7)
+            101.0 - 200.8 █ (1)
+            200.8 - 300.5 █ (1)
+            300.5 - 400.3  (0)
+            400.3 - 500.1 █ (1)'
 [ "$(ds:hist "${tmp}_hist_data" -v style=blocks -v header=1 -v fields=1 -v n_bins=5 | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'histogram blocks style test failed'
 
-expected='EXPECTED_SHADE_OUTPUT'
+expected='Hist: value (field 1), cardinality 10
+              1.2 - 101.0 ███████ (7)
+            101.0 - 200.8 ░ (1)
+            200.8 - 300.5 ░ (1)
+            300.5 - 400.3  (0)
+            400.3 - 500.1 ░ (1)'
 [ "$(ds:hist "${tmp}_hist_data" -v style=shade -v header=1 -v fields=1 -v n_bins=5 | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'histogram shade style test failed'
 
 # Test statistics and percentiles
 echo "Testing histogram statistics..."
-expected='EXPECTED_STATS_OUTPUT'
+expected='Hist: value (field 1), cardinality 10
+Mean: 101, Median: 20.4
+StdDev: 149, Variance: 2.22e+04
+Skewness: 1.813 (Right-skewed)
+Quartiles: Q1=5.475, Q3=137.9 (IQR=132.5)
+10th-90th percentile range: 2.37 - 230.7
+               1.2 - 51.1 ++++++ (6)
+             51.1 - 101.0 + (1)
+            101.0 - 150.9 + (1)
+            150.9 - 200.8  (0)
+            200.8 - 250.7 + (1)
+            250.7 - 300.5  (0)
+            300.5 - 350.4  (0)
+            350.4 - 400.3  (0)
+            400.3 - 450.2  (0)
+            450.2 - 500.1 + (1)'
 [ "$(ds:hist "${tmp}_hist_data" -v stats=1 -v percentiles=1 -v header=1 -v fields=1 | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'histogram statistics test failed'
 
 # Test cumulative distribution
 echo "Testing cumulative histogram..."
-expected='EXPECTED_CUMULATIVE_OUTPUT'
+expected='Hist: value (field 1), cardinality 10
+               1.2 - 51.1 ++++++ (6)
+             51.1 - 101.0 +++++++ (7)
+            101.0 - 150.9 ++++++++ (8)
+            150.9 - 200.8 ++++++++ (8)
+            200.8 - 250.7 +++++++++ (9)
+            250.7 - 300.5 +++++++++ (9)
+            300.5 - 350.4 +++++++++ (9)
+            350.4 - 400.3 +++++++++ (9)
+            400.3 - 450.2 +++++++++ (9)
+            450.2 - 500.1 ++++++++++ (10)'
 [ "$(ds:hist "${tmp}_hist_data" -v cumulative=1 -v header=1 -v fields=1 | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'histogram cumulative test failed'
 
 # Test multiple features combined
 echo "Testing combined histogram features..."
-expected='EXPECTED_COMBINED_OUTPUT'
+expected='Hist: value (field 1), cardinality 10
+Mean: 101, Median: 20.4
+StdDev: 149, Variance: 2.22e+04
+Skewness: 1.813 (Right-skewed)
+Quartiles: Q1=5.475, Q3=137.9 (IQR=132.5)
+10th-90th percentile range: 2.37 - 230.7
+                1.2 - 4.0 ⠟⠟⠟ (3)
+               4.0 - 13.4 ⠃ (1)
+              13.4 - 44.8 ⠏⠏ (2)
+             44.8 - 149.7 ⠃ (1)
+            149.7 - 500.1 ⠟⠟⠟ (3)'
 [ "$(ds:hist "${tmp}_hist_data" -v log_scale=1 -v style=braille -v stats=1 -v percentiles=1 -v header=1 -v fields=1 -v n_bins=5 | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'histogram combined features test failed'
 
 # Test edge cases
@@ -274,7 +325,8 @@ value
 EOL
 
 echo "Testing histogram edge cases..."
-expected='EXPECTED_EDGE_OUTPUT'
+expected='Hist: value (field 1), cardinality 1
+                        1 +++++ (5)'
 [ "$(ds:hist "${tmp}_hist_edge" -v header=1 -v fields=1 | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'histogram edge case test failed'
 
 

@@ -2017,7 +2017,7 @@ ds:hist() { # ** Print histograms for all number fields in data: ds:hist [file] 
     local fs="$(cat $fstmp; rm $fstmp)"
     ds:prefield "$_file" "$fs" > $prefield
     awk -v FS="$DS_SEP" -v OFS="$fs" -v n_bins=$n_bins -v max_bar_len=$bar_len \
-        ${args[@]} -f "$DS_SCRIPT/hist.awk" $prefield 2>/dev/null
+        ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/hist.awk" $prefield 2>/dev/null
     ds:pipe_clean $_file; rm $prefield
 }
 
