@@ -1114,9 +1114,16 @@ ds:shape() { # ** Print data shape by length or pattern: ds:shape [-h|file*] [pa
     local _printlns=${_printlns:-15}
     let local _span=$_lines/$_printlns
 
+    local awk_files=(-f "$DS_SUPPORT/utils.awk")
+    local awk_vars=()
+    if ds:awksafe; then
+        awk_files+=(-f "$DS_SUPPORT/wcwidth.awk")
+        awk_vars+=(-v awksafe=1)
+    fi
+
     awk -v FS="${fs:- }" -v measures="$measures" -v fields="$fields" -v span=${_span:-15} \
         -v tty_size="$(ds:term_width)" -v lines="$_lines" -v simple="$_simple" \
-        -f "$DS_SUPPORT/utils.awk" $@ -f "$DS_SCRIPT/shape.awk" "$_file" 2>/dev/null
+        "${awk_vars[@]}" $@ "${awk_files[@]}" -f "$DS_SCRIPT/shape.awk" "$_file" 2>/dev/null
 
     ds:pipe_clean $_file
 }

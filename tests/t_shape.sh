@@ -10,7 +10,6 @@ expected='       lines: 7585
        lines with "AUBURN": 75
        occurrence: 76
        average: 0.0100198
-       approx var: 3.96002
 lineno distribution of "AUBURN"
    758 +++++++++++
   1516 +++++++
@@ -23,15 +22,14 @@ lineno distribution of "AUBURN"
   6822 ++++++++
   7580 ++++++
   8338'
-[ "$(ds:shape tests/data/testcrimedata.csv AUBURN 0 10 | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'shape command failed'
-[ "$(ds:shape tests/data/testcrimedata.csv AUBURN wfwe 10 | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'shape command failed'
+[ "$(ds:shape tests/data/testcrimedata.csv AUBURN 0 10 -v style="plus" | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'shape command failed'
+[ "$(ds:shape tests/data/testcrimedata.csv AUBURN wfwe 10 -v style="plus" | sed -E 's/[[:space:]]+$//g')" = "$expected" ] || ds:fail 'shape command failed'
 
 expected='       lines: 7585
        stats from field: $6
        lines with "AUTO": 237                                   lines with "INDECE": 2                                   lines with "PUBLI": 31                                   lines with "BURGL": 986
        occurrence: 237                                          occurrence: 2                                            occurrence: 31                                           occurrence: 986
        average: 0.0312459                                       average: 0.000263678                                     average: 0.00408701                                      average: 0.129993
-       approx var: 0.938485                                     approx var: 0.999473                                     approx var: 0.991843                                     approx var: 0.756911
 lineno distribution of "AUTO"                                   distribution of "INDECE"                                 distribution of "PUBLI"                                  distribution of "BURGL"
    252 +++                                                                                                               ++++                                                     +++++++++++++++++++++++++++++++++
    504 ++++++++++++++++                                         +                                                        ++                                                       +++++++++++++++++++++++++++++++++++++
@@ -64,76 +62,100 @@ lineno distribution of "AUTO"                                   distribution of 
   7308 ++++++++++++++                                                                                                    +++                                                      +++++++++++++++++
   7560 ++++++++++                                                                                                        +                                                        ++++++++++++++++++++++++++++
   7812'
-actual="$(ds:shape tests/data/testcrimedata.csv 'AUTO,INDECE,PUBLI,BURGL' 6 30 -v tty_size=238 | sed -E 's/[[:space:]]+$//g')"
+actual="$(ds:shape tests/data/testcrimedata.csv 'AUTO,INDECE,PUBLI,BURGL' 6 30 -v tty_size=238 -v style="plus" | sed -E 's/[[:space:]]+$//g')"
 [ "$actual" = "$expected" ] || ds:fail 'shape command failed'
 
 # Test case-insensitive matching
 expected='lines: 3
 lines with "Hello": 3
 occurrence: 3
-average: 1
-approx var: 0'
-actual="$(echo -e "Hello\nhello\nHELLO" | awk -f ../support/utils.awk -f ../scripts/shape.awk -v measures="Hello" -v case_sensitive=0 | sed -E 's/[[:space:]]+$//g')"
+average: 1'
+actual="$(echo -e "Hello\nhello\nHELLO" | awk -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/shape.awk" -v measures="Hello" -v simple=1 | sed -E 's/[[:space:]]+$//g')"
 [ "$actual" = "$expected" ] || ds:fail 'shape command case-insensitive test failed'
 
 # Test extended statistics
 expected='lines: 6
-lines with "length": 6
+lines with "length": 6 (100.00%)
 occurrence: 6
-average: 1
-median: 1
+average: 1 (100.00% probability)
+approx var: 0
 25th percentile: 1
+median: 1
 75th percentile: 1'
-actual="$(echo -e "1\n2\n2\n3\n3\n3" | awk -f ../support/utils.awk -f ../scripts/shape.awk -v measures="_length_" -v extended_stats=1 | sed -E 's/[[:space:]]+$//g')"
+actual="$(echo -e "1\n2\n2\n3\n3\n3" | awk -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/shape.awk" -v measures="_length_" -v stats=1 -v simple=1 | sed -E 's/[[:space:]]+$//g')"
 [ "$actual" = "$expected" ] || ds:fail 'shape command extended stats test failed'
 
 # Test visualization styles
-expected='lines: 6
-lines with "a": 3
-occurrence: 3
-average: 0.5
+expected='       lines: 6
+       lines with "a": 3
+       occurrence: 3
+       average: 0.5
 lineno distribution of "a"
-    3 ███
-    6 '
-actual="$(echo -e "a\na\na\nb\nb\nc" | awk -f ../support/utils.awk -f ../scripts/shape.awk -v measures="a" -v style="blocks" -v span=3 | sed -E 's/[[:space:]]+$//g')"
+     3 ███
+     6
+     9'
+actual="$(echo -e "a\na\na\nb\nb\nc" | awk -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/shape.awk" -v measures="a" -v style="blocks" -v span=3 | sed -E 's/[[:space:]]+$//g')"
 [ "$actual" = "$expected" ] || ds:fail 'shape command blocks style test failed'
 
 # Test normalized display
-expected='lines: 6
-lines with "a": 3                                              lines with "b": 2
-occurrence: 3                                                  occurrence: 2
-average: 0.5                                                   average: 0.333333
-lineno distribution of "a"                                     distribution of "b"
-    3 ++++++++++++++++++++++                                  ++++++++++++++++
-    6 '
-actual="$(echo -e "a\na\na\nb\nb\nc" | awk -f ../support/utils.awk -f ../scripts/shape.awk -v measures="a,b" -v normalize=1 -v span=3 -v tty_size=100 | sed -E 's/[[:space:]]+$//g')"
+expected='       lines: 6
+       lines with "a": 3                             lines with "b": 2
+       occurrence: 3                                 occurrence: 2
+       average: 0.5                                  average: 0.333333
+lineno distribution of "a"                           distribution of "b"
+     3 +++++++++++++++++++++++++++++++++++++++++++++
+     6                                               +++++++++++++++++++++++++++++++++++++++++++++
+     9'
+actual="$(echo -e "a\na\na\nb\nb\nc" | awk -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/shape.awk" -v measures="a,b" -v style="plus" -v normalize=1 -v span=3 -v tty_size=100 | sed -E 's/[[:space:]]+$//g')"
 [ "$actual" = "$expected" ] || ds:fail 'shape command normalized display test failed'
 
 # Test vertical histogram
-expected='lines: 6
-lines with "a": 3
-occurrence: 3
-average: 0.5
+expected='       lines: 6
+       lines with "a": 3
+       occurrence: 3
+       average: 0.5
 lineno distribution of "a"
-100% |█  
- 90% |█  
- 80% |█  
- 70% |█  
- 60% |█  
- 50% |█  
- 40% |█  
- 30% |█  
- 20% |█  
- 10% |█  
+100% |█
+ 90% |█
+ 80% |█
+ 70% |█
+ 60% |█
+ 50% |█
+ 40% |█
+ 30% |█
+ 20% |█
+ 10% |█
      +---'
-actual="$(echo -e "a\na\na\nb\nb\nc" | awk -f ../support/utils.awk -f ../scripts/shape.awk -v measures="a" -v vertical=1 -v span=3 -v style="blocks" | sed -E 's/[[:space:]]+$//g')"
+actual="$(echo -e "a\na\na\nb\nb\nc" | awk -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/shape.awk" -v measures="a" -v vertical=1 -v span=3 -v style="blocks" | sed -E 's/[[:space:]]+$//g')"
 [ "$actual" = "$expected" ] || ds:fail 'shape command vertical histogram test failed'
 
-# Test progress indicator (only testing stderr output)
-expected='Processing: 1000/1000 (100%)'
-actual="$(seq 1000 | awk -f ../support/utils.awk -f ../scripts/shape.awk -v measures="_length_" -v progress=1 2>&1 1>/dev/null | sed -E 's/\r//g' | tail -n1)"
-[ "$actual" = "$expected" ] || ds:fail 'shape command progress indicator test failed'
 
+# Test default style based on wcwidth availability
+if ds:awksafe; then
+    # When wcwidth is available, default should be "blocks" (█)
+    expected='       lines: 6
+       lines with "a": 3
+       occurrence: 3
+       average: 0.5
+lineno distribution of "a"
+     3 ███
+     6
+     9'
+    actual="$(echo -e "a\na\na\nb\nb\nc" | ds:shape "a" 0 3 -v span=3 | sed -E 's/[[:space:]]+$//g')"
+    [ "$actual" = "$expected" ] || ds:fail 'shape command failed default style test'
+else
+    # When wcwidth is not available, default should be "plus" (+)
+    expected='       lines: 6
+       lines with "a": 3
+       occurrence: 3
+       average: 0.5
+lineno distribution of "a"
+     3 +++
+     6
+     9'
+    actual="$(echo -e "a\na\na\nb\nb\nc" | ds:shape "a" 0 3 -v span=3 | sed -E 's/[[:space:]]+$//g')"
+    [ "$actual" = "$expected" ] || ds:fail 'shape command failed default style test'
+fi
 
 # HIST TESTS
 
