@@ -6,66 +6,83 @@
 #     ds:plot [file] [-v options]
 #
 # DESCRIPTION
-#     Create terminal-based plots from columnar data. Supports scatter plots,
-#     line plots, histograms, and heatmaps with customizable styling.
+#     Create terminal-based scatter plots from columnar data. Displays data points
+#     as characters in a terminal grid. Points are represented by style characters
+#     with intensity based on point density at each location. Multiple points at
+#     the same grid location are shown with progressively darker/higher intensity
+#     characters.
+#
+#     NOTE: This command currently supports only scatter plots. Line plots, histograms,
+#     heatmaps, color output, grid lines, and axis labels are not available.
 #
 # OPTIONS
 #     x=N            X-axis column number (default: 1)
 #     y=N            Y-axis column number (default: 2)
-#     type=TYPE      Plot type: scatter, line, hist, heatmap (default: scatter)
 #     width=N        Plot width in characters (default: 80)
 #     height=N       Plot height in characters (default: 24)
-#     header=1       Data has header row
+#     header=1       Data has header row (first row is skipped as column names)
 #     style=STYLE    Plot style: dots, blocks, braille, ascii (default: dots)
-#     color=1        Enable color output
-#     grid=1         Show grid lines
-#     labels=1       Show axis labels
-#     title=STR      Plot title
-#     xlab=STR       X-axis label
-#     ylab=STR       Y-axis label
-#     format=STR     Number format (e.g., "%.2f")
+#     format=STR     Number format for internal processing (e.g., "%.2f")
 #     range=STR      Custom axis range "xmin,xmax,ymin,ymax"
 #
 # STYLES
-#     dots:    • · ⋅     (default)
-#     blocks:  █ ▄ ▀ ░ ▒ ▓
-#     braille: ⠁ ⠂ ⠃ ⠄ ⠅
-#     ascii:   # * + .
+#     dots:    • · ⋅     (default, light to dark)
+#     blocks:  ░ ▒ ▓ █   (shade gradient)
+#     braille: ⠁ ⠂ ⠃ ⠄ ⠅ ⠿ (braille dots pattern)
+#     ascii:   . + #     (simple ASCII)
+#
+# OUTPUT
+#     The plot displays data points mapped to a character grid. After the plot
+#     visualization, statistics are displayed:
+#     - Points: Number of data points plotted
+#     - X range: Minimum and maximum X values
+#     - Y range: Minimum and maximum Y values
+#     - X cardinality: Number of unique X values
+#     - Y cardinality: Number of unique Y values
 #
 # EXAMPLES
-#     # Basic scatter plot
+#     # Basic scatter plot from stdin
 #     $ cat data.csv | ds:plot -v x=1 -v y=2
 #
-#     # Colored line plot with title
-#     $ ds:plot data.csv -v type=line -v color=1 -v title="Sales Trend"
+#     # Plot with custom dimensions
+#     $ ds:plot data.csv -v width=60 -v height=20
 #
-#     # Heatmap with custom range
-#     $ ds:plot data.csv -v type=heatmap -v range="0,100,0,50"
+#     # Plot with blocks style
+#     $ ds:plot data.csv -v style=blocks
+#
+#     # Plot with custom axis range
+#     $ ds:plot data.csv -v range="0,100,0,50"
 #
 
 BEGIN {
     # Initialize parameters
     if (!x) x = 1
     if (!y) y = 2
-    if (!type) type = "scatter"
+    # Only scatter plots are supported
+    type = "scatter"
     if (!style) style = "dots"
     if (!width) width = 80
     if (!height) height = 24
     if (!format) format = "%.2f"
     
     # Validate parameters
-    type = tolower(type)
     style = tolower(style)
-    if (!(type ~ /^(scatter|line|hist|heatmap)$/)) {
-        print "ERROR: Invalid plot type. Use: scatter, line, hist, or heatmap"
+    # Other plot types are not available
+    if (type && type != "scatter" && type != "") {
+        print "ERROR: Only scatter plots are supported"
         exit 1
     }
     
     # Set up plot characters based on style
     setup_plot_chars()
     
-    # Set up color codes if enabled
-    if (color) setup_colors()
+    # Color and other advanced features are disabled
+    color = 0
+    grid = 0
+    labels = 0
+    title = ""
+    xlab = ""
+    ylab = ""
     
     # Initialize data structures
     num_re = "^[[:space:]]*\\$?-?\\$?[0-9]*\\.?[0-9]+[[:space:]]*$"
@@ -121,13 +138,8 @@ END {
     # Calculate plot boundaries
     calculate_boundaries()
     
-    # Draw plot elements
-    if (title) draw_title()
+    # Draw plot elements (title and labels are disabled)
     draw_plot()
-    if (labels) {
-        draw_x_axis()
-        draw_y_axis()
-    }
     print_stats()
 }
 
@@ -174,12 +186,12 @@ function normalize_value(val) {
 
 function store_value(dim, val) {
     if (!MaxSet[dim]) {
-        Max[dim] = val
-        Min[dim] = val
+        PlotMax[dim] = val
+        PlotMin[dim] = val
         MaxSet[dim] = 1
     } else {
-        if (val < Min[dim]) Min[dim] = val
-        if (val > Max[dim]) Max[dim] = val
+        if (val < PlotMin[dim]) PlotMin[dim] = val
+        if (val > PlotMax[dim]) PlotMax[dim] = val
     }
     Values[dim, val]++
     Cardinality[dim]++
@@ -192,12 +204,12 @@ function calculate_boundaries() {
     } else {
         # Add small padding to ranges
         padding = 0.05
-        range_x = Max["x"] - Min["x"]
-        range_y = Max["y"] - Min["y"]
-        PlotMinX = Min["x"] - range_x * padding
-        PlotMaxX = Max["x"] + range_x * padding
-        PlotMinY = Min["y"] - range_y * padding
-        PlotMaxY = Max["y"] + range_y * padding
+        range_x = PlotMax["x"] - PlotMin["x"]
+        range_y = PlotMax["y"] - PlotMin["y"]
+        PlotMinX = PlotMin["x"] - range_x * padding
+        PlotMaxX = PlotMax["x"] + range_x * padding
+        PlotMinY = PlotMin["y"] - range_y * padding
+        PlotMaxY = PlotMax["y"] + range_y * padding
     }
 }
 
@@ -298,8 +310,8 @@ function draw_y_axis() {
 function print_stats() {
     printf "\nStatistics:\n"
     printf "Points: %d\n", NumPoints
-    printf "X range: [%g, %g]\n", Min["x"], Max["x"]
-    printf "Y range: [%g, %g]\n", Min["y"], Max["y"]
+    printf "X range: [%g, %g]\n", PlotMin["x"], PlotMax["x"]
+    printf "Y range: [%g, %g]\n", PlotMin["y"], PlotMax["y"]
     printf "X cardinality: %d\n", Cardinality["x"]
     printf "Y cardinality: %d\n", Cardinality["y"]
 }
