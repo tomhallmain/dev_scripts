@@ -14,15 +14,12 @@
 #    - Smart caching of repository information
 #
 # 2. Branch Analysis:
-#    - Shows current branch status
-#    - Tracks ahead/behind status with remote
-#    - Identifies stale and orphaned branches
-#    - Detects unmerged changes
+#    - Shows all, current branch and status for each repository
+#    - Detects untracked changes (when -s flag is used)
 #
 # 3. Display Options:
 #    - Table view with column alignment
-#    - Compact mode for large numbers of repos
-#    - JSON/YAML output for scripting
+#    - Automatic staggered multi-row header (1-4 rows) based on terminal width and repo count
 #    - Color-coded status indicators
 #
 # 4. Branch Filtering:
@@ -38,27 +35,29 @@
 #    - Fast repository detection
 #
 # Options:
-#   -a    Include repositories with only default branches
-#   -d    Deep search for repositories
-#   -e    Exclude branches matching pattern
-#   -i    Include only branches matching pattern
-#   -p    Enable parallel processing
-#   -t    Output format (table, json, yaml)
-#   -h    Show this help message
+#   -a    Run for all local repos found (implies -D, -m)
+#   -b    Run for a custom base directory filepath arg
+#   -D    Deep search for all repos in base directory
+#   -e    Exclude branches matching pattern (can be used multiple times)
+#   -f    Run find using fd if installed (implies -D)
+#   -h    Print this help
+#   -i    Include branches matching pattern (can be used multiple times)
+#   -m    Include repos found with only default branches
+#   -o    Override repos to run with filepath args
+#   -p    Process repositories in parallel
+#   -s    Mark repos and branches with untracked changes
+#   -v    Run in verbose mode
+#   -C    Cache time in seconds, or 'off' to disable (default: disabled, no caching)
+#   -x    Exclude repositories matching pattern (can be used multiple times)
 #
 # Example Usage:
 #   ./local_branch_view.sh                    # Basic view
-#   ./local_branch_view.sh -d                 # Deep search
+#   ./local_branch_view.sh -D                 # Deep search
 #   ./local_branch_view.sh -e '^(main|dev)$'  # Exclude main/dev branches
-#   ./local_branch_view.sh -t json            # JSON output
 #   ./local_branch_view.sh -p ~/projects      # Parallel search in directory
 #
 # Status Indicators:
-#   ✓  Up to date with remote
-#   ↑  Ahead of remote (number of commits)
-#   ↓  Behind remote (number of commits)
-#   ⚠  Unmerged changes
-#   ⚡  No remote tracking
+#   - Red repo name: Repository has untracked changes (when -s flag is used)
 #
 # Cache Location:
 #   ${XDG_CACHE_HOME:-$HOME/.cache}/local_branch_view
@@ -80,9 +79,8 @@
 # - Use shallow search for quick results
 # - Enable parallel processing for many repositories
 # - Use caching for repeated queries
-# - Consider using compact view for large outputs
 #
-# Last Updated: 2025-03-04
+# Last Updated: 2025-11-03
 
 set -o pipefail
 echo
@@ -102,7 +100,7 @@ DEFAULT_BRANCH_PATTERNS=(
 lbvHelp() {
     echo "Script to print a view of local git repositories against branches."
     echo
-    echo "Syntax: [-ab:Dfhmo:pst:vC:x:]"
+    echo "Syntax: [-ab:Dfhmo:psvC:x:]"
     echo "-a    Run for all local repos found (implies D, m)"
     echo "-b    Run for a custom base directory filepath arg"
     echo "-D    Deep search for all repos in base directory"
@@ -114,7 +112,8 @@ lbvHelp() {
     echo "-o    Override repos to run with filepath args"
     echo "-p    Process repositories in parallel"
     echo "-s    Mark repos and branches with untracked changes"
-    echo "-t    Output format (table, json, yaml) [default: table]"
+    # TODO: Implement -t option for output format (table, json, yaml)
+    # echo "-t    Output format (table, json, yaml) [default: table]"
     echo "-v    Run in verbose mode"
     echo "-C    Cache time in seconds, or 'off' to disable (default: disabled, no caching)"
     echo "-x    Exclude repositories matching pattern (can be used multiple times)"
@@ -143,7 +142,8 @@ INCLUDE_PATTERNS=()
 # Default: exclude repos starting with a dot (hidden directories)
 EXCLUDE_REPO_PATTERNS=('^\..*')
 
-while getopts ":ab:De:fhi:mo:pst:vC:x:" opt; do
+# TODO: Implement -t option for output format (table, json, yaml)
+while getopts ":ab:De:fhi:mo:psvC:x:" opt; do
     case $opt in
         a)  RUN_ALL_REPOS=true ; DEEP=true ; INCLUDE_DEFAULT_BRANCHES=true ;;
         b)  if [ -z $BASE_DIR ]; then
@@ -169,11 +169,12 @@ while getopts ":ab:De:fhi:mo:pst:vC:x:" opt; do
                 fi ;;
         p)  PARALLEL=true ;;
         s)  DISPLAY_STATUS=true ;;
-        t)  OUTPUT_FORMAT="$OPTARG" ;;
+        # TODO: Implement -t option for output format (table, json, yaml)
+        # t)  OUTPUT_FORMAT="$OPTARG" ;;
         v)  VERBOSE=true ;;
         C)  if [[ "$OPTARG" =~ ^[0-9]+$ ]]; then CACHE_TTL="$OPTARG"; elif [[ "$OPTARG" = "off" ]]; then CACHE_TTL=0; else echo -e "\nInvalid -C value. Use a number (cache time in seconds) or 'off' to disable" >&2; exit 1; fi ;;
         x)  EXCLUDE_REPO_PATTERNS+=("$OPTARG") ;;
-        \?) echo -e "\nInvalid option: -$opt \nValid options include [-ab:De:fhi:mo:pst:vC:x:]" >&2
+        \?) echo -e "\nInvalid option: -$opt \nValid options include [-ab:De:fhi:mo:psvC:x:]" >&2
                 exit 1 ;;
     esac
 done
@@ -302,6 +303,7 @@ get_repo_data() {
         fi
     fi
     
+    # TODO: Implement remote status detection (ahead/behind, stale/orphaned branches, unmerged changes)
     # Get fresh data from local git repository (fast, no remote calls needed)
     if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
         eval "$(git for-each-ref --shell --format='branches+=(%(refname:lstrip=2))' refs/heads/ 2>/dev/null)" || branches=()
@@ -702,6 +704,9 @@ let N_ROWS=1+${#UNIQ_BRANCHES[@]}
 let N_REPOS=${#REPOS[@]}
 let N_ALL_COLS=1+$N_REPOS
 
+
+# Build data into ordered table string
+
 TERMINAL_WIDTH=$( stty size | awk '{print $2}' )
 # Use the same approach as unmodified version: calculate REPO_SPACE first
 let REPO_SPACE=$( rangeBind $TERMINAL_WIDTH between 120 and 170 )
@@ -824,17 +829,60 @@ BRANCH_COL_PLAIN_WIDTH=$(awk -v width=$BRANCH_COL_WIDTH -v sample="$SAMPLE_BRANC
 # Set column width (will be used for most columns, last ones use reduced width)
 COL_WID=$BASE_COL_WID
 
-# Build data into ordered table string
+# Build multi-line staggered header - distribute repos across multiple rows
+# Staggered means: repo 0 in row 0, repo 1 in row 1, repo 2 in row 2, repo 3 in row 0, etc.
+# Automatically set HEADER_ROWS based on terminal width and repo count (max 4 rows)
+# Calculate how many repos can fit in one row based on available space
+# Space available = TERMINAL_WIDTH - BRANCH_COL_PLAIN_WIDTH
+# Each repo needs: expected repo name length (reasonable fixed value) + buffer (2 spaces)
+# Repos per row = available_space / (expected_repo_name_length + buffer)
+let AVAILABLE_SPACE=$TERMINAL_WIDTH-$BRANCH_COL_PLAIN_WIDTH
+# Expected repo name length: use a generous but reasonable fixed value (20 chars)
+# This is more generous than BASE_REPO_STR_LEN which is a theoretical minimum
+let EXPECTED_REPO_NAME_LEN=20
+# Expected space per repo: repo name length + buffer (2 spaces for spacing between repos)
+let EXPECTED_REPO_SPACE=$EXPECTED_REPO_NAME_LEN+2
+# Calculate how many repos can fit in one row
+let REPOS_PER_ROW=$AVAILABLE_SPACE/$EXPECTED_REPO_SPACE
+# Ensure at least 1 repo per row
+[ $REPOS_PER_ROW -lt 1 ] && REPOS_PER_ROW=1
 
+# Calculate number of header rows needed: ceil(N_REPOS / REPOS_PER_ROW), capped at 4
+if [ $N_REPOS -le $REPOS_PER_ROW ]; then
+    HEADER_ROWS=1
+elif [ $N_REPOS -le $((REPOS_PER_ROW * 2)) ]; then
+    HEADER_ROWS=2
+elif [ $N_REPOS -le $((REPOS_PER_ROW * 3)) ]; then
+    HEADER_ROWS=3
+else
+    HEADER_ROWS=4
+fi
+
+# Debug logging for header row determination
+if [ $VERBOSE ]; then
+    echo "DEBUG_HEADER_ROWS: TERMINAL_WIDTH=$TERMINAL_WIDTH" >&2
+    echo "DEBUG_HEADER_ROWS: BRANCH_COL_PLAIN_WIDTH=$BRANCH_COL_PLAIN_WIDTH" >&2
+    echo "DEBUG_HEADER_ROWS: AVAILABLE_SPACE=$AVAILABLE_SPACE" >&2
+    echo "DEBUG_HEADER_ROWS: EXPECTED_REPO_NAME_LEN=$EXPECTED_REPO_NAME_LEN (fixed expected repo name length)" >&2
+    echo "DEBUG_HEADER_ROWS: EXPECTED_REPO_SPACE=$EXPECTED_REPO_SPACE (repo name + 2 space buffer)" >&2
+    echo "DEBUG_HEADER_ROWS: REPOS_PER_ROW=$REPOS_PER_ROW (calculated from available space)" >&2
+    echo "DEBUG_HEADER_ROWS: N_REPOS=$N_REPOS" >&2
+    echo "DEBUG_HEADER_ROWS: Calculated HEADER_ROWS=$HEADER_ROWS" >&2
+fi
+
+# Print repo info in verbose mode
 if [ $VERBOSE ]; then
     [ $BASE_DIR_CASE ] && echo -e "\nBase directory: ${BASE_DIR}"
 
     echo -e "\nRepos included:"
-fi
 
-# Build multi-line staggered header - distribute repos across at most 3 rows
-# Staggered means: repo 0 in row 0, repo 1 in row 1, repo 2 in row 2, repo 3 in row 0, etc.
-let HEADER_ROWS=3
+    for repo in "${REPOS[@]}"; do
+        repo="$(spaceReplace "$repo")"
+        repo_basename="$(basename "$repo")"
+        [ $BASE_DIR_CASE ] && echo "$repo_basename" || echo "$repo"
+    done
+    echo -e "Local branch view as of $(date):\n"
+fi
 
 # Build and print each header row manually (no AWK, manual justification)
 for header_row in $(seq 0 $((HEADER_ROWS - 1))); do
@@ -862,7 +910,7 @@ for header_row in $(seq 0 $((HEADER_ROWS - 1))); do
     # Add repo fields for this row - use modulo to stagger repos across rows
     # Staggered: repo 0->row 0, repo 1->row 1, repo 2->row 2, repo 3->row 0, etc.
     # In staggered header, spacing between repos is 3 * col_width (repo + 2 empty columns)
-    # Track overflow separately for each of the 3 staggered positions (modulo 0, 1, 2)
+    # Track overflow separately for each of the 4 staggered positions (modulo 0, 1, 2, 3)
     overflow_amount=0
     repo_idx=0
     for repo in "${REPOS[@]}"; do
@@ -962,16 +1010,6 @@ done
 # Initialize TABLE_DATA for branch rows (empty, will be built below)
 TABLE_DATA=""
 
-# Print repo info in verbose mode
-if [ $VERBOSE ]; then
-    echo -e "\nRepos included:"
-    for repo in "${REPOS[@]}"; do
-        repo="$(spaceReplace "$repo")"
-        repo_basename="$(basename "$repo")"
-        [ $BASE_DIR_CASE ] && echo "$repo_basename" || echo "$repo"
-    done
-fi
-
 # Start building TABLE_DATA for branch rows (header already printed above)
 
 for branch in ${UNIQ_BRANCHES[@]} ; do
@@ -1018,8 +1056,6 @@ for branch in ${UNIQ_BRANCHES[@]} ; do
 done
 
 # Print table data manually (no AWK) - parse each line and justify manually
-[ $VERBOSE ] && echo -e "Local branch view as of $(date):\n"
-
 # Split TABLE_DATA into lines and process each one
 OLD_IFS_TABLE="$IFS"
 IFS=$'\n'
