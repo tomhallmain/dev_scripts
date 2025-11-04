@@ -33,6 +33,9 @@
 #       escape           Set to 1 to escape all patterns as fixed strings
 #                       Default: 0 (preserve regex patterns)
 #
+#       regex            Set to 1 to explicitly enable regex pattern matching
+#                       Default: 0 (auto-detect based on pattern content)
+#
 #       debug            Set to 1 to enable debug output
 #                       Default: 0
 #
@@ -87,15 +90,41 @@ BEGIN {
     
     # Set up pattern handling
     unescaped_pattern = Unescape(subsep_pattern)
-    subsep_pattern = escape ? Escape(subsep_pattern) : EscapePreserveRegex(subsep_pattern)
+    if (regex) {
+        # Explicitly use pattern as regex - ensure brackets are properly escaped for literal matching
+        # If pattern contains unescaped brackets with | (OR operator), escape the brackets
+        # This handles cases like "[|]" which should become "\[|\]" to match [ OR ]
+        if (subsep_pattern ~ /\|/ && subsep_pattern ~ /\[/ && subsep_pattern ~ /\]/ && subsep_pattern !~ /\\\[/ && subsep_pattern !~ /\\\]/) {
+            # Pattern contains | with unescaped brackets - escape brackets for regex OR pattern
+            gsub(/\[/, "\\[", subsep_pattern)
+            gsub(/\]/, "\\]", subsep_pattern)
+        }
+        if (debug) print "DEBUG: Using regex pattern mode: " subsep_pattern
+    } else if (escape) {
+        # Escape all special characters for literal matching
+        subsep_pattern = Escape(subsep_pattern)
+        if (debug) print "DEBUG: Using escaped literal pattern"
+    } else {
+        # Auto-detect: preserve regex if pattern contains special characters
+        subsep_pattern = EscapePreserveRegex(subsep_pattern)
+        if (debug) print "DEBUG: Auto-detecting pattern type"
+    }
     
     # Configure nomatch handler
     if (length(nomatch_handler) == 0) {
         nomatch_handler = "[[:space:]]+"
         if (debug) print "DEBUG: Using whitespace as nomatch handler"
     } else {
-        nomatch_handler = escape ? Escape(nomatch_handler) : EscapePreserveRegex(nomatch_handler)
-        if (debug) print "DEBUG: Using custom nomatch handler: " nomatch_handler
+        if (regex) {
+            # Use nomatch handler as regex (no escaping)
+            if (debug) print "DEBUG: Using regex nomatch handler"
+        } else if (escape) {
+            nomatch_handler = Escape(nomatch_handler)
+            if (debug) print "DEBUG: Using escaped nomatch handler"
+        } else {
+            nomatch_handler = EscapePreserveRegex(nomatch_handler)
+            if (debug) print "DEBUG: Auto-detecting nomatch handler type"
+        }
     }
     
     # Process field specifications
@@ -143,7 +172,11 @@ function analyze_fields() {
 
 # Analyzes a single field for subseparation
 function analyze_single_field(field_idx) {
-    num_subseps = split($field_idx, SubseparatedLine, subsep_pattern)
+    if (regex) {
+        num_subseps = split_regex($field_idx, SubseparatedLine, subsep_pattern)
+    } else {
+        num_subseps = split($field_idx, SubseparatedLine, subsep_pattern)
+    }
     
     if (num_subseps > 1 && num_subseps > MaxSubseps[field_idx]) {
         if (debug) print "DEBUG: Field " field_idx " has " num_subseps " subfields"
@@ -182,7 +215,11 @@ function process_single_field(field_idx,    last_field, shift, n_subfields, part
 
 # Outputs a subseparated field with proper formatting
 function output_subseparated_field(field_idx, last_field, shift, n_subfields, partitions,    k) {
-    num_subseps = split($field_idx, SubseparatedLine, subsep_pattern)
+    if (regex) {
+        num_subseps = split_regex($field_idx, SubseparatedLine, subsep_pattern)
+    } else {
+        num_subseps = split($field_idx, SubseparatedLine, subsep_pattern)
+    }
     k = 0
     
     for (j = 1; j <= partitions; j++) {
@@ -201,7 +238,11 @@ function output_subseparated_field(field_idx, last_field, shift, n_subfields, pa
 
 # Outputs field using nomatch handler
 function output_nomatch_handler(field_idx, k, outer_subfield, conditional_ofs) {
-    split($field_idx, HandlingLine, nomatch_handler)
+    if (regex) {
+        split_regex($field_idx, HandlingLine, nomatch_handler)
+    } else {
+        split($field_idx, HandlingLine, nomatch_handler)
+    }
     if (outer_subfield) {
         printf "%s%s", Trim(HandlingLine[k]), conditional_ofs
     } else if (retain_pattern) {
@@ -216,6 +257,50 @@ function output_subsep_pattern(k, shift, outer_subfield, conditional_ofs) {
     } else if (retain_pattern) {
         printf "%s%s", unescaped_pattern, OFS
     }
+}
+
+# Splits a string using a regex pattern (when regex mode is enabled)
+function split_regex(str, arr, pattern,    count, start, remaining, match_pos) {
+    count = 0
+    start = 1
+    remaining = str
+    
+    # Handle empty string
+    if (length(str) == 0) {
+        arr[++count] = ""
+        return count
+    }
+    
+    # Use match() to find pattern matches in remaining string
+    while (match(remaining, pattern)) {
+        # Add text before match
+        if (RSTART > 1) {
+            arr[++count] = substr(remaining, 1, RSTART - 1)
+        } else {
+            arr[++count] = ""
+        }
+        
+        # Move past the match
+        remaining = substr(remaining, RSTART + RLENGTH)
+        
+        # If remaining is empty and we matched at the end, add empty final field
+        if (length(remaining) == 0) {
+            arr[++count] = ""
+            break
+        }
+    }
+    
+    # Add remaining text after last match (if any)
+    if (length(remaining) > 0) {
+        arr[++count] = remaining
+    }
+    
+    # If no matches found, return entire string as single field
+    if (count == 0) {
+        arr[++count] = str
+    }
+    
+    return count
 }
 
 # Debug output function with structured logging
