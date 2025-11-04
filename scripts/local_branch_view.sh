@@ -38,6 +38,7 @@
 #   -a    Run for all local repos found (implies -D, -m)
 #   -b    Run for a custom base directory filepath arg
 #   -D    Deep search for all repos in base directory
+#   -d    Run in debug mode (enables debug logging)
 #   -e    Exclude branches matching pattern (can be used multiple times)
 #   -f    Run find using fd if installed (implies -D)
 #   -h    Print this help
@@ -100,10 +101,11 @@ DEFAULT_BRANCH_PATTERNS=(
 lbvHelp() {
     echo "Script to print a view of local git repositories against branches."
     echo
-    echo "Syntax: [-ab:Dfhmo:psvC:x:]"
+    echo "Syntax: [-ab:Ddfhmo:psvC:x:]"
     echo "-a    Run for all local repos found (implies D, m)"
     echo "-b    Run for a custom base directory filepath arg"
     echo "-D    Deep search for all repos in base directory"
+    echo "-d    Run in debug mode (enables debug logging)"
     echo "-e    Exclude branches matching pattern (can be used multiple times)"
     echo "-f    Run find using fd if installed (implies D)"
     echo "-h    Print this help"
@@ -143,7 +145,7 @@ INCLUDE_PATTERNS=()
 EXCLUDE_REPO_PATTERNS=('^\..*')
 
 # TODO: Implement -t option for output format (table, json, yaml)
-while getopts ":ab:De:fhi:mo:psvC:x:" opt; do
+while getopts ":ab:Dde:fhi:mo:psvC:x:" opt; do
     case $opt in
         a)  RUN_ALL_REPOS=true ; DEEP=true ; INCLUDE_DEFAULT_BRANCHES=true ;;
         b)  if [ -z $BASE_DIR ]; then
@@ -154,6 +156,7 @@ while getopts ":ab:De:fhi:mo:psvC:x:" opt; do
                 [ "${BASE_DIR:0:1}" = '~' ] && BASE_DIR="${HOME}${BASE_DIR:1}" ;;
         D)  getoptsGetOptarg $@
                 DEEP=${OPTARG:-true} ;;
+        d)  DEBUG=true ;;
         e)  EXCLUDE_PATTERNS+=("$OPTARG") ;;
         f)  which fd &> /dev/null
                 [ $? = 0 ] && USE_FD=true || echo 'Unable to validate fd command - '\
@@ -174,7 +177,7 @@ while getopts ":ab:De:fhi:mo:psvC:x:" opt; do
         v)  VERBOSE=true ;;
         C)  if [[ "$OPTARG" =~ ^[0-9]+$ ]]; then CACHE_TTL="$OPTARG"; elif [[ "$OPTARG" = "off" ]]; then CACHE_TTL=0; else echo -e "\nInvalid -C value. Use a number (cache time in seconds) or 'off' to disable" >&2; exit 1; fi ;;
         x)  EXCLUDE_REPO_PATTERNS+=("$OPTARG") ;;
-        \?) echo -e "\nInvalid option: -$opt \nValid options include [-ab:De:fhi:mo:psvC:x:]" >&2
+        \?) echo -e "\nInvalid option: -$opt \nValid options include [-ab:Dde:fhi:mo:psvC:x:]" >&2
                 exit 1 ;;
     esac
 done
@@ -191,6 +194,7 @@ if [ $VERBOSE ]; then
     [ $DISPLAY_STATUS ] && echo "Status opt set: Branches with untracked changes will be marked in red if color supported"
     [ $INCLUDE_DEFAULT_BRANCHES ] && echo "Default branch opt set: Repos with only default branches will be included"
     [ $PARALLEL ] && echo "Parallel opt set: Processing repositories in parallel"
+    [ $DEBUG ] && echo "Debug opt set: Debug logging enabled"
 fi
 
 # Initialize variables
@@ -222,6 +226,9 @@ OLD_IFS="$IFS"
 CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/local_branch_view"
 mkdir -p "$CACHE_DIR"
 SKIP_REPOS_FILE="$CACHE_DIR/.skip_repos"
+
+# Debug flag for first repo only
+DEBUG_FIRST_REPO=""
 
 # Load skip repos from file if it exists
 if [ -f "$SKIP_REPOS_FILE" ]; then
@@ -274,6 +281,29 @@ should_exclude_branch() {
         fi
     done
     return 1
+}
+
+# Function to check git status and return changed/untracked flags
+check_git_status() {
+    local status_output=$(git status --porcelain 2>/dev/null)
+    local changed=0
+    local untracked_only=0
+    
+    if [ -n "$status_output" ]; then
+        # Check if there are any changed files (not starting with ??)
+        # Changed files include: M (modified), A (added), D (deleted), R (renamed), C (copied), etc.
+        # Format: first char is staged status, second char is unstaged status
+        # Lines starting with ?? are untracked, everything else is a change
+        if echo "$status_output" | grep -qv '^??'; then
+            changed=1
+        fi
+        # Check if there are untracked files (starting with ??)
+        if echo "$status_output" | grep -q '^??'; then
+            untracked_only=1
+        fi
+    fi
+    
+    echo "$changed:$untracked_only"
 }
 
 # Function to get repository branch data
@@ -363,6 +393,10 @@ associateKeyToArray() {
     local key="$1" vals="${@:2}"
     printf -v "$key" %s " ${vals[@]} "
 }
+associateKeyToScalar() {
+    local key="$1" val="$2"
+    printf -v "$key" %s "$val"
+}
 rangeBind() {
     if   (($1 < $3)) ; then echo "$3"
     elif (($1 > $5)) ; then echo "$5"
@@ -420,6 +454,8 @@ if [ "$OVERRIDE_REPOS" ]; then
         if [ -d "$repo/.git" ] || git -C "$repo" rev-parse --git-dir > /dev/null 2>&1; then
             if ! should_exclude_repo "$repo"; then
                 ALL_REPOS+=("$repo")
+                # Capture first repo for debug
+                [ -z "$DEBUG_FIRST_REPO" ] && DEBUG_FIRST_REPO="$repo"
             fi
         fi
     done
@@ -434,18 +470,36 @@ elif [ "$RUN_ALL_REPOS" ] || [ "$DEEP" ]; then
             max_depth="-d $max_depth"
         fi
         while IFS= read -r repo; do
-            [ -n "$repo" ] && ! should_exclude_repo "$repo" && ALL_REPOS+=("$repo")
+            if [ -n "$repo" ] && ! should_exclude_repo "$repo"; then
+                ALL_REPOS+=("$repo")
+                # Capture first repo for debug
+                [ -z "$DEBUG_FIRST_REPO" ] && DEBUG_FIRST_REPO="$repo"
+            fi
         done < <(fd $max_depth -t d -H "^\.git$" "$BASE_DIR" 2>/dev/null | sed 's|/\.git$||' | head -1000)
     else
         # Use find for repository discovery
         max_depth="${DEEP:-3}"
         if [[ "$max_depth" == "true" ]]; then
             while IFS= read -r git_dir; do
-                [ -n "$git_dir" ] && repo="${git_dir%/.git}" && ! should_exclude_repo "$repo" && ALL_REPOS+=("$repo")
+                if [ -n "$git_dir" ]; then
+                    repo="${git_dir%/.git}"
+                    if ! should_exclude_repo "$repo"; then
+                        ALL_REPOS+=("$repo")
+                        # Capture first repo for debug
+                        [ -z "$DEBUG_FIRST_REPO" ] && DEBUG_FIRST_REPO="$repo"
+                    fi
+                fi
             done < <(find "$BASE_DIR" -type d -name .git 2>/dev/null | head -1000)
         else
             while IFS= read -r git_dir; do
-                [ -n "$git_dir" ] && repo="${git_dir%/.git}" && ! should_exclude_repo "$repo" && ALL_REPOS+=("$repo")
+                if [ -n "$git_dir" ]; then
+                    repo="${git_dir%/.git}"
+                    if ! should_exclude_repo "$repo"; then
+                        ALL_REPOS+=("$repo")
+                        # Capture first repo for debug
+                        [ -z "$DEBUG_FIRST_REPO" ] && DEBUG_FIRST_REPO="$repo"
+                    fi
+                fi
             done < <(find "$BASE_DIR" -maxdepth "$max_depth" -type d -name .git 2>/dev/null | head -1000)
         fi
     fi
@@ -455,6 +509,8 @@ elif [ "$BASE_DIR_CASE" ]; then
         if [ -d "$dir" ] && ([ -d "$dir/.git" ] || git -C "$dir" rev-parse --git-dir > /dev/null 2>&1); then
             if ! should_exclude_repo "$dir"; then
                 ALL_REPOS+=("$dir")
+                # Capture first repo for debug
+                [ -z "$DEBUG_FIRST_REPO" ] && DEBUG_FIRST_REPO="$dir"
             fi
         fi
     done
@@ -472,9 +528,9 @@ process_repos() {
         
         # Process results sequentially to maintain sorting
         for line in "${repo_data[@]}"; do
-            # Format: repo:branch1 branch2 branch3:untracked
-            IFS=':' read -r repo branches untracked <<< "$line"
-            process_repo_result "$repo" "$branches" "$untracked"
+            # Format: repo:branch1 branch2 branch3:changed:untracked_only
+            IFS=':' read -r repo branches changed untracked_only <<< "$line"
+            process_repo_result "$repo" "$branches" "$changed" "$untracked_only"
         done
     else
         for repo in "${ALL_REPOS[@]}"; do
@@ -488,19 +544,21 @@ get_repo_info() {
     local repo="$1"
     local spacey_repo=$(spaceReplace "$repo")
     local branches_str=""
-    local untracked=0
+    local changed=0
+    local untracked_only=0
     
     cd "$spacey_repo" 2>/dev/null || return
     
     if branches_str=$(get_repo_data "$repo"); then
         # Pass ALL branches (not filtered) so process_repo_result can determine
         # if repo has only default branches when -m flag is used
-        if [ $DISPLAY_STATUS ] && [ "$(git status --porcelain 2>/dev/null)" ]; then
-            untracked=1
+        if [ $DISPLAY_STATUS ]; then
+            local status_flags=$(check_git_status)
+            IFS=':' read -r changed untracked_only <<< "$status_flags"
         fi
         
-        # Output format: repo:all_branches:untracked (all branches, not filtered)
-        printf '%s:%s:%d\n' "$repo" "$branches_str" "$untracked"
+        # Output format: repo:all_branches:changed:untracked_only (all branches, not filtered)
+        printf '%s:%s:%d:%d\n' "$repo" "$branches_str" "$changed" "$untracked_only"
     fi
 }
 
@@ -508,7 +566,8 @@ get_repo_info() {
 process_repo_result() {
     local repo="$1"
     local branches="$2"
-    local untracked="$3"
+    local changed="$3"
+    local untracked_only="$4"
     
     read -ra all_branches <<< "$branches"
     let all_branch_count=${#all_branches[@]}
@@ -543,9 +602,12 @@ process_repo_result() {
         has_only_default=false
     fi
     
+    # Check if repo has any changes (changed or untracked_only)
+    local has_changes=$((changed || untracked_only))
+    
     # Rest of the existing repo processing logic
-    # Exclude if: no branches at all, OR (not including defaults AND no untracked AND only defaults AND no non-default branches remain after filtering)
-    if [[ $all_branch_count -eq 0 || ( ! $INCLUDE_DEFAULT_BRANCHES && ! $untracked && $has_only_default && $branch_count -eq 0 ) ]]
+    # Exclude if: no branches at all, OR (not including defaults AND no changes AND only defaults AND no non-default branches remain after filtering)
+    if [[ $all_branch_count -eq 0 || ( ! $INCLUDE_DEFAULT_BRANCHES && ! $has_changes && $has_only_default && $branch_count -eq 0 ) ]]
     then
         REPOS=( ${REPOS[@]/%"${repo}"/} )
     else
@@ -557,15 +619,35 @@ process_repo_result() {
         associateKeyToArray $repo_key ${BRANCHES[@]}
         associateKeyToArray $repo_branch_count_key $branch_count
     
-        if [ $untracked = "1" ] ; then
+        if [ $DISPLAY_STATUS ]; then
             active_branch=$(git branch --show-current)
             branch_key_base=$(generateAllowedVarName "$active_branch")
-            branch_untracked_key="${branch_key_base}_untracked_key"
-            repo_untracked_key="${repo_key_base}_untracked_key"
-            repo_branch_untracked_key="${branch_key_base}_${repo_untracked_key}"
-            associateKeyToArray $branch_untracked_key $untracked
-            associateKeyToArray $repo_untracked_key $untracked
-            associateKeyToArray $repo_branch_untracked_key $untracked
+            
+            # Store changed status (highest priority)
+            if [ $changed = "1" ]; then
+                branch_changed_key="${branch_key_base}_changed_key"
+                repo_changed_key="${repo_key_base}_changed_key"
+                repo_branch_changed_key="${branch_key_base}_${repo_changed_key}"
+                if [ $DEBUG ] && [ "$repo" = "$DEBUG_FIRST_REPO" ]; then
+                    echo "DEBUG_KEY_SET (process_repo_result): repo=$repo, active_branch=$active_branch, branch_changed_key=$branch_changed_key, repo_changed_key=$repo_changed_key, repo_branch_changed_key=$repo_branch_changed_key" >&2
+                fi
+                associateKeyToScalar $branch_changed_key $changed
+                associateKeyToScalar $repo_changed_key $changed
+                associateKeyToScalar $repo_branch_changed_key $changed
+            fi
+            
+            # Store untracked_only status (medium priority)
+            if [ $untracked_only = "1" ]; then
+                branch_untracked_only_key="${branch_key_base}_untracked_only_key"
+                repo_untracked_only_key="${repo_key_base}_untracked_only_key"
+                repo_branch_untracked_only_key="${branch_key_base}_${repo_untracked_only_key}"
+                if [ $DEBUG ] && [ "$repo" = "$DEBUG_FIRST_REPO" ]; then
+                    echo "DEBUG_KEY_SET (process_repo_result): repo=$repo, active_branch=$active_branch, branch_untracked_only_key=$branch_untracked_only_key, repo_untracked_only_key=$repo_untracked_only_key, repo_branch_untracked_only_key=$repo_branch_untracked_only_key" >&2
+                fi
+                associateKeyToScalar $branch_untracked_only_key $untracked_only
+                associateKeyToScalar $repo_untracked_only_key $untracked_only
+                associateKeyToScalar $repo_branch_untracked_only_key $untracked_only
+            fi
         fi
     fi
 }
@@ -595,7 +677,13 @@ process_single_repo() {
             BRANCHES=("${all_branches[@]}")
         fi
         
-        [[ $DISPLAY_STATUS && $(git status --porcelain | wc -c | xargs) -gt 0 ]] && untracked=1
+        # Check git status if DISPLAY_STATUS is enabled
+        local changed=0
+        local untracked_only=0
+        if [ $DISPLAY_STATUS ]; then
+            local status_flags=$(check_git_status)
+            IFS=':' read -r changed untracked_only <<< "$status_flags"
+        fi
     fi
 
     let branch_count=${#BRANCHES[@]}
@@ -605,7 +693,7 @@ process_single_repo() {
     # Check if repo should be excluded:
     # - Exclude if no branches at all
     # - Exclude if INCLUDE_DEFAULT_BRANCHES is NOT set AND:
-    #   * No untracked files AND
+    #   * No changes (changed or untracked_only) AND
     #   * No 3rd branch AND
     #   * All branches are only 'master' or 'main' (default branches)
     # - If INCLUDE_DEFAULT_BRANCHES is set, keep repos even if they only have default branches
@@ -628,7 +716,10 @@ process_single_repo() {
         has_only_default=false
     fi
 
-    if [[ $all_branch_count -eq 0 || ( ! $INCLUDE_DEFAULT_BRANCHES && ! $untracked && $has_only_default && $branch_count -eq 0 ) ]]
+    # Check if repo has any changes (changed or untracked_only)
+    local has_changes=$((changed || untracked_only))
+
+    if [[ $all_branch_count -eq 0 || ( ! $INCLUDE_DEFAULT_BRANCHES && ! $has_changes && $has_only_default && $branch_count -eq 0 ) ]]
     then
         REPOS=( ${REPOS[@]/%"${repo}"/} )
     else
@@ -640,19 +731,37 @@ process_single_repo() {
         associateKeyToArray $repo_key ${BRANCHES[@]}
         associateKeyToArray $repo_branch_count_key $branch_count
     
-        if [ $untracked ] ; then
+        if [ $DISPLAY_STATUS ]; then
             active_branch=$(git branch --show-current)
             branch_key_base=$(generateAllowedVarName "$active_branch")
-            branch_untracked_key="${branch_key_base}_untracked_key"
-            repo_untracked_key="${repo_key_base}_untracked_key"
-            repo_branch_untracked_key="${branch_key_base}_${repo_untracked_key}"
-            associateKeyToArray $branch_untracked_key $untracked
-            associateKeyToArray $repo_untracked_key $untracked
-            associateKeyToArray $repo_branch_untracked_key $untracked
+            
+            # Store changed status (highest priority)
+            if [ $changed = "1" ]; then
+                branch_changed_key="${branch_key_base}_changed_key"
+                repo_changed_key="${repo_key_base}_changed_key"
+                repo_branch_changed_key="${branch_key_base}_${repo_changed_key}"
+                if [ $DEBUG ] && [ "$repo" = "$DEBUG_FIRST_REPO" ]; then
+                    echo "DEBUG_KEY_SET (process_single_repo): repo=$repo, active_branch=$active_branch, branch_changed_key=$branch_changed_key, repo_changed_key=$repo_changed_key, repo_branch_changed_key=$repo_branch_changed_key" >&2
+                fi
+                associateKeyToScalar $branch_changed_key $changed
+                associateKeyToScalar $repo_changed_key $changed
+                associateKeyToScalar $repo_branch_changed_key $changed
+            fi
+            
+            # Store untracked_only status (medium priority)
+            if [ $untracked_only = "1" ]; then
+                branch_untracked_only_key="${branch_key_base}_untracked_only_key"
+                repo_untracked_only_key="${repo_key_base}_untracked_only_key"
+                repo_branch_untracked_only_key="${branch_key_base}_${repo_untracked_only_key}"
+                if [ $DEBUG ] && [ "$repo" = "$DEBUG_FIRST_REPO" ]; then
+                    echo "DEBUG_KEY_SET (process_single_repo): repo=$repo, active_branch=$active_branch, branch_untracked_only_key=$branch_untracked_only_key, repo_untracked_only_key=$repo_untracked_only_key, repo_branch_untracked_only_key=$repo_branch_untracked_only_key" >&2
+                fi
+                associateKeyToScalar $branch_untracked_only_key $untracked_only
+                associateKeyToScalar $repo_untracked_only_key $untracked_only
+                associateKeyToScalar $repo_branch_untracked_only_key $untracked_only
+            fi
         fi
     fi
-
-    unset untracked
 }
 
 if [[ -n "$SPIN_PID" && "$SPIN_PID" != "$$" && "$SPIN_PID" != "" ]]; then
@@ -776,8 +885,10 @@ let REDUCED_REPO_STR_LEN=$REDUCED_COL_WID*60/102-1
 # Apply min/max bounds
 BASE_REPO_STR_LEN=$( rangeBind $BASE_REPO_STR_LEN between 4 and $STR_MAX )
 REDUCED_REPO_STR_LEN=$( rangeBind $REDUCED_REPO_STR_LEN between 4 and $STR_MAX )
-# echo "DEBUG_MODIFIED: BASE_REPO_STR_LEN=$BASE_REPO_STR_LEN (from BASE_COL_WID=$BASE_COL_WID)" >&2
-# echo "DEBUG_MODIFIED: REDUCED_REPO_STR_LEN=$REDUCED_REPO_STR_LEN (from REDUCED_COL_WID=$REDUCED_COL_WID)" >&2
+if [ $DEBUG ]; then
+    echo "DEBUG_MODIFIED: BASE_REPO_STR_LEN=$BASE_REPO_STR_LEN (from BASE_COL_WID=$BASE_COL_WID)" >&2
+    echo "DEBUG_MODIFIED: REDUCED_REPO_STR_LEN=$REDUCED_REPO_STR_LEN (from REDUCED_COL_WID=$REDUCED_COL_WID)" >&2
+fi
 
 # Calculate effective column widths for manual justification (header rows only)
 # Use sprintf to determine the actual rendered width of data columns
@@ -822,9 +933,11 @@ BRANCH_COL_PLAIN_WIDTH=$(awk -v width=$BRANCH_COL_WIDTH -v sample="$SAMPLE_BRANC
     }
 ')
 
-# echo "DEBUG_MODIFIED: BASE_COL_EFFECTIVE_WIDTH=$BASE_COL_EFFECTIVE_WIDTH (from BASE_COL_WID=$BASE_COL_WID, sample='$SAMPLE_DATA_VALUE')" >&2
-# echo "DEBUG_MODIFIED: REDUCED_COL_EFFECTIVE_WIDTH=$REDUCED_COL_EFFECTIVE_WIDTH (from REDUCED_COL_WID=$REDUCED_COL_WID)" >&2
-# echo "DEBUG_MODIFIED: BRANCH_COL_PLAIN_WIDTH=$BRANCH_COL_PLAIN_WIDTH" >&2
+if [ $DEBUG ]; then
+    echo "DEBUG_MODIFIED: BASE_COL_EFFECTIVE_WIDTH=$BASE_COL_EFFECTIVE_WIDTH (from BASE_COL_WID=$BASE_COL_WID, sample='$SAMPLE_DATA_VALUE')" >&2
+    echo "DEBUG_MODIFIED: REDUCED_COL_EFFECTIVE_WIDTH=$REDUCED_COL_EFFECTIVE_WIDTH (from REDUCED_COL_WID=$REDUCED_COL_WID)" >&2
+    echo "DEBUG_MODIFIED: BRANCH_COL_PLAIN_WIDTH=$BRANCH_COL_PLAIN_WIDTH" >&2
+fi
 
 # Set column width (will be used for most columns, last ones use reduced width)
 COL_WID=$BASE_COL_WID
@@ -859,7 +972,7 @@ else
 fi
 
 # Debug logging for header row determination
-if [ $VERBOSE ]; then
+if [ $DEBUG ]; then
     echo "DEBUG_HEADER_ROWS: TERMINAL_WIDTH=$TERMINAL_WIDTH" >&2
     echo "DEBUG_HEADER_ROWS: BRANCH_COL_PLAIN_WIDTH=$BRANCH_COL_PLAIN_WIDTH" >&2
     echo "DEBUG_HEADER_ROWS: AVAILABLE_SPACE=$AVAILABLE_SPACE" >&2
@@ -931,9 +1044,22 @@ for header_row in $(seq 0 $((HEADER_ROWS - 1))); do
             repo_display=$(spaceToUnderscore "$repo_basename")
             
             if [ $DISPLAY_STATUS ]; then
-                repo_untracked_key="$(generateAllowedVarName "$repo")_untracked_key"
-                untracked="${!repo_untracked_key}"
-                [ $untracked ] && REPO_COLOR="$RED" || REPO_COLOR="$WHITE"
+                repo_key_base=$(generateAllowedVarName "$repo")
+                repo_changed_key="${repo_key_base}_changed_key"
+                repo_untracked_only_key="${repo_key_base}_untracked_only_key"
+                changed="${!repo_changed_key}"
+                untracked_only="${!repo_untracked_only_key}"
+                if [ $DEBUG ] && [ "$repo" = "$DEBUG_FIRST_REPO" ]; then
+                    echo "DEBUG_KEY_LOOKUP (header): repo=$repo, repo_key_base=$repo_key_base, repo_changed_key=$repo_changed_key, changed=${changed:-empty}, repo_untracked_only_key=$repo_untracked_only_key, untracked_only=${untracked_only:-empty}" >&2
+                fi
+                # Priority: changed (red) > untracked_only (orange/yellow) > default (white)
+                if [ "$changed" = "1" ]; then
+                    REPO_COLOR="$RED"
+                elif [ "$untracked_only" = "1" ]; then
+                    REPO_COLOR="$ORANGE"
+                else
+                    REPO_COLOR="$WHITE"
+                fi
             else
                 REPO_COLOR="$WHITE"
             fi
@@ -1017,15 +1143,26 @@ for branch in ${UNIQ_BRANCHES[@]} ; do
 
     if [ $DISPLAY_STATUS ]; then
         branch_key_base=$(generateAllowedVarName "$branch")
-        branch_untracked_key="${branch_key_base}_untracked_key"
-        untracked="${!branch_untracked_key}"
-        [ $untracked ] && BRANCH_COLOR="$RED"
+        branch_changed_key="${branch_key_base}_changed_key"
+        branch_untracked_only_key="${branch_key_base}_untracked_only_key"
+        changed="${!branch_changed_key}"
+        untracked_only="${!branch_untracked_only_key}"
+        # Note: For branch lookup, we need to check if any repo in REPOS matches DEBUG_FIRST_REPO
+        if [ $DEBUG ] && [ ${#REPOS[@]} -gt 0 ] && [ "${REPOS[0]}" = "$DEBUG_FIRST_REPO" ]; then
+            echo "DEBUG_KEY_LOOKUP (branch): branch=$branch, branch_key_base=$branch_key_base, branch_changed_key=$branch_changed_key, changed=${changed:-empty}, branch_untracked_only_key=$branch_untracked_only_key, untracked_only=${untracked_only:-empty}" >&2
+        fi
+        # Priority: changed (red) > untracked_only (orange/yellow) > master (blue) > default (white)
+        if [ "$changed" = "1" ]; then
+            BRANCH_COLOR="$RED"
+        elif [ "$untracked_only" = "1" ]; then
+            BRANCH_COLOR="$ORANGE"
+        fi
     fi
   
     if [[ ! $BRANCH_COLOR && " ${branch} " =~ " master " ]]; then
         BRANCH_COLOR="$BLUE"
     elif [ ! $BRANCH_COLOR ]; then
-        BRANCH_COLOR="$ORANGE"
+        BRANCH_COLOR="$WHITE"
     fi
 
     TABLE_DATA="${TABLE_DATA}\n${BRANCH_COLOR}${short_branch}${GRAY}"
@@ -1034,10 +1171,22 @@ for branch in ${UNIQ_BRANCHES[@]} ; do
         repo_key_base=$(generateAllowedVarName "$repo")
     
         if [ $DISPLAY_STATUS ]; then
-            repo_untracked_key="${repo_key_base}_untracked_key"
-            repo_branch_untracked_key="${branch_key_base}_${repo_untracked_key}"
-            untracked="${!repo_branch_untracked_key}"
-            [ $untracked ] && INTERSECT_COLOR="$RED"
+            branch_key_base=$(generateAllowedVarName "$branch")
+            repo_changed_key="${repo_key_base}_changed_key"
+            repo_untracked_only_key="${repo_key_base}_untracked_only_key"
+            repo_branch_changed_key="${branch_key_base}_${repo_changed_key}"
+            repo_branch_untracked_only_key="${branch_key_base}_${repo_untracked_only_key}"
+            changed="${!repo_branch_changed_key}"
+            untracked_only="${!repo_branch_untracked_only_key}"
+            if [ $DEBUG ] && [ "$repo" = "$DEBUG_FIRST_REPO" ]; then
+                echo "DEBUG_KEY_LOOKUP (intersection): repo=$repo, branch=$branch, repo_key_base=$repo_key_base, branch_key_base=$branch_key_base, repo_branch_changed_key=$repo_branch_changed_key, changed=${changed:-empty}, repo_branch_untracked_only_key=$repo_branch_untracked_only_key, untracked_only=${untracked_only:-empty}" >&2
+            fi
+            # Priority: changed (red) > untracked_only (orange/yellow) > default (cyan)
+            if [ "$changed" = "1" ]; then
+                INTERSECT_COLOR="$RED"
+            elif [ "$untracked_only" = "1" ]; then
+                INTERSECT_COLOR="$ORANGE"
+            fi
         fi
         [ $INTERSECT_COLOR ] || INTERSECT_COLOR="$CYAN"
 

@@ -34,6 +34,16 @@
 #    - Organized log directory structure
 #    - Both console and file logging
 #
+# 5. Repository Exclusion:
+#    - Config file support for excluding repositories
+#    - Pattern-based exclusion (supports regex)
+#    - Comments and empty lines supported in config file
+#
+# Skip Repos File:
+#   Create ${XDG_STATE_HOME:-$HOME/.local/state}/git_refresh/.skip_repos to define
+#   repository patterns to exclude. One pattern per line (supports regex).
+#   Lines starting with # are treated as comments and ignored.
+#
 # Example Usage:
 #   ./local_env_refresh.sh                  # Refresh current directory
 #   ./local_env_refresh.sh -ap ~/dev        # Refresh all branches with progress
@@ -83,6 +93,46 @@ LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/git_refresh"
 LOG_FILE="$LOG_DIR/refresh_$(date +%Y%m%d_%H%M%S).log"
 mkdir -p "$LOG_DIR"
 
+# Config file for excluding repositories
+SKIP_REPOS_FILE="$LOG_DIR/.skip_repos"
+
+# Initialize array for skip patterns
+EXCLUDE_REPO_PATTERNS=()
+
+# Load skip repos from config file if it exists
+load_skip_patterns() {
+    if [ -f "$SKIP_REPOS_FILE" ]; then
+        while IFS= read -r skip_pattern || [ -n "$skip_pattern" ]; do
+            # Skip empty lines and comments (lines starting with #)
+            [[ -z "$skip_pattern" || "$skip_pattern" =~ ^[[:space:]]*# ]] && continue
+            # Trim whitespace
+            skip_pattern=$(echo "$skip_pattern" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            [[ -n "$skip_pattern" ]] && EXCLUDE_REPO_PATTERNS+=("$skip_pattern")
+        done < "$SKIP_REPOS_FILE"
+    fi
+}
+
+# Function to check if a repository should be excluded
+should_exclude_repo() {
+    local repo_path="$1"
+    local repo_name="$2"
+    
+    # Check exclude patterns against full path, repo name, and basename
+    for pattern in "${EXCLUDE_REPO_PATTERNS[@]}"; do
+        if [[ "$repo_path" =~ $pattern ]] || \
+           [[ "$repo_name" =~ $pattern ]] || \
+           [[ "$(basename "$repo_path")" =~ $pattern ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Cleanup old log files (keep logs from last 30 days)
+cleanup_old_logs() {
+    find "$LOG_DIR" -name "refresh_*.log" -type f -mtime +30 -delete 2>/dev/null || true
+}
+
 # Operation tracking
 declare -A REPO_STATUS
 declare -A REPO_MESSAGES
@@ -112,11 +162,22 @@ ${BOLD}Options:${NC}
   -h    Show this help message
 
 ${BOLD}Examples:${NC}
-  $(basename "$0") ~/dev           # Refresh repos in ~/dev
+  $(basename "$0") ~/dev          # Refresh repos in ~/dev
   $(basename "$0") -a .           # Refresh all branches in current directory
   $(basename "$0") -f ~/projects  # Force refresh repos in ~/projects
 
 ${ITALIC}${GRAY}Logs are stored in: $LOG_DIR${NC}
+
+${BOLD}Skip Repos Config:${NC}
+  Create $SKIP_REPOS_FILE to define repository patterns to exclude.
+  One pattern per line (supports regex).
+  Lines starting with # are treated as comments and ignored.
+  
+  Example patterns:
+    ^old-project$           # Exact match
+    ^legacy-                # Starts with
+    /node_modules/          # Path contains
+    \\.git$                 # Ends with .git
 EOF
     exit 0
 }
@@ -278,14 +339,28 @@ log "INFO" "Starting refresh in $TARGET_DIR"
 [[ $UPDATE_ALL ]] && log "INFO" "Updating all branches"
 [[ $FORCE ]] && log "WARNING" "Force mode enabled - will reset to remote versions"
 
+# Load skip patterns from config file
+load_skip_patterns
+
 # Find and process git repositories
 while IFS= read -r -d '' repo_path; do
     repo_name=${repo_path#"$TARGET_DIR/"}
     repo_name=${repo_name%/.git}
-    update_repo "$repo_name" "${repo_path%/.git}"
+    repo_full_path="${repo_path%/.git}"
+    
+    # Skip repository if it matches exclude patterns
+    if should_exclude_repo "$repo_full_path" "$repo_name"; then
+        log "INFO" "Skipping $repo_name (matches exclude pattern)"
+        continue
+    fi
+    
+    update_repo "$repo_name" "$repo_full_path"
 done < <(find "$TARGET_DIR" -name .git -type d -print0)
 
 print_summary
+
+# Cleanup old log files
+cleanup_old_logs
 
 # Exit with error if any repos failed
 [[ $FAILED_REPOS -gt 0 ]] && exit 1
