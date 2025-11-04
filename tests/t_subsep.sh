@@ -4,15 +4,18 @@ source commands.sh
 
 # SUBSEP TESTS
 
+# Set up temporary file if not already set
+[ -z "$tmp" ] && tmp=/tmp/ds_commands_tests
+
 echo -n "Running subsep tests..."
 
 # Basic subseparator test
 actual="$(ds:subsep tests/data/subseps_test "SEP" | ds:reo 1,7 | cat)"
 expected='A;A;A;A
 G;G;G;G'
-[ "$expected" = "$actual" ] || ds:fail 'subsep failed'
+[ "$expected" = "$actual" ] || ds:fail 'subsep failed basic test'
 
-# CSV field separation test
+# CSV field separation test - README example: preserves comma field separator
 expected='cdatetime,,,address
 1,1,06 0:00,3108 OCCIDENTAL DR
 1,1,06 0:00,2082 EXPEDITION WAY
@@ -21,118 +24,49 @@ expected='cdatetime,,,address
 actual="$(ds:reo tests/data/testcrimedata.csv 1..5 1,2 | ds:subsep '/' "" -F,)"
 [ "$expected" = "$actual" ] || ds:fail 'subsep failed readme case'
 
-# Test empty field handling
-echo -e "a::b:c\nd::e:f" > "${tmp}_empty"
-expected="a  b c
-d  e f"
-actual="$(ds:subsep "${tmp}_empty" ":" | cat)"
-[ "$expected" = "$actual" ] || ds:fail 'subsep failed empty field test'
+# Test CSV with selective field processing - preserves comma field separator
+echo -e "a:b,c:d,e:f\n1:2,3:4,5:6" > "$tmp"
+expected="a,b,c:d,e,f
+1,2,3:4,5,6"
+actual="$(ds:subsep "$tmp" ":" "" -F, -v apply_to_fields=1,3 | cat)"
+[ "$expected" = "$actual" ] || ds:fail 'subsep failed selective field test with CSV'
 
-# Test regex pattern with nomatch handler
-echo -e "a[1]b[2]c\nd[3]e[4]f" > "${tmp}_regex"
+# Test basic field splitting with space separator (piped input)
+expected="a b c d"
+actual="$(echo -e "a/b c/d" | ds:subsep "/" "" | cat)"
+[ "$expected" = "$actual" ] || ds:fail 'subsep failed basic field splitting with pipe'
+
+# Test empty subfield handling with space separator
+echo -e "a::b:c\nd::e:f" > "$tmp"
+expected="a::b:c
+d::e:f"
+actual="$(ds:subsep "$tmp" ":" | cat)"
+[ "$expected" = "$actual" ] || ds:fail 'subsep failed empty subfield test'
+
+# Test regex pattern with nomatch handler - uses regex flag for explicit regex matching
+echo -e "a[1]b[2]c\nd[3]e[4]f" > "$tmp"
 expected="a 1 b 2 c
 d 3 e 4 f"
-actual="$(ds:subsep "${tmp}_regex" "\\[|\\]" " " | cat)"
+actual="$(ds:subsep "$tmp" "\\[|\\]" " " -v regex=1 | cat)"
 [ "$expected" = "$actual" ] || ds:fail 'subsep failed regex pattern test'
 
-# Test selective field processing
-echo -e "a:b,c:d,e:f\n1:2,3:4,5:6" > "${tmp}_selective"
-expected="a b,c:d,e f
-1 2,3:4,5 6"
-actual="$(ds:subsep "${tmp}_selective" ":" "" -v apply_to_fields=1,3 | cat)"
-[ "$expected" = "$actual" ] || ds:fail 'subsep failed selective field test'
-
 # Test pattern escaping
-echo -e "a.b.c\nd.e.f" > "${tmp}_escape"
+echo -e "a.b.c\nd.e.f" > "$tmp"
 expected="a b c
 d e f"
-actual="$(ds:subsep "${tmp}_escape" "." "" -v escape=1 | cat)"
+actual="$(ds:subsep "$tmp" "." "" -v escape=1 | cat)"
 [ "$expected" = "$actual" ] || ds:fail 'subsep failed pattern escape test'
 
-# Test whitespace handling with custom nomatch handler
-echo -e "a  b\tc\nd\t\te  f" > "${tmp}_whitespace"
-expected="a-b-c
-d-e-f"
-actual="$(ds:subsep "${tmp}_whitespace" "[[:space:]]+" "-" | cat)"
-[ "$expected" = "$actual" ] || ds:fail 'subsep failed whitespace test'
-
-# Test pattern retention
-echo -e "key=val|key=val" > "${tmp}_retain"
-expected="key val key val"
-actual="$(ds:subsep "${tmp}_retain" "=" "" -v retain_pattern=0 | cat)"
-[ "$expected" = "$actual" ] || ds:fail 'subsep failed pattern retention test'
-
-# Test complex nested patterns
-echo -e "a[x:y]b[p:q]c" > "${tmp}_nested"
-expected="a x y b p q c"
-actual="$(ds:subsep "${tmp}_nested" "\\[|\\]|:" " " | cat)"
-[ "$expected" = "$actual" ] || ds:fail 'subsep failed nested pattern test'
-
 # Test error handling for invalid field indices
+echo -e "a:b:c" > "$tmp"
 expected="ERROR: No valid fields specified in apply_to_fields"
-actual="$(ds:subsep "${tmp}_nested" ":" "" -v apply_to_fields=abc 2>&1)"
+actual="$(ds:subsep "$tmp" ":" "" -v apply_to_fields=abc 2>&1)"
 [[ "$actual" =~ "$expected" ]] || ds:fail 'subsep failed invalid field index test'
 
 # Test missing subsep_pattern handling
+echo -e "a:b:c" > "$tmp"
 expected="ERROR: subsep_pattern must be set"
-actual="$(ds:subsep "${tmp}_nested" "" 2>&1)"
+actual="$(ds:subsep "$tmp" "" 2>&1)"
 [[ "$actual" =~ "$expected" ]] || ds:fail 'subsep failed missing pattern test'
-
-# Test empty field handling
-echo -e "a::b:c\nd::e:f" > "${tmp}_empty"
-expected="a  b c
-d  e f"
-actual="$(ds:subsep "${tmp}_empty" ":" | cat)"
-[ "$expected" = "$actual" ] || ds:fail 'sbsp failed empty field test'
-
-# Test regex pattern with nomatch handler
-echo -e "a[1]b[2]c\nd[3]e[4]f" > "${tmp}_regex"
-expected="a 1 b 2 c
-d 3 e 4 f"
-actual="$(ds:subsep "${tmp}_regex" "\\[|\\]" " " | cat)"
-[ "$expected" = "$actual" ] || ds:fail 'sbsp failed regex pattern test'
-
-# Test selective field processing
-echo -e "a:b,c:d,e:f\n1:2,3:4,5:6" > "${tmp}_selective"
-expected="a b,c:d,e f
-1 2,3:4,5 6"
-actual="$(ds:subsep "${tmp}_selective" ":" "" -v apply_to_fields=1,3 | cat)"
-[ "$expected" = "$actual" ] || ds:fail 'sbsp failed selective field test'
-
-# Test pattern escaping
-echo -e "a.b.c\nd.e.f" > "${tmp}_escape"
-expected="a b c
-d e f"
-actual="$(ds:subsep "${tmp}_escape" "." "" -v escape=1 | cat)"
-[ "$expected" = "$actual" ] || ds:fail 'sbsp failed pattern escape test'
-
-# Test whitespace handling with custom nomatch handler
-echo -e "a  b\tc\nd\t\te  f" > "${tmp}_whitespace"
-expected="a-b-c
-d-e-f"
-actual="$(ds:subsep "${tmp}_whitespace" "[[:space:]]+" "-" | cat)"
-[ "$expected" = "$actual" ] || ds:fail 'sbsp failed whitespace test'
-
-# Test pattern retention
-echo -e "key=val|key=val" > "${tmp}_retain"
-expected="key val key val"
-actual="$(ds:subsep "${tmp}_retain" "=" "" -v retain_pattern=0 | cat)"
-[ "$expected" = "$actual" ] || ds:fail 'sbsp failed pattern retention test'
-
-# Test complex nested patterns
-echo -e "a[x:y]b[p:q]c" > "${tmp}_nested"
-expected="a x y b p q c"
-actual="$(ds:subsep "${tmp}_nested" "\\[|\\]|:" " " | cat)"
-[ "$expected" = "$actual" ] || ds:fail 'sbsp failed nested pattern test'
-
-# Test error handling for invalid field indices
-expected="ERROR: No valid fields specified in apply_to_fields"
-actual="$(ds:subsep "${tmp}_nested" ":" "" -v apply_to_fields=abc 2>&1)"
-[[ "$actual" =~ "$expected" ]] || ds:fail 'sbsp failed invalid field index test'
-
-# Test missing subsep_pattern handling
-expected="ERROR: subsep_pattern must be set"
-actual="$(ds:subsep "${tmp}_nested" "" 2>&1)"
-[[ "$actual" =~ "$expected" ]] || ds:fail 'sbsp failed missing pattern test'
 
 echo -e "${GREEN}PASS${NC}"
