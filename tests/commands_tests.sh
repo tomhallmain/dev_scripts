@@ -52,6 +52,7 @@ $shell tests/t_case.sh
 $shell tests/t_graph.sh
 $shell tests/t_shape.sh
 $shell tests/t_infer.sh         || ds:fail 'WARNING: infer failed so skipping dependent tests'
+$shell tests/t_inferk.sh        || skip_integration=1
 $shell tests/t_join.sh          || skip_integration=1
 $shell tests/t_sort.sh          || skip_integration=1
 $shell tests/t_prefield.sh      || ds:fail 'WARNING: prefield failed so skipping dependent tests'

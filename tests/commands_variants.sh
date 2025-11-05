@@ -66,7 +66,8 @@ case "$tests" in
     fieldrep*|field_replace) _test="field_replace"  ;;
     fit)        _test="fit"       ;;
     graph)      _test="graph"  ;;
-    infer*)     _test="infer"     ;;
+    infer|inf)  _test="infer"     ;;
+    inferk)     _test="inferk"    ;;
     join|jn)    _test="join"    ;;
     newfs)      _test="newfs" ;;
     pivot)      _test="pivot"    ;;
