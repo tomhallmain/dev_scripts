@@ -8,7 +8,7 @@
 #       ds:pivot [-h|--help|file*] y_keys x_keys [z_keys=count_xy] [agg_type] [awkargs]
 #
 # DESCRIPTION
-#      pivot.awk is a scirpt to pivot tabular data.
+#       pivot.awk is a script to pivot tabular data.
 #
 #       To run the script, ensure AWK is installed and in your path (on most Unix-based
 #       systems it should be), and call it on a file with the utils.awk support file:
@@ -154,6 +154,7 @@ BEGIN {
     show_subtotals = show_subtotals ? show_subtotals : 0
     show_running = show_running ? show_running : 0
     show_percentages = show_percentages ? show_percentages : 0
+    placeholder = ""  # Placeholder for empty cells
     
     if (!sort_off) {
         sort = 1
@@ -162,17 +163,18 @@ BEGIN {
     if (!(FS ~ "\\[:.+:\\]")) OFS = FS
   
     if (!x || !y) {
-        print "Missing axis fields"; exit 1 }
+        print "Missing axis fields"; exit 1
+    }
 
-    # Initialize counters for more efficient array usage
+    # Initialize counters for efficient array usage
     x_count = y_count = z_count = 0
     
     len_x = split(x, XKeys, /,+/)
     len_y = split(y, YKeys, /,+/)
 
-    # Process axis keys more efficiently
-    OptimizedGenKeys("x", XKeys, XK)
-    OptimizedGenKeys("y", YKeys, YK)
+    # Process axis keys
+    ProcessKeys("x", XKeys, XK)
+    ProcessKeys("y", YKeys, YK)
 
     # Setup aggregation type with extended options
     SetupAggregation()
@@ -181,21 +183,24 @@ BEGIN {
         if (z == "_") {
             count_xy = 1
         }
+        else if (z == "0") {
+            use_remaining_fields = 1
+        }
         else {
             len_z = split(z, ZKeys, /,+/)
-            OptimizedGenKeys("z", ZKeys, ZK)
+            ProcessKeys("z", ZKeys, ZK)
         }
     }
     else { 
-        gen_z = 1 
+        use_remaining_fields = 1 
     }
 
     if (transform || transform_expr) {
         if (transform && "norm" ~ "^"transform) {
-            n = 1
+            use_normalization = 1
         }
         else if (transform_expr) {
-            trx = 1
+            use_transform_expr = 1
         }
     }
 
@@ -212,7 +217,7 @@ header_unset {
     if (length(GenKey) > 0) {
         GenKeysFromHeader("x", KeyFound, XKeys, XK, YK, ZK)
         GenKeysFromHeader("y", KeyFound, YKeys, XK, YK, ZK)
-        if (!gen_z) {
+        if (!use_remaining_fields) {
             GenKeysFromHeader("z", KeyFound, ZKeys, XK, YK, ZK)
         }
 
@@ -221,7 +226,7 @@ header_unset {
             error_exit = 1
             exit 1
         }
-        else if (!gen_z && !count_xy && length(ZK) < 1) {
+        else if (!use_remaining_fields && !count_xy && length(ZK) < 1) {
             print "Z dimension fields not found with given key params"
             error_exit = 1
             exit 1
@@ -230,7 +235,7 @@ header_unset {
         header = 1
     }
 
-    if (gen_z) {
+    if (use_remaining_fields) {
         GenZKeys(NF, ZK, ZKeys, XK, YK)
         len_z = length(ZK)
     }
@@ -334,10 +339,16 @@ END {
 
     for (i = 1; i <= x_counter; i++) {
         printf "%s", XIndexed[i]
-        if (show_running) printf "%s%s", OFS, "Running"
-        if (show_percentages) printf "%s%s", OFS, "%"
+        if (show_running) {
+            printf "%s%s", "Running", OFS
+        }
+        if (show_percentages) {
+            printf "%s%s", "%", OFS
+        }
     }
-    if (show_subtotals) printf "%s%s", OFS, "Total"
+    if (show_subtotals) {
+        printf "%s%s", "Total", OFS
+    }
     
     print ""
 
@@ -359,26 +370,33 @@ END {
             
             # Print percentage if requested
             if (show_percentages && Z[x y "_pct"]) 
-                printf "%.1f%%", Z[x y "_pct"]
+                printf "%.1f%%%s", Z[x y "_pct"], OFS
             
-            printf "%s", OFS
+            # printf "%s", OFS
         }
         
         # Print row subtotal if requested
         if (show_subtotals) 
-            printf "%s", Z[y "_subtotal"]
+            printf "%s%s", Z[y "_subtotal"], OFS
         
         print ""
     }
     
     # Print column subtotals if requested
     if (show_subtotals) {
-        printf "%s", "TOTAL"
+        printf "%s%s", "TOTAL", OFS
         for (j = 1; j <= x_counter; j++) {
             x = XIndexed[j]
-            printf "%s%s", OFS, Z["subtotal_" x]
+            printf "%s%s", Z["subtotal_" x], OFS
+            if (show_running) {
+                printf "%s%s", Z["subtotal_" x], OFS
+            }
+            if (show_percentages) {
+                pct = (Z["grand_total"] > 0) ? (Z["subtotal_" x] / Z["grand_total"]) * 100 : 0
+                printf "%.1f%%%s", pct, OFS
+            }
         }
-        printf "%s%s", OFS, Z["grand_total"]
+        printf "%s%s", Z["grand_total"], OFS
         print ""
     }
 }
@@ -445,7 +463,7 @@ function GetN(str) {
     }
 }
 
-function OptimizedGenKeys(dim, keys, key_store,    i, key) {
+function ProcessKeys(dim, keys, key_store,    i, key) {
     for (i = 1; i <= length(keys); i++) {
         key = keys[i]
         if (length(key) == 0) continue
@@ -460,17 +478,26 @@ function OptimizedGenKeys(dim, keys, key_store,    i, key) {
     }
 }
 
-function BuildKeyString(dim, keys, len,    i, result) {
+function BuildKeyString(dim, keys, len,    i, result, field_val) {
     result = ""
     for (i = 1; i <= len; i++) {
         if (GenKey[dim, i] && !KeyFound[dim, i]) continue
-        result = (i == len) ? result keys[i] OFS : result keys[i] "::"
+        field_val = $(keys[i])
+        if (dim == "y") {
+            result = result field_val OFS
+        }
+        else if (dim == "x") {
+            result = (i == len) ? result field_val OFS : result field_val "::"
+        }
+        else {  # dim == "z"
+            result = (i == len) ? result field_val : result field_val "::"
+        }
     }
     return result
 }
 
 function ProcessAggregation(x_str, y_str, z_str,    idx) {
-    idx = x_str SUBSEP y_str
+    idx = x_str y_str  # Use string concatenation like old version
     
     # Skip if we're already below the minimum threshold
     if (min_count && Z[idx "_count"] && Z[idx "_count"] < min_count) return
@@ -488,13 +515,13 @@ function ProcessAggregation(x_str, y_str, z_str,    idx) {
     if (no_agg && !count_xy) {
         Z[idx] = z_str
     }
-    else if (c || count_xy) {
+    else if (agg_count || count_xy) {
         Z[idx] = Z[idx "_count"]
     }
-    else if (s) {
+    else if (agg_sum) {
         Z[idx] = Z[idx "_sum"]
     }
-    else if (p) {
+    else if (agg_product) {
         if (!(idx in Z)) Z[idx] = 1
         Z[idx] *= (z_str + 0)
     }
@@ -505,9 +532,9 @@ function ProcessAggregation(x_str, y_str, z_str,    idx) {
 
 function SetupAggregation() {
     if (agg) {
-        if ("sum" ~ "^"agg) s = 1
-        else if ("count" ~ "^"agg) c = 1
-        else if ("product" ~ "^"agg) p = 1
+        if ("sum" ~ "^"agg) agg_sum = 1
+        else if ("count" ~ "^"agg) agg_count = 1
+        else if ("product" ~ "^"agg) agg_product = 1
         else if ("mean" ~ "^"agg) mean = 1
         else agg = 0
     }
