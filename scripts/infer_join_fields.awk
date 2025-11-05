@@ -287,14 +287,24 @@ function CalcFieldStats(Keys, max_fields) {
         if (Keys[i, "total"]) {
             # Calculate cardinality
             unique_count = 0
-            for (field in Keys[i, "unique"]) unique_count++
+            for (k in Keys) {
+                split(k, parts, SUBSEP)
+                if (parts[1] == i && parts[2] == "unique") {
+                    unique_count++
+                }
+            }
             Keys[i, "cardinality"] = unique_count / Keys[i, "total"]
+            
             
             # Calculate entropy
             entropy = 0
-            for (field in Keys[i, "unique"]) {
-                prob = Keys[i, "unique", field] / Keys[i, "total"]
-                entropy -= prob * log(prob)
+            for (k in Keys) {
+                split(k, parts, SUBSEP)
+                if (parts[1] == i && parts[2] == "unique") {
+                    field = parts[3]
+                    prob = Keys[i, "unique", field] / Keys[i, "total"]
+                    entropy -= prob * log(prob)
+                }
             }
             Keys[i, "entropy"] = entropy
             
@@ -330,6 +340,19 @@ function CalcSims(Keys1, Keys2) {
             score += base_sim
             weight_sum += 1
             
+            # Calculate value specificity (for all fields, not just high cardinality)
+            avg_len1 = Keys1[k, "len"] / (Keys1[k, "total"] + 0)
+            avg_len2 = Keys2[l, "len"] / (Keys2[l, "total"] + 0)
+            specificity_simple = ((avg_len1 <= 2 && avg_len2 > 4) || (avg_len1 > 4 && avg_len2 <= 2))
+            specificity_complex = (avg_len1 > 3 && avg_len2 > 3)
+            if (specificity_complex) {
+                specificity_ratio = min(avg_len1, avg_len2) / max(avg_len1, avg_len2)
+                specificity_bonus = (avg_len1 + avg_len2) / 2
+            } else {
+                specificity_ratio = 0
+                specificity_bonus = 0
+            }
+            
             # Cardinality similarity
             if (Keys1[k, "cardinality"] >= min_cardinality_ratio && 
                 Keys2[l, "cardinality"] >= min_cardinality_ratio) {
@@ -340,35 +363,68 @@ function CalcSims(Keys1, Keys2) {
             
             # Entropy similarity
             if (Keys1[k, "entropy"] && Keys2[l, "entropy"]) {
-                entropy_sim = 1 - abs(Keys1[k, "entropy"] - Keys2[l, "entropy"]) / 
-                             max(Keys1[k, "entropy"], Keys2[l, "entropy"])
+                max_entropy = max(Keys1[k, "entropy"], Keys2[l, "entropy"])
+                entropy_sim = 1 - abs(Keys1[k, "entropy"] - Keys2[l, "entropy"]) / max_entropy
                 if (entropy_sim >= min_entropy_similarity) {
                     score += entropy_sim * entropy_weight
                     weight_sum += entropy_weight
                 }
             }
             
+            # Type mismatch penalty - check if value sets have incompatible types
+            # If one column has numeric values and the other has non-numeric, they can't match
+            # Use the actual numeric count vs pattern matches, not total (which is inflated by cross-product)
+            count1 = Keys1[k, "count"] + 0
+            count2 = Keys2[l, "count"] + 0
+            i1 = Keys1[k, "i"] + 0
+            d1 = Keys1[k, "d"] + 0
+            i2 = Keys2[l, "i"] + 0
+            d2 = Keys2[l, "d"] + 0
+            a1 = Keys1[k, "a"] + 0
+            a2 = Keys2[l, "a"] + 0
+            
+            # A column is numeric if it has numeric pattern matches AND numeric count
+            # A column is non-numeric if it has alpha pattern matches but NO numeric count
+            is_numeric1 = (count1 > 0 && (i1 > 0 || d1 > 0))
+            is_numeric2 = (count2 > 0 && (i2 > 0 || d2 > 0))
+            is_non_numeric1 = (count1 == 0 && a1 > 0 && i1 == 0 && d1 == 0)
+            is_non_numeric2 = (count2 == 0 && a2 > 0 && i2 == 0 && d2 == 0)
+            
+            # Penalize if one is clearly numeric and the other is clearly non-numeric
+            type_mismatch = ((is_numeric1 && is_non_numeric2) || (is_non_numeric1 && is_numeric2))
+            
+            
             # Numeric distribution similarity
             if (Keys1[k, "count"] && Keys2[l, "count"]) {
                 # Range overlap
-                range_overlap = min(Keys1[k, "max"], Keys2[l, "max"]) - 
-                               max(Keys1[k, "min"], Keys2[l, "min"])
-                range_total = max(Keys1[k, "max"], Keys2[l, "max"]) - 
-                             min(Keys1[k, "min"], Keys2[l, "min"])
+                min_max = min(Keys1[k, "max"], Keys2[l, "max"])
+                max_min = max(Keys1[k, "min"], Keys2[l, "min"])
+                range_overlap = min_max - max_min
+                max_max = max(Keys1[k, "max"], Keys2[l, "max"])
+                min_min = min(Keys1[k, "min"], Keys2[l, "min"])
+                range_total = max_max - min_min
                 
                 if (range_total > 0) {
-                    range_sim = range_overlap / range_total
-                    score += range_sim * numeric_weight
-                    weight_sum += numeric_weight
+                    # Note: no-overlap penalty is applied after normalization
+                    if (range_overlap > 0) {
+                        range_sim = range_overlap / range_total
+                        # For overlapping ranges, lower similarity = higher penalty
+                        range_penalty = (1 - range_sim) * numeric_weight
+                        score += range_penalty
+                        weight_sum += numeric_weight
+                    }
                 }
                 
                 # Distribution similarity using mean and stddev
-                if ("stddev" in Keys1[k] && "stddev" in Keys2[l]) {
-                    mean_sim = 1 - abs(Keys1[k, "mean"] - Keys2[l, "mean"]) / 
-                              max(abs(Keys1[k, "mean"]), abs(Keys2[l, "mean"]))
-                    stddev_sim = 1 - abs(Keys1[k, "stddev"] - Keys2[l, "stddev"]) / 
-                                max(Keys1[k, "stddev"], Keys2[l, "stddev"])
-                    score += (mean_sim + stddev_sim) * numeric_weight
+                if (Keys1[k, "stddev"] && Keys2[l, "stddev"]) {
+                    max_mean = max(abs(Keys1[k, "mean"]), abs(Keys2[l, "mean"]))
+                    mean_sim = 1 - abs(Keys1[k, "mean"] - Keys2[l, "mean"]) / max_mean
+                    max_stddev = max(Keys1[k, "stddev"], Keys2[l, "stddev"])
+                    stddev_sim = 1 - abs(Keys1[k, "stddev"] - Keys2[l, "stddev"]) / max_stddev
+                    # Lower similarity = higher penalty (worse match)
+                    mean_penalty = (1 - mean_sim) * numeric_weight
+                    stddev_penalty = (1 - stddev_sim) * numeric_weight
+                    score += mean_penalty + stddev_penalty
                     weight_sum += numeric_weight * 2
                 }
             }
@@ -398,11 +454,60 @@ function CalcSims(Keys1, Keys2) {
             # Normalize final score by total weight
             scores[k, l] = weight_sum > 0 ? score / weight_sum : score
             
+            # Track if numeric ranges don't overlap (for penalty after normalization)
+            numeric_no_overlap = 0
+            if (Keys1[k, "count"] && Keys2[l, "count"]) {
+                min_max = min(Keys1[k, "max"], Keys2[l, "max"])
+                max_min = max(Keys1[k, "min"], Keys2[l, "min"])
+                if (min_max - max_min <= 0) {
+                    numeric_no_overlap = 1
+                }
+            }
+            
+            # Apply type mismatch penalty after normalization to ensure it dominates
+            if (type_mismatch) {
+                scores[k, l] = scores[k, l] * 1000 + 1000000  # Make it much worse
+            }
+            
+            # Apply numeric no-overlap penalty after normalization
+            if (numeric_no_overlap) {
+                scores[k, l] = scores[k, l] * 100 + 500000  # Heavy penalty for no numeric overlap
+            }
+            
+            # Apply value specificity penalties/bonuses after normalization
+            # Only apply to non-numeric fields (numeric fields have their own distribution logic)
+            is_numeric_field1 = (Keys1[k, "count"] && Keys1[k, "count"] > 0)
+            is_numeric_field2 = (Keys2[l, "count"] && Keys2[l, "count"] > 0)
+            if (!is_numeric_field1 && !is_numeric_field2) {
+                # Both are non-numeric - apply specificity logic
+                if (specificity_simple) {
+                    # One is very simple (single char) and other is complex - penalize mismatch
+                    scores[k, l] = scores[k, l] * 10 + 100000  # Heavy penalty for specificity mismatch
+                } else if (specificity_complex) {
+                    # Both are specific - give strong bonus (reduce score)
+                    bonus = (specificity_bonus * specificity_ratio * 1000)
+                    scores[k, l] = scores[k, l] - bonus  # Subtract bonus (lower is better)
+                    if (scores[k, l] < 0) scores[k, l] = 0  # Don't go negative
+                }
+            }
+            
             if (debug) DebugPrint(4)
         }
     }
     
     if (debug) print "--- end calc sim ---"
+}
+
+function abs(x) {
+    return x < 0 ? -x : x
+}
+
+function min(a, b) {
+    return a < b ? a : b
+}
+
+function max(a, b) {
+    return a > b ? a : b
 }
 
 function DebugPrint(_case) {

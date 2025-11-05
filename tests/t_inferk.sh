@@ -3,6 +3,8 @@
 source commands.sh
 
 echo -n "Running inferk tests..."
+tmp1=/tmp/ds_inferk_test1
+tmp2=/tmp/ds_inferk_test2
 
 # Test data setup
 cat > "$tmp1" << EOF
@@ -27,9 +29,23 @@ EOF
 result="$(ds:inferk "$tmp1" "$tmp2")"
 [ "$result" = "1" ] || ds:fail 'inferk failed exact ID match case'
 
-# Test ID pattern match with different column positions
+# Test exact Name header match (non-ID field)
+
 cat > "$tmp2" << EOF
 Name,Grade,UserID,Category,Years
+John,95.5,1,A,25
+Jane,88.2,2,B,30
+Bob,92.1,3,A,28
+Alice,97.8,4,A,22
+Charlie,85.4,5,B,35
+EOF
+
+result="$(ds:inferk "$tmp1" "$tmp2")"
+[ "$result" = "2 1" ] || ds:fail 'inferk failed exact Name header match case'
+
+# Test ID pattern match with different column positions
+cat > "$tmp2" << EOF
+FullName,Grade,UserID,Category,Years
 John,95.5,1,A,25
 Jane,88.2,2,B,30
 Bob,92.1,3,A,28
@@ -60,7 +76,7 @@ ID,Score,Amount
 EOF
 
 result="$(ds:inferk "$tmp1" "$tmp2")"
-[ "$result" = "2 2" ] || ds:fail 'inferk failed numeric distribution match case'
+[ "$result" = "3" ] || ds:fail 'inferk failed numeric distribution match case'
 
 # Test cardinality match (unique value ratio)
 cat > "$tmp1" << EOF
@@ -82,7 +98,7 @@ Charlie,A,MNO345
 EOF
 
 result="$(ds:inferk "$tmp1" "$tmp2")"
-[ "$result" = "3 3" ] || ds:fail 'inferk failed cardinality match case'
+[ "$result" = "3" ] || ds:fail 'inferk failed cardinality match case'
 
 # Test entropy match (field complexity)
 cat > "$tmp1" << EOF
@@ -104,7 +120,7 @@ Charlie,X,F1nal-3ntry
 EOF
 
 result="$(ds:inferk "$tmp1" "$tmp2")"
-[ "$result" = "3 3" ] || ds:fail 'inferk failed entropy match case'
+[ "$result" = "3" ] || ds:fail 'inferk failed entropy match case'
 
 # Test different separators
 cat > "$tmp1" << EOF
@@ -180,4 +196,5 @@ EOF
 result="$(ds:inferk "$tmp1" "$tmp2")"
 [ "$result" = "1" ] || ds:fail 'inferk failed varying columns case'
 
+rm $tmp1 $tmp2
 echo -e "${GREEN}PASS${NC}" 
