@@ -23,14 +23,14 @@ readlink_dir() {
     if [ ! -e "$target_f" ]; then
         echo "Error: Path '$target_f' does not exist" >&2
         return 1
-    }
+    fi
     
     local dir
     dir="$(dirname "$target_f")"
     if ! cd "$dir" 2>/dev/null; then
         echo "Error: Cannot access directory of '$target_f'" >&2
         return 1
-    }
+    fi
     
     pwd -P || {
         echo "Error: Cannot resolve physical path" >&2
@@ -55,7 +55,7 @@ ds:verify() {
     if [[ ! "$shell_type" =~ ^(zsh|bash)$ ]]; then
         echo "Error: Invalid shell type '$shell_type'" >&2
         return 1
-    }
+    fi
     
     local cmds_heads="@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE"
     local tmp="tests/data/ds_setup_tmp"
@@ -187,7 +187,7 @@ fi
 
 if [ -f /bin/bash ]; then
     bazh=0
-    [ -f ~/.bashrc ] && grep -q "dev_script/commands.sh" ~/.bashrc && bashrc_set=0
+    [ -f ~/.bashrc ] && grep -q "dev_scripts/commands.sh" ~/.bashrc && bashrc_set=0
     if [ "$bashrc_set" ]; then
         bashrc_preset=0
     else
@@ -228,7 +228,7 @@ echo 'Installing...'
 [ -f ~/.bashrc ] && grep -q "DS_LOC/commands.sh" ~/.bashrc && bashrc_set=0
 [ "$bazh" ] && [ ! "$bashrc_set" ] && bash_install_issue=0
 
-if [[ "$zzsh" && ! "$zsh_set" ]]; then
+if [[ "$zzsh" && ! "$zshrc_set" ]]; then
     [ -f ~/.zshrc ] && grep -q "DS_LOC/commands.sh" ~/.zshrc && zshrc_set=0
     [ "$zzsh" ] && [ ! "$zshrc_set" ] && zsh_install_issue=0
 fi
