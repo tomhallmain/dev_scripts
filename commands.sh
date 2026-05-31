@@ -1519,7 +1519,7 @@ ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [c
     ds:file_check "$1"
     local file="$(ds:fd_check "$1")" reparse="${2:-f}" custom="${3:-t}" file_ext="${4:-true}" hc="${5:-f}"
 
-    if [ "$file_ext" = true ]; then
+    if ds:test '^t(rue)?$' "$file_ext"; then
         IFS=$'\t' read -r dirpath filename extension <<< "$(ds:path_elements "$file")"
         if [ "$extension" ]; then
             [ ".csv" = "$extension" ] && echo ',' && return

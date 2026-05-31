@@ -498,7 +498,9 @@ function OutputResult(    k, scaled_var, scaled_var_frac, winner_unsure) {
     }
 
     if (!winning_s) {
-        print CommonFS["s"]
+        # TODO: verify downstream integration (prefield, uniq, sort, join, etc.) still valid
+        # after defaulting to [[:space:]]+ instead of literal space when no separator is inferred
+        print CommonFS["w"]
         exit 0
     }
 
