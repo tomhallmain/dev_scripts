@@ -9,7 +9,7 @@
 # DESCRIPTION
 #     Analyzes a text data file to determine the most likely field separator based on:
 #     1. Common field separators (space, tab, comma, etc.)
-#     2. Custom separators up to 3 characters long
+#     2. Custom separators up to max_custom_sep_len characters long
 #     3. Pattern consistency across rows
 #     4. Quoted field handling
 #
@@ -17,6 +17,7 @@
 #     -v custom=true|false    Enable custom separator detection (default: true)
 #     -v debug=true|false    Enable debug output (default: false)
 #     -v max_rows=N          Maximum rows to analyze (default: 500)
+#     -v max_custom_sep_len=N  Max custom separator length (default: 4)
 #     -v high_certainty=true|false  Require high confidence (default: false)
 #
 # ALGORITHM
@@ -33,7 +34,7 @@
 # LIMITATIONS
 #     - Cannot infer newline as separator
 #     - Custom separators cannot contain alphanumeric characters
-#     - Maximum 3 characters for custom separators
+#     - Maximum max_custom_sep_len characters for custom separators (default: 4)
 #
 # EXAMPLES
 #     # Basic usage
@@ -73,6 +74,7 @@ function InitCommonSeparators() {
 
 function InitConfig() {
     max_rows = max_rows ? max_rows : 500
+    max_custom_sep_len = max_custom_sep_len ? max_custom_sep_len : 4
     custom = length(custom)
     high_certainty = high_certainty ? high_certainty : 0
     debug = debug ? debug : 0
@@ -86,9 +88,7 @@ function InitConfig() {
 }
 
 function InitCaches() {
-    split("", CharFSCount)
-    split("", TwoCharFSCount)
-    split("", ThrCharFSCount)
+    split("", CustomFSCount)
     split("", CustomFS)
     split("", Q)
     split("", QFRe)
@@ -146,39 +146,36 @@ function ProcessFirstRow() {
     }
 }
 
-function ProcessNonwordChars(nonword,    Chars, j, char, prevchar, twoprevchar, twochar, thrchar) {
+function HasHighByte(str,    i) {
+    for (i = 1; i <= length(str); i++)
+        if (substr(str, i, 1) >= "\200") return 1
+    return 0
+}
+
+function ProcessNonwordChars(nonword,    Chars, j, len, start, sep, nf) {
     if (debug) print nonword, length(nonword)
+
+    if (HasHighByte(nonword)) {
+        sep = "\\" nonword
+        if (!IsExcludedCustomSep(sep)) {
+            nf = split($0, chartest, sep)
+            if (debug) DebugPrint(18)
+            if (nf > 1) CustomFSCount[sep] = nf
+        }
+        return
+    }
+
     split(nonword, Chars, "")
 
     for (j in Chars) {
-        char = "\\" Chars[j]
+        for (len = 1; len <= max_custom_sep_len && len <= j; len++) {
+            start = j - len + 1
+            sep = EscapedChars(Chars, start, j)
+            if (IsExcludedCustomSep(sep)) continue
 
-        if (!(char ~ /[[:space:]\|;:,]/)) {
-            char_nf = split($0, chartest, char)
-            if (debug) DebugPrint(1)
-            if (char_nf > 1) CharFSCount[char] = char_nf
-        }
-
-        if (j > 1) {
-            prevchar = "\\" Chars[j-1]
-            twochar = prevchar char
-            twochar_nf = split($0, twochartest, twochar)
-
-            if (debug) DebugPrint(2)
-
-            if (twochar_nf > 1) {
-                TwoCharFSCount[twochar] = twochar_nf
-            }
-        }
-
-        if (j > 2) {
-            twoprevchar = "\\" Chars[j-2]
-            thrchar = twoprevchar prevchar char
-            thrchar_nf = split($0, thrchartest, thrchar)
-
-            if (debug) DebugPrint(3)
-
-            if (thrchar_nf > 1) ThrCharFSCount[thrchar] = thrchar_nf
+            nf = split($0, chartest, sep)
+            if (debug) DebugPrint(18)
+            if (nf > 1) CustomFSCount[sep] = nf
         }
     }
 }
@@ -189,31 +186,27 @@ function ProcessSecondRow() {
     ValidateCustomSeparators()
 }
 
-function ValidateCustomSeparators(    i, Chars, j, char, prevchar, twoprevchar, twochar, thrchar, char_nf, twochar_nf, thrchar_nf) {
+function ValidateCustomSeparators(    i, Chars, j, len, start, sep, nf, nonword) {
     for (i in Nonwords) {
-        split(Nonwords[i], Chars, "")
+        nonword = Nonwords[i]
+
+        if (HasHighByte(nonword)) {
+            sep = "\\" nonword
+            nf = split($0, chartest, sep)
+            if (CustomFSCount[sep] == nf)
+                CustomFS[sep] = 1
+            continue
+        }
+
+        split(nonword, Chars, "")
         for (j in Chars) {
-            if (Chars[j]) char = "\\" Chars[j]
+            for (len = 1; len <= max_custom_sep_len && len <= j; len++) {
+                start = j - len + 1
+                sep = EscapedChars(Chars, start, j)
 
-            char_nf = split($0, chartest, char)
-            if (CharFSCount[char] == char_nf)
-                CustomFS[char] = 1
-
-            if (j > 1) {
-                if (Chars[j-1]) prevchar = "\\" Chars[j-1]
-                twochar = prevchar char
-                twochar_nf = split($0, twochartest, twochar)
-                if (TwoCharFSCount[twochar] == twochar_nf)
-                    CustomFS[twochar] = 1
-            }
-
-            if (j > 2) {
-                if (Chars[j-2]) twoprevchar = "\\" Chars[j-2]
-                thrchar = twoprevchar prevchar char
-                thrchar_nf = split($0, thrchartest, thrchar)
-                if (ThrCharFSCount[thrchar] == thrchar_nf) {
-                    CustomFS[thrchar] = 1
-                }
+                nf = split($0, chartest, sep)
+                if (CustomFSCount[sep] == nf)
+                    CustomFS[sep] = 1
             }
         }
     }
@@ -249,7 +242,7 @@ function CountFields(fs, s,    nf, qf_line) {
     if (!Q[s]) Q[s] = GetFieldsQuote($0, FixedStringFS[s] fs)
 
     if (Q[s]) {
-        if (!QFRe[s]) QFRe[s] = QuotedFieldsRe(fs, Q[s])
+        if (!QFRe[s]) QFRe[s] = QuotedFieldsRe(LiteralSepForQuotes(s, fs), Q[s])
         nf = 0
         qf_line = $0
 
@@ -414,21 +407,8 @@ function ResolveNoVarTies() {
             fs1 = NoVar[s]
             fs2 = NoVar[compare_s]
 
-            fs1re = ""
-            fs2re = ""
-            split(fs1, Tmp, "")
-
-            for (i = 1; i <= length(Tmp); i++) {
-                char = Tmp[i]
-                fs1re = (char == "\\" || char == "\|") ? fs1re "\\" char : fs1re char
-            }
-
-            split(fs2, Tmp, "")
-
-            for (i = 1; i <= length(Tmp); i++) {
-                char = Tmp[i]
-                fs2re = (char == "\\" || char == "\|") ? fs2re "\\" char : fs2re char
-            }
+            fs1re = EscapeForRegexMatch(fs1)
+            fs2re = EscapeForRegexMatch(fs2)
 
             if (debug) DebugPrint(12)
 
@@ -455,10 +435,19 @@ function ResolveNoVarTies() {
     }
 }
 
+function EscapeForRegexMatch(fs,    re, i, char) {
+    re = ""
+    for (i = 1; i <= length(fs); i++) {
+        char = substr(fs, i, 1)
+        re = (char == "\\" || char == "|") ? re "\\" char : re char
+    }
+    return re
+}
+
 function OutputResult(    k, scaled_var, scaled_var_frac, winner_unsure) {
     if (max_chunk_sep && !length(NoVar)) {
         if (debug) print "No zero var seps and sectional novar sep exists, override with sep "max_chunk_sep
-        print CommonFS[max_chunk_sep]
+        print FormatOutputFS(CommonFS[max_chunk_sep])
         exit
     }
 
@@ -481,13 +470,26 @@ function OutputResult(    k, scaled_var, scaled_var_frac, winner_unsure) {
         exit 0
     }
 
-    if (Winners[winning_s] ~ /(\\ )*\\,(\\ )+/) {
-        print ","
-    } else {
-        print Winners[winning_s]
-    }
+    print FormatOutputFS(Winners[winning_s])
 
     exit 0
+}
+
+function LiteralSepForQuotes(s, fs) {
+    if (FixedStringFS[s] != "") return FixedStringFS[s] fs
+    return fs
+}
+
+function FormatOutputFS(winner,    k) {
+    if (winner ~ /(\\ )*\\,(\\ )+/) return ","
+
+    k = CommonFSKeyForSep(winner)
+    if (k == "o") return ","
+    if (k && FixedStringFS[k] != "" && CommonFS[k] !~ /^\[/)
+        return FixedStringFS[k] CommonFS[k]
+    if (k && CommonFS[k] ~ /^\[/) return CommonFS[k]
+
+    return winner
 }
 
 function CommonFSKeyForSep(fs,   i, s, bare) {
@@ -500,6 +502,17 @@ function CommonFSKeyForSep(fs,   i, s, bare) {
             return s
     }
     return ""
+}
+
+function EscapedChars(Chars, start, end,    s, k) {
+    s = ""
+    for (k = start; k <= end; k++)
+        s = s "\\" Chars[k]
+    return s
+}
+
+function IsExcludedCustomSep(sep) {
+    return (length(sep) == 2 && sep ~ /\\[[:space:]\|;:,]/)
 }
 
 function QuotedFieldsRe(sep, q) {
@@ -555,5 +568,7 @@ function DebugPrint(_case) {
         print "Sectional override set for sep \""s"\" at nf "nf" with weight "chunk_weight" composite "chunk_weight_composite
     } else if (_case == 17) {
         print "NoVar tie resolved to common FS key \""winning_s"\" = \""CommonFS[winning_s]"\""
+    } else if (_case == 18) {
+        print "custom sep len " len ": " sep, nf
     }
 }

@@ -4,6 +4,9 @@ source commands.sh
 
 # IFS TESTS
 
+[ -z "$tmp" ] && tmp=/tmp/ds_commands_tests
+[ -z "$tmp1" ] && tmp1=/tmp/ds_infer_test1
+
 echo -n "Running inferfs and inferh tests..."
 
 [ "$(ds:inferfs tests/data/infer_join_fields_test1.csv)" = ',' ] \
