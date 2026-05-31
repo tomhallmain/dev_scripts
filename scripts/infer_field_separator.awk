@@ -163,7 +163,7 @@ function ProcessNonwordChars(nonword,    Chars, j, len, start, sep, nf) {
         sep = "\\" nonword
         if (!IsExcludedCustomSep(sep)) {
             nf = split($0, chartest, sep)
-            if (debug) DebugPrint(18)
+            if (debug) DebugPrint(18, len, sep, nf)
             if (nf > 1) CustomFSCount[sep] = nf
         }
         return
@@ -178,7 +178,7 @@ function ProcessNonwordChars(nonword,    Chars, j, len, start, sep, nf) {
             if (IsExcludedCustomSep(sep)) continue
 
             nf = split($0, chartest, sep)
-            if (debug) DebugPrint(18)
+            if (debug) DebugPrint(18, len, sep, nf)
             if (nf > 1) CustomFSCount[sep] = nf
         }
     }
@@ -257,7 +257,7 @@ function CountFields(fs, s,    nf, qf_line) {
         while (length(qf_line)) {
             match(qf_line, QFRe[s])
 
-            if (debug2) DebugPrint(15)
+            if (debug2) DebugPrint(15, s, qf_line)
 
             if (RSTART) {
                 nf++
@@ -273,7 +273,7 @@ function CountFields(fs, s,    nf, qf_line) {
         nf = split($0, _, fs)
     }
 
-    if (debug2) DebugPrint(4)
+    if (debug2) DebugPrint(4, s, fs, nf)
 
     return nf
 }
@@ -308,7 +308,7 @@ function CalculateScores() {
         CalculateSeparatorScore(CommonFSOrder[i])
     }
 
-    if (debug && length(CustomFS)) print " ---- custom sep variance calcs ----"
+    if (debug && length(CustomFSCandidates)) print " ---- custom sep variance calcs ----"
 
     if (custom) {
         for (fs in CustomFSCandidates) {
@@ -340,7 +340,7 @@ function CalculateSeparatorScore(s,    average_nf, nf_chunks, NFChunks, nf_i, nf
                 max_chunk_weight = chunk_weight_composite
             }
 
-            if (debug) DebugPrint(16)
+            if (debug) DebugPrint(16, s, nf, chunk_weight, chunk_weight_composite)
 
             if (chunk_weight_composite >= max_chunk_weight) {
                 max_chunk_sep = s
@@ -348,7 +348,7 @@ function CalculateSeparatorScore(s,    average_nf, nf_chunks, NFChunks, nf_i, nf
         }
     }
 
-    if (debug) DebugPrint(5)
+    if (debug) DebugPrint(5, s, average_nf)
     if (average_nf < 2 && !SectionalOverride[s]) return
 
     for (j = 1; j <= max_rows; j++) {
@@ -358,25 +358,25 @@ function CalculateSeparatorScore(s,    average_nf, nf_chunks, NFChunks, nf_i, nf
 
     FSVar[s] = SumVar[s] / max_rows
 
-    if (debug) DebugPrint(6)
+    if (debug) DebugPrint(6, s)
 
     if (FSVar[s] == 0) {
         NoVar[s] = CommonFS[s]
         winning_s = s
         Winners[s] = CommonFS[s]
-        if (debug) DebugPrint(7)
+        if (debug) DebugPrint(7, s)
     }
     else if (!winning_s || FSVar[s] < FSVar[winning_s]) {
         winning_s = s
         Winners[s] = CommonFS[s]
-        if (debug) DebugPrint(8)
+        if (debug) DebugPrint(8, s)
     }
 }
 
 function CalculateCustomScore(s,    average_nf, j, point_var) {
     average_nf = CustomFSTotal[s] / max_rows
 
-    if (debug) DebugPrint(5)
+    if (debug) DebugPrint(5, s, average_nf)
     if (average_nf < 2) return
 
     for (j = 3; j <= max_rows; j++) {
@@ -386,18 +386,18 @@ function CalculateCustomScore(s,    average_nf, j, point_var) {
 
     FSVar[s] = SumVar[s] / max_rows
 
-    if (debug) DebugPrint(6)
+    if (debug) DebugPrint(6, s)
 
     if (FSVar[s] == 0) {
         NoVar[s] = s
         winning_s = s
         Winners[s] = s
-        if (debug) DebugPrint(10)
+        if (debug) DebugPrint(10, s)
     }
     else if (!winning_s || FSVar[s] < FSVar[winning_s]) {
         winning_s = s
         Winners[s] = s
-        if (debug) DebugPrint(11)
+        if (debug) DebugPrint(11, s)
     }
 }
 
@@ -418,7 +418,7 @@ function ResolveNoVarTies() {
             fs1re = EscapeForRegexMatch(fs1)
             fs2re = EscapeForRegexMatch(fs2)
 
-            if (debug) DebugPrint(12)
+            if (debug) DebugPrint(12, s, compare_s, fs1, fs2)
 
             if (fs1 ~ fs2re || fs2 ~ fs1re) {
                 k1 = CommonFSKeyForSep(fs1)
@@ -431,16 +431,28 @@ function ResolveNoVarTies() {
                 else if (length(Winners[winning_s]) < length(fs2) &&
                         length(fs1) < length(fs2)) {
                     winning_s = compare_s
-                    if (debug) DebugPrint(13)
+                    if (debug) DebugPrint(13, s, compare_s)
                 }
                 else if (length(Winners[winning_s]) < length(fs1) &&
                         length(fs1) > length(fs2)) {
                     winning_s = s
-                    if (debug) DebugPrint(14)
+                    if (debug) DebugPrint(14, s, compare_s)
                 }
             }
         }
     }
+
+    PreferWhitespaceRegexWinner()
+}
+
+function PreferWhitespaceRegexWinner() {
+    # Only break ties among whitespace patterns (s/w/2w), not vs comma, tab, custom, etc.
+    if (!NoVar["w"]) return
+    if (!NoVar["2w"] && !NoVar["s"]) return
+
+    winning_s = "w"
+    Winners["w"] = CommonFS["w"]
+    if (debug) print "Whitespace tie-break: prefer \"w\" = \"" CommonFS["w"] "\""
 }
 
 function EscapeForRegexMatch(fs,    re, i, char) {
@@ -548,47 +560,42 @@ function GetFieldsQuote(line, sep) {
     if (match(line, sq_sep_re)) return sq
 }
 
-function DebugPrint(_case) {
-    if (_case == 1) {
-        print "char: " char, char_nf
-    } else if (_case == 2) {
-        print "twochar: " twochar, twochar_nf
-    } else if (_case == 3) {
-        print "thrchar: " thrchar, thrchar_nf
-    } else if (_case == 4) {
-        print "NR: "NR", s: \""s"\", fs: \""fs"\", nf: "nf
-        if (Q[s]) print "Q[s]: "Q[s]", QFRe[s]: "QFRe[s]
+function DebugPrint(_case, a, b, c, d) {
+    if (_case == 4) {
+        print "NR: " NR ", s: \"" a "\", fs: \"" b "\", nf: " c
+        if (Q[a]) print "Q[s]: " Q[a] ", QFRe[s]: " QFRe[a]
     } else if (_case == 5) {
-        printf "%s", s " average nf: " average_nf
-        print (average_nf >= 2 ? ", will calc var" : "")
+        printf "%s", a " average nf: " b
+        print (b >= 2 ? ", will calc var" : "")
     } else if (_case == 6) {
-        print "sep: "s" FSVar: " FSVar[s]
+        print "sep: " a " FSVar: " FSVar[a]
     } else if (_case == 7) {
-        print "NoVar winning_s set to CommonFS[\""s"\"] = \""CommonFS[s]"\""
+        print "NoVar winning_s set to CommonFS[\"" a "\"] = \"" CommonFS[a] "\""
     } else if (_case == 8) {
-        print "winning_s set to CommonFS[\""s"\"] = \""CommonFS[s]"\""
+        print "winning_s set to CommonFS[\"" a "\"] = \"" CommonFS[a] "\""
     } else if (_case == 10) {
-        print "NoVar winning_s set to CustomFS \""s"\""
+        print "NoVar winning_s set to CustomFS \"" a "\""
     } else if (_case == 11) {
-        print "NoVar winning_s set to CustomFS \""s"\""
+        print "winning_s set to CustomFS \"" a "\""
     } else if (_case == 12) {
         print " ---- NoVar handling case ----"
-        print "s: \""s"\", fs1: \""fs1"\""
-        print "compare_s: \""compare_s"\", fs2: \""fs2"\""
-        print "matches:", fs1 ~ fs2
-        print "len winner: "length(Winners[s])", len fs1: "length(fs1)", len fs2: "length(fs2)
+        print "s: \"" a "\", fs1: \"" c "\""
+        print "compare_s: \"" b "\", fs2: \"" d "\""
+        print "matches:", c ~ EscapeForRegexMatch(d) || d ~ EscapeForRegexMatch(c)
+        print "len winner: " length(Winners[winning_s]) ", len fs1: " length(c) ", len fs2: " length(d)
     } else if (_case == 13) {
-        print "s: \""s"\", compare_s: \""compare_s"\", winning_s switched to: \""compare_s"\""
+        print "s: \"" a "\", compare_s: \"" b "\", winning_s switched to: \"" b "\""
     } else if (_case == 14) {
-        print "compare_s: \""compare_s"\", s: \""s"\", winning_s switched to: \""s"\""
+        print "compare_s: \"" b "\", s: \"" a "\", winning_s switched to: \"" a "\""
     } else if (_case == 15) {
-        print s, Q[s], RSTART, RLENGTH
-        print qf_line
+        print a, Q[a], RSTART, RLENGTH
+        print b
     } else if (_case == 16) {
-        print "Sectional override set for sep \""s"\" at nf "nf" with weight "chunk_weight" composite "chunk_weight_composite
+        print "Sectional override set for sep \"" a "\" at nf " b \
+            " with weight " c " composite " d
     } else if (_case == 17) {
-        print "NoVar tie resolved to common FS key \""winning_s"\" = \""CommonFS[winning_s]"\""
+        print "NoVar tie resolved to common FS key \"" winning_s "\" = \"" CommonFS[winning_s] "\""
     } else if (_case == 18) {
-        print "custom sep len " len ": " sep, nf
+        print "custom sep len " a ": " b ", nf: " c
     }
 }
