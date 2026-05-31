@@ -471,7 +471,7 @@ ds:embrace() { # ** Enclose a string on each side by args: ds:embrace [str] [lef
  }
 
 ds:filename_str() { # Add string to filename, preserving path: ds:filename_str file str [prepend|append|replace] [abs_path=t]
-    IFS=$'\t' read -r dirpath filename extension <<<"$(ds:path_elements "$1")"
+    IFS=$'\t' read -r dirpath filename extension <<< "$(ds:path_elements "$1")"
     [ ! -d "$dirpath" ] && echo 'Filepath given is invalid' && return 1
     if [ "$dirpath" = "./" ]
     then
@@ -1520,7 +1520,7 @@ ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [c
     local file="$(ds:fd_check "$1")" reparse="${2:-f}" custom="${3:-t}" file_ext="${4:-true}" hc="${5:-f}"
 
     if [ "$file_ext" = true ]; then
-        IFS=$'\t' read -r dirpath filename extension <<<$"(ds:path_elements "$file")"
+        IFS=$'\t' read -r dirpath filename extension <<< "$(ds:path_elements "$file")"
         if [ "$extension" ]; then
             [ ".csv" = "$extension" ] && echo ',' && return
             [ ".tsv" = "$extension" ] && echo "\t" && return
@@ -2683,7 +2683,7 @@ ds:gexec() { # Generate script from parts of another and run: ds:gexec run=f src
     [ "$3" ] || ds:fail 'arg 2 must be a match pattern set'
     local src="$(ds:fd_check "$1")" scriptdir="$2" r_args="$3" clean="$4"
     [ "$5" ] && local run_verbose=-x
-    IFS=$'\t' read -r dirpath filename extension <<<"$(ds:path_elements "$src")"
+    IFS=$'\t' read -r dirpath filename extension <<< "$(ds:path_elements "$src")"
     local gscript="$scriptdir/ds_gexec_from_$filename$extension"
 
     ds:reo "$src" "$r_args" 'off' false > "$gscript"

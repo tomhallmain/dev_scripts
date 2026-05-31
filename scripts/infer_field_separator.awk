@@ -53,18 +53,12 @@
 #
 
 BEGIN {
-    # Initialize common field separators with their patterns
     InitCommonSeparators()
-    
-    # Initialize configuration
     InitConfig()
-    
-    # Initialize caches for performance
     InitCaches()
 }
 
 function InitCommonSeparators() {
-    # Common separators ordered by priority
     CommonFSOrder[1] = "s"; CommonFS["s"] = " "; FixedStringFS["s"] = "\\"
     CommonFSOrder[2] = "t"; CommonFS["t"] = "\t"; FixedStringFS["t"] = "\\"
     CommonFSOrder[3] = "p"; CommonFS["p"] = "\|"; FixedStringFS["p"] = "\\"
@@ -73,49 +67,40 @@ function InitCommonSeparators() {
     CommonFSOrder[6] = "o"; CommonFS["o"] = ","; FixedStringFS["o"] = "\\"
     CommonFSOrder[7] = "w"; CommonFS["w"] = "[[:space:]]+"
     CommonFSOrder[8] = "2w"; CommonFS["2w"] = "[[:space:]]{2,}"
-    
+
     n_common = length(CommonFS)
 }
 
 function InitConfig() {
-    # Configuration defaults
     max_rows = max_rows ? max_rows : 500
-    custom = length(custom)  # Convert to boolean
+    custom = length(custom)
     high_certainty = high_certainty ? high_certainty : 0
     debug = debug ? debug : 0
-    
-    # Constants
-    DS_SEP = "@@@"  # Special separator for internal use
-    sq = "\'"       # Single quote
-    dq = "\""      # Double quote
-    
-    # Initialize counters
+
+    DS_SEP = "@@@"
+    sq = "\'"
+    dq = "\""
+
     n_valid_rows = 0
     max_chunk_weight = 0
-    prev_chunk_weight = 0
 }
 
 function InitCaches() {
-    # Pre-allocate arrays for better performance
-    split("", CharFSCount)      # Cache for single-char separators
-    split("", TwoCharFSCount)   # Cache for two-char separators
-    split("", ThrCharFSCount)   # Cache for three-char separators
-    split("", CustomFS)         # Cache for valid custom separators
-    split("", Q)               # Cache for quote types
-    split("", QFRe)           # Cache for quoted field regex
+    split("", CharFSCount)
+    split("", TwoCharFSCount)
+    split("", ThrCharFSCount)
+    split("", CustomFS)
+    split("", Q)
+    split("", QFRe)
 }
 
-# Skip empty lines
 $0 ~ /^ *$/ { next }
 
-# Count valid rows and check limits
-{ 
-    n_valid_rows++ 
-    
-    # Early exit if we've processed enough rows
+{
+    n_valid_rows++
+
     if (n_valid_rows > max_rows) exit
-    
-    # Check for special separator in first few rows
+
     if (n_valid_rows < 10 && $0 ~ DS_SEP) {
         ds_sep = 1
         print DS_SEP
@@ -123,25 +108,19 @@ $0 ~ /^ *$/ { next }
     }
 }
 
-# Custom separator detection in first row
 custom && n_valid_rows == 1 {
     ProcessFirstRow()
 }
 
-# Custom separator validation in second row
 custom && n_valid_rows == 2 {
     ProcessSecondRow()
 }
 
-# Main processing for all rows
 {
-    # Clean input
     gsub(/^[[:space:]]+|[[:space:]]+$/,"",$0)
-    
-    # Process common separators
+
     ProcessCommonSeparators()
-    
-    # Process custom separators after second row
+
     if (custom && n_valid_rows > 2) {
         ProcessCustomSeparators()
     }
@@ -149,60 +128,136 @@ custom && n_valid_rows == 2 {
 
 END {
     if (ds_sep) exit
-    
-    # Adjust max_rows if we didn't get enough data
+
     if (max_rows > n_valid_rows) max_rows = n_valid_rows
-    
-    # Calculate final scores
+
     CalculateScores()
-    
-    # Output the winner
     OutputResult()
 }
 
 function ProcessFirstRow() {
-    # Store first line for later comparison
+    gsub(/^[[:space:]]+|[[:space:]]+$/,"")
+
     Line[NR] = $0
-    
-    # Split into non-word components
     split($0, Nonwords, /[A-z0-9(\^\\)"']+/)
-    
-    # Process potential separators
+
     for (i in Nonwords) {
         ProcessNonwordChars(Nonwords[i])
     }
 }
 
+function ProcessNonwordChars(nonword,    Chars, j, char, prevchar, twoprevchar, twochar, thrchar) {
+    if (debug) print nonword, length(nonword)
+    split(nonword, Chars, "")
+
+    for (j in Chars) {
+        char = "\\" Chars[j]
+
+        if (!(char ~ /[[:space:]\|;:,]/)) {
+            char_nf = split($0, chartest, char)
+            if (debug) DebugPrint(1)
+            if (char_nf > 1) CharFSCount[char] = char_nf
+        }
+
+        if (j > 1) {
+            prevchar = "\\" Chars[j-1]
+            twochar = prevchar char
+            twochar_nf = split($0, twochartest, twochar)
+
+            if (debug) DebugPrint(2)
+
+            if (twochar_nf > 1) {
+                TwoCharFSCount[twochar] = twochar_nf
+            }
+        }
+
+        if (j > 2) {
+            twoprevchar = "\\" Chars[j-2]
+            thrchar = twoprevchar prevchar char
+            thrchar_nf = split($0, thrchartest, thrchar)
+
+            if (debug) DebugPrint(3)
+
+            if (thrchar_nf > 1) ThrCharFSCount[thrchar] = thrchar_nf
+        }
+    }
+}
+
 function ProcessSecondRow() {
+    gsub(/^[[:space:]]+|[[:space:]]+$/,"")
     Line[NR] = $0
     ValidateCustomSeparators()
 }
 
-function ProcessCommonSeparators() {
+function ValidateCustomSeparators(    i, Chars, j, char, prevchar, twoprevchar, twochar, thrchar, char_nf, twochar_nf, thrchar_nf) {
+    for (i in Nonwords) {
+        split(Nonwords[i], Chars, "")
+        for (j in Chars) {
+            if (Chars[j]) char = "\\" Chars[j]
+
+            char_nf = split($0, chartest, char)
+            if (CharFSCount[char] == char_nf)
+                CustomFS[char] = 1
+
+            if (j > 1) {
+                if (Chars[j-1]) prevchar = "\\" Chars[j-1]
+                twochar = prevchar char
+                twochar_nf = split($0, twochartest, twochar)
+                if (TwoCharFSCount[twochar] == twochar_nf)
+                    CustomFS[twochar] = 1
+            }
+
+            if (j > 2) {
+                if (Chars[j-2]) twoprevchar = "\\" Chars[j-2]
+                thrchar = twoprevchar prevchar char
+                thrchar_nf = split($0, thrchartest, thrchar)
+                if (ThrCharFSCount[thrchar] == thrchar_nf) {
+                    CustomFS[thrchar] = 1
+                }
+            }
+        }
+    }
+}
+
+function ProcessCommonSeparators(    s, fs, nf) {
     for (s in CommonFS) {
         fs = CommonFS[s]
-        
-        # Handle quoted fields
         nf = CountFields(fs, s)
-        
-        # Update statistics
         UpdateFieldStats(s, nf)
     }
 }
 
+function ProcessCustomSeparators(    fs, nf, i) {
+    if (n_valid_rows == 3) {
+        for (i = 1; i < 3; i++) {
+            for (fs in CustomFS) {
+                nf = split(Line[i], _, fs)
+                CustomFSCount[fs, NR] = nf
+                CustomFSTotal[fs] += nf
+            }
+        }
+    }
+
+    for (fs in CustomFS) {
+        nf = split($0, _, fs)
+        CustomFSCount[fs, NR] = nf
+        CustomFSTotal[fs] += nf
+    }
+}
+
 function CountFields(fs, s,    nf, qf_line) {
-    # Get quote type if not cached
     if (!Q[s]) Q[s] = GetFieldsQuote($0, FixedStringFS[s] fs)
-    
+
     if (Q[s]) {
-        # Handle quoted fields
         if (!QFRe[s]) QFRe[s] = QuotedFieldsRe(fs, Q[s])
         nf = 0
         qf_line = $0
-        
+
         while (length(qf_line)) {
             match(qf_line, QFRe[s])
-            
+
+            if (debug2) DebugPrint(15)
+
             if (RSTART) {
                 nf++
                 if (RSTART > 1)
@@ -214,46 +269,46 @@ function CountFields(fs, s,    nf, qf_line) {
             }
         }
     } else {
-        # Simple field count
         nf = split($0, _, fs)
     }
-    
+
+    if (debug2) DebugPrint(4)
+
     return nf
 }
 
-function UpdateFieldStats(s, nf) {
-    # Update counts and track consistency
+function UpdateFieldStats(s, nf,    cnf) {
     CommonFSCount[s, NR] = nf
     CommonFSTotal[s] += nf
-    
-    # Track field count consistency
-    if (PrevNF[s] && nf != PrevNF[s] && 
+
+    if (PrevNF[s] && nf != PrevNF[s] &&
         !(CommonFSNFConsecCounts[s, PrevNF[s]] > 2)) {
         delete CommonFSNFConsecCounts[s, PrevNF[s]]
     }
-    
+
     PrevNF[s] = nf
-    
-    # Update field count specifications
-    if (nf >= 2) {
-        cnf = "," nf
-        if (!(CommonFSNFSpec[s] ~ cnf "(,|$)")) {
-            CommonFSNFSpec[s] = CommonFSNFSpec[s] cnf
-        }
-        CommonFSNFConsecCounts[s, nf]++
+
+    if (nf < 2) return
+
+    if (debug) print NR, s, nf, CommonFSNFConsecCounts[s, nf]
+
+    cnf = "," nf
+    if (!(CommonFSNFSpec[s] ~ cnf "(,|$)")) {
+        CommonFSNFSpec[s] = CommonFSNFSpec[s] cnf
     }
+
+    CommonFSNFConsecCounts[s, nf]++
 }
 
 function CalculateScores() {
-    if (debug) print "\n ---- Calculating final scores ----"
-    
-    # Process common separators
+    if (debug) print "\n ---- common sep variance calcs ----"
+
     for (i = 1; i <= n_common; i++) {
-        s = CommonFSOrder[i]
-        CalculateSeparatorScore(s)
+        CalculateSeparatorScore(CommonFSOrder[i])
     }
-    
-    # Process custom separators if enabled
+
+    if (debug && length(CustomFS)) print " ---- custom sep variance calcs ----"
+
     if (custom) {
         for (fs in CustomFS) {
             CalculateCustomScore(fs)
@@ -261,31 +316,205 @@ function CalculateScores() {
     }
 }
 
-function OutputResult() {
-    # Output the winning separator
-    if (high_certainty && !high_confidence) {
-        exit 1
+function CalculateSeparatorScore(s,    average_nf, nf_chunks, NFChunks, nf_i, nf, chunk_weight, chunk_weight_composite, j, point_var) {
+    average_nf = CommonFSTotal[s] / max_rows
+    nf_chunks = CommonFSNFSpec[s]
+
+    if (nf_chunks) {
+        split(nf_chunks, NFChunks, ",")
+
+        for (nf_i in NFChunks) {
+            nf = NFChunks[nf_i]
+            chunk_weight = CommonFSNFConsecCounts[s, nf] / max_rows
+
+            if (chunk_weight < 0.6) {
+                delete CommonFSNFConsecCounts[s, nf]
+                continue
+            }
+
+            SectionalOverride[s] = 1
+            chunk_weight_composite = chunk_weight * nf
+
+            if (!max_chunk_weight) {
+                max_chunk_weight = chunk_weight_composite
+            }
+
+            if (debug) DebugPrint(16)
+
+            if (chunk_weight_composite >= max_chunk_weight) {
+                max_chunk_sep = s
+            }
+        }
     }
-    
-    if (winner) {
-        print winner
-        exit 0
+
+    if (debug) DebugPrint(5)
+    if (average_nf < 2 && !SectionalOverride[s]) return
+
+    for (j = 1; j <= max_rows; j++) {
+        point_var = (CommonFSCount[s, j] - average_nf) ** 2
+        SumVar[s] += point_var
     }
-    
-    exit 1
+
+    FSVar[s] = SumVar[s] / max_rows
+
+    if (debug) DebugPrint(6)
+
+    if (FSVar[s] == 0) {
+        NoVar[s] = CommonFS[s]
+        winning_s = s
+        Winners[s] = CommonFS[s]
+        if (debug) DebugPrint(7)
+    }
+    else if (!winning_s || FSVar[s] < FSVar[winning_s]) {
+        winning_s = s
+        Winners[s] = CommonFS[s]
+        if (debug) DebugPrint(8)
+    }
 }
 
-function QuotedFieldsRe(sep, q) { # TODO: CRLF in fields!!
+function CalculateCustomScore(s,    average_nf, j, point_var) {
+    average_nf = CustomFSTotal[s] / max_rows
+
+    if (debug) DebugPrint(5)
+    if (average_nf < 2) return
+
+    for (j = 3; j <= max_rows; j++) {
+        point_var = (CustomFSCount[s, j] - average_nf) ** 2
+        SumVar[s] += point_var
+    }
+
+    FSVar[s] = SumVar[s] / max_rows
+
+    if (debug) DebugPrint(6)
+
+    if (FSVar[s] == 0) {
+        NoVar[s] = s
+        winning_s = s
+        Winners[s] = s
+        if (debug) DebugPrint(10)
+    }
+    else if (!winning_s || FSVar[s] < FSVar[winning_s]) {
+        winning_s = s
+        Winners[s] = s
+        if (debug) DebugPrint(11)
+    }
+}
+
+function ResolveNoVarTies() {
+    if (length(NoVar) <= 1) return
+
+    if (debug) print ""
+
+    for (s in NoVar) {
+        Seen[s] = 1
+
+        for (compare_s in NoVar) {
+            if (Seen[compare_s]) continue
+
+            fs1 = NoVar[s]
+            fs2 = NoVar[compare_s]
+
+            fs1re = ""
+            fs2re = ""
+            split(fs1, Tmp, "")
+
+            for (i = 1; i <= length(Tmp); i++) {
+                char = Tmp[i]
+                fs1re = (char == "\\" || char == "\|") ? fs1re "\\" char : fs1re char
+            }
+
+            split(fs2, Tmp, "")
+
+            for (i = 1; i <= length(Tmp); i++) {
+                char = Tmp[i]
+                fs2re = (char == "\\" || char == "\|") ? fs2re "\\" char : fs2re char
+            }
+
+            if (debug) DebugPrint(12)
+
+            if (fs1 ~ fs2re || fs2 ~ fs1re) {
+                k1 = CommonFSKeyForSep(fs1)
+                k2 = CommonFSKeyForSep(fs2)
+
+                if (k1 && k1 == k2) {
+                    winning_s = k1
+                    if (debug) DebugPrint(17)
+                }
+                else if (length(Winners[winning_s]) < length(fs2) &&
+                        length(fs1) < length(fs2)) {
+                    winning_s = compare_s
+                    if (debug) DebugPrint(13)
+                }
+                else if (length(Winners[winning_s]) < length(fs1) &&
+                        length(fs1) > length(fs2)) {
+                    winning_s = s
+                    if (debug) DebugPrint(14)
+                }
+            }
+        }
+    }
+}
+
+function OutputResult(    k, scaled_var, scaled_var_frac, winner_unsure) {
+    if (max_chunk_sep && !length(NoVar)) {
+        if (debug) print "No zero var seps and sectional novar sep exists, override with sep "max_chunk_sep
+        print CommonFS[max_chunk_sep]
+        exit
+    }
+
+    ResolveNoVarTies()
+
+    if (winning_s) {
+        k = CommonFSKeyForSep(Winners[winning_s])
+        if (k) winning_s = k
+    }
+
+    if (high_certainty) {
+        scaled_var = FSVar[winning_s] * 10
+        scaled_var_frac = scaled_var - int(scaled_var)
+        winner_unsure = scaled_var_frac != 0
+        if (winner_unsure) exit 1
+    }
+
+    if (!winning_s) {
+        print CommonFS["s"]
+        exit 0
+    }
+
+    if (Winners[winning_s] ~ /(\\ )*\\,(\\ )+/) {
+        print ","
+    } else {
+        print Winners[winning_s]
+    }
+
+    exit 0
+}
+
+function CommonFSKeyForSep(fs,   i, s, bare) {
+    for (i = 1; i <= n_common; i++) {
+        s = CommonFSOrder[i]
+        if (fs == CommonFS[s]) return s
+        bare = substr(fs, 2)
+        if (substr(fs, 1, 1) == "\\" && bare == CommonFS[s] \
+                && length(fs) == length(bare) + 1)
+            return s
+    }
+    return ""
+}
+
+function QuotedFieldsRe(sep, q) {
     qs = q sep; spq = sep q
     exc = "[^"q"]*[^"sep"]*[^"q"]+"
     return "(^"q qs"|"spq qs"|"spq q"$|"q exc qs"|"spq exc qs"|"spq exc q"$)"
 }
+
 function GetFieldsQuote(line, sep) {
     dq_sep_re = QuotedFieldsRe(sep, dq)
     if (match(line, dq_sep_re)) return dq
     sq_sep_re = QuotedFieldsRe(sep, sq)
     if (match(line, sq_sep_re)) return sq
 }
+
 function DebugPrint(_case) {
     if (_case == 1) {
         print "char: " char, char_nf
@@ -324,5 +553,7 @@ function DebugPrint(_case) {
         print qf_line
     } else if (_case == 16) {
         print "Sectional override set for sep \""s"\" at nf "nf" with weight "chunk_weight" composite "chunk_weight_composite
+    } else if (_case == 17) {
+        print "NoVar tie resolved to common FS key \""winning_s"\" = \""CommonFS[winning_s]"\""
     }
 }
