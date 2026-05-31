@@ -89,6 +89,7 @@ function InitConfig() {
 
 function InitCaches() {
     split("", CustomFSCount)
+    split("", CustomFSCandidates)
     split("", CustomFS)
     split("", Q)
     split("", QFRe)
@@ -144,6 +145,9 @@ function ProcessFirstRow() {
     for (i in Nonwords) {
         ProcessNonwordChars(Nonwords[i])
     }
+
+    for (sep in CustomFSCount)
+        CustomFSCandidates[sep] = 1
 }
 
 function HasHighByte(str,    i) {
@@ -193,8 +197,10 @@ function ValidateCustomSeparators(    i, Chars, j, len, start, sep, nf, nonword)
         if (HasHighByte(nonword)) {
             sep = "\\" nonword
             nf = split($0, chartest, sep)
-            if (CustomFSCount[sep] == nf)
+            if (CustomFSCount[sep] == nf) {
                 CustomFS[sep] = 1
+                CustomFSCandidates[sep] = 1
+            }
             continue
         }
 
@@ -205,8 +211,10 @@ function ValidateCustomSeparators(    i, Chars, j, len, start, sep, nf, nonword)
                 sep = EscapedChars(Chars, start, j)
 
                 nf = split($0, chartest, sep)
-                if (CustomFSCount[sep] == nf)
+                if (CustomFSCount[sep] == nf) {
                     CustomFS[sep] = 1
+                    CustomFSCandidates[sep] = 1
+                }
             }
         }
     }
@@ -223,7 +231,7 @@ function ProcessCommonSeparators(    s, fs, nf) {
 function ProcessCustomSeparators(    fs, nf, i) {
     if (n_valid_rows == 3) {
         for (i = 1; i < 3; i++) {
-            for (fs in CustomFS) {
+            for (fs in CustomFSCandidates) {
                 nf = split(Line[i], _, fs)
                 CustomFSCount[fs, NR] = nf
                 CustomFSTotal[fs] += nf
@@ -231,7 +239,7 @@ function ProcessCustomSeparators(    fs, nf, i) {
         }
     }
 
-    for (fs in CustomFS) {
+    for (fs in CustomFSCandidates) {
         nf = split($0, _, fs)
         CustomFSCount[fs, NR] = nf
         CustomFSTotal[fs] += nf
@@ -303,7 +311,7 @@ function CalculateScores() {
     if (debug && length(CustomFS)) print " ---- custom sep variance calcs ----"
 
     if (custom) {
-        for (fs in CustomFS) {
+        for (fs in CustomFSCandidates) {
             CalculateCustomScore(fs)
         }
     }
@@ -444,8 +452,20 @@ function EscapeForRegexMatch(fs,    re, i, char) {
     return re
 }
 
+function NeedsSectionalFallback(    k, avg) {
+    if (!winning_s) return 1
+
+    k = CommonFSKeyForSep(Winners[winning_s])
+    if (k) {
+        avg = CommonFSTotal[k] / max_rows
+        return (avg < 2)
+    }
+
+    return 0
+}
+
 function OutputResult(    k, scaled_var, scaled_var_frac, winner_unsure) {
-    if (max_chunk_sep && !length(NoVar)) {
+    if (max_chunk_sep && !length(NoVar) && NeedsSectionalFallback()) {
         if (debug) print "No zero var seps and sectional novar sep exists, override with sep "max_chunk_sep
         print FormatOutputFS(CommonFS[max_chunk_sep])
         exit
