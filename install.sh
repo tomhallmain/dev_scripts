@@ -24,6 +24,7 @@ readlink_dir() {
         echo "Error: Path '$target_f' does not exist" >&2
         return 1
     fi
+
     
     local dir
     dir="$(dirname "$target_f")"
@@ -31,6 +32,7 @@ readlink_dir() {
         echo "Error: Cannot access directory of '$target_f'" >&2
         return 1
     fi
+
     
     pwd -P || {
         echo "Error: Cannot resolve physical path" >&2

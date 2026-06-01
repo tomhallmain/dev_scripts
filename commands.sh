@@ -471,7 +471,7 @@ ds:embrace() { # ** Enclose a string on each side by args: ds:embrace [str] [lef
  }
 
 ds:filename_str() { # Add string to filename, preserving path: ds:filename_str file str [prepend|append|replace] [abs_path=t]
-    IFS=$'\t' read -r dirpath filename extension <<<"$(ds:path_elements "$1")"
+    IFS=$'\t' read -r dirpath filename extension <<< "$(ds:path_elements "$1")"
     [ ! -d "$dirpath" ] && echo 'Filepath given is invalid' && return 1
     if [ "$dirpath" = "./" ]
     then
@@ -1494,9 +1494,11 @@ ds:inferh() { # Infer if headers present in a file: ds:inferh file [awkargs]
     local args=( "$@" )
     if ds:noawkfs; then
         local fs="$(ds:inferfs "$file" true)"
-        awk ${args[@]} -v FS="$fs" -f "$DS_SCRIPT/infer_headers.awk" "$file" 2>/dev/null
+        LC_ALL=C awk ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/infer_headers.awk" \
+            -v FS="$fs" "$file" 2>/dev/null
     else
-        awk ${args[@]} -f "$DS_SCRIPT/infer_headers.awk" "$file" 2>/dev/null
+        LC_ALL=C awk ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/infer_headers.awk" \
+            "$file" 2>/dev/null
     fi
 }
 
@@ -1519,8 +1521,8 @@ ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [c
     ds:file_check "$1"
     local file="$(ds:fd_check "$1")" reparse="${2:-f}" custom="${3:-t}" file_ext="${4:-true}" hc="${5:-f}"
 
-    if [ "$file_ext" = true ]; then
-        IFS=$'\t' read -r dirpath filename extension <<<$"(ds:path_elements "$file")"
+    if ds:test '^t(rue)?$' "$file_ext"; then
+        IFS=$'\t' read -r dirpath filename extension <<< "$(ds:path_elements "$file")"
         if [ "$extension" ]; then
             [ ".csv" = "$extension" ] && echo ',' && return
             [ ".tsv" = "$extension" ] && echo "\t" && return
@@ -1532,11 +1534,13 @@ ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [c
     ds:test '^t(rue)?$' "$hc" || hc=""
 
     if [ "$reparse" = true ]; then
-        awk -f "$DS_SCRIPT/infer_field_separator.awk" -v high_certainty="$hc" \
-            -v custom="$custom" "$file" 2>/dev/null | sed 's/\\/\\\\\\/g'
+        LC_ALL=C awk -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/infer_field_separator.awk" \
+            -v high_certainty="$hc" -v custom="$custom" "$file" 2>/dev/null \
+            | sed 's/\\/\\\\\\/g'
     else
-        awk -f "$DS_SCRIPT/infer_field_separator.awk" -v high_certainty="$hc" \
-            -v custom="$custom" "$file" 2>/dev/null; fi
+        LC_ALL=C awk -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/infer_field_separator.awk" \
+            -v high_certainty="$hc" -v custom="$custom" "$file" 2>/dev/null
+    fi
 }
 
 ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*] [prefield=t] [awkargs]
@@ -2683,7 +2687,7 @@ ds:gexec() { # Generate script from parts of another and run: ds:gexec run=f src
     [ "$3" ] || ds:fail 'arg 2 must be a match pattern set'
     local src="$(ds:fd_check "$1")" scriptdir="$2" r_args="$3" clean="$4"
     [ "$5" ] && local run_verbose=-x
-    IFS=$'\t' read -r dirpath filename extension <<<"$(ds:path_elements "$src")"
+    IFS=$'\t' read -r dirpath filename extension <<< "$(ds:path_elements "$src")"
     local gscript="$scriptdir/ds_gexec_from_$filename$extension"
 
     ds:reo "$src" "$r_args" 'off' false > "$gscript"

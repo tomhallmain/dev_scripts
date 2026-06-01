@@ -2,9 +2,10 @@
 
 source commands.sh
 
+[ -z "$tmp1" ] && tmp1=/tmp/ds_inferk_test1
+[ -z "$tmp2" ] && tmp2=/tmp/ds_inferk_test2
+
 echo -n "Running inferk tests..."
-tmp1=/tmp/ds_inferk_test1
-tmp2=/tmp/ds_inferk_test2
 
 # Test data setup
 cat > "$tmp1" << EOF
