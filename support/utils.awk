@@ -225,4 +225,68 @@ function S(A,i,j,t) {
     t = ___[i]; ___[i] = ___[j]; ___[j] = t
 }
 
+# Quote-aware field splitting (shared with infer_headers.awk / infer_field_separator.awk)
+function QuotedFieldsRe(sep, q) {
+    qs = q sep; spq = sep q
+    exc = "[^"q"]*[^"sep"]*[^"q"]+"
+    return "(^"q qs"|"spq qs"|"spq q"$|"q exc qs"|"spq exc qs"|"spq exc q"$)"
+}
+
+function GetFieldsQuote(line, sep) {
+    if (match(line, QuotedFieldsRe(sep, "\""))) return "\""
+    if (match(line, QuotedFieldsRe(sep, "'"))) return "'"
+}
+
+function LiteralSepForFs(fs) {
+    if (fs ~ /^\[/) return fs
+    if (substr(fs, 1, 1) == "\\") return fs
+    if (fs == ",") return "\\,"
+    if (length(fs) == 1) return "\\" fs
+    return fs
+}
+
+function LiteralSepForQuotes(fsprefix, fs) {
+    if (fsprefix != "") return fsprefix fs
+    return LiteralSepForFs(fs)
+}
+
+function DequoteField(field, q) {
+    if (length(field) >= 2 && substr(field, 1, 1) == q && substr(field, length(field), 1) == q)
+        return substr(field, 2, length(field) - 2)
+    return field
+}
+
+function SplitQuotedFields(line, fs, fields,    parts, np, q, litsep, qre, qf_line, i, n, tmp) {
+    for (i in fields) delete fields[i]
+    if (fs ~ /^\[/ || line !~ /["']/) {
+        return split(line, fields, fs)
+    }
+
+    litsep = LiteralSepForFs(fs)
+    q = GetFieldsQuote(line, litsep)
+    if (!q) return split(line, fields, fs)
+
+    qre = QuotedFieldsRe(litsep, q)
+    np = 0
+    qf_line = line
+
+    while (length(qf_line)) {
+        match(qf_line, qre)
+        if (RSTART) {
+            if (RSTART > 1) {
+                n = split(substr(qf_line, 1, RSTART - 1), tmp, fs)
+                for (i = 1; i <= n; i++) parts[++np] = tmp[i]
+            }
+            parts[++np] = DequoteField(substr(qf_line, RSTART, RLENGTH), q)
+            qf_line = substr(qf_line, RSTART + RLENGTH)
+        } else {
+            n = split(qf_line, tmp, fs)
+            for (i = 1; i <= n; i++) parts[++np] = tmp[i]
+            break
+        }
+    }
+
+    for (i = 1; i <= np; i++) fields[i] = parts[i]
+    return np
+}
 

@@ -1494,9 +1494,11 @@ ds:inferh() { # Infer if headers present in a file: ds:inferh file [awkargs]
     local args=( "$@" )
     if ds:noawkfs; then
         local fs="$(ds:inferfs "$file" true)"
-        awk ${args[@]} -v FS="$fs" -f "$DS_SCRIPT/infer_headers.awk" "$file" 2>/dev/null
+        LC_ALL=C awk ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/infer_headers.awk" \
+            -v FS="$fs" "$file" 2>/dev/null
     else
-        awk ${args[@]} -f "$DS_SCRIPT/infer_headers.awk" "$file" 2>/dev/null
+        LC_ALL=C awk ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/infer_headers.awk" \
+            "$file" 2>/dev/null
     fi
 }
 
@@ -1532,11 +1534,13 @@ ds:inferfs() { # Infer field separator from data: ds:inferfs file [reparse=f] [c
     ds:test '^t(rue)?$' "$hc" || hc=""
 
     if [ "$reparse" = true ]; then
-        awk -f "$DS_SCRIPT/infer_field_separator.awk" -v high_certainty="$hc" \
-            -v custom="$custom" "$file" 2>/dev/null | sed 's/\\/\\\\\\/g'
+        LC_ALL=C awk -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/infer_field_separator.awk" \
+            -v high_certainty="$hc" -v custom="$custom" "$file" 2>/dev/null \
+            | sed 's/\\/\\\\\\/g'
     else
-        awk -f "$DS_SCRIPT/infer_field_separator.awk" -v high_certainty="$hc" \
-            -v custom="$custom" "$file" 2>/dev/null; fi
+        LC_ALL=C awk -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/infer_field_separator.awk" \
+            -v high_certainty="$hc" -v custom="$custom" "$file" 2>/dev/null
+    fi
 }
 
 ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*] [prefield=t] [awkargs]

@@ -11,6 +11,10 @@
 #     patterns and characteristics with subsequent rows. Returns exit code 0 if headers
 #     are detected, 1 otherwise.
 #
+#     Intended to run via ds:inferh with FS set to the inferred (or explicit) field
+#     separator. When quotes appear in the input, fields are split with the same
+#     quote-aware logic as infer_field_separator.awk (see support/utils.awk).
+#
 # OPTIONS
 #     -v trim=true|false     Trim whitespace from fields before analysis (default: true)
 #     -v debug=true|false    Enable debug output (default: false)
@@ -39,7 +43,7 @@
 #     Original script enhanced with documentation and features
 #
 # VERSION
-#     1.0.0
+#     1.1.0
 #
 
 BEGIN {
@@ -49,13 +53,15 @@ BEGIN {
 }
 
 NR == 1 {
-    if (NF < 2) headerScore -= 100  # Penalize single column files
+    RowNF = SplitQuotedFields($0, FS, Fields)
+
+    if (RowNF < 2) headerScore -= 100  # Penalize single column files
 
     # Evaluate first row field values
-    for (i = 1; i <= NF; i++) {
-        field = trim == "true" ? TrimField($i) : $i
+    for (i = 1; i <= RowNF; i++) {
+        field = trim ? TrimField(Fields[i]) : Fields[i]
         BuildFirstRowScore(field, i)
-        
+
         # Additional header heuristics
         if (IsLikelyHeader(field)) headerScore += 20
     }
@@ -64,10 +70,12 @@ NR == 1 {
 }
 
 NR <= max_rows {
-    if (NF != FirstRowNF) headerScore -= 50  # Penalize inconsistent field counts
-    
-    for (i = 1; i <= NF; i++) {
-        field = trim == "true" ? TrimField($i) : $i
+    RowNF = SplitQuotedFields($0, FS, Fields)
+
+    if (RowNF != FirstRowNF) headerScore -= 50  # Penalize inconsistent field counts
+
+    for (i = 1; i <= RowNF; i++) {
+        field = trim ? TrimField(Fields[i]) : Fields[i]
         BuildControlRowScore(field, i)
     }
 }
@@ -84,13 +92,13 @@ END {
     }
 
     CalcSims(FirstRow, ControlRows)
-    
+
     if (debug) {
         print "Final header score: " headerScore
-        print "Number of fields: " NF
+        print "Number of fields: " FirstRowNF
         print "Control rows analyzed: " control_rows
     }
-    
+
     exit (headerScore > 0) ? 0 : 1
 }
 
@@ -104,8 +112,8 @@ function InitConfig() {
     max_rows = max_rows ? max_rows : 100
     potential_header_rows = 1
     control_rows = max_rows - potential_header_rows
-    trim = trim ? trim : "true"
-    debug = debug ? debug : "false"
+    trim = (trim == "false" || trim == "f" || trim == "0") ? 0 : 1
+    debug = (debug == "true" || debug == "t" || debug == 1) ? 1 : 0
     FirstRowNF = 0  # Store first row field count
 }
 
@@ -147,16 +155,16 @@ function IsLikelyHeader(field) {
 
 function BuildFirstRowScore(field, position) {
     FirstRow[position, "len"] = length(field)
-    FirstRowNF = NF
-    
+    FirstRowNF = RowNF
+
     for (m in Re) {
         re = Re[m]
         if (field ~ re) {
             FirstRow[position, m] = 1
             if (NonHeaderRe ~ " " m " ") headerScore -= 100
             if (HeaderRe ~ " " m " ") headerScore += 30
-            
-            if (debug == "true") 
+
+            if (debug)
                 print "First row match:", NR, position, m, field, headerScore
         }
     }
@@ -165,36 +173,36 @@ function BuildFirstRowScore(field, position) {
 function BuildControlRowScore(field, position) {
     # Compare field lengths with first row
     headerScore += sqrt((FirstRow[position, "len"] - length(field))**2) / control_rows
-    
+
     for (m in Re) {
         if (field ~ Re[m]) {
             ControlRows[position, m] += 1
-            
-            if (debug == "true")
+
+            if (debug)
                 print "Control row match:", NR, position, m, field, headerScore
         }
     }
 }
 
 function CalcSims(first, control) {
-    if (debug == "true") print "--- Calculating similarity scores ---"
-    
-    for (i = 1; i <= NF; i++) {
+    if (debug) print "--- Calculating similarity scores ---"
+
+    for (i = 1; i <= FirstRowNF; i++) {
         for (m in Re) {
             first_score = first[i, m]
             ctrl_score = control[i, m]
-            
+
             # Calculate similarity score
             if (ctrl_score > 0) {
                 similarity = sqrt((first_score - ctrl_score / control_rows)**2)
                 headerScore += similarity
-                
-                if (debug == "true")
+
+                if (debug)
                     print "Similarity:", i, m, first_score, \
                           ctrl_score/control_rows, similarity, headerScore
             }
         }
     }
-    
-    if (debug == "true") print "--- End similarity calculation ---"
+
+    if (debug) print "--- End similarity calculation ---"
 }

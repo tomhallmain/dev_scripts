@@ -80,8 +80,6 @@ function InitConfig() {
     debug = debug ? debug : 0
 
     DS_SEP = "@@@"
-    sq = "\'"
-    dq = "\""
 
     n_valid_rows = 0
     max_chunk_weight = 0
@@ -246,11 +244,12 @@ function ProcessCustomSeparators(    fs, nf, i) {
     }
 }
 
-function CountFields(fs, s,    nf, qf_line) {
-    if (!Q[s]) Q[s] = GetFieldsQuote($0, FixedStringFS[s] fs)
+function CountFields(fs, s,    nf, qf_line, litsep) {
+    litsep = LiteralSepForQuotes(FixedStringFS[s], fs)
+    if (!Q[s]) Q[s] = GetFieldsQuote($0, litsep)
 
     if (Q[s]) {
-        if (!QFRe[s]) QFRe[s] = QuotedFieldsRe(LiteralSepForQuotes(s, fs), Q[s])
+        if (!QFRe[s]) QFRe[s] = QuotedFieldsRe(litsep, Q[s])
         nf = 0
         qf_line = $0
 
@@ -509,11 +508,6 @@ function OutputResult(    k, scaled_var, scaled_var_frac, winner_unsure) {
     exit 0
 }
 
-function LiteralSepForQuotes(s, fs) {
-    if (FixedStringFS[s] != "") return FixedStringFS[s] fs
-    return fs
-}
-
 function FormatOutputFS(winner,    k) {
     if (winner ~ /(\\ )*\\,(\\ )+/) return ","
 
@@ -547,19 +541,6 @@ function EscapedChars(Chars, start, end,    s, k) {
 
 function IsExcludedCustomSep(sep) {
     return (length(sep) == 2 && sep ~ /\\[[:space:]\|;:,]/)
-}
-
-function QuotedFieldsRe(sep, q) {
-    qs = q sep; spq = sep q
-    exc = "[^"q"]*[^"sep"]*[^"q"]+"
-    return "(^"q qs"|"spq qs"|"spq q"$|"q exc qs"|"spq exc qs"|"spq exc q"$)"
-}
-
-function GetFieldsQuote(line, sep) {
-    dq_sep_re = QuotedFieldsRe(sep, dq)
-    if (match(line, dq_sep_re)) return dq
-    sq_sep_re = QuotedFieldsRe(sep, sq)
-    if (match(line, sq_sep_re)) return sq
 }
 
 function DebugPrint(_case, a, b, c, d) {
