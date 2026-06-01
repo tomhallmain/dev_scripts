@@ -11,8 +11,8 @@
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [file] [n_lines=1]
 @@@ds:deps@@@@@@Identify dependencies of a shell function@@@ds:deps name [filter] [ntype=FUNC|ALIAS] [caller] [ndata]
 @@@ds:deps2@@@@@@Identify dependencies of C, Java functions@@@ds:deps2 file
-**@@@ds:diff_fields@@@ds:df@@@Get elementwise diff of two datasets@@@ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]
 **@@@ds:diff@@@@@@Diff shortcut for an easier to read view@@@ds:diff file1|str1 [file2|str2] [suppress_common] [color=t]
+**@@@ds:diff_fields@@@ds:df@@@Get elementwise diff of two datasets@@@ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]
 **@@@ds:dostounix@@@@@@Remove ^M / CR characters in place@@@ds:dostounix [file*]
 **@@@ds:dup_input@@@@@@Duplicate standard input in aggregate@@@data | ds:dup_input
 @@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir] [confirm=f] [of_file] [try_nonmatch_ext=f]
@@ -26,15 +26,15 @@
 @@@ds:fsrc@@@@@@Show the source of a shell function@@@ds:fsrc func
 @@@ds:gexec@@@@@@Generate script from parts of another and run@@@ds:gexec run=f srcfile outputdir reo_r_args [clean] [verbose]
 @@@ds:git_add_com_push@@@ds:gacp@@@Add, commit with message, push@@@ds:gacp commit_message [prompt=t]
-@@@ds:git_branch_refs@@@ds:gbr@@@List branches merged to a branch@@@ds:git_branch_refs [branch=develop] [invert=f]
 @@@ds:git_branch@@@ds:gb@@@Run git branch for all repos@@@ds:gb
+@@@ds:git_branch_refs@@@ds:gbr@@@List branches merged to a branch@@@ds:git_branch_refs [branch=develop] [invert=f]
 @@@ds:git_checkout@@@ds:gco@@@Checkout branch matching pattern@@@ds:gco [branch_pattern] [new_branch=f]
 @@@ds:git_cross_view@@@ds:gcv@@@Display table of git repos vs branches@@@ds:gcv [:ab:Dfhmo:sv]
 @@@ds:git_diff@@@@@@Diff shortcut for exclusions@@@ds:git_diff obj obj exclusions
 @@@ds:git_graph@@@ds:gg@@@Print colorful git history graph@@@ds:gg
 @@@ds:git_purge_local@@@ds:gpl@@@Purge branches from local git repos@@@ds:gpl [repos_dir=~]
-@@@ds:git_recent_all@@@ds:gra@@@Display recent commits for local repos@@@ds:gra [refs=heads] [repos_dir=~]
 @@@ds:git_recent@@@ds:gr@@@Display commits sorted by recency@@@ds:gr [refs=heads] [run_context=display]
+@@@ds:git_recent_all@@@ds:gra@@@Display recent commits for local repos@@@ds:gra [refs=heads] [repos_dir=~]
 @@@ds:git_refresh@@@ds:grf@@@Pull latest for all repos, run installs@@@ds:grf [repos_dir=~]
 @@@ds:git_squash@@@ds:gsq@@@Squash last n commits@@@ds:gsq [n_commits=1]
 @@@ds:git_status@@@ds:gs@@@Run git status for all repos@@@ds:gs
@@ -52,8 +52,8 @@
 **@@@ds:insert@@@@@@Redirect input into a file at lineno or pattern@@@ds:insert file [lineno|pattern] [srcfile] [inplace=f]
 @@@ds:iter@@@@@@Repeat a string@@@ds:iter str [n=1] [fs]
 @@@ds:jira@@@@@@Open Jira at specified workspace issue / search@@@ds:jira workspace_subdomain [issue|query]
-**@@@ds:join_by@@@@@@Join a shell array by given delimiter@@@ds:join_by delimiter [join_array]
 **@@@ds:join@@@ds:jn@@@Join two datasets with any keyset@@@ds:join file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
+**@@@ds:join_by@@@@@@Join a shell array by given delimiter@@@ds:join_by delimiter [join_array]
 **@@@ds:line@@@@@@Execute commands on var line@@@ds:line [seed_cmds] line_cmds [IFS=\n]
 **@@@ds:matches@@@@@@Get match lines from two datasets@@@ds:matches file [file] [awkargs]
 **@@@ds:mini@@@@@@Crude minify, remove whitespace and newlines@@@ds:mini [file*] [newline_sep=;] [blank_only=f]
