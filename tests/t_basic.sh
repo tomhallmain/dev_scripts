@@ -12,6 +12,7 @@ echo -n "Running basic commands tests..."
 [[ $(ds:sh | grep -c "") = 1 && $(ds:sh) =~ sh ]]    || ds:fail 'sh command failed'
 
 
+# NOTE: see commands_tests.sh — LC_ALL=C in the environment can reorder this listing vs tests/data/commands.
 ch='@@@COMMAND@@@ALIAS@@@DESCRIPTION@@@USAGE'
 ds:commands "" "" 0 > $q
 cmp --silent support/commands tests/data/commands && grep -q "$ch" 'support/commands' || ds:fail 'commands listing failed'

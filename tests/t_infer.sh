@@ -35,6 +35,36 @@ echo -e "wefkwefwl=21\nkwejf ekej=qwkdj\nTEST 349=|" > $tmp
 [ "$(ds:inferfs tests/data/cities.csv f t f f)" = ',' ] \
     || ds:fail 'inferfs failed comma blank lines case'
 
+# Common FS output format (bare single-char vs escaped pipe; used by sort, field_replace, awk -v FS=)
+cat > "$tmp1" << EOF
+a:b:c:d
+1:2:3:4
+x:y:z:w
+EOF
+[ "$(ds:inferfs "$tmp1" f true f f)" = ':' ] \
+    || ds:fail 'inferfs failed common colon output case (reparse=f)'
+[ "$(ds:inferfs "$tmp1" true)" = ':' ] \
+    || ds:fail 'inferfs failed common colon output case (reparse=t)'
+result="$(ds:inferfs "$tmp1" f true f f)"
+[ ${#result} -eq 1 ] \
+    || ds:fail 'inferfs colon output must be a single character (not \\:)'
+
+cat > "$tmp1" << EOF
+a;b;c;d
+1;2;3;4
+x;y;z;w
+EOF
+[ "$(ds:inferfs "$tmp1" f true f f)" = ';' ] \
+    || ds:fail 'inferfs failed common semicolon output case'
+
+cat > "$tmp1" << EOF
+a|b|c|d
+1|2|3|4
+x|y|z|w
+EOF
+[ "$(ds:inferfs "$tmp1" f true f f)" = '\|' ] \
+    || ds:fail 'inferfs failed common pipe output case'
+
 # Test multi-character custom separators
 cat > "$tmp1" << EOF
 field1=><=field2=><=field3=><=field4

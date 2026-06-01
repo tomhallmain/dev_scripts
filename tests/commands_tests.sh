@@ -1,6 +1,12 @@
 #!/bin/bash
 #
 ## TODO: Git tests
+#
+# NOTE: ds:inferfs / ds:inferh set LC_ALL=C only for their awk subprocesses.
+# Exporting LC_ALL=C in the shell before running tests (or before regenerating
+# support/commands via ds:commands) can change locale sort order and produce a
+# diff against tests/data/commands — e.g. ds:diff vs ds:diff_fields swapping
+# lines. That is a checkpoint/locale artefact, not a functional regression.
 
 # SETUP
 

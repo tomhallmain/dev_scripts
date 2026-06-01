@@ -60,12 +60,25 @@ BEGIN {
 }
 
 function InitCommonSeparators() {
-    CommonFSOrder[1] = "s"; CommonFS["s"] = " "; FixedStringFS["s"] = "\\"
-    CommonFSOrder[2] = "t"; CommonFS["t"] = "\t"; FixedStringFS["t"] = "\\"
+    # CommonFS holds separator patterns used for scoring (literal or regex FS).
+    #
+    # FixedStringFS is an optional output escape prefix consumed by FormatOutputFS
+    # when prepending to CommonFS[k] for shell/awk consumers (-v FS=, sort -t, etc.).
+    # It is also passed to LiteralSepForQuotes in CountFields; when unset, quote
+    # parsing falls through to LiteralSepForFs in support/utils.awk.
+    #
+    # Do not set FixedStringFS for bare single-char seps (: ; , space, tab). A
+    # non-empty value makes FormatOutputFS emit two-character strings (e.g. \:)
+    # that break GNU sort and awk field splitting on colon-separated data.
+    #
+    # Pipe is the exception: CommonFS["p"] stores \| and FixedStringFS["p"] keeps
+    # inferfs output as \| for downstream commands and t_infer expectations.
+    CommonFSOrder[1] = "s"; CommonFS["s"] = " "
+    CommonFSOrder[2] = "t"; CommonFS["t"] = "\t"
     CommonFSOrder[3] = "p"; CommonFS["p"] = "\|"; FixedStringFS["p"] = "\\"
-    CommonFSOrder[4] = "m"; CommonFS["m"] = ";"; FixedStringFS["m"] = "\\"
-    CommonFSOrder[5] = "c"; CommonFS["c"] = ":"; FixedStringFS["c"] = "\\"
-    CommonFSOrder[6] = "o"; CommonFS["o"] = ","; FixedStringFS["o"] = "\\"
+    CommonFSOrder[4] = "m"; CommonFS["m"] = ";"
+    CommonFSOrder[5] = "c"; CommonFS["c"] = ":"
+    CommonFSOrder[6] = "o"; CommonFS["o"] = ","
     CommonFSOrder[7] = "w"; CommonFS["w"] = "[[:space:]]+"
     CommonFSOrder[8] = "2w"; CommonFS["2w"] = "[[:space:]]{2,}"
 
