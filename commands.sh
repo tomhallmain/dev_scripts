@@ -2100,6 +2100,9 @@ ds:subsep() { # ** Extend fields by a common subseparator: ds:subsep [-h|file] s
 }
 
 ds:dostounix() { # ** Remove ^M / CR characters in place: ds:dostounix [file*]
+    # Declare piped local so a caller's piped=0 (ds:subsep/etc) is not inherited.
+    # Otherwise file-arg runs treat the file as pipe input, print it, and delete it.
+    local piped
     if ds:pipe_open "$1"; then
         local _file=$(ds:tmp 'ds_dostounix_piped') piped=0
         cat /dev/stdin > $_file
@@ -2128,7 +2131,7 @@ ds:dostounix() { # ** Remove ^M / CR characters in place: ds:dostounix [file*]
 
     local tmpfile=$(ds:tmp 'ds_dostounix')
     cat "$_file" > $tmpfile
-    if [ $piped ]; then
+    if [ "$piped" ]; then
         awk '{gsub(/\015$/, "");print}' $tmpfile 2>/dev/null
         rm $_file
     else

@@ -108,6 +108,13 @@ ds:extractfs() { # Infer or extract single awk FS from args: ds:extractfs
             unset "args[$fsv_idx]"
         fi
         unset "args[$fs_idx]"
+        # zsh unset leaves empty holes; quoted "${args[@]}" would pass them to awk as
+        # empty filename args. Recompact so bash/zsh behave the same.
+        local _a _args=()
+        for _a in "${args[@]}"; do
+            [ -n "$_a" ] && _args+=("$_a")
+        done
+        args=("${_args[@]}")
     fi
     echo -n "$fs"
 }
