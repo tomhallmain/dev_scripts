@@ -22,7 +22,7 @@ ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [r
         else
             grep -Eh 'ds:[[:alnum:]_]+\(\)' "$DS_LOC/commands.sh" "$utils" 2>/dev/null
         fi) \
-            | sort \
+            | LC_ALL=C sort \
             | awk -F "\\\(\\\) { #" '{printf "%-18s\t%s\n", $1, $2}' \
             | ds:subsep '**' "$DS_SEP" -v retain_pattern=1 -v apply_to_fields=2 \
                 -v FS="[[:space:]]{2,}" -v OFS="$DS_SEP" \
@@ -1121,7 +1121,9 @@ ds:shape() { # ** Print data shape by length or pattern: ds:shape [-h|file*] [pa
         awk_vars+=(-v awksafe=1)
     fi
 
-    awk -v FS="${fs:- }" -v measures="$measures" -v fields="$fields" -v span=${_span:-15} \
+    # LC_ALL=C: mac awk + wcwidth.awk byte-oriented regex fails under UTF-8 locales
+    # ("multibyte conversion failure") when rendering Unicode block markers.
+    LC_ALL=C awk -v FS="${fs:- }" -v measures="$measures" -v fields="$fields" -v span=${_span:-15} \
         -v tty_size="$(ds:term_width)" -v lines="$_lines" -v simple="$_simple" \
         "${awk_vars[@]}" $@ "${awk_files[@]}" -f "$DS_SCRIPT/shape.awk" "$_file" 2>/dev/null
 
@@ -2083,13 +2085,15 @@ ds:subsep() { # ** Extend fields by a common subseparator: ds:subsep [-h|file] s
         shift
     fi
 
-    local ssp=(-v subsep_pattern="${1:- }") nmh=(-v nomatch_handler="${2:- }")
+    # Default to space only when pattern is omitted (unset); empty string is an error.
+    # Use ${1- } (no colon) so explicit "" reaches awk and triggers its validation.
+    local ssp=(-v subsep_pattern="${1- }") nmh=(-v nomatch_handler="${2:- }")
     local args=("${@:3}") prefield=$(ds:tmp "ds_sbsp_prefield") fstmp=$(ds:tmp 'ds_extractfs')
     ds:extractfs > $fstmp
     local fs="$(cat $fstmp; rm $fstmp)"
     ds:prefield "$_file" "$fs" > $prefield
 
-    LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs"  ${ssp[@]} ${nmh[@]} ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+    LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs" "${ssp[@]}" "${nmh[@]}" "${args[@]}" -f "$DS_SUPPORT/utils.awk" \
         -f "$DS_SCRIPT/subseparator.awk" "$prefield"{,} 2>/dev/null
 
     ds:pipe_clean $_file; rm $prefield
@@ -2506,17 +2510,9 @@ ds:unicode() { # ** Get UTF-8 unicode for a character sequence: ds:unicode [str]
 }
 
 ds:color() { # ** Get RGB from hex or hex from RGB: ds:color [hex|rgb|r] [g] [b]
-    if ds:pipe_open; then
-        # Only support hex -> RGB case when piped
-        sed 's/#//g' | ds:case up \
-            | awk -v FS="" '{for (i = 1; i <= NF; i += 2) { print "ibase=16; " $i $(i+1) }}' \
-            | bc 2>/dev/null \
-            | ds:transpose \
-            | ds:join_by "," \
-            | ds:embrace "rgb(" ")"
-    elif [ -z "$1" ]; then
-        ds:fail "Expected hex or rgb values."
-    else
+    # Prefer explicit args over pipe detection. On dumb terminals ds:pipe_open is
+    # true whenever no file arg is given, which would otherwise steal hex/rgb args.
+    if [ "$1" ]; then
         local hex_pattern="^#?[0-9A-Fa-f]{6}$"
         local color_value="[0-9]{1,3}"
         local rgb_pattern="^(rgb)?(\\()?$color_value, *$color_value, *$color_value(\\))?\$"
@@ -2524,7 +2520,8 @@ ds:color() { # ** Get RGB from hex or hex from RGB: ds:color [hex|rgb|r] [g] [b]
             echo "$1" \
                 | sed 's/#//g' \
                 | ds:case up \
-                | awk -v FS="" '{for (i = 1; i <= NF; i += 2) { print "ibase=16; " $i $(i+1) }}' \
+                | awk -v FS="" 'BEGIN { print "ibase=16" }
+                    { for (i = 1; i <= NF; i += 2) print $i $(i+1) }' \
                 | bc 2>/dev/null \
                 | ds:transpose \
                 | ds:join_by "," \
@@ -2542,6 +2539,18 @@ ds:color() { # ** Get RGB from hex or hex from RGB: ds:color [hex|rgb|r] [g] [b]
         else
             ds:fail "Malformed or missing hex or rgb values provided."
         fi
+    elif ds:pipe_open; then
+        # Only support hex -> RGB case when piped
+        # Set ibase once: repeating "ibase=16;" re-parses 16 in hex (→22) on modern bc.
+        sed 's/#//g' | ds:case up \
+            | awk -v FS="" 'BEGIN { print "ibase=16" }
+                { for (i = 1; i <= NF; i += 2) print $i $(i+1) }' \
+            | bc 2>/dev/null \
+            | ds:transpose \
+            | ds:join_by "," \
+            | ds:embrace "rgb(" ")"
+    else
+        ds:fail "Expected hex or rgb values."
     fi
 }
 
@@ -2674,7 +2683,7 @@ ds:deps2() { # Identify dependencies of C, Java functions: ds:deps2 file
             fi
         done
         echo -e "\n$fnc_def"
-        ds:uniq $tmp2 | sort
+        ds:uniq $tmp2 | LC_ALL=C sort
         :
     done < $tmp
     rm $tmp $tmp1 $tmp2
