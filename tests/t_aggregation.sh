@@ -6,8 +6,15 @@ source commands.sh
 
 echo -n "Running aggregation tests..."
 
-echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" > $tmp
+[ -z "$tmp" ] && tmp=/tmp/ds_commands_tests
 
+# Create test data files
+echo -e "one two three four\n1 2 3 4\n4 3 2 1\n1 2 4 3\n3 2 4 1" > "$tmp"
+
+# Create statistical test data
+echo -e "metric value1 value2 value3\n1 2 2 3\n2 2 3 3\n3 3 3 4\n4 4 4 4\n5 5 5 5" > "${tmp}_stats"
+
+# Test existing functionality
 expected='one two three four $3+$2
 1 2 3 4 5
 4 3 2 1 5
@@ -413,4 +420,204 @@ actual="$(ds:agg tests/data/ps_aux 0 'mean|5|1..2' | ds:decap 1 | sed -E 's/[[:s
 actual="$(ds:agg $tmp 'mean|5|1..2' | ds:decap 1 | sed -E 's/[[:space:]]+$//g' | awk '{gsub("\034","");print}')"
 [ "$actual" = "$expected" ] || ds:fail 'agg failed cross agg range row mean case'
 
+# New Statistical Function Tests
+
+# Median Tests
+expected='metric value1 value2 value3 med|all
+1 2 2 3 2
+2 2 3 3 2.5
+3 3 3 4 3
+4 4 4 4 4
+5 5 5 5 5'
+[ "$(ds:agg ${tmp}_stats 'med|all')" = "$expected" ] || ds:fail 'agg failed R median all case'
+
+expected='metric value1 value2 value3
+1 2 2 3
+2 2 3 3
+3 3 3 4
+4 4 4 4
+5 5 5 5
+med|all 3 3 3 4'
+[ "$(ds:agg ${tmp}_stats 0 'med|all')" = "$expected" ] || ds:fail 'agg failed C median all case'
+
+# Mode Tests
+echo -e "category value1 value2 value3\nA 1 1 2\nB 1 1 1\nC 2 2 1\nD 3 2 2" > ${tmp}_mode
+expected='category value1 value2 value3 mode|all
+A 1 1 2 1
+B 1 1 1 1
+C 2 2 1 2
+D 3 2 2 2'
+[ "$(ds:agg ${tmp}_mode 'mode|all')" = "$expected" ] || ds:fail 'agg failed R mode all case'
+
+# Quartile Tests (|all includes metric column)
+expected='metric value1 value2 value3 q1|all q2|all q3|all
+1 2 2 3 1.25 2 2.75
+2 2 3 3 2 2.5 3
+3 3 3 4 3 3 3.75
+4 4 4 4 4 4 4
+5 5 5 5 5 5 5'
+[ "$(ds:agg ${tmp}_stats 'q1|all,q2|all,q3|all')" = "$expected" ] || ds:fail 'agg failed R quartiles case'
+
+# Standard Deviation Tests
+echo -e "group val1 val2 val3\nA 10 10 10\nB 10 20 30\nC 0 50 100" > ${tmp}_stddev
+expected='group val1 val2 val3 sd|all
+A 10 10 10 0
+B 10 20 30 10
+C 0 50 100 50'
+[ "$(ds:agg ${tmp}_stddev 'sd|all')" = "$expected" ] || ds:fail 'agg failed R standard deviation case'
+
+# Combined Statistical Operations
+expected='group val1 val2 val3 med|all sd|all mean|all
+A 10 10 10 10 0 10
+B 10 20 30 20 10 20
+C 0 50 100 50 50 50'
+[ "$(ds:agg ${tmp}_stddev 'med|all,sd|all,mean|all')" = "$expected" ] || ds:fail 'agg failed R combined stats case'
+
+# Edge Cases (one output row per input; blank value → empty stats)
+echo -e "type value\nA 1\nA 1\nA 1\nB \nB 2\nB 2" > ${tmp}_edge
+expected='type value mode|all med|all sd|all
+A 1 1 1 0
+A 1 1 1 0
+A 1 1 1 0
+B    
+B 2 2 2 0
+B 2 2 2 0'
+[ "$(ds:agg ${tmp}_edge 'mode|all,med|all,sd|all')" = "$expected" ] || ds:fail 'agg failed edge case handling'
+
+# Search with stats: patterns match field values (not type labels)
+expected='type value med|~1 sd|~2
+A 1 1 
+A 1 1 
+A 1 1 
+B   
+B 2  0
+B 2  0'
+[ "$(ds:agg ${tmp}_edge 'med|~1,sd|~2')" = "$expected" ] || ds:fail 'agg failed search with stats case'
+
+# Cross aggregation with median (field-oriented, same shape as mean|5|1..2)
+echo -e "region product sales\nNA Widget 100\nNA Gadget 200\nEU Widget 150\nEU Gadget 250\nASIA Widget 120\nASIA Gadget 220" > ${tmp}_cross
+expected='Cross Aggregation: med|$3|$1 on field 3 grouped by field 1
+NA 150
+EU 200
+ASIA 170'
+[ "$(ds:agg ${tmp}_cross 0 'med|$3|$1')" = "$expected" ] || ds:fail 'agg failed cross aggregation with median'
+
+# Conditional with median (same inclusion rules as +|$4>3||$4<2)
+echo -e "one:two:three:four\n1:2:3:4\n4:3:2:1\n1:2:4:3\n3:2:4:1" > ${tmp}_cond
+expected='one:two:three:four:med|$4>3||$4<2
+1:2:3:4:2
+4:3:2:1:3
+1:2:4:3:2.5
+3:2:4:1:3.5'
+[ "$(ds:agg ${tmp}_cond 'med|$4>3||$4<2')" = "$expected" ] || ds:fail 'agg failed conditional aggregation with median'
+
+# --- Step C: additional coverage for extended stats ---
+
+echo -e "a b c\n1 2 3\n4 5 6\n7 8 9" > ${tmp}_ext
+
+# Bare op expands to |all
+expected='a b c med
+1 2 3 2
+4 5 6 5
+7 8 9 8'
+[ "$(ds:agg ${tmp}_ext 'med')" = "$expected" ] || ds:fail 'agg failed bare med expands to med|all'
+
+# Field range (not |all): median/sd of fields 2..3 only
+expected='a b c med|2..3
+1 2 3 2.5
+4 5 6 5.5
+7 8 9 8.5'
+[ "$(ds:agg ${tmp}_ext 'med|2..3')" = "$expected" ] || ds:fail 'agg failed R med field range case'
+
+expected='a b c sd|2..3
+1 2 3 0.707107
+4 5 6 0.707107
+7 8 9 0.707107'
+[ "$(ds:agg ${tmp}_ext 'sd|2..3')" = "$expected" ] || ds:fail 'agg failed R sd field range case'
+
+# q2 matches median on the same row values
+expected='a b c q2|all med|all
+1 2 3 2 2
+4 5 6 5 5
+7 8 9 8 8'
+[ "$(ds:agg ${tmp}_ext 'q2|all,med|all')" = "$expected" ] || ds:fail 'agg failed q2 matches med case'
+
+# Column mode / sd / quartiles
+expected='a b c
+1 2 3
+4 5 6
+7 8 9
+mode|all 1 2 3'
+[ "$(ds:agg ${tmp}_ext 0 'mode|all')" = "$expected" ] || ds:fail 'agg failed C mode all case'
+
+expected='a b c
+1 2 3
+4 5 6
+7 8 9
+sd|all 3 3 3'
+[ "$(ds:agg ${tmp}_ext 0 'sd|all')" = "$expected" ] || ds:fail 'agg failed C sd all case'
+
+expected='a b c
+1 2 3
+4 5 6
+7 8 9
+q1|all 1 2 3
+q2|all 4 5 6
+q3|all 7 8 9'
+[ "$(ds:agg ${tmp}_ext 0 'q1|all,q2|all,q3|all')" = "$expected" ] || ds:fail 'agg failed C quartiles case'
+
+# Row median + column sd together
+expected='a b c med|all
+1 2 3 2
+4 5 6 5
+7 8 9 8
+sd|all 3 3 3'
+[ "$(ds:agg ${tmp}_ext 'med|all' 'sd|all')" = "$expected" ] || ds:fail 'agg failed R med + C sd case'
+
+# Cross mode / sd
+echo -e "g v\nA 1\nA 1\nA 2\nB 3\nB 3" > ${tmp}_xmode
+expected='Cross Aggregation: mode|2|1 on field 2 grouped by field 1
+A 1
+B 3'
+[ "$(ds:agg ${tmp}_xmode 0 'mode|2|1')" = "$expected" ] || ds:fail 'agg failed cross mode case'
+
+echo -e "g v\nA 1\nA 3\nA 5\nB 2\nB 4" > ${tmp}_xsd
+expected='Cross Aggregation: sd|2|1 on field 2 grouped by field 1
+A 2
+B 1.41421'
+[ "$(ds:agg ${tmp}_xsd 0 'sd|2|1')" = "$expected" ] || ds:fail 'agg failed cross sd case'
+
+# med must not be parsed as mean (regression for m(ean)? greediness)
+expected='a b c med|all mean|all
+1 2 3 2 2
+4 5 6 5 5
+7 8 9 8 8'
+[ "$(ds:agg ${tmp}_ext 'med|all,mean|all')" = "$expected" ] || ds:fail 'agg failed med vs mean parse disambiguation'
+
+# Negative / parse errors (awk print; ds:agg redirects awk stderr)
+out="$(ds:agg ${tmp}_ext 'sd|' 2>&1 || true)"
+[[ "$out" == *'Unable to parse aggregation expression sd|'* ]] \
+    || ds:fail 'agg failed to reject incomplete sd| expression'
+
+out="$(ds:agg ${tmp}_ext 'med|' 2>&1 || true)"
+[[ "$out" == *'Unable to parse aggregation expression med|'* ]] \
+    || ds:fail 'agg failed to reject incomplete med| expression'
+
+out="$(ds:agg ${tmp}_ext 'sd|xyz' 2>&1 || true)"
+[[ "$out" == *'Unable to parse aggregation expression sd|xyz'* ]] \
+    || ds:fail 'agg failed to reject invalid sd|xyz expression'
+
+out="$(ds:agg ${tmp}_ext 'med|1|2|3|4' 2>&1 || true)"
+[[ "$out" == *'Unable to parse aggregation expression med|1|2|3|4'* ]] \
+    || ds:fail 'agg failed to reject over-specified med cross expression'
+
+# Help text is served from agg_documentation.awk (ds:agg -h uses less)
+help_txt="$(grep -E '^#( |$)' scripts/agg_documentation.awk | sed -E 's:^#::g')"
+[[ "$help_txt" == *'med'* && "$help_txt" == *'mode'* && "$help_txt" == *'sd'* ]] \
+    || ds:fail 'agg documentation missing extended stats operators'
+[[ "$help_txt" == *'agg_functions_extended.awk'* ]] \
+    || ds:fail 'agg documentation missing modular load order'
+
+rm -f "${tmp}_stats" "${tmp}_mode" "${tmp}_stddev" "${tmp}_edge" "${tmp}_cross" "${tmp}_cond" \
+      "${tmp}_ext" "${tmp}_xmode" "${tmp}_xsd"
 echo -e "${GREEN}PASS${NC}"

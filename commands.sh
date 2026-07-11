@@ -1757,7 +1757,7 @@ ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file*] [r_aggs=+] [c_aggs
         local _file=$(ds:tmp 'ds_agg') piped=0
         cat /dev/stdin > $_file
     else
-        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/agg.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/agg_documentation.awk" \
             | sed -E 's:^#::g' | less && return
 
         if [[ -f "$2" && -f "$1" ]]; then
@@ -1798,7 +1798,11 @@ ds:agg() { # ** Aggregate by index/pattern: ds:agg [-h|file*] [r_aggs=+] [c_aggs
     ds:prefield "$_file" "$fs" > $prefield
 
     LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs" -v r_aggs="$r_aggs" -v c_aggs="$c_aggs" \
-        ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/agg.awk" "$prefield" 2>/dev/null \
+        ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+        -f "$DS_SCRIPT/agg_functions_extended.awk" \
+        -f "$DS_SCRIPT/agg_functions.awk" \
+        -f "$DS_SCRIPT/agg_program.awk" \
+        "$prefield" 2>/dev/null \
         | ds:ttyf "$fs" "" -v nofit='Cross__FS__Aggregation'
 
     ds:pipe_clean $_file; rm $prefield
