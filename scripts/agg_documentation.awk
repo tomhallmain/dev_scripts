@@ -132,9 +132,18 @@
 #      - Memory usage increases with data size and number of statistical operations
 #      - Prefer `ds:agg` so the modular awk load order is applied correctly
 #
-# TODO
-#      - Add support for weighted means and medians
-#      - Implement additional statistical measures (skewness, kurtosis)
-#      - Enhance pattern matching for header aggregations
-#      - Add support for custom aggregation functions
-#      - Implement parallel processing for large datasets
+## TODO (excluded from -h: help greps "^#( |$)")
+##      - Add support for weighted means and medians
+##      - Implement additional statistical measures (skewness, kurtosis, min/max/count/percentile)
+##      - Wire header-key extended ops (med|cost, sd|price) or remove those help examples
+##      - Enhance pattern matching for header aggregations
+##      - Make row conditionals use current-row field refs (docs claim med|$2>50; today $N is row-N mask)
+##      - Optional header=1 / skip-first-field for |all stats (ids currently included)
+##      - Clarify search+stats (value match vs header match); non-numeric matches yield empty stats
+##      - Cross: multi-key groups, clearer banners, consistent header-key skipping
+##      - Fix StandardizeCrossAggregationExpr CrossAggForm[i] vs compound_i bug
+##      - Population vs sample sd flag; explicit mode tie-breaking policy
+##      - Add support for custom aggregation functions
+##      - Performance: AdvanceCarryVector; value-collection memory on large files
+##      - Shell UX: no less when non-TTY; don't hide awk stderr; propagate failure exit codes
+##      - Implement parallel processing for large datasets
