@@ -2605,7 +2605,7 @@ ds:websel() { # Download and extract inner html by regex: ds:websel url [tag_re]
         printf "$unescaped"; fi
 }
 
-ds:dups() { # Report duplicate files with option for deletion: ds:dups [dir] [confirm=f] [of_file] [try_nonmatch_ext=f]
+ds:dups() { # Report duplicate files with option for deletion: ds:dups [dir] [confirm=f] [of_file] [try_nonmatch_ext=f] [strip_meta=f]
     if ! ds:nset 'md5sum'; then
         echo 'md5sum utility not found - please install GNU coreutils to enable this command'
         return 1
@@ -2615,13 +2615,14 @@ ds:dups() { # Report duplicate files with option for deletion: ds:dups [dir] [co
     [ -d "$1" ] && local dir="$1" || local dir="$PWD"
     ds:test 't(rue)?' "$2" && local delete="-d"
     ds:test 't(rue)?' "$4" && local all_files="-a"
+    ds:test 't(rue)?' "$5" && local strip_meta="-m"
     if [ "$3" ]
     then
         ds:file_check "$3" f t
         local of_file="$3"
-        bash "$DS_SCRIPT/dup_files.sh" -s "$dir" -f "$of_file" $delete $use_fd $use_pv $all_files
+        bash "$DS_SCRIPT/dup_files.sh" -s "$dir" -f "$of_file" $delete $use_fd $use_pv $all_files $strip_meta
     else
-        bash "$DS_SCRIPT/dup_files.sh" -s "$dir" $delete $use_fd $use_pv
+        bash "$DS_SCRIPT/dup_files.sh" -s "$dir" $delete $use_fd $use_pv $all_files $strip_meta
     fi
 }
 

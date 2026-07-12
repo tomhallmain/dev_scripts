@@ -15,13 +15,14 @@
 # - File extension filtering
 # - Support for specific file comparison
 #
-# Usage: ./dup_files.sh [-adcpuf:s:] [directory]
+# Usage: ./dup_files.sh [-adcpumf:s:H:h] [directory]
 # Options:
 #   -a    Search all files (ignore extension filtering)
 #   -c    Check for duplicate filenames
 #   -d    Enable duplicate deletion (interactive)
 #   -p    Show progress bar (requires pv)
 #   -u    Use fd-find for faster file search
+#   -m    Hash after stripping image metadata (jpegtran / ImageMagick)
 #   -f    Compare against specific file
 #   -s    Specify source folder
 #   -h    Show help
@@ -32,13 +33,17 @@
 #   ./dup_files.sh -a -d ~/Pictures         # Find and delete duplicates
 #   ./dup_files.sh -f file.txt ~/Downloads  # Find duplicates of file.txt
 #   ./dup_files.sh -up ~/Videos            # Fast search with progress bar
+#   ./dup_files.sh -m ~/Pictures           # Duplicates ignoring image metadata
 #   ./dup_files.sh -H sha256 ~/Documents   # Use SHA256 for comparison
 #
 # Notes:
-# - Default behavior filters by extension unless -a is used
-# - Deletion is interactive and requires confirmation
-# - Using fd (-u) significantly improves performance
-# - Progress bar (-p) requires pv package
+#   - Default behavior filters by extension unless -a is used
+#   - Deletion is interactive and requires confirmation
+#   - Using fd (-u) significantly improves performance
+#   - Progress bar (-p) requires pv package
+#   - Metadata strip (-m) needs jpegtran and/or magick/convert; JPEGs prefer
+#     jpegtran -copy none, other images use ImageMagick -strip. Non-images are
+#     hashed as-is. Slower than raw hashing (decode/re-encode per file).
 #
 # Safety:
 # - Creates temporary files in /tmp
@@ -99,11 +104,60 @@ check_dependencies() {
     [ ! -x "$(command -v $hash_cmd)" ] && missing+=("$hash_cmd")
     [ "$PV" = true ] && [ ! -x "$(command -v pv)" ] && missing+=("pv")
     [ "$FD" = true ] && [ ! -x "$(command -v fd)" ] && missing+=("fd")
-    
+    if [ "$STRIP_META" = true ]; then
+        if ! command -v jpegtran >/dev/null 2>&1 \
+            && ! command -v magick >/dev/null 2>&1 \
+            && ! command -v convert >/dev/null 2>&1; then
+            missing+=("jpegtran or ImageMagick (magick/convert)")
+        fi
+    fi
+
     if [ ${#missing[@]} -gt 0 ]; then
         echo "Error: Missing required dependencies: ${missing[*]}"
         exit 1
     fi
+}
+
+# Resolve strip tooling once (optional)
+resolve_strip_tools() {
+    JPEGTRAN=""
+    MAGICK_CMD=""
+    command -v jpegtran >/dev/null 2>&1 && JPEGTRAN=jpegtran
+    if command -v magick >/dev/null 2>&1; then
+        MAGICK_CMD=magick
+    elif command -v convert >/dev/null 2>&1; then
+        MAGICK_CMD=convert
+    fi
+}
+
+# Emit "hash  filepath" (md5sum-style). With STRIP_META, hash stripped image
+# bytes when a strip tool applies; otherwise hash the file as-is.
+hash_file_line() {
+    local f="$1" lower hash
+    lower=$(printf '%s' "$f" | tr '[:upper:]' '[:lower:]')
+
+    if [ "$STRIP_META" = true ]; then
+        case "$lower" in
+            *.jpg|*.jpeg)
+                if [ -n "$JPEGTRAN" ]; then
+                    hash=$(jpegtran -copy none "$f" 2>/dev/null | $HASH_CMD | awk '{print $1}')
+                    [ -n "$hash" ] && printf '%s  %s\n' "$hash" "$f" && return
+                fi
+                if [ -n "$MAGICK_CMD" ]; then
+                    hash=$("$MAGICK_CMD" "$f" -strip - 2>/dev/null | $HASH_CMD | awk '{print $1}')
+                    [ -n "$hash" ] && printf '%s  %s\n' "$hash" "$f" && return
+                fi
+                ;;
+            *.png|*.gif|*.webp|*.tif|*.tiff|*.bmp|*.heic|*.heif)
+                if [ -n "$MAGICK_CMD" ]; then
+                    hash=$("$MAGICK_CMD" "$f" -strip - 2>/dev/null | $HASH_CMD | awk '{print $1}')
+                    [ -n "$hash" ] && printf '%s  %s\n' "$hash" "$f" && return
+                fi
+                ;;
+        esac
+    fi
+
+    $HASH_CMD "$f"
 }
 
 # Function to validate directory
@@ -132,16 +186,19 @@ check_filenames=false
 delete=false
 PV=false
 FD=false
+STRIP_META=false
 of_file=""
+of_file_cksum=""
 source_folder=""
 
-while getopts ":adcpuf:s:H:h" opt; do
+while getopts ":adcpumf:s:H:h" opt; do
     case $opt in
         a)  all_files=true ;;
         c)  check_filenames=true ;;
         d)  delete=true ;;
         p)  PV=true ;;
         u)  FD=true ;;
+        m)  STRIP_META=true ;;
         f)  of_file="$OPTARG" ;;
         s)  source_folder="$OPTARG" ;;
         H)  HASH_METHOD="$OPTARG" ;;
@@ -167,6 +224,7 @@ check_dependencies
 # Validate hash method before proceeding
 validate_hash_method "$HASH_METHOD"
 HASH_CMD=$(get_hash_command "$HASH_METHOD")
+resolve_strip_tools
 
 # Create temporary file
 tempdata=$(mktemp -q "$TEMP_DIR/filedata.XXXXX") || {
@@ -205,10 +263,13 @@ fi
 
 echo -e "\n${BLUE}Scanning directory: ${NC}$source_folder"
 echo -e "${BLUE}Using hash method: ${NC}$HASH_METHOD"
+if [ "$STRIP_META" = true ]; then
+    echo -e "${BLUE}Metadata strip: ${NC}on (${JPEGTRAN:-no jpegtran}, ${MAGICK_CMD:-no magick})"
+fi
 
 # Process files based on options
-if [[ "$of_file" && ! $all_files ]]; then
-    of_file_cksum="$($HASH_CMD "$of_file" | awk '{print $1}')"
+if [ -n "$of_file" ] && [ "$all_files" != true ]; then
+    of_file_cksum=$(hash_file_line "$of_file" | awk '{print $1}')
     of_file_filename=$(basename "$of_file")
     of_file_extension=$([[ "$of_file_filename" = *.* ]] && echo ".${of_file_filename##*.}" || echo '')
     echo -e "${YELLOW}Searching for duplicates of: ${NC}$of_file_filename"
@@ -216,39 +277,70 @@ fi
 
 echo -e "\n${BLUE}Gathering checksum data...${NC}"
 
-# Limit search to only files of same extension type by default
-
-if [[ "$of_file" && ! $all_files ]]; then
-    # pv provides a way to view the status and probable completion time of a process
-    if [ $PV ]; then
-        if [ $FD ]; then
-            fd . "$source_folder" -H --type f -e "$of_file_extension" --exec $HASH_CMD "{}" \; \
-                | pv -l -s $(fd . "$source_folder" -H --type f -e "$of_file_extension" | wc -l) | sort > $tempdata
+list_files() {
+    if [ -n "$of_file" ] && [ "$all_files" != true ]; then
+        if [ "$FD" = true ]; then
+            fd . "$source_folder" -H --type f -e "${of_file_extension#.}"
         else
-            find "$source_folder" -type f -name "*$of_file_extension" -exec $HASH_CMD "{}" \; \
-                | pv -l -s $(find "$source_folder" -type f -name "*$of_file_extension" | wc -l) | sort > $tempdata
+            find "$source_folder" -type f -name "*$of_file_extension"
         fi
     else
-        if [ $FD ]; then
-            fd . "$source_folder" -H --type f -e "$of_file_extension" --exec $HASH_CMD "{}" \; | sort > $tempdata
+        if [ "$FD" = true ]; then
+            fd . "$source_folder" -H --type f
         else
-            find "$source_folder" -type f -name "*$of_file_extension" -exec $HASH_CMD "{}" \; | sort > $tempdata
+            find "$source_folder" -type f
+        fi
+    fi
+}
+
+hash_listed_files() {
+    local f
+    while IFS= read -r f; do
+        [ -n "$f" ] || continue
+        hash_file_line "$f"
+    done
+}
+
+file_count_estimate=$(list_files | wc -l | tr -d '[:space:]')
+
+if [ "$STRIP_META" = true ]; then
+    # Progress must follow hash output: strip+hash is the slow step, so counting
+    # list_files lines makes pv finish long before work is done.
+    if [ "$PV" = true ]; then
+        list_files | hash_listed_files | pv -l -s "$file_count_estimate" | sort > "$tempdata"
+    else
+        list_files | hash_listed_files | sort > "$tempdata"
+    fi
+elif [ -n "$of_file" ] && [ "$all_files" != true ]; then
+    if [ "$PV" = true ]; then
+        if [ "$FD" = true ]; then
+            fd . "$source_folder" -H --type f -e "${of_file_extension#.}" --exec $HASH_CMD "{}" \; \
+                | pv -l -s "$file_count_estimate" | sort > "$tempdata"
+        else
+            find "$source_folder" -type f -name "*$of_file_extension" -exec $HASH_CMD "{}" \; \
+                | pv -l -s "$file_count_estimate" | sort > "$tempdata"
+        fi
+    else
+        if [ "$FD" = true ]; then
+            fd . "$source_folder" -H --type f -e "${of_file_extension#.}" --exec $HASH_CMD "{}" \; | sort > "$tempdata"
+        else
+            find "$source_folder" -type f -name "*$of_file_extension" -exec $HASH_CMD "{}" \; | sort > "$tempdata"
         fi
     fi
 else
-    if [ $PV ]; then
-        if [ $FD ]; then
+    if [ "$PV" = true ]; then
+        if [ "$FD" = true ]; then
             fd . "$source_folder" -H --type f --exec $HASH_CMD "{}" \; \
-                | pv -l -s $(fd . "$source_folder" -H --type f | wc -l) | sort >$tempdata
+                | pv -l -s "$file_count_estimate" | sort > "$tempdata"
         else
             find "$source_folder" -type f -exec $HASH_CMD "{}" \; \
-                | pv -l -s $(find "$source_folder" -type f | wc -l) | sort >$tempdata
+                | pv -l -s "$file_count_estimate" | sort > "$tempdata"
         fi
     else
-        if [ $FD ]; then
-            fd . "$source_folder" -H --type f --exec $HASH_CMD "{}" \; | sort > $tempdata
+        if [ "$FD" = true ]; then
+            fd . "$source_folder" -H --type f --exec $HASH_CMD "{}" \; | sort > "$tempdata"
         else
-            find "$source_folder" -type f -exec $HASH_CMD "{}" \; | sort > $tempdata
+            find "$source_folder" -type f -exec $HASH_CMD "{}" \; | sort > "$tempdata"
         fi
     fi
 fi
@@ -257,11 +349,12 @@ files=$(cat "$tempdata" | awk '{print substr($0,length($1)+3)}')
 count_files=$(cat "$tempdata" | wc -l | xargs)
 assured=$(cat "$tempdata" | awk -v of_file_cksum="$of_file_cksum" '
     of_file_cksum {
-        if ($1 == of_file_cksum) print $2; next
+        if ($1 == of_file_cksum) print substr($0, length($1) + 3)
+        next
     }
     {
         md5 = $1
-        filename = substr($0,length(md5)+3)
+        filename = substr($0, length(md5) + 3)
         md5s[md5]++
         filenames[filename] = md5
         if (md5s[md5] == 1) {base_filename[md5] = filename}
@@ -272,42 +365,47 @@ assured=$(cat "$tempdata" | awk -v of_file_cksum="$of_file_cksum" '
     END {
         for (filename in filenames) {
             md5 = filenames[filename]
- 
+
             if (md5s[md5] > 1 && base_filename[md5] != filename) {
-                printf "%-100s|||%-100s\n", base_filename[md5], filename
+                printf "%s\t%s\n", base_filename[md5], filename
             }
         }
     }
 ')
-let md5dup_count=$(echo "$assured" | wc -l | xargs)
-[ -z "$of_file" ] && let md5dup_count-=1
+
+# Empty command substitution still yields one blank line from echo|wc; treat empty as 0.
+if [ -z "$assured" ]; then
+    md5dup_count=0
+else
+    md5dup_count=$(printf '%s\n' "$assured" | wc -l | xargs)
+fi
+
+file_size() {
+    wc -c < "$1" | tr -d '[:space:]'
+}
 
 # Improve duplicate display format
-if [ $md5dup_count -gt 1 ]; then
+if [ "$md5dup_count" -gt 0 ]; then
     echo -e "\n${GREEN}Found $md5dup_count duplicate files:${NC}\n"
-    if [ "$of_file" ]; then
-        echo "$assured" | while IFS= read -r line; do
-            orig=$(echo "$line" | cut -d'|' -f1 | xargs)
-            dup=$(echo "$line" | cut -d'|' -f2 | xargs)
-            orig_size=$(stat -f %z "$orig")
-            echo -e "${YELLOW}Original: ${NC}$orig ${BLUE}($(format_size $orig_size))${NC}"
+    if [ -n "$of_file" ]; then
+        printf '%s\n' "$assured" | while IFS= read -r line; do
+            [ -z "$line" ] && continue
+            dup=$(printf '%s' "$line" | sed 's/[[:space:]]*$//')
+            orig_size=$(file_size "$of_file")
+            echo -e "${YELLOW}Original: ${NC}$of_file ${BLUE}($(format_size $orig_size))${NC}"
             echo -e "${RED}Duplicate: ${NC}$dup"
             echo
         done
     else
-        echo "$assured" | while IFS= read -r line; do
-            if [ "$line" = "DUPLICATE|||COMPDUPLICATE" ]; then
-                echo -e "${YELLOW}Original File${NC}${BLUE} (Size)${NC} | ${RED}Duplicate File${NC}"
-                echo "----------------------------------------+----------------------------------------"
-            else
-                orig=$(echo "$line" | cut -d'|' -f1 | xargs)
-                dup=$(echo "$line" | cut -d'|' -f2 | xargs)
-                orig_size=$(stat -f %z "$orig")
-                echo -e "${YELLOW}$orig ${BLUE}($(format_size $orig_size))${NC} | ${RED}$dup${NC}"
-            fi
+        echo -e "${YELLOW}Original File${NC}${BLUE} (Size)${NC} | ${RED}Duplicate File${NC}"
+        echo "----------------------------------------+----------------------------------------"
+        printf '%s\n' "$assured" | while IFS=$'\t' read -r orig dup; do
+            [ -z "$orig" ] && continue
+            orig_size=$(file_size "$orig")
+            echo -e "${YELLOW}$orig ${BLUE}($(format_size $orig_size))${NC} | ${RED}$dup${NC}"
         done
 
-        if [ $delete ]; then
+        if [ "$delete" = true ]; then
             echo
             echo -e "${YELLOW}Delete duplicates?${NC}"
             echo "  l) Remove files in left column"
@@ -316,17 +414,17 @@ if [ $md5dup_count -gt 1 ]; then
             read -p "Choice [l/r/n]: " choice
 
             case $choice in
-                l|L) 
+                l|L)
                     echo -e "\n${RED}Removing original files...${NC}"
-                    echo "$assured" | awk -F"\\\|\\\|\\\|" '{if (NR==1) {next};
-                        gsub(/^[[:space:]]+|[[:space:]]+$/, "", $1); print $1}' | 
-                        sed -e "s/'/\\\\'/g" | xargs -I % rm -v "%"
+                    printf '%s\n' "$assured" | while IFS=$'\t' read -r orig dup; do
+                        [ -n "$orig" ] && rm -v -- "$orig"
+                    done
                     ;;
                 r|R)
                     echo -e "\n${RED}Removing duplicate files...${NC}"
-                    echo "$assured" | awk -F"\\\|\\\|\\\|" '{if (NR==1) {next};
-                        gsub(/^[[:space:]]+|[[:space:]]+$/, "", $2); print $2}' |
-                        sed -e "s/'/\\\\'/g" | xargs -I % rm -v "%"
+                    printf '%s\n' "$assured" | while IFS=$'\t' read -r orig dup; do
+                        [ -n "$dup" ] && rm -v -- "$dup"
+                    done
                     ;;
                 *)
                     echo -e "\n${GREEN}No files removed.${NC}"
@@ -338,7 +436,7 @@ else
     echo -e "\n${GREEN}No duplicates found.${NC}"
 fi
 
-if [ "$check_filenames" ]; then
+if [ "$check_filenames" = true ]; then
     echo -e "\n${BLUE}Checking for duplicate filenames...${NC}"
 
     # If no other directory levels exist past the source, all files can be assumed
@@ -398,8 +496,8 @@ fi
 echo -e "\n${BLUE}Summary:${NC}"
 echo -e "  Scanned files: ${GREEN}$count_files${NC}"
 echo -e "  Found duplicates: ${YELLOW}$md5dup_count${NC}"
-if [ "$check_filenames" ] && [ $dir_count -gt 1 ]; then
-    echo -e "  Files with duplicate names: ${YELLOW}$dup_name_count${NC}"
+if [ "$check_filenames" = true ] && [ "${dir_count:-0}" -gt 1 ]; then
+    echo -e "  Files with duplicate names: ${YELLOW}${dup_name_count:-0}${NC}"
 fi
 echo
 
