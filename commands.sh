@@ -1550,7 +1550,7 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
         local _file=$(ds:tmp 'ds_fit') piped=0 hc=f
         cat /dev/stdin > $_file
     else
-        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/fit_columns.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/fit_columns_documentation.awk" \
             | tr -d "#" | less && return
         if [[ -f "$2" && -f "$1" ]]; then
             if [ $DS_COLOR_SUP ]; then
@@ -1591,11 +1591,17 @@ ds:fit() { # ** Fit fielded data in columns with dynamic width: ds:fit [-h|file*
 
     if [ "$pf_off" ]; then
         LC_ALL='C' awk -v FS="$fs" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$_file" -v termcolor_support=$DS_COLOR_SUP \
-            ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/fit_columns.awk" $_file{,} 2>/dev/null
+            ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+            -f "$DS_SCRIPT/fit_columns_functions.awk" \
+            -f "$DS_SCRIPT/fit_columns_program.awk" \
+            $_file{,} 2>/dev/null
     else
         ds:prefield "$_file" "$fs" 0 > $prefield
         LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs" -v tty_size=$tty_size -v buffer="$buffer" -v file="$_file" -v termcolor_support=$DS_COLOR_SUP \
-            ${args[@]} -f "$DS_SUPPORT/utils.awk" -f "$DS_SCRIPT/fit_columns.awk" $prefield{,} 2>/dev/null
+            ${args[@]} -f "$DS_SUPPORT/utils.awk" \
+            -f "$DS_SCRIPT/fit_columns_functions.awk" \
+            -f "$DS_SCRIPT/fit_columns_program.awk" \
+            $prefield{,} 2>/dev/null
         rm $prefield
     fi
 

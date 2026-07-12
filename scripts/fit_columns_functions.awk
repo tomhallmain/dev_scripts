@@ -10,12 +10,11 @@ function StripColors(str) {
 
 function StripBasicASCII(str) {
     # TODO: Strengthen cases where not multibyte-safe
-    gsub(/[ -~ -¬®-˿Ͱ-ͷͺ-Ϳ΄-ΊΌΎ-ΡΣ-҂Ҋ-ԯԱ-Ֆՙ-՟ա-և։֊־׀׃׆א-תװ-״]+/, "", str)
+    gsub(/[ -~ -¬®-˿Ͱ-ͷͺ-Ϳ΄-ΊΌΎ-ΡΣ-҂Ҋ-ԯԱ-Ֆՙ-՟ա-և։֊־׀׃׆א-תװ-״]+/, "", str)
     return str
 }
 
 function GetOrSetCutStringByVisibleLen(str, reduction_len) {
-    # Use cached value if available
     if (CutString[str, reduction_len]) return CutString[str, reduction_len]
 
     if (str ~ trailing_color_re) {
@@ -28,6 +27,7 @@ function GetOrSetCutStringByVisibleLen(str, reduction_len) {
         p_len = length(PrintStr)
 
         for (p = 1; p <= p_len && reduced_str_len <= reduction_len; p++) {
+
             p_cur = p == 1 ? PrintStr[p] : substr(PrintStr[p], 2)
             add = substr(p_cur, 1, Max(reduction_len - reduced_str_len, 0))
             rem_str = substr(rem_str, index(rem_str, p_cur) + length(p_cur) + 1)
@@ -41,15 +41,12 @@ function GetOrSetCutStringByVisibleLen(str, reduction_len) {
         reduced_str = substr(str, 1, reduction_len)
     }
 
-    # Cache the result
     CutString[str, reduction_len] = reduced_str
     return reduced_str
 }
 
 function GetOrSetTruncVal(val, dec, large_vals) {
-    # Use cached value if available
     if (TVal[val]) return TVal[val]
-    
     trunc_val = TruncVal(val, dec, large_vals)
     TVal[val] = trunc_val
     return trunc_val
@@ -92,6 +89,37 @@ function PrintBuffer(buffer) {
     printf "%.*s", buffer, buffer_str
 }
 
+function InitGridPatterns(    i, unit_w) {
+    # UTF-8 box-drawing chars are 3 bytes; custom ASCII h-char is 1 byte.
+    # print_len * unit_w matches historical print_len * 3 for default ─.
+    unit_w = length(gridline_base_char)
+    if (unit_w < 1) unit_w = 1
+    delete GRID_PATTERNS
+    for (i = 1; i <= 10; i++) {
+        GRID_PATTERNS[i] = sprintf("%.*s", i * unit_w, gridline_base)
+    }
+}
+
+function GetOrSetPad(n) {
+    if (n < 1) return ""
+    if (n in PadCache) return PadCache[n]
+    PadCache[n] = sprintf("%.*s", n, space_str)
+    return PadCache[n]
+}
+
+function CleanupFitCaches(max_entries,    key, n) {
+    n = 0
+    for (key in MB_CHAR_WIDTHS) n++
+    if (n > max_entries) {
+        for (key in MB_CHAR_WIDTHS) {
+            if (key != "") delete MB_CHAR_WIDTHS[key]
+        }
+        MB_CHAR_WIDTHS[""] = 0
+    }
+    delete CutString
+    delete TVal
+}
+
 function PrintGridline(mode, max_nf) {
     if (mode < 0) {
         start_char = "\xE2\x94\x8C"
@@ -111,6 +139,7 @@ function PrintGridline(mode, max_nf) {
     }
     
     for (i = 1; i <= max_nf; i++) {
+        
         if (i == 1) printf "%s", start_char
         not_last_f = i < max_nf
 
@@ -130,16 +159,23 @@ function PrintGridline(mode, max_nf) {
                 }
             }
 
-            # Use cached grid line pattern if available
-            if (print_len <= 10) {
+            unit_w = length(gridline_base_char)
+            if (unit_w < 1) unit_w = 1
+            if (print_len in GRID_PATTERNS) {
                 printf "%s", GRID_PATTERNS[print_len]
-            } else {
-                printf "%.*s", print_len * 3, gridline_base
+            }
+            else {
+                printf "%.*s", print_len * unit_w, gridline_base
             }
             
             if (not_last_f) { 
                 printf "%s", intersect_char
-                printf "%.*s", 6, gridline_base
+                if (2 in GRID_PATTERNS) {
+                    printf "%s", GRID_PATTERNS[2]
+                }
+                else {
+                    printf "%.*s", 2 * unit_w, gridline_base
+                }
             }
         }
     }

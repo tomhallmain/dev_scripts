@@ -2,18 +2,14 @@ BEGIN {
     WCW_FS = " "
     FIT_FS = FS
 
-    # Pre-allocate common field widths for faster lookup
-    COMMON_WIDTHS[8] = 1  # Common timestamp width
-    COMMON_WIDTHS[10] = 1 # Common date width
-    COMMON_WIDTHS[19] = 1 # Common datetime width
-    
-    # Cache multibyte character widths
-    MB_CHAR_WIDTHS[""] = 0  # Empty string
-
-    # Pre-generate common grid line patterns
-    for (i = 1; i <= 10; i++) {
-        GRID_PATTERNS[i] = sprintf("%.*s", i * 3, gridline_base_char)
-    }
+    # Common display widths (timestamps / dates / datetimes) — seed pad cache later
+    COMMON_WIDTHS[8] = 1
+    COMMON_WIDTHS[10] = 1
+    COMMON_WIDTHS[19] = 1
+    MB_CHAR_WIDTHS[""] = 0
+    if (!chunk_size) chunk_size = 50
+    if (!cache_cleanup_interval) cache_cleanup_interval = 10000
+    if (!cache_cleanup_max_entries) cache_cleanup_max_entries = 1000
 
     if (file && !nofit && !onlyfit && !startfit && !endfit && !startrow && !endrow) {
         if (file ~ /\.(properties|csv|tsv)$/ && !gridlines)
@@ -61,19 +57,23 @@ BEGIN {
         else {
             gridlines = 1
             buffer = 5
-            bufferchar = "\xE2\x94\x82"
-            gridline_base_char = "\xE2\x94\x80"
+            # Defaults; optional -v gridline_v= / gridline_h= override custom patterns
+            bufferchar = (gridline_v == "" ? "\xE2\x94\x82" : gridline_v)
+            gridline_base_char = (gridline_h == "" ? "\xE2\x94\x80" : gridline_h)
             if (!partial_fit) {
                 to_print_start_gridline = 1
                 to_print_final_gridline = 1
             }
             for (i = 0; i < 100; i++) gridline_base = gridline_base gridline_base_char
+            InitGridPatterns()
         }
     }
 
     if (!buffer) buffer = 2
     space_str = "                                                                   "
     buffer_str = bufferchar space_str
+    # Pre-build pads for common widths after space_str exists
+    for (cw in COMMON_WIDTHS) PadCache[cw + 0] = sprintf("%.*s", cw + 0, space_str)
 
     if (!(color == "never" || color == "off")) {
         if (color == "always" || termcolor_support) {
@@ -231,13 +231,17 @@ $0 ~ /^No matches found/ {
     exit(err)
 }
 
-## First pass, gather field info with optimizations
+## First pass, gather field info
+
 NR == FNR {
     fitrows++
 
-    # Process fields in chunks for large records
-    chunk_size = 50
-    for (i = 1; i <= NF; i++) {
+    # Wide rows: walk fields in chunks of chunk_size (default 50)
+    for (chunk_start = 1; chunk_start <= NF; chunk_start += chunk_size) {
+      chunk_end = chunk_start + chunk_size - 1
+      if (chunk_end > NF) chunk_end = NF
+
+    for (i = chunk_start; i <= chunk_end; i++) {
         if (endfit_col) {
             if (i == 1) res_line = $0
             if (i < endfit_col) {
@@ -259,19 +263,6 @@ NR == FNR {
         init_len = length(init_f)
         if (init_len < 1) continue
 
-        # Use cached width for multibyte characters
-        if (awksafe && init_f != 0) {
-            _cached = MB_CHAR_WIDTHS[init_f]
-            if (_cached) {
-                wcw = _cached
-            } else if (init_f ~ /[^\x00-\x7F]/) {
-                FS = WCW_FS
-                wcw = wcscolumns(init_f)
-                FS = FIT_FS
-                MB_CHAR_WIDTHS[init_f] = wcw
-            }
-        }
-
         f_ntc = StripTrailingColors(init_f)
         len_ntc = length(f_ntc)
         tc_diff = init_len - len_ntc
@@ -290,12 +281,18 @@ NR == FNR {
         decimal_max_diff = 0
         field_diff = 0
 
-        # Get the actual field length
+        # Get the actual field length (cache wcscolumns results)
 
         if (awksafe && f != 0) {
-            FS = WCW_FS
-            wcw = wcscolumns(f)
-            FS = FIT_FS
+            if (f in MB_CHAR_WIDTHS) {
+                wcw = MB_CHAR_WIDTHS[f]
+            }
+            else {
+                FS = WCW_FS
+                wcw = wcscolumns(f)
+                FS = FIT_FS
+                MB_CHAR_WIDTHS[f] = wcw
+            }
 
             wcw_diff = len - wcw
 
@@ -525,22 +522,20 @@ NR == FNR {
             total_fields_len += field_diff
         }
 
-        if (endfit_col && i == endfit_col) break
-
-        # Periodic cache cleanup
-        if (NR % 10000 == 0) {
-            for (key in MB_CHAR_WIDTHS) {
-                if (length(MB_CHAR_WIDTHS) > 1000) {
-                    delete MB_CHAR_WIDTHS[key]
-                }
-            }
-            delete CutString
-            delete TVal
+        if (endfit_col && i == endfit_col) {
+            chunk_start = NF + 1
+            break
         }
-    }
+
+    } # field i
+    } # chunk
 
     if (NF > max_nf) {
         max_nf = endfit_col && endfit_col < NF ? endfit_col : NF
+    }
+
+    if (cache_cleanup_interval > 0 && NR % cache_cleanup_interval == 0) {
+        CleanupFitCaches(cache_cleanup_max_entries)
     }
 }
 
@@ -637,7 +632,7 @@ NR > FNR {
                 printf fmt_str, value
                 
                 if (gridlines) {
-                    printf "%.*s", MaxFieldLen[i] + COLOR_DIFF[FNR, i] + WCWIDTH_DIFF[FNR, i] - print_len, space_str
+                    printf "%s", GetOrSetPad(MaxFieldLen[i] + COLOR_DIFF[FNR, i] + WCWIDTH_DIFF[FNR, i] - print_len)
                 }
 
                 if (not_last_f) PrintBuffer(buffer)
@@ -660,3 +655,5 @@ END {
         PrintGridline(1, max_nf)
     }
 }
+
+
