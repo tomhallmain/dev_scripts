@@ -159,7 +159,7 @@ a      b     c
 
 #### `ds:agg`
 
-Aggregate data by specific indices or by full rows/columns by field value. For example, count all instances of a regex match, sum number data at each index, or group the results of an operation on one index by unique values from another index.
+Aggregate data by specific indices or by full rows/columns by field value. For example, count all instances of a regex match, sum number data at each index, or group the results of an operation on one index by unique values from another index. Extended stats such as median, mode, quartiles, and standard deviation are also supported (`ds:agg -h`).
 
 ```bash
 $ cat /tmp/agg_ex
@@ -251,11 +251,14 @@ Enter a number from the set of files or a pattern: ^commands
 $ ds:vi 'function GetOrSet'
 No match found - Did you mean to search with ds:grepvi? (y/n) y
 Multiple matches found - select a file:
-1  scripts/agg.awk
-2  scripts/fit_columns.awk
-3  scripts/hist.awk
-4  scripts/power.awk
-Enter a number from the set of files or a pattern: 2
+1  README.md
+2  scripts/agg_functions.awk
+3  scripts/diff_fields.awk
+4  scripts/fit_columns_functions.awk
+5  scripts/hist.awk
+6  scripts/plot.awk
+7  scripts/power.awk
+Enter a number from the set of files or a pattern: 4
 ```
 
 
