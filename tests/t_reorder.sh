@@ -77,6 +77,7 @@ actual="$(echo "$input" | ds:reo rev rev -v idx=1)"
 
 actual="$(ds:commands | grep 'ds:' | ds:reo 'len()>130' off)"
 expected='**@@@ds:diff_fields@@@ds:df@@@Get elementwise diff of two datasets@@@ds:df file [file*] [op=-] [exc_fields=0] [prefield=f] [awkargs]
+@@@ds:dups@@@@@@Report duplicate files with option for deletion@@@ds:dups [dir] [confirm=f] [of_file] [try_nonmatch_ext=f] [strip_meta=f]
 @@@ds:path_elements@@@@@@Return dirname/filename/extension from filepath@@@read -r dirpath filename extension <<< "$(ds:path_elements file)"'
 [ "$actual" = "$expected" ] || ds:fail 'reo failed full row len case'
 
