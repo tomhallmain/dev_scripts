@@ -2,6 +2,9 @@
 
 source commands.sh
 
+# Solo runs need the same scratch path commands_tests.sh exports.
+[ -n "${tmp:-}" ] || tmp=/tmp/ds_commands_tests
+
 jnf1="tests/data/infer_join_fields_test1.csv"
 jnf2="tests/data/infer_join_fields_test2.csv"
 jnd1="tests/data/infer_jf_test_joined.csv"
@@ -112,8 +115,8 @@ e o t a
 t p y 6
 a b d f
 d c e f
-t o y l
-e r t a'
+e r t a
+t o y l'
 actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 o merge)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 2-join merge case'
 
@@ -148,9 +151,9 @@ actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 /tmp/
 
 expected='a b d f b f <NULL> <NULL> b 3
 d c e f c f p f c f
-t <NULL> y <NULL> o l p 6 <NULL> <NULL>
+a <NULL> l <NULL> <NULL> <NULL> b f <NULL> <NULL>
 e <NULL> t <NULL> r a o a <NULL> <NULL>
-a <NULL> l <NULL> <NULL> <NULL> b f <NULL> <NULL>'
+t <NULL> y <NULL> o l p 6 <NULL> <NULL>'
 actual="$(ds:join /tmp/ds_join_test1 /tmp/ds_join_test2 /tmp/ds_join_test3 /tmp/ds_join_test4 o 1,3)"
 [ "$actual" = "$expected" ]                                 || ds:fail 'ds:join failed 3-join outer case'
 

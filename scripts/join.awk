@@ -182,6 +182,14 @@
 #
 #   ** - Indicates opt functions well only on two-file joins
 #
+# OUTPUT ORDER
+#       Row order that depends on AWK associative-array traversal is made
+#       deterministic via GetSortedKeys (lexicographic on the compound key
+#       string; numeric indices compare numerically so keysets like 1,2,10
+#       stay in field order). Unmatched left rows in END are emitted in that
+#       sorted key order. Compound join keys from GenKeyString walk key-field
+#       indices in the same sorted order.
+#
 #
 # VERSION
 #       1.3.1
@@ -189,6 +197,41 @@
 # AUTHORS
 #       Tom Hall (tomhall.main@gmail.com)
 #
+
+function GetSortedKeys(arr, sorted_arr,    i, n) {
+    n = 0
+    for (i in arr) {
+        n++
+        sorted_arr[n] = i
+    }
+    quicksort(sorted_arr, 1, n)
+    return n
+}
+
+function KeyLt(a, b) {
+    if (a ~ /^[0-9]+$/ && b ~ /^[0-9]+$/)
+        return (a + 0) < (b + 0)
+    return a < b
+}
+
+function quicksort(arr, left, right,    i, last) {
+    if (left >= right)
+        return
+    swap(arr, left, left + int((right - left) / 2))
+    last = left
+    for (i = left + 1; i <= right; i++)
+        if (KeyLt(arr[i], arr[left]))
+            swap(arr, ++last, i)
+    swap(arr, left, last)
+    quicksort(arr, left, last - 1)
+    quicksort(arr, last + 1, right)
+}
+
+function swap(arr, i, j,    temp) {
+    temp = arr[i]
+    arr[i] = arr[j]
+    arr[j] = temp
+}
 
 BEGIN {
     _ = SUBSEP
@@ -234,9 +277,9 @@ BEGIN {
 
         if (bias_merge_keys) {
             bias_merge = 1
-            split(bias_merge_keys, _BiasMergeKeys, ",")
+            n_bias_keys = split(bias_merge_keys, _BiasMergeKeys, ",")
 
-            for (key_index in _BiasMergeKeys) {
+            for (key_index = 1; key_index <= n_bias_keys; key_index++) {
                 key = _BiasMergeKeys[key_index]
                 
                 if (!(key ~ /^[0-9]+$/)) {
@@ -255,9 +298,9 @@ BEGIN {
         if (bias_merge_exclude_keys) {
             bias_merge = 1
             gen_bias_merge_keys_from_exclusion = 1
-            split(bias_merge_exclude_keys, _BiasMergeExcludeKeys, ",")
+            n_bias_excl = split(bias_merge_exclude_keys, _BiasMergeExcludeKeys, ",")
 
-            for (key_index in _BiasMergeExcludeKeys) {
+            for (key_index = 1; key_index <= n_bias_excl; key_index++) {
                 key = _BiasMergeExcludeKeys[key_index]
 
                 if (!(key ~ /^[0-9]+$/)) {
@@ -326,8 +369,10 @@ BEGIN {
     }
     
     if (debug) {
-        for (i in Keys1) print i, Keys1[i]
-        for (i in Keys2) print i, Keys2[i]
+        n_dbg = GetSortedKeys(Keys1, SortedDbgKeys)
+        for (i = 1; i <= n_dbg; i++) print SortedDbgKeys[i], Keys1[SortedDbgKeys[i]]
+        n_dbg = GetSortedKeys(Keys2, SortedDbgKeys)
+        for (i = 1; i <= n_dbg; i++) print SortedDbgKeys[i], Keys2[SortedDbgKeys[i]]
     }
 
     if (join == "left") left = 1
@@ -492,9 +537,10 @@ END {
     if (err) exit err
     if (skip_left) exit
 
-    # Print left joins
-
-    for (compound_key in S1) {
+    # Print left joins in deterministic compound-key order
+    n_left = GetSortedKeys(S1, SortedLeftKeys)
+    for (si = 1; si <= n_left; si++) {
+        compound_key = SortedLeftKeys[si]
         if (standard_join && run_inner) {
             base_key = substr(compound_key, 0, length(compound_key) - 2)
             if (base_key in SK2) {
@@ -611,11 +657,12 @@ function GenMergeKeys(nf, K1, K2) {
     }
 }
 
-function GenKeyString(Keys) {
+function GenKeyString(Keys,    SortedKeys, n, i, k, str) {
     str = ""
+    n = GetSortedKeys(Keys, SortedKeys)
 
-    for (i in Keys) {
-        k = Keys[i]
+    for (i = 1; i <= n; i++) {
+        k = Keys[SortedKeys[i]]
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", $k)
         if (length($k) == 0) $k = null_field
         str = str $k _
