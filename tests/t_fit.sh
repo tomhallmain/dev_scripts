@@ -399,4 +399,58 @@ data1  data2  data3  data4'
 actual="$(echo -e "$input" | ds:fit -F, -v color=never | sed -E 's/[[:space:]]+$//g')"
 [ "$expected" = "$actual" ] || ds:fail 'fit failed varying columns case'
 
+# --- Step B: custom grids, chunking, caches, help ---
+
+# Custom gridline_h / gridline_v (corners stay default box-drawing)
+expected='┌=┬====┐
+|  a|     b|
+├=┼====┤
+|  1|    22|
+└=┴====┘'
+actual="$(echo -e 'a,b\n1,22' | ds:fit -F, -v gridlines=1 -v gridline_h='=' -v gridline_v='|' -v color=never | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed custom gridline_h/gridline_v case'
+
+# Wide-row chunking is a traversal detail — same output for chunk_size 50 vs 60
+wide_csv="${tmp}_fit_wide.csv"
+python3 - "$wide_csv" <<'PY'
+import sys
+path = sys.argv[1]
+cols = 60
+hdr = ','.join('c%d' % i for i in range(cols))
+row = ','.join(str(i) for i in range(cols))
+open(path, 'w').write(hdr + '\n' + row + '\n')
+PY
+actual_chunked="$(ds:fit "$wide_csv" -F, -v color=never -v chunk_size=50 | sed -E 's/[[:space:]]+$//g')"
+actual_onepass="$(ds:fit "$wide_csv" -F, -v color=never -v chunk_size=60 | sed -E 's/[[:space:]]+$//g')"
+[ "$actual_chunked" = "$actual_onepass" ] || ds:fail 'fit failed chunk_size parity case'
+rm -f "$wide_csv"
+
+# Aggressive cache cleanup must not change printed output
+input='a,b
+1,2
+3,4
+5,6'
+expected="$(echo -e "$input" | ds:fit -F, -v color=never | sed -E 's/[[:space:]]+$//g')"
+actual="$(echo -e "$input" | ds:fit -F, -v color=never -v cache_cleanup_interval=1 -v cache_cleanup_max_entries=1 | sed -E 's/[[:space:]]+$//g')"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed cache_cleanup output parity case'
+
+# Repeated multibyte values stay aligned (width cache must not drift)
+if ds:awksafe; then
+    expected='x     y
+😀    1
+😀    2
+😀    3'
+    actual="$(echo -e 'x,y\n😀,1\n😀,2\n😀,3' | ds:fit -F, -v color=never | sed -E 's/[[:space:]]+$//g')"
+    [ "$expected" = "$actual" ] || ds:fail 'fit failed multibyte width cache alignment case'
+fi
+
+# Help documents new Step B opts / PERFORMANCE (same grep as ds:fit -h)
+help_txt="$(grep -E '^#( |$)' scripts/fit_columns_documentation.awk | sed -E 's:^#::g')"
+[[ "$help_txt" == *'gridline_h'* && "$help_txt" == *'gridline_v'* ]] \
+    || ds:fail 'fit documentation missing custom gridline opts'
+[[ "$help_txt" == *'chunk_size'* && "$help_txt" == *'cache_cleanup_interval'* ]] \
+    || ds:fail 'fit documentation missing cache/chunk opts'
+[[ "$help_txt" == *'PERFORMANCE'* ]] \
+    || ds:fail 'fit documentation missing PERFORMANCE section'
+
 echo -e "${GREEN}PASS${NC}"
