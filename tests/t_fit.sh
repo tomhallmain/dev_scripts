@@ -399,7 +399,7 @@ data1  data2  data3  data4'
 actual="$(echo -e "$input" | ds:fit -F, -v color=never | sed -E 's/[[:space:]]+$//g')"
 [ "$expected" = "$actual" ] || ds:fail 'fit failed varying columns case'
 
-# --- Step B: custom grids, chunking, caches, help ---
+# --- custom grids, chunking, caches, help ---
 
 # Custom gridline_h / gridline_v (corners stay default box-drawing)
 expected='┌=┬====┐
@@ -444,7 +444,7 @@ if ds:awksafe; then
     [ "$expected" = "$actual" ] || ds:fail 'fit failed multibyte width cache alignment case'
 fi
 
-# Help documents new Step B opts / PERFORMANCE (same grep as ds:fit -h)
+# Help documents PERFORMANCE / new -v opts (same grep as ds:fit -h)
 help_txt="$(grep -E '^#( |$)' scripts/fit_columns_documentation.awk | sed -E 's:^#::g')"
 [[ "$help_txt" == *'gridline_h'* && "$help_txt" == *'gridline_v'* ]] \
     || ds:fail 'fit documentation missing custom gridline opts'

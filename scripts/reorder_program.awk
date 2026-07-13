@@ -9,15 +9,63 @@ BEGIN {
     base_c = 1
     min_guar_print_nf = 1000
     min_guar_print_nr = 100000000
-    chunk_size = 10000  # Process data in chunks to manage memory
     current_chunk = 1
     comma_escape_string = "#_ECSOCMAMPA_#"
+
+    # -v chunk_size=N: honor N; invalid values abort. Default 10000.
+    if (chunk_size == "") {
+        chunk_size = 10000
+    }
+    else {
+        chunk_size += 0
+        if (chunk_size <= 0) {
+            print "Invalid chunk_size: must be a positive integer" > "/dev/stderr"
+            err = 1
+            exit 1
+        }
+        enable_chunked_processing = 1
+    }
+
+    # -v buffer_size=N: field-batch threshold for FieldsPrint (default 100).
+    if (buffer_size == "") {
+        buffer_size = 100
+    }
+    else {
+        buffer_size += 0
+        if (buffer_size <= 0) {
+            print "Invalid buffer_size: must be a positive integer" > "/dev/stderr"
+            err = 1
+            exit 1
+        }
+    }
+
+    # ProcessFieldBatch operation codes (integer compare on the hot path)
+    BATCH_PRINT = 1
+    BATCH_PRINT_ORDERED = 2
+    BATCH_STORE = 3
+
+    # TypeMap / GetOrder codes (hot path); Setup still uses string Tk tokens
+    TYPE_RE = 1
+    TYPE_MAT = 2
+    TYPE_REV = 3
+    TYPE_OTH = 4
+    TYPE_ANC = 5
+    TYPE_EXT = 6
+    TYPE_NIDX = 7
+    TYPE_NIDX_RNG = 8
+
+    # -v cache_patterns=0 disables pattern/field/expr caches (default on).
+    if (cache_patterns == "") {
+        cache_patterns = 1
+    }
+
     if (!cased) ignore_case_global = 1
     if (ARGV[1]) {
         # Get file size and estimate memory requirements
         "wc -l < \""ARGV[1]"\"" | getline max_nr; max_nr+=0
         if (max_nr > chunk_size) {
             chunked_processing = 1
+            enable_chunked_processing = 1
             chunks_total = int((max_nr + chunk_size - 1) / chunk_size)
         }
     }
@@ -95,20 +143,24 @@ BEGIN {
 
 ## SIMPLE PROCESSING/DATA GATHERING
 
-# Add chunk management
+# Drop transient caches at chunk boundaries. Keep _[] for END reorder.
+function ProcessStoredData() {
+    delete PatternCache
+    delete FieldCache
+    delete ExprCache
+    delete FieldStore
+}
+
+# Periodic memory relief while gathering rows for END.
 function ProcessChunk() {
-    if (chunked_processing && NR % chunk_size == 0) {
-        # Process current chunk
-        ProcessStoredData()
-        
-        # Clear chunk data
-        for (i in _) delete _[i]
-        for (i in Row) delete Row[i]
-        for (i in PrintRows) delete PrintRows[i]
-        for (i in PrintFields) delete PrintFields[i]
-        
-        current_chunk++
+    if (!(enable_chunked_processing && chunked_processing && NR > 0 && NR % chunk_size == 0)) {
+        return
     }
+    ProcessStoredData()
+    for (i in Row) delete Row[i]
+    for (i in PrintRows) delete PrintRows[i]
+    for (i in PrintFields) delete PrintFields[i]
+    current_chunk++
 }
 
 indx {

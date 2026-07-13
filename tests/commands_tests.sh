@@ -63,8 +63,9 @@ $shell tests/t_join.sh          || skip_integration=1
 $shell tests/t_join_order.sh    || skip_integration=1
 $shell tests/t_sort.sh          || skip_integration=1
 $shell tests/t_prefield.sh      || ds:fail 'WARNING: prefield failed so skipping dependent tests'
-$shell tests/t_reorder.sh       || skip_integration=1
-$shell tests/t_fit.sh           || skip_integration=1
+$shell tests/t_reorder.sh          || skip_integration=1
+$shell tests/t_reorder_extended.sh || skip_integration=1
+$shell tests/t_fit.sh              || skip_integration=1
 $shell tests/t_newfs.sh         || skip_integration=1
 $shell tests/t_fieldcounts.sh   || skip_integration=1 skip_searchx=1
 $shell tests/t_subsep.sh        || skip_integration=1

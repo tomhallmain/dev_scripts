@@ -1662,7 +1662,7 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [r
         local _file=$(ds:tmp "ds_reo") piped=0
         cat /dev/stdin > $_file
     else
-        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/reorder.awk" \
+        ds:test "^(-h|--help)\$" "$1" && grep -E "^#( |$)" "$DS_SCRIPT/reorder_documentation.awk" \
             | sed -E 's:^#::g' | less && return
         if [[ -f "$2" && -f "$1" ]]; then
             if [ $DS_COLOR_SUP ]; then
@@ -1694,12 +1694,18 @@ ds:reo() { # ** Reorder/repeat/slice data by rows and cols: ds:reo [-h|file*] [r
     local fs="$(cat $fstmp; rm $fstmp)"
 
     if [ "$pf_off" ]; then
-        LC_ALL='C' awk -v FS="$fs" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
-            -f "$DS_SCRIPT/reorder.awk" "$_file" 2>/dev/null | ds:ttyf "$fs" "$run_fit"
+        LC_ALL='C' awk -v FS="$fs" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} \
+            -f "$DS_SUPPORT/utils.awk" \
+            -f "$DS_SCRIPT/reorder_functions.awk" \
+            -f "$DS_SCRIPT/reorder_program.awk" \
+            "$_file" 2>/dev/null | ds:ttyf "$fs" "$run_fit"
     else
         ds:prefield "$_file" "$fs" 1 > $prefield
-        LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} -f "$DS_SUPPORT/utils.awk" \
-            -f "$DS_SCRIPT/reorder.awk" $prefield 2>/dev/null | ds:ttyf "$fs" "$run_fit"
+        LC_ALL='C' awk -v FS="$DS_SEP" -v OFS="$fs" -v r="$rows" -v c="$cols" ${args[@]} \
+            -f "$DS_SUPPORT/utils.awk" \
+            -f "$DS_SCRIPT/reorder_functions.awk" \
+            -f "$DS_SCRIPT/reorder_program.awk" \
+            $prefield 2>/dev/null | ds:ttyf "$fs" "$run_fit"
     fi
 
     local stts_bash=${PIPESTATUS[0]} # TODO: Zsh pipestatus not working

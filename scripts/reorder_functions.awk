@@ -48,11 +48,10 @@ function FieldsPrint(Order, ord_len, run_call) {
             }
         }
         else if (run_call) {
-            # Use optimized batch processing for large fields
-            if (NF > 100) {
-                printf "%s\n", ProcessFieldBatch(1, NF, "print")
+            # Batch path for wide rows (threshold: buffer_size, default 100)
+            if (NF > buffer_size) {
+                printf "%s\n", ProcessFieldBatch(1, NF, BATCH_PRINT)
             } else {
-                # Direct printing for small number of fields
                 result = ""
                 for (i = 1; i < NF; i++) {
                     result = result $i OFS
@@ -63,24 +62,25 @@ function FieldsPrint(Order, ord_len, run_call) {
         else {
             split(Order, PrintFields, FS)
             len_printf = length(PrintFields)
-            if (len_printf > 100) {
-                printf "%s\n", ProcessFieldBatch(1, len_printf, "print")
-            } else {
-                result = ""
-                for (i = 1; i < len_printf; i++) {
-                    result = result PrintFields[i] OFS
-                }
-                print result PrintFields[len_printf]
+            # ProcessFieldBatch reads $f; reordered FS string stays local.
+            result = ""
+            for (i = 1; i < len_printf; i++) {
+                result = result PrintFields[i] OFS
             }
+            print result PrintFields[len_printf]
         }
     }
     else {
-        # Use string concatenation optimization for ordered fields
-        result = ""
-        for (pf = 1; pf < ord_len; pf++) {
-            result = result Order[pf] OFS
+        # Ordered field indices: batch when selecting many columns
+        if (ord_len > buffer_size) {
+            printf "%s\n", ProcessFieldBatch(1, ord_len, BATCH_PRINT_ORDERED, Order)
+        } else {
+            result = ""
+            for (pf = 1; pf < ord_len; pf++) {
+                result = result $Order[pf] OFS
+            }
+            print result $Order[ord_len]
         }
-        print result Order[ord_len]
     }
 }
 
@@ -115,27 +115,22 @@ function FieldsIndexPrint(Order, ord_len) {
 }
 
 function FillRange(row_call, range_arg, RangeArr, reo_count, ReoArr) {
-    # Cache TkMap lookup
+    # Cache TkMap lookup; coerce endpoints once
     local_rng = TkMap["rng"]
     split(range_arg, RngAnc, local_rng)
-    start = RngAnc[1] + 0  # Force numeric conversion once
-    end = RngAnc[2] + 0    # Force numeric conversion once
-    
+    start = RngAnc[1] + 0
+    end = RngAnc[2] + 0
+
     if (range_arg ~ Re["nidx_rng"]) {
         if (start ~ /^-/) start = max_nr + start + 1
-        if (end ~ /^-/) end = max_nr + end + 1 
+        if (end ~ /^-/) end = max_nr + end + 1
     }
     if (debug) DebugPrint(2)
 
-    # Pre-allocate space for better performance
-    if (abs(end - start) > 1000) {
-        split("", RangeArr)  # Clear array for large ranges
-        split("", ReoArr)    # Clear array for large ranges
-    }
-
+    # Inline fill (avoid per-index FillReoArr). Do not clear ReoArr/RangeArr —
+    # earlier ranges in the same reorder already occupy slots via reo_count.
     if (start > end) {
         reo = 1
-        # Use a counter instead of function calls for large ranges
         count = reo_count
         for (k = start; k >= end; k--) {
             count++
@@ -151,7 +146,6 @@ function FillRange(row_call, range_arg, RangeArr, reo_count, ReoArr) {
         }
         return count
     } else {
-        # Use a counter instead of function calls for large ranges
         count = reo_count
         for (k = start; k <= end; k++) {
             count++
@@ -167,11 +161,6 @@ function FillRange(row_call, range_arg, RangeArr, reo_count, ReoArr) {
         }
         return count
     }
-}
-
-# Helper function for absolute value
-function abs(x) {
-    return x < 0 ? -x : x
 }
 
 function FillReoArr(row_call, val, KeyArr, count, ReoArr, type) {
@@ -211,41 +200,133 @@ function StoreFieldRefs() {
             }
         }
 
-        # Process all fields in one pass
+        # Process all fields; PrecompiledPatterns cached on row 1
         for (f = 1; f <= NF; f++) {
-            field_val = CacheFieldValue($f, ignore_case_global)
-            
-            # Check against all patterns in one pass
             for (search in RCIdxSearches) {
                 if (NR != TestRows[search]) continue
-                if (field_val ~ PrecompiledPatterns[search]) {
-                    if (!(search in SearchFO)) SearchFO[search] = ""
+                ignore_case = (ignore_case_global || IgnoreCase[search])
+                field = CacheFieldValue($f, ignore_case)
+                if (field ~ PrecompiledPatterns[search]) {
                     SearchFO[search] = SearchFO[search] f","
+                }
+            }
+        }
+
+        for (search in RCSearches) {
+            ignore_case = (ignore_case_global || IgnoreCase[search])
+            split(search, Tmp, "~")
+            gsub(/!$/, "", Tmp[1])
+            base_search = CachePattern(Tmp[2], ignore_case)
+            if (search in RCFrames) {
+                split(Tmp[1], Fr, "(\\[|!$)")
+                test_field = (fr_ext && Fr[1]) ? Fr[1] : 1
+                field = CacheFieldValue($test_field, ignore_case)
+                frame_re = ignore_case ? tolower(Fr[2]) : Fr[2]
+                if (!(field ~ frame_re)) continue
+                else if (!Indexed(SearchFO[search], test_field)) {
+                    SearchFO[search] = SearchFO[search] test_field","
+                }
+            }
+            else if (Tmp[1] ~ Re["num"]) {
+                if (NR != Tmp[1]) continue
+            }
+
+            for (f = 1; f <= NF; f++) {
+                if (Indexed(SearchFO[search], f)) continue
+                field = CacheFieldValue($f, ignore_case)
+                if (debug) DebugPrint(9)
+                if (ExcludeRe[search]) {
+                    if (ExcludeField[search, f]) continue
+                    if (field ~ base_search) ExcludeField[search, f] = 1
+                    if (NR == max_nr) {
+                        SearchFO[search] = SearchFO[search] f","
+                    }
+                }
+                else {
+                    if (field ~ base_search) {
+                        SearchFO[search] = SearchFO[search] f","
+                    }
                 }
             }
         }
     }
 
     if (mat) {
-        # Pre-calculate expression values for this row
-        if (NR == 1) {
-            for (expr in RCExprs) {
-                if (expr ~ Re["comp"]) {
-                    GetComp(expr)
-                    CompOps[expr] = Tmp[0]
-                    CompVals[expr] = Tmp[2] + 0
+        for (expr in RCExprs) {
+            if (assume_constant_fields && RCExprFieldsSet[expr]) continue
+            # ^ may miss fields unless first-row NF >= NF of all other rows
+            compval = 0; comp = "="; settable = 0; len_expr = LenExpr[expr]
+            if (expr in RCFrames) {
+                ignore_case = (ignore_case_global || IgnoreCase[expr])
+                split(expr, Tmp, TkMap["mat"])
+                split(Tmp[1], Fr, "(\\[|!$)")
+                test_field = (fr_ext && Fr[1]) ? Fr[1] : 1
+                field = CacheFieldValue($test_field, ignore_case)
+                frame_re = ignore_case ? tolower(Fr[2]) : Fr[2]
+                if (!(field ~ frame_re)) continue
+                if (!Indexed(ExprFO[expr], test_field)) {
+                    ExprFO[expr] = ExprFO[expr] test_field","
                 }
+                base_expr = substr(expr, length(Tmp[1])+1)
+                anchor_row = max_nr
             }
-        }
+            else if (SpecExpr[expr]) {
+                split(expr, Tmp, Re["nan"])
+                if (Tmp[1]) {
+                    if (NR != Tmp[1]) continue
+                    else anchor_row = Tmp[1]
+                }
+                else anchor_row = max_nr
+                base_expr = substr(expr, length(Tmp[1])+1)
+            }
+            else if (len_expr) {
+                split(len_expr, Tmp, Re["nan"])
+                if (Tmp[1]) {
+                    if (NR != Tmp[1]) continue
+                    else anchor_row = Tmp[1]
+                }
+                else anchor_row = max_nr
+                base_expr = substr(len_expr, length(Tmp[1])+1)
+            }
+            else {
+                base_expr = expr; settable = 1; anchor_row = max_nr
+                RCExprFieldsSet[expr] = 1
+            }
 
-        # Process all fields in one pass
-        for (f = 1; f <= NF; f++) {
-            field_val = $f + 0  # Numeric conversion once
-            
-            for (expr in RCExprs) {
-                if (assume_constant_fields && RCExprFieldsSet[expr]) continue
-                
-                if (EvalCompExpr(field_val, CompVals[expr], CompOps[expr])) {
+            if (base_expr ~ Re["comp"]) {
+                GetComp(base_expr)
+                comp = Tmp[0]; base_expr = Tmp[1]; compval = Tmp[2]
+            }
+
+            for (f = 1; f <= NF; f++) {
+                if (Indexed(ExprFO[expr], f)) continue
+
+                if (settable) {
+                    anchor = f
+                }
+                else if (len_expr) {
+                    anchor = length($f)
+                }
+                else if ($f ~ Re["decnum"] || $f ~ Re["float"]) {
+                    anchor = $f; gsub("[\$,\"]", "", anchor)
+                    anchor += 0
+                    if (anchor ~ Re["float"]) anchor = int(anchor)
+                }
+                else if (comp == "!=") {
+                    anchor = ""
+                }
+                else continue
+
+                eval = EvalExpr(anchor base_expr)
+                if (debug) DebugPrint(5)
+                if (comp == "!=") {
+                    if (!ExcludeCol[expr, f]) {
+                        if (eval == compval) ExcludeCol[expr, f] = 1
+                        else if (NR == anchor_row) ExprFO[expr] = ExprFO[expr] f","
+                    }
+                    continue
+                }
+                if (EvalCompExpr(eval, compval, comp)) {
                     ExprFO[expr] = ExprFO[expr] f","
                 }
             }
@@ -287,8 +368,9 @@ function StoreFieldRefs() {
     }
 
     if (rev_c) {
-        rev_fo = ""
-        for (f = max_nf + 1; f <= NF; f++) rev_fo = f"," rev_fo
+        for (f = max_nf + 1; f <= NF; f++) {
+            rev_fo = f"," rev_fo
+        }
     }
 }
 
@@ -387,7 +469,7 @@ function StoreRowRefs() {
                 if (ExcludeFrame[expr]) continue
                 ignore_case = (ignore_case_global || IgnoreCase[expr])
                 split(expr, Tmp, TkMap["mat"])
-                split(Tmp[1], Fr, "[")
+                split(Tmp[1], Fr, "(\\[|!$)")
                 test_row = (fr_ext && Fr[1]) ? Fr[1] : 1
                 base_expr = substr(expr, length(Tmp[1])+1)
                 start = 1
@@ -535,11 +617,11 @@ function StoreRowRefs() {
 function ResolveRowFilterFrame(frame) {
     fr_type = TypeMap[frame]
     if (debug) DebugPrint(13)
-  
+
     if (!FrameFields[frame]) {
         ExcludeFrame[frame] = 1
-        if (fr_type == "re") SearchRO[frame] = ""
-        else if (fr_type == "mat") ExprRO[frame] = ""
+        if (fr_type == TYPE_RE) SearchRO[frame] = ""
+        else if (fr_type == TYPE_MAT) ExprRO[frame] = ""
         return
     }
 
@@ -553,8 +635,8 @@ function ResolveRowFilterFrame(frame) {
         if (debug) DebugPrint(14)
         if (Indexed(FrameFieldsTest, field)) {
             if (field > max_frame_f) max_frame_f = field
-            if (fr_type == "re") SearchRO[frame] = SearchRO[frame] row","
-            else if (fr_type == "mat" ) ExprRO[frame] = ExprRO[frame] row","
+            if (fr_type == TYPE_RE) SearchRO[frame] = SearchRO[frame] row","
+            else if (fr_type == TYPE_MAT) ExprRO[frame] = ExprRO[frame] row","
         }
     }
 
@@ -568,7 +650,7 @@ function ResolveFilterExtensions(row_call, Extensions, ReoArr, OrdArr, max_val) 
             if (!Extensions[ext_i]) continue
             split(Extensions[ext_i], DeleteKeys, ",")
             OrdArr[ext_i] = ResolveMultisetLogic(row_call, ext_i, max_val)
-            ReoArr[DeleteKeys[1]] = ext_i; TypeMap[ext_i] = "ext"; delete DeleteKeys[1]
+            ReoArr[DeleteKeys[1]] = ext_i; TypeMap[ext_i] = TYPE_EXT; delete DeleteKeys[1]
             for (del_key_i in DeleteKeys)
                 delete ReoArr[DeleteKeys[del_key_i]]
         }
@@ -698,7 +780,7 @@ function EnforceUnique(row_call, Order, ord_len) {
     }
 
     if (uniq_override) {
-        TypeMap["oth"] = "oth"
+        TypeMap["oth"] = TYPE_OTH
         if (row_call) {
             for (rr in ReoR) delete ReoR[rr]
             remaining_ro = uniq_o
@@ -718,22 +800,22 @@ function GetOrder(row_call, key) {
     type = TypeMap[key]
 
     if (row_call) {
-        if (type == "rev") return rev_ro
-        else if (type == "oth") return remaining_ro
-        else if (type == "re") return SearchRO[key]
-        else if (type == "mat") return ExprRO[key]
-        else if (type == "anc") return AnchorRO[key]
-        else if (type == "ext") return ExtRO[key]
+        if (type == TYPE_REV) return rev_ro
+        else if (type == TYPE_OTH) return remaining_ro
+        else if (type == TYPE_RE) return SearchRO[key]
+        else if (type == TYPE_MAT) return ExprRO[key]
+        else if (type == TYPE_ANC) return AnchorRO[key]
+        else if (type == TYPE_EXT) return ExtRO[key]
     }
     else {
-        if (type == "rev") return rev_fo
-        else if (type == "oth") return remaining_fo
-        else if (type == "nidx") return CNidx[key]
-        else if (type == "re") return SearchFO[key]
-        else if (type == "mat") return ExprFO[key]
-        else if (type == "anc") return AnchorFO[key]
-        else if (type == "ext") return ExtFO[key]
-        else if (type == "nidx_rng") return CNidxRanges[key]
+        if (type == TYPE_REV) return rev_fo
+        else if (type == TYPE_OTH) return remaining_fo
+        else if (type == TYPE_NIDX) return CNidx[key]
+        else if (type == TYPE_RE) return SearchFO[key]
+        else if (type == TYPE_MAT) return ExprFO[key]
+        else if (type == TYPE_ANC) return AnchorFO[key]
+        else if (type == TYPE_EXT) return ExtFO[key]
+        else if (type == TYPE_NIDX_RNG) return CNidxRanges[key]
     }
 }
 
@@ -769,7 +851,7 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
                         o_i = max_nr + o_i + 1
                     else {
                         reo = 1; c_nidx = 1
-                        reo_count = FillReoArr(0, o_i, CNidx, reo_count, ReoArr, token)
+                        reo_count = FillReoArr(0, o_i, CNidx, reo_count, ReoArr, TYPE_NIDX)
                         continue
                     }
                 }
@@ -784,12 +866,12 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
             else if (!token) {
                 if ("reverse" ~ "^"tolower(o_i)) {
                     o_i = "rev"; base_o = 0; reo = 1; rev = 1; rev_o = 1
-                    reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, "rev")
+                    reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, TYPE_REV)
                     continue
                 }
                 else if ("others" ~ "^"tolower(o_i)) {
                     o_i = "oth"; base_o = 0; reo = 1; oth = 1; oth_o = 1
-                    reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, "oth")
+                    reo_count = FillReoArr(row_call, o_i, OArr, reo_count, ReoArr, TYPE_OTH)
                     continue
                 }
             }
@@ -808,27 +890,27 @@ function Setup(row_call, order_arg, reo_count, OArr, RangeArr, ReoArr, base_o, r
                 if (token == "rng" || (token == "nidx_rng" && row_call))
                     reo_count = FillRange(row_call, o_i, OArr, reo_count, ReoArr)
                 else if (token == "nidx_rng")
-                    reo_count = FillReoArr(row_call, o_i, CNidxRanges, reo_count, ReoArr, token)
+                    reo_count = FillReoArr(row_call, o_i, CNidxRanges, reo_count, ReoArr, TYPE_NIDX_RNG)
                 else if (token == "mat")
-                    reo_count = FillReoArr(row_call, o_i, ExprArr, reo_count, ReoArr, token)
+                    reo_count = FillReoArr(row_call, o_i, ExprArr, reo_count, ReoArr, TYPE_MAT)
                 else if (token == "re")
-                    reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, token)
+                    reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, TYPE_RE)
                 else if (token == "anc" || token == "anc_re") {
                     if (token == "anc_re") {
                         split(o_i, Anchors, TkMap["anc_re"])
                         gsub(/(^\/|\/$)/, "", Anchors[1]); gsub(/(^\/|\/$)/, "", Anchors[2])
                         o_i = Anchors[1] "##" Anchors[2]; ExtOrder[j] = o_i
                     }
-                    reo_count = FillReoArr(row_call, o_i, AncArr, reo_count, ReoArr, "anc")
+                    reo_count = FillReoArr(row_call, o_i, AncArr, reo_count, ReoArr, TYPE_ANC)
                 }
                 else if (token == "fr") {
                     FramesArr[o_i] = 1
                     if (fr == "mat")
-                        reo_count = FillReoArr(row_call, o_i, ExprArr, reo_count, ReoArr, fr)
+                        reo_count = FillReoArr(row_call, o_i, ExprArr, reo_count, ReoArr, TYPE_MAT)
                     else if (fr == "re" && fr_idx)
-                        reo_count = FillReoArr(row_call, o_i, IdxSearchArr, reo_count, ReoArr, fr)
+                        reo_count = FillReoArr(row_call, o_i, IdxSearchArr, reo_count, ReoArr, TYPE_RE)
                     else if (fr == "re")
-                        reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, fr)
+                        reo_count = FillReoArr(row_call, o_i, SearchArr, reo_count, ReoArr, TYPE_RE)
                 }
             }
         }
@@ -1074,10 +1156,12 @@ function BuildTokens(Tk) {
     Tk["^"] = "mat"
 }
 
-function EvalCompExpr(left, right, comp,    key) {
-    key = left SUBSEP right SUBSEP comp
-    if (key in ExprCache) return ExprCache[key]
-    
+function EvalCompExpr(left, right, comp,    key, result) {
+    if (cache_patterns) {
+        key = left SUBSEP right SUBSEP comp
+        if (key in ExprCache) return ExprCache[key]
+    }
+
     result = 0
     if (comp == "=") result = (left == right)
     else if (comp == "!=") result = (left != right)
@@ -1085,8 +1169,8 @@ function EvalCompExpr(left, right, comp,    key) {
     else if (comp == ">=") result = (left >= right)
     else if (comp == "<") result = (left < right)
     else if (comp == "<=") result = (left <= right)
-    
-    ExprCache[key] = result
+
+    if (cache_patterns) ExprCache[key] = result
     return result
 }
 
@@ -1229,41 +1313,45 @@ function DebugPrint(_case, arg) {
         for (ex in CExtensions) print "ColExt: "ex", Reorder span: "CExtensions[ex]" ExtFieldOrder: "ExtFO[ex] }
     else if (_case == 13) {
         print "-------- RESOLVE ROW FRAME --------"
-        frame = fr_type == "re" ? search : expr
+        frame = fr_type == TYPE_RE ? search : expr
         print "frame: "frame", fr_type: "fr_type", FrameFields[frame]: "FrameFields[frame]", FrameRowFields[frame]: "FrameRowFields[frame] }
     else if (_case == 14) {
         print "rf: "rf, "row: "row, "field: "field }
 }
 
-# Add regex pattern caching
-function CachePattern(pattern, ignore_case,    key) {
+# Regex pattern caching (skip store when cache_patterns is off)
+function CachePattern(pattern, ignore_case,    key, val) {
+    val = ignore_case ? tolower(pattern) : pattern
+    if (!cache_patterns) return val
     key = pattern SUBSEP (ignore_case ? 1 : 0)
-    if (!(key in PatternCache)) {
-        PatternCache[key] = ignore_case ? tolower(pattern) : pattern
-    }
+    if (!(key in PatternCache)) PatternCache[key] = val
     return PatternCache[key]
 }
 
-# Add field value caching
-function CacheFieldValue(field, ignore_case,    key) {
+# Field value caching for case folding / repeated reads
+function CacheFieldValue(field, ignore_case,    key, val) {
+    val = ignore_case ? tolower(field) : field
+    if (!cache_patterns) return val
     key = field SUBSEP (ignore_case ? 1 : 0)
-    if (!(key in FieldCache)) {
-        FieldCache[key] = ignore_case ? tolower(field) : field
-    }
+    if (!(key in FieldCache)) FieldCache[key] = val
     return FieldCache[key]
 }
 
-# Add batch processing for field operations
-function ProcessFieldBatch(start, end, operation,    i, result, buffer_size) {
-    buffer_size = end - start + 1
-    if (buffer_size > 100) {
+# Add batch processing for field operations.
+# Global buffer_size (-v, default 100) is the large-batch threshold; do not
+# shadow it with a local of the same name.
+# operation: BATCH_PRINT | BATCH_PRINT_ORDERED | BATCH_STORE (ints from BEGIN).
+# Order[] is used only for BATCH_PRINT_ORDERED.
+function ProcessFieldBatch(start, end, operation, Order,    i, result, batch_len) {
+    batch_len = end - start + 1
+    if (batch_len > buffer_size) {
         # For large batches, pre-allocate buffer
         result = ""
-        for (i = 1; i <= buffer_size; i++) result = result "x"
+        for (i = 1; i <= batch_len; i++) result = result "x"
     }
-    
+
     result = ""
-    if (operation == "print") {
+    if (operation == BATCH_PRINT) {
         # Use string concatenation optimization
         for (i = start; i <= end && i <= NF; i++) {
             if (i == end || i == NF) {
@@ -1273,7 +1361,13 @@ function ProcessFieldBatch(start, end, operation,    i, result, buffer_size) {
             }
         }
     }
-    else if (operation == "store") {
+    else if (operation == BATCH_PRINT_ORDERED) {
+        for (i = start; i < end; i++) {
+            result = result $Order[i] OFS
+        }
+        result = result $Order[end]
+    }
+    else if (operation == BATCH_STORE) {
         # Batch store operations
         for (i = start; i <= end && i <= NF; i++) {
             FieldStore[i] = $i

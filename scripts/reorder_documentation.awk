@@ -2,32 +2,40 @@
 # DS:REO
 #
 # NAME
-#       ds:reo, reorder.awk
+#       ds:reo, reorder (modular awk sources)
 #
 # SYNOPSIS
 #       ds:reo [-h|--help|file] [r_args_str] [c_args_str] [prefield=true] [awkargs]
 #
 # DESCRIPTION
-#       reorder.awk is a script that reorders, repeats, or slices the rows and columns of 
-#       fielded data. It can also be used on non-fielded data but its usefulness may be 
-#       limited to rows in that case.
+#       Reorder, repeat, or slice the rows and columns of fielded data. It can
+#       also be used on non-fielded data but its usefulness may be limited to
+#       rows in that case. Prefer the shell entry point `ds:reo`.
 #
-#       To run the script, ensure AWK is installed and in your path (on most Unix-based 
-#       systems it should be), and call it on a file along with utils.awk:
-#
-#          > awk -f support/utils.awk -f reorder.awk -v r=1 -v c=1 file
+#       Manual awk load order (required):
+#         > awk -f support/utils.awk \
+#               -f scripts/reorder_functions.awk \
+#               -f scripts/reorder_program.awk \
+#               -v r=1 -v c=1 file
 #
 #       r and c refer to row and column order args respectively.
 #
-#       Comma is the order arg separator. To escape a comma, it must have two backslashes 
-#       when passed to AWK, so it must have three backslashes if in double quotes, or two 
-#       in single quotes:
+#       Comma is the order arg separator. To escape a comma, it must have two
+#       backslashes when passed to AWK, so it must have three backslashes if in
+#       double quotes, or two in single quotes:
 #
-#          > awk -f reorder.awk -v r="~\\\," c='~\\,'
+#          > awk -f support/utils.awk \
+#                -f scripts/reorder_functions.awk \
+#                -f scripts/reorder_program.awk \
+#                -v r="~\\\," -v c='~\\,' file
 #
-#       ds:reo is the caller function for the reorder.awk script. To run any of the 
-#       examples below, map AWK args as given in SYNOPSIS. For example, to print columns 
-#       where the header matches "ZIP" on the first row where rows match "Main St":
+#       Help text lives in this file (`ds:reo -h`). Do not also load the stub
+#       `reorder.awk` with the modules (it is documentation-only).
+#
+#       ds:reo is the caller function for the modular reorder sources. To run
+#       any of the examples below, map AWK args as given in SYNOPSIS. For
+#       example, to print columns where the header matches "ZIP" on the first
+#       row where rows match "Main St":
 #
 #          $ ds:reo addresses.csv "1,~Main St" "[ZIP" -v cased=1
 #
@@ -232,27 +240,35 @@
 ## TODO: Add memory usage monitoring and reporting
 ## TODO: Implement adaptive chunk sizing based on available memory
 ## TODO: Add parallel processing support for very large files
+## TODO: StoreRowRefs CachePattern/CacheFieldValue layering — tried; slowed
+##       typical suite (~1m15s → ~1m19–30s). Revisit only for large-row/re-heavy
+##       workloads; keep direct tolower/pattern matching for normal cases.
 
 # PERFORMANCE CONSIDERATIONS
-#       When processing large datasets, ds:reo automatically manages memory by:
+#       When processing large datasets, ds:reo manages memory and wide rows by:
 #
-#       1. Processing data in chunks (default 10,000 lines per chunk):
+#       1. Chunked cache cleanup for large files (default chunk_size=10000 lines).
+#          At each chunk boundary, pattern/field/expression caches are cleared;
+#          stored rows are kept for END reorder. Override with:
 #
 #          $ ds:reo large_file.csv 1,2 3,4 -v chunk_size=5000
 #
-#       2. Caching pattern matches and field values:
-#          - Regex patterns are compiled and cached
+#       2. Caching pattern matches, field values, and comparison results
+#          (on by default; disable with -v cache_patterns=0):
+#          - Regex patterns are normalized and cached
 #          - Field values are cached for case-insensitive operations
-#          - Expression results are cached for repeated evaluations
+#          - Expression comparison results are cached for repeated evaluations
 #
-#       3. Batch processing field operations:
-#          - Field printing is optimized for large numbers of fields
-#          - Memory usage is managed through array cleanup
+#       3. Batch field printing when field count / selected column count exceeds
+#          buffer_size (default 100; override with -v buffer_size=N). Large
+#          batches use ProcessFieldBatch (including its buffer scaffolding):
+#
+#          $ ds:reo wide.csv a 1..500 -v buffer_size=50
 #
 #       For very large files, you can adjust the chunk size:
 #
 #          $ ds:reo huge_file.csv a 1..100 -v chunk_size=1000
 #
-#       Memory usage can be monitored using the debug flag:
+#       Memory / setup detail can be inspected with debug:
 #
 #          $ ds:reo data.csv 1,2 3,4 -v debug=1

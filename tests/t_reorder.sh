@@ -2,6 +2,9 @@
 
 source commands.sh
 
+# Solo runs need the same scratch path commands_tests.sh exports.
+[ -n "${tmp:-}" ] || tmp=/tmp/ds_commands_tests
+
 # REORDER TESTS
 
 echo -n "Running reorder tests..."

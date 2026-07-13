@@ -511,7 +511,7 @@ expected='one:two:three:four:med|$4>3||$4<2
 3:2:4:1:3.5'
 [ "$(ds:agg ${tmp}_cond 'med|$4>3||$4<2')" = "$expected" ] || ds:fail 'agg failed conditional aggregation with median'
 
-# --- Step C: additional coverage for extended stats ---
+# --- additional coverage for extended stats ---
 
 echo -e "a b c\n1 2 3\n4 5 6\n7 8 9" > ${tmp}_ext
 
