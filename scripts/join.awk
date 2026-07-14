@@ -434,7 +434,7 @@ stream1_has_data && NR == FNR {
         }
     }
 
-    keybase = GenKeyString(Keys1)
+    keybase = GenKeyString(Keys1, 1)
     key = keybase _ keycount
 
     while (key in S1) {
@@ -470,7 +470,7 @@ NR > FNR || !stream1_has_data {
         }
     }
 
-    keybase = GenKeyString(Keys2)
+    keybase = GenKeyString(Keys2, 2)
     key = keybase _ keycount
 
     # Print right joins and inner joins
@@ -657,9 +657,29 @@ function GenMergeKeys(nf, K1, K2) {
     }
 }
 
-function GenKeyString(Keys,    SortedKeys, n, i, k, str) {
+function GenKeyString(Keys, slot) {
+    # Keys1/Keys2 are only ever (re)written during header-row handling
+    # (GenKeys/GenMergeKeys), which always runs before the first
+    # per-stream call here for a given run. Sort once per stream and
+    # reuse it, instead of re-sorting an unchanging key set every row.
+    if (slot == 1) {
+        if (!Keys1SortValid) {
+            Keys1SortedN = GetSortedKeys(Keys, Keys1Sorted)
+            Keys1SortValid = 1
+        }
+        return BuildKeyString(Keys, Keys1Sorted, Keys1SortedN)
+    }
+    else {
+        if (!Keys2SortValid) {
+            Keys2SortedN = GetSortedKeys(Keys, Keys2Sorted)
+            Keys2SortValid = 1
+        }
+        return BuildKeyString(Keys, Keys2Sorted, Keys2SortedN)
+    }
+}
+
+function BuildKeyString(Keys, SortedKeys, n,    i, k, str) {
     str = ""
-    n = GetSortedKeys(Keys, SortedKeys)
 
     for (i = 1; i <= n; i++) {
         k = Keys[SortedKeys[i]]
