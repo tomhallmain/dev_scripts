@@ -212,24 +212,42 @@ function StoreFieldRefs() {
             }
         }
 
+        # Loop-invariant per-search metadata (ignore_case/base_search and,
+        # for frame searches, test_field/frame_re) depends only on the
+        # static search string, never on NR — derive it once, same pattern
+        # as RCIdxSearches above and the RCExprs mat block below.
+        if (NR == 1) {
+            for (search in RCSearches) {
+                ignore_case = (ignore_case_global || IgnoreCase[search])
+                RCSearchIgnoreCase[search] = ignore_case
+                split(search, Tmp, "~")
+                gsub(/!$/, "", Tmp[1])
+                RCSearchBase[search] = CachePattern(Tmp[2], ignore_case)
+
+                if (search in RCFrames) {
+                    split(Tmp[1], Fr, "(\\[|!$)")
+                    RCSearchTestField[search] = (fr_ext && Fr[1]) ? Fr[1] : 1
+                    RCSearchFrameRe[search] = ignore_case ? tolower(Fr[2]) : Fr[2]
+                }
+                else if (Tmp[1] ~ Re["num"]) {
+                    RCSearchRowOnly[search] = Tmp[1]
+                }
+            }
+        }
+
         for (search in RCSearches) {
-            ignore_case = (ignore_case_global || IgnoreCase[search])
-            split(search, Tmp, "~")
-            gsub(/!$/, "", Tmp[1])
-            base_search = CachePattern(Tmp[2], ignore_case)
+            ignore_case = RCSearchIgnoreCase[search]
+            base_search = RCSearchBase[search]
+
             if (search in RCFrames) {
-                split(Tmp[1], Fr, "(\\[|!$)")
-                test_field = (fr_ext && Fr[1]) ? Fr[1] : 1
+                test_field = RCSearchTestField[search]
                 field = CacheFieldValue($test_field, ignore_case)
-                frame_re = ignore_case ? tolower(Fr[2]) : Fr[2]
-                if (!(field ~ frame_re)) continue
+                if (!(field ~ RCSearchFrameRe[search])) continue
                 else if (!Indexed(SearchFO[search], test_field)) {
                     SearchFO[search] = SearchFO[search] test_field","
                 }
             }
-            else if (Tmp[1] ~ Re["num"]) {
-                if (NR != Tmp[1]) continue
-            }
+            else if ((search in RCSearchRowOnly) && NR != RCSearchRowOnly[search]) continue
 
             for (f = 1; f <= NF; f++) {
                 if (Indexed(SearchFO[search], f)) continue
@@ -409,34 +427,57 @@ function StoreRowRefs() {
     # and stores relevant row numbers. Rows can be made non-applicable by filters
     # within the first subargs of the reo arg.
     if (re) {
+        # Same rationale as RCIdxSearches/RCSearches in StoreFieldRefs: this
+        # metadata depends only on the static search string, not NR.
+        if (NR == 1) {
+            for (search in RRIdxSearches) {
+                split(search, Fr, "[")
+                RRIdxSearchTestField[search] = (fr_ext && Fr[1]) ? Fr[1] : 1
+                RRIdxSearchIgnoreCase[search] = (ignore_case_global || IgnoreCase[search])
+                RRIdxSearchPattern[search] = Fr[2]
+            }
+
+            for (search in RRSearches) {
+                ignore_case = (ignore_case_global || IgnoreCase[search])
+                RRSearchIgnoreCase[search] = ignore_case
+                split(search, Tmp, "~")
+                gsub(/!$/, "", Tmp[1])
+                RRSearchBase[search] = Tmp[2]
+
+                if (search in RRFrames) {
+                    split(Tmp[1], Fr, "(\\[|!$)")
+                    RRSearchTestRow[search] = (fr_ext && Fr[1]) ? Fr[1] : 1
+                    RRSearchFrameRe[search] = Fr[2]
+                }
+                else if (c_off) {
+                    RRSearchFixedField[search] = 0
+                }
+                else if (Tmp[1] ~ Re["int"]) {
+                    RRSearchFixedField[search] = Tmp[1]
+                }
+            }
+        }
+
         for (search in RRIdxSearches) {
-            split(search, Fr, "[")
-            test_field = (fr_ext && Fr[1]) ? Fr[1] : 1
-            ignore_case = (ignore_case_global || IgnoreCase[search])
+            test_field = RRIdxSearchTestField[search]
+            ignore_case = RRIdxSearchIgnoreCase[search]
             field = ignore_case ? tolower($test_field) : $test_field
-            if (!(field ~ Fr[2])) continue
+            if (!(field ~ RRIdxSearchPattern[search])) continue
             SearchRO[search] = SearchRO[search] NR","
         }
 
         for (search in RRSearches) {
             fr_search = 0; exclude = 0
-            ignore_case = (ignore_case_global || IgnoreCase[search])
-            split(search, Tmp, "~")
-            gsub(/!$/, "", Tmp[1])
-            base_search = Tmp[2]
+            ignore_case = RRSearchIgnoreCase[search]
+            base_search = RRSearchBase[search]
             if (search in RRFrames) {
                 if (ExcludeFrame[search]) continue
                 start = 1; end = NF; fr_search = 1
-                split(Tmp[1], Fr, "(\\[|!$)")
-                test_row = (fr_ext && Fr[1]) ? Fr[1] : 1
-                frame_re = Fr[2]
+                test_row = RRSearchTestRow[search]
+                frame_re = RRSearchFrameRe[search]
             }
-            else if (c_off) {
-                start = 0
-                end = 0
-            }
-            else if (Tmp[1] ~ Re["int"]) {
-                start = Tmp[1]
+            else if (search in RRSearchFixedField) {
+                start = RRSearchFixedField[search]
                 end = start
             }
             else {

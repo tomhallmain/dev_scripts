@@ -365,7 +365,16 @@ END {
                     for (k = 1; k <= n; k++) {
                         stats_arr[k] = CrossAggValues[cross_agg_i, j, k]
                     }
-                    print CrossAggKey[cross_agg_i, j], ComputeStat(CrossAggType[cross_agg_i], stats_arr, n, QuartileNum[cross_agg_i])
+                    # group_key keys on the actual groupby value
+                    # (CrossAggKey[cross_agg_i, j]) rather than the raw j/
+                    # cross_agg_i indices: different cross-agg requests
+                    # sharing a selector (e.g. med|$3|$1, q1|$3|$1) get
+                    # their own cross_agg_i counter and populate
+                    # CrossAggValues independently, so this avoids relying
+                    # on their key_id assignment order lining up — same
+                    # groupby value + same direction/selector always means
+                    # same underlying values, regardless of index alignment.
+                    print CrossAggKey[cross_agg_i, j], ComputeStat(CrossAggType[cross_agg_i], stats_arr, n, QuartileNum[cross_agg_i], "X" SUBSEP call SUBSEP agg_expr SUBSEP CrossAggKey[cross_agg_i, j])
                     delete stats_arr
                 }
             }

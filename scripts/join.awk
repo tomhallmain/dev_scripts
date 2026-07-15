@@ -209,7 +209,14 @@ function GetSortedKeys(arr, sorted_arr,    i, n) {
 }
 
 function KeyLt(a, b) {
-    if (a ~ /^[0-9]+$/ && b ~ /^[0-9]+$/)
+    # Classify each distinct key once rather than re-testing the regex on
+    # every comparison — quicksort revisits the same n distinct values
+    # ~O(log n) times each, so this cache (keyed on the value itself, valid
+    # for the whole run) has real reuse, unlike a per-row scalar cache.
+    if (!(a in KeyIsNumeric)) KeyIsNumeric[a] = (a ~ /^[0-9]+$/)
+    if (!(b in KeyIsNumeric)) KeyIsNumeric[b] = (b ~ /^[0-9]+$/)
+
+    if (KeyIsNumeric[a] && KeyIsNumeric[b])
         return (a + 0) < (b + 0)
     return a < b
 }

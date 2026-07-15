@@ -7,10 +7,6 @@ BEGIN {
     WCW_FS = " "
     FIT_FS = FS
 
-    # Common display widths (timestamps / dates / datetimes) — seed pad cache later
-    COMMON_WIDTHS[8] = 1
-    COMMON_WIDTHS[10] = 1
-    COMMON_WIDTHS[19] = 1
     MB_CHAR_WIDTHS[""] = 0
     if (!chunk_size) chunk_size = 50
     if (!cache_cleanup_interval) cache_cleanup_interval = 10000
@@ -77,8 +73,11 @@ BEGIN {
     if (!buffer) buffer = 2
     space_str = "                                                                   "
     buffer_str = bufferchar space_str
-    # Pre-build pads for common widths after space_str exists
-    for (cw in COMMON_WIDTHS) PadCache[cw + 0] = sprintf("%.*s", cw + 0, space_str)
+    # PadCache populates lazily via GetOrSetPad on first use per width — no
+    # pre-seed needed; GetOrSetPad's return value is identical either way,
+    # and the previous 8/10/19 pre-seed rarely matched real call widths
+    # (GetOrSetPad is called with MaxFieldLen[i] - length(value), an
+    # arbitrary per-row remainder).
 
     if (!(color == "never" || color == "off")) {
         if (color == "always" || termcolor_support) {
