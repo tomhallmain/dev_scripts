@@ -59,7 +59,7 @@ BEGIN {
     InitCaches()
 }
 
-function InitCommonSeparators() {
+function InitCommonSeparators(    ci) {
     # CommonFS holds separator patterns used for scoring (literal or regex FS).
     #
     # FixedStringFS is an optional output escape prefix consumed by FormatOutputFS
@@ -83,6 +83,10 @@ function InitCommonSeparators() {
     CommonFSOrder[8] = "2w"; CommonFS["2w"] = "[[:space:]]{2,}"
 
     n_common = length(CommonFS)
+
+    # Reverse lookup (key -> declared priority index) used by ResolveNoVarTies
+    # to break ties among common separators deterministically.
+    for (ci = 1; ci <= n_common; ci++) CommonFSKeyIndex[CommonFSOrder[ci]] = ci
 }
 
 function InitConfig() {
@@ -173,7 +177,7 @@ function ProcessNonwordChars(nonword,    Chars, j, len, start, sep, nf) {
     if (HasHighByte(nonword)) {
         sep = "\\" nonword
         if (!IsExcludedCustomSep(sep)) {
-            nf = split($0, chartest, sep)
+            nf = split($0, chartest, SafeSplitRegex(sep))
             if (debug) DebugPrint(18, len, sep, nf)
             if (nf > 1) CustomFSCount[sep] = nf
         }
@@ -188,7 +192,7 @@ function ProcessNonwordChars(nonword,    Chars, j, len, start, sep, nf) {
             sep = EscapedChars(Chars, start, j)
             if (IsExcludedCustomSep(sep)) continue
 
-            nf = split($0, chartest, sep)
+            nf = split($0, chartest, SafeSplitRegex(sep))
             if (debug) DebugPrint(18, len, sep, nf)
             if (nf > 1) CustomFSCount[sep] = nf
         }
@@ -207,7 +211,7 @@ function ValidateCustomSeparators(    i, Chars, j, len, start, sep, nf, nonword)
 
         if (HasHighByte(nonword)) {
             sep = "\\" nonword
-            nf = split($0, chartest, sep)
+            nf = split($0, chartest, SafeSplitRegex(sep))
             if (CustomFSCount[sep] == nf) {
                 CustomFS[sep] = 1
                 CustomFSCandidates[sep] = 1
@@ -221,7 +225,7 @@ function ValidateCustomSeparators(    i, Chars, j, len, start, sep, nf, nonword)
                 start = j - len + 1
                 sep = EscapedChars(Chars, start, j)
 
-                nf = split($0, chartest, sep)
+                nf = split($0, chartest, SafeSplitRegex(sep))
                 if (CustomFSCount[sep] == nf) {
                     CustomFS[sep] = 1
                     CustomFSCandidates[sep] = 1
@@ -243,7 +247,7 @@ function ProcessCustomSeparators(    fs, nf, i) {
     if (n_valid_rows == 3) {
         for (i = 1; i < 3; i++) {
             for (fs in CustomFSCandidates) {
-                nf = split(Line[i], _, fs)
+                nf = split(Line[i], _, SafeSplitRegex(fs))
                 CustomFSCount[fs, NR] = nf
                 CustomFSTotal[fs] += nf
             }
@@ -251,7 +255,7 @@ function ProcessCustomSeparators(    fs, nf, i) {
     }
 
     for (fs in CustomFSCandidates) {
-        nf = split($0, _, fs)
+        nf = split($0, _, SafeSplitRegex(fs))
         CustomFSCount[fs, NR] = nf
         CustomFSTotal[fs] += nf
     }
@@ -373,9 +377,13 @@ function CalculateSeparatorScore(s,    average_nf, nf_chunks, NFChunks, nf_i, nf
     if (debug) DebugPrint(6, s)
 
     if (FSVar[s] == 0) {
+        # Zero-variance candidates are bucketed for ResolveNoVarTies to pick
+        # a winner from deterministically -- do not decide winning_s here.
+        # Iterating candidates in this function happens in awk's native
+        # (unordered, implementation-defined) hash order, so committing to
+        # a winner per-candidate would make the result depend on which awk
+        # is running rather than on the data.
         NoVar[s] = CommonFS[s]
-        winning_s = s
-        Winners[s] = CommonFS[s]
         if (debug) DebugPrint(7, s)
     }
     else if (!winning_s || FSVar[s] < FSVar[winning_s]) {
@@ -401,9 +409,9 @@ function CalculateCustomScore(s,    average_nf, j, point_var) {
     if (debug) DebugPrint(6, s)
 
     if (FSVar[s] == 0) {
+        # See comment in CalculateSeparatorScore: bucket only, do not decide
+        # winning_s here -- ResolveNoVarTies resolves NoVar deterministically.
         NoVar[s] = s
-        winning_s = s
-        Winners[s] = s
         if (debug) DebugPrint(10, s)
     }
     else if (!winning_s || FSVar[s] < FSVar[winning_s]) {
@@ -413,45 +421,83 @@ function CalculateCustomScore(s,    average_nf, j, point_var) {
     }
 }
 
-function ResolveNoVarTies() {
-    if (length(NoVar) <= 1) return
+function ResolveNoVarTies(    s, t, snapshot, disqualified, k, best, best_len, best_key_idx, len, key_idx) {
+    # Deterministically pick a single winner out of every zero-variance
+    # candidate gathered in NoVar by CalculateSeparatorScore/CalculateCustomScore.
+    # This never relies on awk's native (unordered, implementation-defined)
+    # "for (x in array)" iteration order to decide the result -- that
+    # dependency previously made the outcome differ between awk
+    # implementations (e.g. a custom multi-character separator like "=><="
+    # would lose to a spurious single-character sub-match like "=" under one
+    # awk's hash order and win under another's).
+    if (!length(NoVar)) return
 
     if (debug) print ""
 
+    # Unify any custom-detected separator that is literally one of the
+    # predefined common separators onto its canonical key, so it doesn't
+    # compete as a separate, duplicate candidate.
     for (s in NoVar) {
-        Seen[s] = 1
+        k = CommonFSKeyForSep(NoVar[s])
+        if (k && k != s) {
+            if (debug) DebugPrint(12, s, k)
+            NoVar[k] = CommonFS[k]
+            delete NoVar[s]
+        }
+    }
 
-        for (compare_s in NoVar) {
-            if (Seen[compare_s]) continue
+    # Snapshot for the comparisons below -- PreferWhitespaceRegexWinner
+    # (called at the end) still needs to see NoVar exactly as gathered,
+    # so nothing past this point may delete from NoVar itself.
+    for (s in NoVar) snapshot[s] = NoVar[s]
 
-            fs1 = NoVar[s]
-            fs2 = NoVar[compare_s]
-
-            fs1re = EscapeForRegexMatch(fs1)
-            fs2re = EscapeForRegexMatch(fs2)
-
-            if (debug) DebugPrint(12, s, compare_s, fs1, fs2)
-
-            if (fs1 ~ fs2re || fs2 ~ fs1re) {
-                k1 = CommonFSKeyForSep(fs1)
-                k2 = CommonFSKeyForSep(fs2)
-
-                if (k1 && k1 == k2) {
-                    winning_s = k1
-                    if (debug) DebugPrint(17)
-                }
-                else if (length(Winners[winning_s]) < length(fs2) &&
-                        length(fs1) < length(fs2)) {
-                    winning_s = compare_s
-                    if (debug) DebugPrint(13, s, compare_s)
-                }
-                else if (length(Winners[winning_s]) < length(fs1) &&
-                        length(fs1) > length(fs2)) {
-                    winning_s = s
-                    if (debug) DebugPrint(14, s, compare_s)
-                }
+    # A shorter candidate that is wholly contained in a strictly longer
+    # candidate is a spurious sub-match (e.g. plain "=" or "><" both
+    # trivially split on the same boundaries as the real separator "=><=").
+    # Disqualify it based on length + containment alone, which gives the
+    # same answer regardless of which order the candidates are visited in.
+    for (s in snapshot) {
+        for (t in snapshot) {
+            if (t == s) continue
+            if (length(snapshot[t]) <= length(snapshot[s])) continue
+            if (snapshot[t] ~ EscapeForRegexMatch(snapshot[s])) {
+                disqualified[s] = 1
+                if (debug) DebugPrint(13, snapshot[s], snapshot[t])
+                break
             }
         }
+    }
+
+    # Among the survivors, common separators win by their declared priority
+    # order (CommonFSKeyIndex, lower = more preferred); failing that, prefer
+    # the longest literal match, then break any remaining tie alphabetically.
+    # Both criteria are plain comparisons against the running best, so the
+    # result does not depend on visitation order.
+    for (s in snapshot) {
+        if (disqualified[s]) continue
+
+        len = length(snapshot[s])
+        k = CommonFSKeyForSep(snapshot[s])
+        key_idx = k ? CommonFSKeyIndex[k] : 0
+
+        if (!best) {
+            best = s; best_len = len; best_key_idx = key_idx
+            continue
+        }
+
+        if (key_idx && (!best_key_idx || key_idx < best_key_idx)) {
+            best = s; best_len = len; best_key_idx = key_idx
+        }
+        else if (!key_idx && !best_key_idx &&
+                (len > best_len || (len == best_len && snapshot[s] < snapshot[best]))) {
+            best = s; best_len = len; best_key_idx = key_idx
+        }
+    }
+
+    if (best) {
+        winning_s = best
+        Winners[best] = snapshot[best]
+        if (debug) DebugPrint(14, snapshot[best])
     }
 
     PreferWhitespaceRegexWinner()
@@ -552,6 +598,36 @@ function EscapedChars(Chars, start, end,    s, k) {
     return s
 }
 
+# A backslash-escaped candidate/separator string (as produced by EscapedChars,
+# e.g. "\=\>\<\=") is safe to use as a literal-match dynamic regexp for every
+# character EXCEPT "<" and ">": in gawk (and other GNU-regex-based awks)
+# "\<" and "\>" are word-boundary anchors, not escaped literal characters, so
+# split()/match()/~ against them silently matches zero characters instead of
+# the literal "<"/">". This does not affect BWK awk (e.g. macOS), which has no
+# such extension and treats "\<"/"\>" as plain literal characters -- that
+# discrepancy is exactly why a separator containing "<" or ">" could resolve
+# correctly on macOS and incorrectly under gawk. Route every dynamic-regexp
+# use of such a string through this function first; wrapping "<"/">" in a
+# single-character bracket expression is always literal in both regex
+# dialects, since bracket expressions never have anchor/extension semantics
+# for their contents.
+function SafeSplitRegex(fs,    out, i, c, nextc) {
+    out = ""
+    i = 1
+    while (i <= length(fs)) {
+        c = substr(fs, i, 1)
+        if (c == "\\" && i < length(fs)) {
+            nextc = substr(fs, i + 1, 1)
+            out = out ((nextc == "<" || nextc == ">") ? "[" nextc "]" : c nextc)
+            i += 2
+        } else {
+            out = out c
+            i++
+        }
+    }
+    return out
+}
+
 function IsExcludedCustomSep(sep) {
     return (length(sep) == 2 && sep ~ /\\[[:space:]\|;:,]/)
 }
@@ -566,31 +642,25 @@ function DebugPrint(_case, a, b, c, d) {
     } else if (_case == 6) {
         print "sep: " a " FSVar: " FSVar[a]
     } else if (_case == 7) {
-        print "NoVar winning_s set to CommonFS[\"" a "\"] = \"" CommonFS[a] "\""
+        print "Added to NoVar (zero variance): CommonFS[\"" a "\"] = \"" CommonFS[a] "\""
     } else if (_case == 8) {
         print "winning_s set to CommonFS[\"" a "\"] = \"" CommonFS[a] "\""
     } else if (_case == 10) {
-        print "NoVar winning_s set to CustomFS \"" a "\""
+        print "Added to NoVar (zero variance): CustomFS \"" a "\""
     } else if (_case == 11) {
         print "winning_s set to CustomFS \"" a "\""
     } else if (_case == 12) {
-        print " ---- NoVar handling case ----"
-        print "s: \"" a "\", fs1: \"" c "\""
-        print "compare_s: \"" b "\", fs2: \"" d "\""
-        print "matches:", c ~ EscapeForRegexMatch(d) || d ~ EscapeForRegexMatch(c)
-        print "len winner: " length(Winners[winning_s]) ", len fs1: " length(c) ", len fs2: " length(d)
+        print "NoVar dedup: custom candidate \"" a "\" unified onto common key \"" b "\""
     } else if (_case == 13) {
-        print "s: \"" a "\", compare_s: \"" b "\", winning_s switched to: \"" b "\""
+        print "NoVar candidate \"" a "\" disqualified (substring of longer candidate \"" b "\")"
     } else if (_case == 14) {
-        print "compare_s: \"" b "\", s: \"" a "\", winning_s switched to: \"" a "\""
+        print "NoVar winner resolved to \"" a "\""
     } else if (_case == 15) {
         print a, Q[a], RSTART, RLENGTH
         print b
     } else if (_case == 16) {
         print "Sectional override set for sep \"" a "\" at nf " b \
             " with weight " c " composite " d
-    } else if (_case == 17) {
-        print "NoVar tie resolved to common FS key \"" winning_s "\" = \"" CommonFS[winning_s] "\""
     } else if (_case == 18) {
         print "custom sep len " a ": " b ", nf: " c
     }
