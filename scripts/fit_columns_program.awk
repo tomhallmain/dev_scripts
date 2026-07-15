@@ -396,6 +396,13 @@ NR == FNR {
             t_diff = 0
             len_diff = t_len - orig_max
 
+            # Explicit clear before reuse: split() is supposed to reset its
+            # target array itself, but NParts[1] gets mutated in place by
+            # gsub() below on each pass through this code, and re-splitting
+            # into an array holding a gsub-touched (rather than freshly
+            # split) scalar has triggered a real gawk heap-corruption crash
+            # ("double free detected in tcache") -- see docs/wsl_test_failures.md.
+            delete NParts
             split(tval, NParts, /\./)
             dec_len = length(NParts[2])
             DecimalMax[i] = dec_len
@@ -456,6 +463,12 @@ NR == FNR {
             t_diff = float ? 0 : Max(len - t_len, 0)
             len_diff = t_len - orig_max
 
+            # See the matching comment above the other split(tval, NParts, ...)
+            # call in this file: explicit clear before reuse works around a
+            # real gawk heap-corruption crash triggered by re-splitting into
+            # an array whose element was last set via gsub() rather than a
+            # fresh split().
+            delete NParts
             split(tval, NParts, /\./)
             dec_len = length(NParts[2])
 

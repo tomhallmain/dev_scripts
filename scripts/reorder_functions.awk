@@ -785,7 +785,7 @@ function ResolveMultisetLogic(row_call, key, max_val) {
 
 function SetNegativeIndexFieldOrder(range_call, ArgArr, max_val) {
     if (!max_val) {
-        for (arg in ArgArr) delete ArgArr[arg]
+        delete ArgArr
         return
     }
     if (range_call) {
@@ -876,12 +876,12 @@ function EnforceUnique(row_call, Order, ord_len) {
     if (uniq_override) {
         TypeMap["oth"] = TYPE_OTH
         if (row_call) {
-            for (rr in ReoR) delete ReoR[rr]
+            delete ReoR
             remaining_ro = uniq_o
             ReoR[1] = "oth"
         }
         else {
-            for (rc in ReoC) delete ReoC[rc]
+            delete ReoC
             remaining_fo = uniq_o
             ReoC[1] = "oth"
         }

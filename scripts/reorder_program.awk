@@ -157,9 +157,9 @@ function ProcessChunk() {
         return
     }
     ProcessStoredData()
-    for (i in Row) delete Row[i]
-    for (i in PrintRows) delete PrintRows[i]
-    for (i in PrintFields) delete PrintFields[i]
+    delete Row
+    delete PrintRows
+    delete PrintFields
     current_chunk++
 }
 

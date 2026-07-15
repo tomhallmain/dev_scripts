@@ -257,7 +257,7 @@ function DequoteField(field, q) {
 }
 
 function SplitQuotedFields(line, fs, fields,    parts, np, q, litsep, qre, qf_line, i, n, tmp) {
-    for (i in fields) delete fields[i]
+    delete fields
     if (fs ~ /^\[/ || line !~ /["']/) {
         return split(line, fields, fs)
     }

@@ -109,14 +109,18 @@ function GetOrSetPad(n) {
     return PadCache[n]
 }
 
-function CleanupFitCaches(max_entries,    key) {
+function CleanupFitCaches(max_entries) {
     # Counts (mb_char_widths_count/cut_string_count/tval_count) are
     # maintained incrementally at each cache's insert site rather than
     # recounted here, so this stays O(1) regardless of cache/file size.
     if (mb_char_widths_count > max_entries) {
-        for (key in MB_CHAR_WIDTHS) {
-            if (key != "") delete MB_CHAR_WIDTHS[key]
-        }
+        # Deleting one key at a time while iterating the same array (the
+        # previous `for (key in arr) delete arr[key]` form) is a known gawk
+        # hazard -- rehashing mid-deletion has caused real heap-corruption
+        # crashes ("double free detected in tcache") in some gawk versions.
+        # Clearing the whole array in one call, like CutString/TVal below,
+        # avoids that entirely.
+        delete MB_CHAR_WIDTHS
         MB_CHAR_WIDTHS[""] = 0
         mb_char_widths_count = 0
     }
