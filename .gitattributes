@@ -1,0 +1,13 @@
+# Normalize line endings on checkout/commit regardless of local core.autocrlf,
+# so a Windows/WSL checkout can't silently convert the whole tree to CRLF again.
+* text=auto eol=lf
+
+# Native Windows scripts should stay CRLF.
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets must never be touched by line-ending normalization.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary

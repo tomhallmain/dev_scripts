@@ -225,7 +225,7 @@ update_repo() {
         REPO_MESSAGES[$repo]="Uncommitted changes present"
         ((SKIPPED_REPOS++))
         return
-    }
+    fi
     
     # Store current branch
     local current_branch=$(git branch --show-current)

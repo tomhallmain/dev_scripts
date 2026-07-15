@@ -1,6 +1,13 @@
 #!/bin/bash
 
-[ ! "$DS_LOC" ] && DS_LOC="$HOME/dev_scripts"
+DS_LOC="${DS_LOC//$'\r'/}"
+if [ ! "$DS_LOC" ]; then
+    if [ -f "./commands.sh" ]; then
+        DS_LOC="$(pwd)"
+    else
+        DS_LOC="$HOME/dev_scripts"
+    fi
+fi
 DS_SCRIPT="$DS_LOC/scripts"
 DS_SUPPORT="$DS_LOC/support"
 source "$DS_SUPPORT/utils.sh"
@@ -43,10 +50,10 @@ ds:commands() { # List dev_scripts commands: ds:commands [bufferchar] [utils] [r
         ds:fit "$DS_COMMANDS" -v FS="$DS_SEP" -v bufferchar="${1:- }" \
             | ([ "$RG" ] && rg -HIN -C 100 --color=always --colors='match:fg:green' \
                   --colors='match:style:nobold' '\[[^\[]+\]' \
-                || GREP_COLOR='00;32' grep -E -C40 --color=always '\[[^[]+\]') \
+                || GREP_COLORS='mt=00;32' GREP_COLOR='00;32' grep -E -C40 --color=always '\[[^[]+\]') \
             | ([ "$RG" ] && rg -HIN -C 100 --color=always --colors='match:fg:cyan' \
                   --colors='match:style:nobold' 'ds:[a-z0-9_]+' \
-                || GREP_COLOR='00;36' grep -E -C40 --color=always 'ds:[a-z0-9_]+') \
+                || GREP_COLORS='mt=00;36' GREP_COLOR='00;36' grep -E -C40 --color=always 'ds:[a-z0-9_]+') \
             | awk '{if (!($0 ~ "^[ \t]+$") && _[$0]) next; _[$0] = 1; if ($0 == "--") next; print}'
     else
         cat "$DS_COMMANDS"
@@ -72,7 +79,7 @@ ds:help() { # Print help for a given command: ds:help ds_command
         ds:nset 'rg' && local RG=true
         ds:commands "" t | ds:reo "2, 2~$1 || 3~$1" "2[$1~. || 3[$1~." \
             | ds:fit -v FS="$DS_SEP" -v bufferchar=" " \
-            | GREP_COLOR='00;36' grep -E -C40 --color=always 'ds:[a-z_]+'
+            | GREP_COLORS='mt=00;36' GREP_COLOR='00;36' grep -E -C40 --color=always 'ds:[a-z_]+'
     else
         ds:commands "" t | ds:reo "2, 2~$1 || 3~$1" "2[$1~. || 3[$1~."
     fi

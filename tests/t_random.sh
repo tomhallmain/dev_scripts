@@ -28,7 +28,7 @@ result="$(echo "$input" | ds:random -v mode=text)"
 # Test text mode with preserve option
 input="Name: John123"
 result="$(echo "$input" | ds:random -v mode=text -v preserve=': ')"
-[[ "$result" =~ ^[A-Z][a-z][a-z][a-z]: [A-Z][a-z][a-z][a-z][0-9][0-9][0-9]$ ]] || ds:fail 'text preserve failed'
+[[ "$result" =~ ^[A-Z][a-z][a-z][a-z]:\ [A-Z][a-z][a-z][a-z][0-9][0-9][0-9]$ ]] || ds:fail 'text preserve failed'
 
 # Test password generation
 result="$(ds:random -v mode=password -v length=12)"
@@ -36,7 +36,8 @@ result="$(ds:random -v mode=password -v length=12)"
 [[ "$result" =~ [A-Z] ]] || ds:fail 'password uppercase failed'
 [[ "$result" =~ [a-z] ]] || ds:fail 'password lowercase failed'
 [[ "$result" =~ [0-9] ]] || ds:fail 'password number failed'
-[[ "$result" =~ [!@#\$%^&*\(\)_+\-=\[\]\{\}\|;:,\.<>\?] ]] || ds:fail 'password special failed'
+special_chars='[]!@#$%^&*(){}_+=[|;:,.<>?-]'
+[[ "$result" =~ $special_chars ]] || ds:fail 'password special failed'
 
 # Test password strength levels
 result="$(ds:random -v mode=password -v strength=1 -v length=8)"
@@ -48,7 +49,8 @@ result="$(ds:random -v mode=uuid)"
 
 # Test pattern generation
 result="$(ds:random -v mode=pattern -v pattern='LL-DD-SS')"
-[[ "$result" =~ ^[A-Za-z]{2}-[0-9]{2}-[!@#\$%^&*\(\)_+\-=\[\]\{\}\|;:,\.<>\?]{2}$ ]] || ds:fail 'pattern generation failed'
+pattern_generation_re="^[A-Za-z]{2}-[0-9]{2}-${special_chars}{2}\$"
+[[ "$result" =~ $pattern_generation_re ]] || ds:fail 'pattern generation failed'
 
 # Test case options
 result="$(ds:random -v mode=pattern -v pattern='LLLL' -v case=upper)"
