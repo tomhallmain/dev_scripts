@@ -252,50 +252,80 @@ function StoreFieldRefs() {
     }
 
     if (mat) {
+        # Loop-invariant per-expression metadata (comp/compval/base_expr/anchor_row
+        # and, for frame exprs, test_field/frame_re) depends only on the static
+        # expr string, never on NR — derive it once here instead of every row.
+        if (NR == 1) {
+            for (expr in RCExprs) {
+                len_expr = LenExpr[expr]
+                if (expr in RCFrames) {
+                    ignore_case = (ignore_case_global || IgnoreCase[expr])
+                    split(expr, Tmp, TkMap["mat"])
+                    split(Tmp[1], Fr, "(\\[|!$)")
+                    RCExprTestField[expr] = (fr_ext && Fr[1]) ? Fr[1] : 1
+                    RCExprIgnoreCase[expr] = ignore_case
+                    RCExprFrameRe[expr] = ignore_case ? tolower(Fr[2]) : Fr[2]
+                    base_expr = substr(expr, length(Tmp[1])+1)
+                    RCExprAnchorRow[expr] = max_nr
+                }
+                else if (SpecExpr[expr]) {
+                    split(expr, Tmp, Re["nan"])
+                    if (Tmp[1]) {
+                        RCExprRowOnly[expr] = Tmp[1]
+                        RCExprAnchorRow[expr] = Tmp[1]
+                    }
+                    else RCExprAnchorRow[expr] = max_nr
+                    base_expr = substr(expr, length(Tmp[1])+1)
+                }
+                else if (len_expr) {
+                    split(len_expr, Tmp, Re["nan"])
+                    if (Tmp[1]) {
+                        RCExprRowOnly[expr] = Tmp[1]
+                        RCExprAnchorRow[expr] = Tmp[1]
+                    }
+                    else RCExprAnchorRow[expr] = max_nr
+                    base_expr = substr(len_expr, length(Tmp[1])+1)
+                }
+                else {
+                    base_expr = expr
+                    RCExprAnchorRow[expr] = max_nr
+                    RCExprFieldsSet[expr] = 1
+                }
+
+                if (base_expr ~ Re["comp"]) {
+                    GetComp(base_expr)
+                    RCExprComp[expr] = Tmp[0]; RCExprBaseExpr[expr] = Tmp[1]; RCExprCompVal[expr] = Tmp[2]
+                }
+                else {
+                    RCExprComp[expr] = "="; RCExprBaseExpr[expr] = base_expr; RCExprCompVal[expr] = 0
+                }
+            }
+        }
+
         for (expr in RCExprs) {
             if (assume_constant_fields && RCExprFieldsSet[expr]) continue
             # ^ may miss fields unless first-row NF >= NF of all other rows
-            compval = 0; comp = "="; settable = 0; len_expr = LenExpr[expr]
+            len_expr = LenExpr[expr]
+            comp = RCExprComp[expr]; compval = RCExprCompVal[expr]; base_expr = RCExprBaseExpr[expr]
+            anchor_row = RCExprAnchorRow[expr]; settable = 0
+
             if (expr in RCFrames) {
-                ignore_case = (ignore_case_global || IgnoreCase[expr])
-                split(expr, Tmp, TkMap["mat"])
-                split(Tmp[1], Fr, "(\\[|!$)")
-                test_field = (fr_ext && Fr[1]) ? Fr[1] : 1
+                ignore_case = RCExprIgnoreCase[expr]
+                test_field = RCExprTestField[expr]
                 field = CacheFieldValue($test_field, ignore_case)
-                frame_re = ignore_case ? tolower(Fr[2]) : Fr[2]
-                if (!(field ~ frame_re)) continue
+                if (!(field ~ RCExprFrameRe[expr])) continue
                 if (!Indexed(ExprFO[expr], test_field)) {
                     ExprFO[expr] = ExprFO[expr] test_field","
                 }
-                base_expr = substr(expr, length(Tmp[1])+1)
-                anchor_row = max_nr
             }
             else if (SpecExpr[expr]) {
-                split(expr, Tmp, Re["nan"])
-                if (Tmp[1]) {
-                    if (NR != Tmp[1]) continue
-                    else anchor_row = Tmp[1]
-                }
-                else anchor_row = max_nr
-                base_expr = substr(expr, length(Tmp[1])+1)
+                if ((expr in RCExprRowOnly) && NR != RCExprRowOnly[expr]) continue
             }
             else if (len_expr) {
-                split(len_expr, Tmp, Re["nan"])
-                if (Tmp[1]) {
-                    if (NR != Tmp[1]) continue
-                    else anchor_row = Tmp[1]
-                }
-                else anchor_row = max_nr
-                base_expr = substr(len_expr, length(Tmp[1])+1)
+                if ((expr in RCExprRowOnly) && NR != RCExprRowOnly[expr]) continue
             }
             else {
-                base_expr = expr; settable = 1; anchor_row = max_nr
-                RCExprFieldsSet[expr] = 1
-            }
-
-            if (base_expr ~ Re["comp"]) {
-                GetComp(base_expr)
-                comp = Tmp[0]; base_expr = Tmp[1]; compval = Tmp[2]
+                settable = 1
             }
 
             for (f = 1; f <= NF; f++) {
@@ -461,61 +491,84 @@ function StoreRowRefs() {
     }
 
     if (mat) {
+        # Same rationale as StoreFieldRefs: comp/compval/base_expr and the
+        # fixed-field/frame metadata below depend only on the static expr
+        # string, not NR, so derive them once instead of every row.
+        if (NR == 1) {
+            for (expr in RRExprs) {
+                len_expr = LenExpr[expr]
+                if (expr in RRFrames) {
+                    ignore_case = (ignore_case_global || IgnoreCase[expr])
+                    split(expr, Tmp, TkMap["mat"])
+                    split(Tmp[1], Fr, "(\\[|!$)")
+                    RRExprTestRow[expr] = (fr_ext && Fr[1]) ? Fr[1] : 1
+                    RRExprIgnoreCase[expr] = ignore_case
+                    RRExprFrameRe[expr] = Fr[2]
+                    base_expr = substr(expr, length(Tmp[1])+1)
+                }
+                else if (SpecExpr[expr]) {
+                    split(expr, Tmp, Re["nan"])
+                    if (Tmp[1]) RRExprFixedField[expr] = Tmp[1]
+                    base_expr = substr(expr, length(Tmp[1])+1)
+                }
+                else if (len_expr) {
+                    split(len_expr, Tmp, Re["nan"])
+                    if (c_off) RRExprFixedField[expr] = 1
+                    else if (Tmp[1]) RRExprFixedField[expr] = Tmp[1]
+                    base_expr = substr(len_expr, length(Tmp[1])+1)
+                }
+                else {
+                    base_expr = expr
+                    RRExprPositionTest[expr] = 1
+                }
+
+                if (base_expr ~ Re["comp"]) {
+                    GetComp(base_expr)
+                    RRExprComp[expr] = Tmp[0]; RRExprBaseExpr[expr] = Tmp[1]; RRExprCompVal[expr] = Tmp[2]
+                }
+                else {
+                    RRExprComp[expr] = "="; RRExprBaseExpr[expr] = base_expr; RRExprCompVal[expr] = 0
+                }
+            }
+        }
+
         for (expr in RRExprs) {
-            compval = 0; comp = "="; position_test = 0; len_expr = LenExpr[expr]
+            comp = RRExprComp[expr]; compval = RRExprCompVal[expr]; base_expr = RRExprBaseExpr[expr]
+            len_expr = LenExpr[expr]; position_test = RRExprPositionTest[expr]
             fr_expr = 0; exclude = 0; frame_set = 0; open_frame = 0
 
             if (expr in RRFrames) {
                 if (ExcludeFrame[expr]) continue
-                ignore_case = (ignore_case_global || IgnoreCase[expr])
-                split(expr, Tmp, TkMap["mat"])
-                split(Tmp[1], Fr, "(\\[|!$)")
-                test_row = (fr_ext && Fr[1]) ? Fr[1] : 1
-                base_expr = substr(expr, length(Tmp[1])+1)
+                ignore_case = RRExprIgnoreCase[expr]
+                test_row = RRExprTestRow[expr]
                 start = 1
                 end = NF
                 fr_expr = 1
-                frame_re = Fr[2]
+                frame_re = RRExprFrameRe[expr]
             }
             else if (SpecExpr[expr]) {
-                split(expr, Tmp, Re["nan"])
-                if (Tmp[1]) {
-                    start = Tmp[1]
+                if (expr in RRExprFixedField) {
+                    start = RRExprFixedField[expr]
                     end = start
                 }
                 else {
                     start = 1
                     end = NF
                 }
-                base_expr = substr(expr, length(Tmp[1])+1) }
+            }
             else if (len_expr) {
-                split(len_expr, Tmp, Re["nan"])
-                if (c_off) {
-                    start = 1
-                    end = 1
-                }
-                else if (Tmp[1]) {
-                    start = Tmp[1]
+                if (expr in RRExprFixedField) {
+                    start = RRExprFixedField[expr]
                     end = start
                 }
                 else {
                     start = 1
                     end = NF
                 }
-                base_expr = substr(len_expr, length(Tmp[1])+1)
             }
             else {
-                base_expr = expr
-                position_test = 1 
                 start = 1
                 end = NF
-            }
-
-            if (base_expr ~ Re["comp"]) { 
-                GetComp(base_expr)
-                comp = Tmp[0]
-                base_expr = Tmp[1]
-                compval = Tmp[2]
             }
 
             for (f = start; f <= end; f++) {
@@ -1156,12 +1209,10 @@ function BuildTokens(Tk) {
     Tk["^"] = "mat"
 }
 
-function EvalCompExpr(left, right, comp,    key, result) {
-    if (cache_patterns) {
-        key = left SUBSEP right SUBSEP comp
-        if (key in ExprCache) return ExprCache[key]
-    }
-
+function EvalCompExpr(left, right, comp,    result) {
+    # A scalar comparison is cheaper than any cache lookup/store around it:
+    # `left` is normally a per-row field value, so a SUBSEP-keyed cache here
+    # rarely hits and only adds overhead.
     result = 0
     if (comp == "=") result = (left == right)
     else if (comp == "!=") result = (left != right)
@@ -1170,7 +1221,6 @@ function EvalCompExpr(left, right, comp,    key, result) {
     else if (comp == "<") result = (left < right)
     else if (comp == "<=") result = (left <= right)
 
-    if (cache_patterns) ExprCache[key] = result
     return result
 }
 
@@ -1338,18 +1388,10 @@ function CacheFieldValue(field, ignore_case,    key, val) {
 }
 
 # Add batch processing for field operations.
-# Global buffer_size (-v, default 100) is the large-batch threshold; do not
-# shadow it with a local of the same name.
+# Callers route here once NF exceeds the global buffer_size (-v, default 100).
 # operation: BATCH_PRINT | BATCH_PRINT_ORDERED | BATCH_STORE (ints from BEGIN).
 # Order[] is used only for BATCH_PRINT_ORDERED.
-function ProcessFieldBatch(start, end, operation, Order,    i, result, batch_len) {
-    batch_len = end - start + 1
-    if (batch_len > buffer_size) {
-        # For large batches, pre-allocate buffer
-        result = ""
-        for (i = 1; i <= batch_len; i++) result = result "x"
-    }
-
+function ProcessFieldBatch(start, end, operation, Order,    i, result) {
     result = ""
     if (operation == BATCH_PRINT) {
         # Use string concatenation optimization
