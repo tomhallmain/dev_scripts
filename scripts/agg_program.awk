@@ -246,7 +246,7 @@ END {
                         for (k = 1; k <= n; k++) {
                             stats_arr[k] = AggValues[agg, i, k]
                         }
-                        aggregation = n ? ProcessExtendedAgg(agg, stats_arr, n) : ""
+                        aggregation = n ? ProcessExtendedAgg(agg, stats_arr, n, StatGroupKey("R", i, agg)) : ""
                         delete stats_arr
                     } else {
                         aggregation = RowAggResult[agg, i]
@@ -281,7 +281,7 @@ END {
                     for (k = 1; k <= n; k++) {
                         stats_arr[k] = ColAggValues[agg, j, k]
                     }
-                    aggregation = n ? ProcessExtendedAgg(agg, stats_arr, n) : ""
+                    aggregation = n ? ProcessExtendedAgg(agg, stats_arr, n, StatGroupKey("C", j, agg)) : ""
                     delete stats_arr
                     printf "%s", aggregation
                     if (j < fixed_nf) printf "%s", OFS
