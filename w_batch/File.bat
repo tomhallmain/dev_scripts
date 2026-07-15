@@ -25,8 +25,8 @@ doskey ds:select=powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& {
 doskey ds:insert=powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& {. '%POWERSHELL_DIR%\File.ps1'; ds:insert $*}"
 doskey ds:filename_str=powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& {. '%POWERSHELL_DIR%\File.ps1'; ds:filename_str $*}"
 
-REM Only show messages during install
-if "%1"=="--install" (
+REM Only show messages during verbose run
+if "%1"=="--verbose" (
     echo File function aliases created successfully!
     echo Available commands: ds:vi, ds:grepvi, ds:gvi, ds:cd, ds:searchx, ds:select, ds:insert, ds:filename_str
 )

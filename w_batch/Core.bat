@@ -29,8 +29,8 @@ doskey ds:join_by=powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& 
 doskey ds:embrace=powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& {. '%POWERSHELL_DIR%\Core.ps1'; ds:embrace $*}"
 doskey ds:path_elements=powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "& {. '%POWERSHELL_DIR%\Core.ps1'; ds:path_elements $*}"
 
-REM Only show messages during install
-if "%1"=="--install" (
+REM Only show messages during verbose run
+if "%1"=="--verbose" (
     echo Core function aliases created successfully!
     echo Available commands: ds:commands, ds:help, ds:fail, ds:tmp, ds:test, ds:nset, ds:pipe_check, ds:cp, ds:rev, ds:join_by, ds:embrace, ds:path_elements
 )

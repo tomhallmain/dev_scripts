@@ -182,11 +182,57 @@ while getopts ":ab:Dde:fhi:mo:psvC:x:" opt; do
     esac
 done
 
-[[ ! ( $RUN_ALL_REPOS || $OVERRIDE_REPOS ) ]] && BASE_DIR_CASE=true
+[[ (! ( $RUN_ALL_REPOS || $OVERRIDE_REPOS ) || $BASE_DIR) ]] && BASE_DIR_CASE=true
+
+# Debug: Check BASE_DIR_CASE setting
+[ $DEBUG ] && echo "DEBUG: RUN_ALL_REPOS=${RUN_ALL_REPOS:-unset}, OVERRIDE_REPOS=${OVERRIDE_REPOS:-unset}, BASE_DIR_CASE=${BASE_DIR_CASE:-unset}" >&2
+
+# Initialize color variables early for error messages
+if tput colors &> /dev/null; then
+    RED="\033[0;31m"
+    ORANGE="\033[0;33m"
+    NC="\033[0m" # No Color
+else
+    RED=""
+    ORANGE=""
+    NC=""
+fi
+
+# Validate BASE_DIR if set
+if [ -n "$BASE_DIR" ]; then
+    # Try to convert Windows-style paths to WSL paths if the original doesn't exist
+    # Handle /c/... or /C/... -> /mnt/c/...
+    original_base_dir="$BASE_DIR"
+    if [[ "$BASE_DIR" =~ ^/[cC]/ ]] && [ ! -d "$BASE_DIR" ]; then
+        # Replace /c/ with /mnt/c/ or /C/ with /mnt/C/
+        if [[ "$BASE_DIR" =~ ^/c/ ]]; then
+            BASE_DIR="${BASE_DIR/\/c\//\/mnt\/c\/}"
+        elif [[ "$BASE_DIR" =~ ^/C/ ]]; then
+            BASE_DIR="${BASE_DIR/\/C\//\/mnt\/C\/}"
+        fi
+        [ $VERBOSE ] && echo "Converted Windows path to WSL path: ${original_base_dir} -> ${BASE_DIR}"
+    fi
+    
+    # Validate that BASE_DIR exists and is a directory
+    if [ ! -d "$BASE_DIR" ]; then
+        echo -e "\n${RED}Error: Base directory does not exist: ${BASE_DIR}${NC}" >&2
+        if [[ "$original_base_dir" =~ ^/[cC]/ ]]; then
+            echo -e "${ORANGE}Note: Tried converting ${original_base_dir} to ${BASE_DIR}${NC}" >&2
+            echo -e "${ORANGE}If your WSL uses /c/ directly (not /mnt/c/), the path should work as-is${NC}" >&2
+        fi
+        exit 1
+    fi
+    
+    # Check if we can read the directory
+    if [ ! -r "$BASE_DIR" ]; then
+        echo -e "\n${RED}Error: Cannot read base directory: ${BASE_DIR}${NC}" >&2
+        exit 1
+    fi
+fi
 
 if [ $VERBOSE ]; then
     [ $RUN_ALL_REPOS ] && echo "All opt set: Running for all git repos found"
-    [ $BASE_DIR ] && echo "Base dir opt set: Running with base directory ${OPTARG}"
+    [ $BASE_DIR ] && echo "Base dir opt set: Running with base directory ${BASE_DIR}"
     if [[ $DEEP && $BASE_DIR_CASE ]]; then
         echo "Deep search opt set: Running for all repos found in base directory"
     fi
@@ -197,16 +243,24 @@ if [ $VERBOSE ]; then
     [ $DEBUG ] && echo "Debug opt set: Debug logging enabled"
 fi
 
-# Initialize variables
+# Initialize variables (colors already initialized above for error messages)
 
 if tput colors &> /dev/null; then
     CYAN="\033[0;36m"
-    ORANGE="\033[0;33m"
-    RED="\033[0;31m"
+    [ -z "$ORANGE" ] && ORANGE="\033[0;33m"
+    [ -z "$RED" ] && RED="\033[0;31m"
     GRAY="\033[0:37m"
     WHITE="\033[1:35m"
     BLUE="\033[0;34m"
-    NC="\033[0m" # No Color
+    [ -z "$NC" ] && NC="\033[0m" # No Color
+else
+    CYAN=""
+    ORANGE=""
+    RED=""
+    GRAY=""
+    WHITE=""
+    BLUE=""
+    NC=""
 fi
 
 TABLE_DATA="${WHITE}BRANCHES_____________\_____________REPOS${GRAY}"
@@ -361,6 +415,7 @@ generateAllowedVarName() {
 
     var="${unparsed//\./_DOT_}"
     var="${var// /_SPACE_}"
+    var="${var//:/_COLON_}"
     var="${var//-/_HYPHEN_}"
     var="${var//\//_FSLASH_}"
     var="${var//\\/_BSLASH_}"
@@ -373,6 +428,63 @@ generateAllowedVarName() {
     var="${var//7/_SEVEN_}"
     var="${var//8/_EIGHT_}"
     var="${var//9/_NINE_}"
+    var="${var//0/_ZERO_}"
+    
+    # Replace any remaining non-ASCII characters with safe placeholder
+    # This handles Unicode characters like ü, é, etc.
+    # After our special character replacements, valid characters are:
+    # - ASCII letters (a-z, A-Z)
+    # - Underscore (_)
+    # - Our special tokens (_DOT_, _SPACE_, _COLON_, _FSLASH_, etc.)
+    # 
+    # We need to replace any character that isn't ASCII alphanumeric or underscore
+    # Use od to convert to hex bytes, then replace non-ASCII bytes
+    
+    # Convert string to hex bytes, process each byte
+    local hex_bytes=$(printf '%s' "$var" | od -An -tx1 | tr -d ' \n')
+    local result=""
+    local i=0
+    local in_token=false
+    
+    # Process hex bytes two at a time (each byte is 2 hex digits)
+    while [ $i -lt ${#hex_bytes} ]; do
+        local hex_byte="${hex_bytes:$i:2}"
+        local byte_val=$((0x$hex_byte))
+        
+        # Check if this byte is part of ASCII alphanumeric or underscore
+        # ASCII: 0x41-0x5A (A-Z), 0x61-0x7A (a-z), 0x5F (_)
+        if [ $byte_val -ge 65 ] && [ $byte_val -le 90 ]; then
+            # A-Z
+            result="${result}$(printf "\\$(printf '%03o' $byte_val)")"
+        elif [ $byte_val -ge 97 ] && [ $byte_val -le 122 ]; then
+            # a-z
+            result="${result}$(printf "\\$(printf '%03o' $byte_val)")"
+        elif [ $byte_val -eq 95 ]; then
+            # underscore
+            result="${result}_"
+        else
+            # Non-ASCII or special character - replace with hex representation
+            result="${result}_U${hex_byte}_"
+        fi
+        
+        i=$((i + 2))
+    done
+    
+    var="$result"
+    
+    # Fallback: if the above produces empty or problematic result, use simpler method
+    # Replace any character that isn't ASCII alphanumeric or underscore with _U_
+    if [ -z "$var" ] || [[ ! "$var" =~ ^[a-zA-Z_][a-zA-Z0-9_]*$ ]]; then
+        # Use sed to replace non-ASCII characters
+        # This is less precise but more reliable as a fallback
+        var=$(printf '%s' "$unparsed" | LC_ALL=C sed 's/[^a-zA-Z0-9_]/_U_/g')
+    fi
+    
+    # Ensure variable name doesn't start with a number (bash requirement)
+    # If it does, prefix with underscore
+    if [[ "$var" =~ ^[0-9] ]]; then
+        var="_${var}"
+    fi
   
     printf '%s\n' "$var"
 }
@@ -433,7 +545,11 @@ spin() {
 
 ([[ $VERBOSE && $DEEP ]] && echo -e "\nGathering repo data...") || \
 ([[ $VERBOSE && $OVERRIDE_REPOS ]] && echo -e "\nValidating override repos...") || \
-cd "$BASE_DIR"
+cd "$BASE_DIR" 2>/dev/null || {
+    echo -e "\n${RED}Error: Cannot change to base directory: ${BASE_DIR}${NC}" >&2
+    [ $DEBUG ] && echo "DEBUG: cd failed, current directory: $(pwd)" >&2
+    exit 1
+}
 
 if [[ $DEEP || $OVERRIDE_REPOS ]]; then
     SPIN_PID=""
@@ -461,59 +577,201 @@ if [ "$OVERRIDE_REPOS" ]; then
     done
 elif [ "$RUN_ALL_REPOS" ] || [ "$DEEP" ]; then
     # Discover repositories using find or fd
+    [ $DEBUG ] && echo "DEBUG: Using DEEP/RUN_ALL_REPOS mode, BASE_DIR=${BASE_DIR}, RUN_ALL_REPOS=${RUN_ALL_REPOS:-unset}, DEEP=${DEEP:-unset}" >&2
+    [ $DEBUG ] && echo "DEBUG: USE_FD=${USE_FD:-unset}" >&2
+    
     if [ "$USE_FD" ] && command -v fd >/dev/null 2>&1; then
+        [ $DEBUG ] && echo "DEBUG: Using fd for repository discovery" >&2
         # Use fd for faster repository discovery
         max_depth="${DEEP:-3}"
+        [ $DEBUG ] && echo "DEBUG: DEEP=${DEEP:-unset}, max_depth before processing=${max_depth}" >&2
         if [[ "$max_depth" == "true" ]]; then
             max_depth=""
+            [ $DEBUG ] && echo "DEBUG: max_depth is 'true', setting to empty string (unlimited depth)" >&2
         else
             max_depth="-d $max_depth"
+            [ $DEBUG ] && echo "DEBUG: max_depth is numeric, setting to: $max_depth" >&2
         fi
-        while IFS= read -r repo; do
-            if [ -n "$repo" ] && ! should_exclude_repo "$repo"; then
-                ALL_REPOS+=("$repo")
-                # Capture first repo for debug
-                [ -z "$DEBUG_FIRST_REPO" ] && DEBUG_FIRST_REPO="$repo"
+        
+        [ $DEBUG ] && echo "DEBUG: Testing if BASE_DIR exists: [ -d \"$BASE_DIR\" ] = $([ -d "$BASE_DIR" ] && echo true || echo false)" >&2
+        [ $DEBUG ] && echo "DEBUG: Testing if BASE_DIR is readable: [ -r \"$BASE_DIR\" ] = $([ -r "$BASE_DIR" ] && echo true || echo false)" >&2
+        
+        # Build fd command for debugging
+        if [ -n "$max_depth" ]; then
+            fd_cmd="fd $max_depth -t d -H \"^\.git$\" \"$BASE_DIR\""
+        else
+            fd_cmd="fd -t d -H \"^\.git$\" \"$BASE_DIR\""
+        fi
+        [ $DEBUG ] && echo "DEBUG: Running fd command: $fd_cmd" >&2
+        
+        # Capture fd output - separate stdout (success) from stderr (errors)
+        fd_success_output=$(fd $max_depth -t d -H "^\.git$" "$BASE_DIR" 2>/dev/null)
+        fd_exit_code=$?
+        fd_error_output=$(fd $max_depth -t d -H "^\.git$" "$BASE_DIR" 2>&1 >/dev/null)
+        
+        [ $DEBUG ] && echo "DEBUG: fd exit code: $fd_exit_code" >&2
+        fd_line_count=$(echo "$fd_success_output" | grep -c . || echo "0")
+        [ $DEBUG ] && echo "DEBUG: fd found $fd_line_count .git directories" >&2
+        
+        if [ $fd_exit_code -ne 0 ]; then
+            [ $DEBUG ] && echo "DEBUG: fd command failed with exit code $fd_exit_code" >&2
+            [ $DEBUG ] && echo "DEBUG: fd error output:" >&2
+            [ $DEBUG ] && echo "$fd_error_output" >&2
+        fi
+        
+        repo_count_before=${#ALL_REPOS[@]}
+        # Process all .git directories found by fd
+        # Remove trailing /.git or /.git/ to get the repo path
+        while IFS= read -r git_dir; do
+            if [ -n "$git_dir" ]; then
+                # Remove trailing /.git or /.git/ to get repo path
+                repo="${git_dir%/.git}"
+                repo="${repo%/.git/}"
+                if ! should_exclude_repo "$repo"; then
+                    ALL_REPOS+=("$repo")
+                    # Capture first repo for debug
+                    [ -z "$DEBUG_FIRST_REPO" ] && DEBUG_FIRST_REPO="$repo"
+                    [ $DEBUG ] && echo "DEBUG: Added repo: $repo" >&2
+                else
+                    [ $DEBUG ] && echo "DEBUG: Excluded repo (pattern): $repo" >&2
+                fi
             fi
-        done < <(fd $max_depth -t d -H "^\.git$" "$BASE_DIR" 2>/dev/null | sed 's|/\.git$||' | head -1000)
+        done < <(echo "$fd_success_output" | head -1000)
+        repo_count_after=${#ALL_REPOS[@]}
+        [ $DEBUG ] && echo "DEBUG: Added $((repo_count_after - repo_count_before)) repos from fd output" >&2
     else
         # Use find for repository discovery
+        [ $DEBUG ] && echo "DEBUG: Using find for repository discovery" >&2
         max_depth="${DEEP:-3}"
+        [ $DEBUG ] && echo "DEBUG: max_depth=${max_depth}" >&2
+        
         if [[ "$max_depth" == "true" ]]; then
+            [ $DEBUG ] && echo "DEBUG: Running find without maxdepth in: $BASE_DIR" >&2
+            [ $DEBUG ] && echo "DEBUG: Testing if BASE_DIR exists: [ -d \"$BASE_DIR\" ] = $([ -d "$BASE_DIR" ] && echo true || echo false)" >&2
+            [ $DEBUG ] && echo "DEBUG: Testing if BASE_DIR is readable: [ -r \"$BASE_DIR\" ] = $([ -r "$BASE_DIR" ] && echo true || echo false)" >&2
+            
+            find_output=$(find "$BASE_DIR" -type d -name .git 2>&1 | head -1000)
+            find_exit_code=$?
+            find_line_count=$(echo "$find_output" | wc -l)
+            [ $DEBUG ] && echo "DEBUG: find exit code: $find_exit_code, found $find_line_count lines of output" >&2
+            
+            if [ $find_exit_code -ne 0 ]; then
+                [ $DEBUG ] && echo "DEBUG: find command failed with exit code $find_exit_code" >&2
+                echo "DEBUG: find errors:" >&2
+                echo "$find_output" | grep -v "^\.git" >&2
+            fi
+            
+            if [ -z "$find_output" ]; then
+                [ $DEBUG ] && echo "DEBUG: find returned no output (empty result)" >&2
+            else
+                [ $DEBUG ] && echo "DEBUG: First few lines of find output:" >&2
+                echo "$find_output" | head -5 | while IFS= read -r line; do
+                    [ $DEBUG ] && echo "DEBUG:   $line" >&2
+                done
+            fi
+            
+            repo_count_before=${#ALL_REPOS[@]}
             while IFS= read -r git_dir; do
-                if [ -n "$git_dir" ]; then
+                if [ -n "$git_dir" ] && [[ "$git_dir" == *"/.git" ]]; then
                     repo="${git_dir%/.git}"
+                    [ $DEBUG ] && echo "DEBUG: Found potential repo: $repo" >&2
                     if ! should_exclude_repo "$repo"; then
                         ALL_REPOS+=("$repo")
                         # Capture first repo for debug
                         [ -z "$DEBUG_FIRST_REPO" ] && DEBUG_FIRST_REPO="$repo"
+                        [ $DEBUG ] && echo "DEBUG: Added repo: $repo" >&2
+                    else
+                        [ $DEBUG ] && echo "DEBUG: Excluded repo (pattern): $repo" >&2
                     fi
                 fi
-            done < <(find "$BASE_DIR" -type d -name .git 2>/dev/null | head -1000)
+            done < <(echo "$find_output" | grep "/\.git$")
+            repo_count_after=${#ALL_REPOS[@]}
+            [ $DEBUG ] && echo "DEBUG: Added $((repo_count_after - repo_count_before)) repos from find output" >&2
         else
+            [ $DEBUG ] && echo "DEBUG: Running find with maxdepth $max_depth in: $BASE_DIR" >&2
+            [ $DEBUG ] && echo "DEBUG: Testing if BASE_DIR exists: [ -d \"$BASE_DIR\" ] = $([ -d "$BASE_DIR" ] && echo true || echo false)" >&2
+            
+            find_output=$(find "$BASE_DIR" -maxdepth "$max_depth" -type d -name .git 2>&1 | head -1000)
+            find_exit_code=$?
+            find_line_count=$(echo "$find_output" | wc -l)
+            [ $DEBUG ] && echo "DEBUG: find exit code: $find_exit_code, found $find_line_count lines of output" >&2
+            
+            if [ $find_exit_code -ne 0 ]; then
+                [ $DEBUG ] && echo "DEBUG: find command failed with exit code $find_exit_code" >&2
+                echo "DEBUG: find errors:" >&2
+                echo "$find_output" | grep -v "^\.git" >&2
+            fi
+            
+            if [ -z "$find_output" ]; then
+                [ $DEBUG ] && echo "DEBUG: find returned no output (empty result)" >&2
+            else
+                [ $DEBUG ] && echo "DEBUG: First few lines of find output:" >&2
+                echo "$find_output" | head -5 | while IFS= read -r line; do
+                    [ $DEBUG ] && echo "DEBUG:   $line" >&2
+                done
+            fi
+            
+            repo_count_before=${#ALL_REPOS[@]}
             while IFS= read -r git_dir; do
-                if [ -n "$git_dir" ]; then
+                if [ -n "$git_dir" ] && [[ "$git_dir" == *"/.git" ]]; then
                     repo="${git_dir%/.git}"
+                    [ $DEBUG ] && echo "DEBUG: Found potential repo: $repo" >&2
                     if ! should_exclude_repo "$repo"; then
                         ALL_REPOS+=("$repo")
                         # Capture first repo for debug
                         [ -z "$DEBUG_FIRST_REPO" ] && DEBUG_FIRST_REPO="$repo"
+                        [ $DEBUG ] && echo "DEBUG: Added repo: $repo" >&2
+                    else
+                        [ $DEBUG ] && echo "DEBUG: Excluded repo (pattern): $repo" >&2
                     fi
                 fi
-            done < <(find "$BASE_DIR" -maxdepth "$max_depth" -type d -name .git 2>/dev/null | head -1000)
+            done < <(echo "$find_output" | grep "/\.git$")
+            repo_count_after=${#ALL_REPOS[@]}
+            [ $DEBUG ] && echo "DEBUG: Added $((repo_count_after - repo_count_before)) repos from find output" >&2
         fi
     fi
 elif [ "$BASE_DIR_CASE" ]; then
     # Base directory case: only check top-level directories in BASE_DIR
+    [ $DEBUG ] && echo "DEBUG: Using BASE_DIR_CASE mode, BASE_DIR=${BASE_DIR}" >&2
+    [ $DEBUG ] && echo "DEBUG: Checking top-level directories in: $BASE_DIR" >&2
+    
+    dir_count=0
     for dir in "$BASE_DIR"/*; do
-        if [ -d "$dir" ] && ([ -d "$dir/.git" ] || git -C "$dir" rev-parse --git-dir > /dev/null 2>&1); then
-            if ! should_exclude_repo "$dir"; then
-                ALL_REPOS+=("$dir")
-                # Capture first repo for debug
-                [ -z "$DEBUG_FIRST_REPO" ] && DEBUG_FIRST_REPO="$dir"
+        [ $DEBUG ] && echo "DEBUG: Checking directory: $dir" >&2
+        dir_count=$((dir_count + 1))
+        
+        if [ -d "$dir" ]; then
+            [ $DEBUG ] && echo "DEBUG: $dir is a directory, checking for .git" >&2
+            
+            # Check if it's a git repo
+            is_git_repo=false
+            if [ -d "$dir/.git" ]; then
+                [ $DEBUG ] && echo "DEBUG: Found .git directory in: $dir" >&2
+                is_git_repo=true
+            elif git -C "$dir" rev-parse --git-dir > /dev/null 2>&1; then
+                [ $DEBUG ] && echo "DEBUG: Found git repo (via git command) in: $dir" >&2
+                is_git_repo=true
+            else
+                [ $DEBUG ] && echo "DEBUG: $dir is not a git repository" >&2
             fi
+            
+            # If it's a git repo, check if it should be excluded
+            if [ "$is_git_repo" = true ]; then
+                if ! should_exclude_repo "$dir"; then
+                    [ $DEBUG ] && echo "DEBUG: Adding repo: $dir" >&2
+                    ALL_REPOS+=("$dir")
+                    # Capture first repo for debug
+                    [ -z "$DEBUG_FIRST_REPO" ] && DEBUG_FIRST_REPO="$dir"
+                else
+                    [ $DEBUG ] && echo "DEBUG: Excluded repo (pattern match): $dir" >&2
+                fi
+            fi
+        else
+            [ $DEBUG ] && echo "DEBUG: $dir is not a directory (or doesn't exist)" >&2
         fi
     done
+    
+    [ $DEBUG ] && echo "DEBUG: BASE_DIR_CASE: Checked $dir_count directories, found ${#ALL_REPOS[@]} repositories" >&2
 fi
 
 # Process repositories based on settings

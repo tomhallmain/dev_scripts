@@ -61,6 +61,7 @@ TEMP_DIR="${TMPDIR:-/tmp}"
 MIN_FILE_SIZE=1  # Skip empty files
 SCRIPT_NAME=$(basename "$0")
 HASH_METHOD="md5"  # Default hash method
+of_file_cksum=""
 
 # Function to show usage
 show_help() {
@@ -236,11 +237,11 @@ tempdata=$(mktemp -q "$TEMP_DIR/filedata.XXXXX") || {
 format_size() {
     local size=$1
     if [ $size -ge 1073741824 ]; then
-        printf "%.1fG" $(echo "$size/1073741824" | bc -l)
+        printf "%.1fG" $(awk "BEGIN {printf \"%.1f\", $size/1073741824}")
     elif [ $size -ge 1048576 ]; then
-        printf "%.1fM" $(echo "$size/1048576" | bc -l)
+        printf "%.1fM" $(awk "BEGIN {printf \"%.1f\", $size/1048576}")
     elif [ $size -ge 1024 ]; then
-        printf "%.1fK" $(echo "$size/1024" | bc -l)
+        printf "%.1fK" $(awk "BEGIN {printf \"%.1f\", $size/1024}")
     else
         echo "${size}B"
     fi

@@ -7,8 +7,8 @@ setlocal
 echo Installing dev_scripts batch aliases...
 echo.
 
-REM Run the setup with install flag
-call "%~dp0setup_all_aliases.bat" --install
+REM Run the setup with verbose flag
+call "%~dp0setup_all_aliases.bat" --verbose
 
 echo.
 echo Installation complete!
