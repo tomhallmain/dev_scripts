@@ -21,9 +21,32 @@ f == 2 {
 }
 
 END {
+    # Collect matching deps first, then sort -- printing straight from a
+    # `for (e in Deps)` loop depends on awk's native (unordered,
+    # implementation-defined) array iteration, which differs across awk
+    # implementations and made this output's order non-deterministic.
+    n = 0
     for (e in Deps) {
-        if (e in NData) {
-            if (calling_func)
-                print calling_func, e
-            else
-                print e }}}
+        if (e in NData) out[++n] = e
+    }
+
+    # Manual insertion sort (n is always small -- a function's direct
+    # dependency count) rather than gawk-only asort(), for portability with
+    # any POSIX awk.
+    for (i = 2; i <= n; i++) {
+        key = out[i]
+        j = i - 1
+        while (j >= 1 && out[j] > key) {
+            out[j + 1] = out[j]
+            j--
+        }
+        out[j + 1] = key
+    }
+
+    for (i = 1; i <= n; i++) {
+        if (calling_func)
+            print calling_func, out[i]
+        else
+            print out[i]
+    }
+}

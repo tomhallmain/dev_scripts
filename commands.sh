@@ -549,9 +549,17 @@ ds:fsrc() { # Show the source of a shell function: ds:fsrc func
 
     if [[ $shell =~ bash ]]; then
         local tmp=$(ds:tmp 'ds_fsrc')
-        bash --debugger -c 'echo' &> /dev/null
-        [ $? -eq 0 ] && \
-            bash --debugger -c "source ~/.bashrc unclean; declare -F $1" > $tmp
+        # declare -F's "name lineno sourcefile" form only needs the extdebug
+        # shopt turned on -- it can be enabled retroactively and still
+        # reports file/line for functions already defined, and does not
+        # require the bashdb debugger package to be installed. A plain
+        # subshell (not a fresh `bash -c`/`bash --debugger` process) is used
+        # so it inherits "$1" as an already-defined function straight from
+        # the current shell -- no need to re-source ~/.bashrc (which isn't
+        # guaranteed to source commands.sh at all, e.g. if install.sh was
+        # never run) or depend on bashdb's profile being present. extdebug
+        # is scoped to the subshell only; it does not leak to the caller.
+        ( shopt -s extdebug; declare -F "$1" ) > $tmp 2>/dev/null
         if [ ! -s $tmp ]; then
             rm $tmp
             which "$1"

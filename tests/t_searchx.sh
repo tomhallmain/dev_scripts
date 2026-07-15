@@ -4,6 +4,8 @@ source commands.sh
 
 # SEARCHX AND DEPS TESTS
 
+[ -z "$tmp" ] && tmp=/tmp/ds_commands_tests
+
 echo -n "Running searchx and deps tests..."
 
 echo -e 'void cnkdrn_rjvg_paot_eorau(struct atrssd_uhnx *adrk)
@@ -87,21 +89,22 @@ cmp /tmp/ds_searchx_test1 $tmp || ds:fail 'searchx failed java search 1'
 
 # DEPS
 
-help_deps='ds:sortm
-ds:agg
+help_deps='ds:agg
+ds:commands
 ds:diff_fields
 ds:fail
-ds:pow
 ds:fit
-ds:subsep
-ds:reo
+ds:join
 ds:nset
 ds:pivot
-ds:commands
+ds:pow
+ds:reo
 ds:shape
-ds:join'
+ds:sortm
+ds:subsep'
 [[ "$(ds:deps ds:help)" = "$help_deps" ]] || ds:fail 'deps failed'
 
+if ds:nset 'rg'; then
 echo '
 #define omj_ptvn_hjnaae_doqh_mgdh(rovp,yotp)            \
 
@@ -212,6 +215,9 @@ isExtensionValue                             EXTERNAL
 public int hashCode()' > /tmp/ds_searchx_test1
 ds:deps2 tests/data/TestableValueImpl.java | sed -E 's/[[:space:]]+$//g' > $tmp
 cmp /tmp/ds_searchx_test1 $tmp || ds:fail 'deps2 failed java case'
+else
+    echo "Skipping deps2 cases - ripgrep (rg) is required for this command"
+fi
 
 
 
