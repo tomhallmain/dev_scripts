@@ -7,6 +7,6 @@ source commands.sh
 echo -n "Running git commands tests..."
 
 [ $(ds:git_recent_all | awk '{print $3}' | grep -c "") -gt 2 ] \
-    || echo 'git recent all failed, possibly due to no git dirs in home'
+    || echo 'git recent all failed, possibly due to no git dirs found'
 
 echo -e "${GREEN}PASS${NC}"

@@ -71,7 +71,7 @@
 ├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
 │  │  ds:git_recent│  ds:gr  │  Display commits sorted by rec│  ds:gr [refs=heads] [run_context=display]│
 ├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_recent│  ds:gra │  Display recent commits for lo│  ds:gra [refs=heads] [repos_dir=~]       │
+│  │  ds:git_recent│  ds:gra │  Display recent commits for lo│  ds:gra [refs=heads] [repos_dir=dirname o│
 ├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
 │  │  ds:git_refres│  ds:grf │  Pull latest for all repos, ru│  ds:grf [repos_dir=~]                    │
 ├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤

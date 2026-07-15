@@ -740,7 +740,7 @@ ds:git_recent() { # Display commits sorted by recency (alias ds:gr): ds:gr [refs
 }
 alias ds:gr="ds:git_recent"
 
-ds:git_recent_all() { # Display recent commits for local repos (alias ds:gra): ds:gra [refs=heads] [repos_dir=~]
+ds:git_recent_all() { # Display recent commits for local repos (alias ds:gra): ds:gra [refs=heads] [repos_dir=dirname of $DS_LOC]
     local start_dir="$PWD" all_recent=$(ds:tmp 'ds_git_recent_all')
     if [ $DS_COLOR_SUP ]; then
         local w='\033[37;1m' b='\033[1;31m' nc='\033[0m'
@@ -748,7 +748,13 @@ ds:git_recent_all() { # Display recent commits for local repos (alias ds:gra): d
         local w="" b="" nc=""
     fi
     local refs="$1"
-    [ -d "$2" ] && cd "$2" || cd ~
+    if [ -d "$2" ]; then
+        cd "$2"
+    elif [ "$DS_LOC" ]; then
+        cd "$(dirname "$DS_LOC")"
+    else
+        cd "$HOME"
+    fi
     echo -e "${w}repo@@@   ${w}branch@@@sortfield@@@${w}commit time@@@${w}hash@@@${w}commit message@@@${w}author${nc}" > $all_recent
 
     while IFS=$'\n' read -r dir; do
