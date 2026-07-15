@@ -1,4 +1,9 @@
 BEGIN {
+    # WCW_FS forces a plain-space FS during wcscolumns() calls: wcwidth.awk's
+    # one-time lazy table init (_wcwidth_initialize_library) does a bare,
+    # two-arg split() on its embedded width-range data that relies on FS
+    # being a space. ds:fit runs with FS=DS_SEP, not a space, so this must
+    # stay in place even though wcwidth.awk never names "FS" directly.
     WCW_FS = " "
     FIT_FS = FS
 
@@ -284,7 +289,16 @@ NR == FNR {
         # Get the actual field length (cache wcscolumns results)
 
         if (awksafe && f != 0) {
-            if (f in MB_CHAR_WIDTHS) {
+            # Pure printable ASCII always fully matches wcscolumns()'s own
+            # first-pass fast-path character class, so it always returns
+            # length(f) exactly for such fields (true in both multibyte-safe
+            # and byte-mode interpreters — see support/wcwidth.awk). Skip the
+            # cache lookup/insert and the call itself for this common case.
+            ascii_only = (f !~ /[^ -~]/)
+            if (ascii_only) {
+                wcw = len
+            }
+            else if (f in MB_CHAR_WIDTHS) {
                 wcw = MB_CHAR_WIDTHS[f]
             }
             else {
@@ -292,11 +306,16 @@ NR == FNR {
                 wcw = wcscolumns(f)
                 FS = FIT_FS
                 MB_CHAR_WIDTHS[f] = wcw
+                mb_char_widths_count++
             }
 
             wcw_diff = len - wcw
 
-            if (wcw_diff == 0) {
+            # Same fast-path character class as StripBasicASCII, so for
+            # ascii_only fields this rescan can only ever confirm wcw_diff
+            # is already 0 — skip it there; still needed for mixed content
+            # where non-ASCII/non-Latin runs can offset to a net-zero diff.
+            if (wcw_diff == 0 && !ascii_only) {
                 f_wcw_kludge = StripBasicASCII(f)
                 len_wcw_kludge = length(f_wcw_kludge)
                 wcw_diff += len_wcw_kludge

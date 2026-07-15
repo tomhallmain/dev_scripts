@@ -42,6 +42,7 @@ function GetOrSetCutStringByVisibleLen(str, reduction_len) {
     }
 
     CutString[str, reduction_len] = reduced_str
+    cut_string_count++
     return reduced_str
 }
 
@@ -49,6 +50,7 @@ function GetOrSetTruncVal(val, dec, large_vals) {
     if (TVal[val]) return TVal[val]
     trunc_val = TruncVal(val, dec, large_vals)
     TVal[val] = trunc_val
+    tval_count++
     return trunc_val
 }
 
@@ -107,17 +109,25 @@ function GetOrSetPad(n) {
     return PadCache[n]
 }
 
-function CleanupFitCaches(max_entries,    key, n) {
-    n = 0
-    for (key in MB_CHAR_WIDTHS) n++
-    if (n > max_entries) {
+function CleanupFitCaches(max_entries,    key) {
+    # Counts (mb_char_widths_count/cut_string_count/tval_count) are
+    # maintained incrementally at each cache's insert site rather than
+    # recounted here, so this stays O(1) regardless of cache/file size.
+    if (mb_char_widths_count > max_entries) {
         for (key in MB_CHAR_WIDTHS) {
             if (key != "") delete MB_CHAR_WIDTHS[key]
         }
         MB_CHAR_WIDTHS[""] = 0
+        mb_char_widths_count = 0
     }
-    delete CutString
-    delete TVal
+    if (cut_string_count > max_entries) {
+        delete CutString
+        cut_string_count = 0
+    }
+    if (tval_count > max_entries) {
+        delete TVal
+        tval_count = 0
+    }
 }
 
 function PrintGridline(mode, max_nf) {
