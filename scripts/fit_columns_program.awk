@@ -118,6 +118,226 @@ BEGIN {
     }
 }
 
+## Decimal-field length bookkeeping, extracted into functions so tval/
+## int_part/dec_part/etc. are genuine function-call-local variables instead
+## of globals reused (and repeatedly sub()/gsub()'d) across every field of
+## every row. Repeatedly mutating shared globals this way triggered a real
+## gawk heap-corruption crash ("free(): double free detected in tcache") on
+## this repo's test data under gawk 5.2.1 -- confirmed not fixable by
+## localized workarounds (explicit `delete` before reuse, avoiding
+## split()+regex) since the crash point kept moving later rather than
+## disappearing as each was tried. See docs/wsl_test_failures.md.
+
+function ProcessFirstDecimalField(f, i, orig_max, len,
+        field_diff, tval, dot_pos, int_part, dec_part, dec_len,
+        float, t_len, t_diff, len_diff, apply_decimal, eff_sn_len, sn_diff,
+        dot, dec, int_len, int_diff, decimal_diff, dec_push, dbg_msg,
+        clean_part, cp_i, cp_c) {
+    DecimalSet[i] = 1
+
+    float = f ~ float_re
+    # LargeVals[i] is usually unassigned here, and gawk 5.2.x has a
+    # documented bug (bug-gawk Sept 2022, fixed upstream after 5.2.1) where
+    # passing an unassigned array element directly as a user-function
+    # argument corrupts the callee's parameter frame. "+ 0" forces a typed
+    # value, which takes the normal, safe argument path; TruncVal only
+    # truth-tests this argument, so the semantics are unchanged.
+    tval = TruncVal(f, 0, LargeVals[i] + 0)
+
+    # Trailing-zero / bare-dot trim via substr() only: sub()/gsub() mutations
+    # in this hot path are implicated in gawk 5.2.1 memory-corruption crashes
+    # (see docs/wsl_test_failures.md), so these functions must stay free of
+    # regex-mutation builtins.
+    if (index(tval, ".")) {
+        while (substr(tval, length(tval)) == "0")
+            tval = substr(tval, 1, length(tval) - 1)
+        if (substr(tval, length(tval)) == ".")
+            tval = substr(tval, 1, length(tval) - 1)
+    }
+
+    t_len = length(tval)
+    t_diff = 0
+    len_diff = t_len - orig_max
+
+    dot_pos = index(tval, ".")
+    int_part = dot_pos ? substr(tval, 1, dot_pos - 1) : tval
+    dec_part = dot_pos ? substr(tval, dot_pos + 1) : ""
+    dec_len = length(dec_part)
+    DecimalMax[i] = dec_len
+    apply_decimal = (d != "z" && (d || DecimalMax[i]))
+
+    if (sn) {
+        # sn_len is a global set once in BEGIN when d is truthy -- read it
+        # unshadowed here rather than declaring a same-named local.
+        eff_sn_len = (!d) ? (2 + dec_len + 4) : sn_len
+        sn_diff = eff_sn_len - orig_max
+        field_diff = Max(sn_diff, 0)
+    }
+    else {
+        # Keep only [0-9-] chars (was gsub(/[^0-9\-]/, ...)) -- see the trim
+        # comment above for why no regex-mutation builtins here.
+        clean_part = ""
+        for (cp_i = 1; cp_i <= length(int_part); cp_i++) {
+            cp_c = substr(int_part, cp_i, 1)
+            if (index("0123456789-", cp_c))
+                clean_part = clean_part cp_c
+        }
+        int_part = clean_part
+        int_len = length(int_part)
+        if (int_len > 4) LargeVals[i] = 1
+
+        if (DecPush[i] && !(int_part ~ /^($|-)/)) {
+            int_len = Max(DecPush[i] + apply_decimal, int_len)
+            dec_push = 1
+            delete DecPush[i]
+        }
+        if (int_len > NumberMax[i]) NumberMax[i] = int_len
+        int_diff = int_len - t_len
+
+        if (int_len > IMax[i]) {
+            IMax[i] = int_len
+        }
+        else {
+            int_diff += IMax[i] - int_len
+        }
+
+        if (len_diff > 0) {
+            if (apply_decimal) {
+                dot = (fix_dec || dec_len ? 1 : 0)
+                dec = (float || !dec_len ? dot : 0)
+                decimal_diff = dec + (d ? fix_dec : dec_len)
+            }
+
+            field_diff = Max(len_diff + int_diff + decimal_diff - t_diff, 0)
+        }
+    }
+
+    if (debug) {
+        dbg_msg = sprintf("%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s", \
+            FNR, i, d, int_len, dec_len, t_len, NumberMax[i], 0, orig_max, len, \
+            int_diff, decimal_diff, len_diff, t_diff, field_diff, tval)
+        DebugPrint(2, dbg_msg)
+    }
+
+    return field_diff
+}
+
+function ProcessSubsequentDecimalField(f, i, orig_max, len,
+        field_diff, tval, dot_pos, int_part, dec_part, dec_len,
+        float, t_len, t_diff, len_diff, decimal_max_diff, apply_decimal,
+        sn_len_local, sn_diff, dot, dec, int_len, int_diff, decimal_diff,
+        dec_push, dbg_msg, tv_dec_f, tv_full_f, clean_part, cp_i, cp_c) {
+    float = f ~ float_re
+
+    # TruncVal(f, 0, LargeVals[i]) inlined here (dec is always passed as 0 at
+    # this call site, so Max(dec, N) below simplifies to a constant) --
+    # calling it as a separate function from within this one crashed gawk
+    # with a genuine interpreter assertion failure ("unexpected parameter
+    # type Node_val" in interpret.h) on the very first invocation of this
+    # function, even though the identical call succeeds repeatedly from
+    # ProcessFirstDecimalField. ProcessFirstDecimalField's own call is left
+    # as-is since it isn't the one crashing. See docs/wsl_test_failures.md.
+    if (LargeVals[i] || (f + 0 > 9999) || f ~ /-?[0-9]\.[0-9]+(E|e\+)([4-9]|[1-9][0-9]+)$/) {
+        tv_dec_f = d ? fix_dec : 0
+        tv_full_f = length(int(f))
+        if (tv_dec_f) tv_full_f += tv_dec_f + 1
+        tval = sprintf("%" tv_full_f "." tv_dec_f "f", f)
+    }
+    else if (f ~ /\.[0-9]{5,}$/) {
+        tv_dec_f = d ? fix_dec : 4
+        tv_full_f = length(int(f)) + tv_dec_f + 1
+        tval = sprintf("%" tv_full_f "." tv_dec_f "f", f)
+    }
+    else {
+        tval = sprintf("%f", f)
+    }
+
+    # Trailing-zero / bare-dot trim via substr() only -- see the matching
+    # comment in ProcessFirstDecimalField.
+    if (index(tval, ".")) {
+        while (substr(tval, length(tval)) == "0")
+            tval = substr(tval, 1, length(tval) - 1)
+        if (substr(tval, length(tval)) == ".")
+            tval = substr(tval, 1, length(tval) - 1)
+    }
+
+    t_len = length(tval)
+    t_diff = float ? 0 : Max(len - t_len, 0)
+    len_diff = t_len - orig_max
+
+    dot_pos = index(tval, ".")
+    int_part = dot_pos ? substr(tval, 1, dot_pos - 1) : tval
+    dec_part = dot_pos ? substr(tval, dot_pos + 1) : ""
+    dec_len = length(dec_part)
+
+    if (dec_len > DecimalMax[i]) {
+        decimal_max_diff = float ? dec_len - DecimalMax[i] : 0
+        DecimalMax[i] = dec_len
+    }
+
+    apply_decimal = (d != "z" && (d || DecimalMax[i]))
+
+    if (sn) {
+        if (!d) sn_len_local = 2 + DecimalMax[i] + 4
+        else sn_len_local = sn_len
+        sn_diff = sn_len_local - orig_max
+        field_diff = Max(sn_diff, 0)
+    }
+    else {
+        # Keep only [0-9-] chars (was gsub(/[^0-9\-]/, ...)) -- see the trim
+        # comment in ProcessFirstDecimalField.
+        clean_part = ""
+        for (cp_i = 1; cp_i <= length(int_part); cp_i++) {
+            cp_c = substr(int_part, cp_i, 1)
+            if (index("0123456789-", cp_c))
+                clean_part = clean_part cp_c
+        }
+        int_part = clean_part
+        int_len = length(int(int_part))
+        if (int_len > 4) LargeVals[i] = 1
+
+        if (orig_max) {
+            if (DecPush[i] && !(int_part ~ /^($|-)/)) {
+                int_len = Max(DecPush[i], int_len)
+                dec_push = 1
+                delete DecPush[i]
+            }
+            if (int_len > NumberMax[i]) NumberMax[i] = int_len
+            int_diff = len - t_len
+
+            if (int_len > IMax[i]) {
+                IMax[i] = int_len
+            }
+            else if (!float) {
+                int_diff += IMax[i] - int_len
+            }
+
+            if (apply_decimal) {
+                dot = 1
+                dec = (d ? fix_dec : DecimalMax[i])
+                decimal_diff = (float || !dec_len ? dot : 0) + dec - dec_len
+                field_diff = Max(len_diff + int_diff + decimal_diff + decimal_max_diff - t_diff, 0)
+            }
+            else {
+                field_diff = Max(len_diff + int_diff + decimal_diff + decimal_max_diff - t_diff, 0)
+            }
+        }
+
+        else {
+            if (int_len > NumberMax[i]) NumberMax[i] = int_len
+            field_diff = len_diff
+        }
+    }
+
+    if (debug && field_diff) {
+        dbg_msg = sprintf("%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s", \
+            FNR, i, d, int_len, dec_len, t_len, NumberMax[i], DecimalMax[i], orig_max, len, \
+            int_diff, decimal_diff, len_diff, t_diff, field_diff, tval)
+        DebugPrint(3, dbg_msg)
+    }
+
+    return field_diff
+}
 
 ## Reconcile lengths with term width after first pass
 
@@ -281,8 +501,6 @@ NR == FNR {
 
         orig_max = FieldMax[i]
         len_diff = len - orig_max
-        decimal_diff = 0
-        decimal_max_diff = 0
         field_diff = 0
 
         # Get the actual field length (cache wcscolumns results)
@@ -382,147 +600,14 @@ NR == FNR {
         # set decimal for column and handle field length changes
 
         if (!no_tf_num && !DecimalSet[i] && ComplexFmtNum(f)) {
-            DecimalSet[i] = 1
-
-            float = f ~ float_re
-            tval = TruncVal(f, 0, LargeVals[i])
-
-            if (tval ~ /\.[0-9]+0+/) {
-                sub(/0*$/, "", tval) # Remove trailing zeros in decimal part
-            }
-            sub(/\.0*$/, "", tval) # Remove decimal part if equal to zero
-
-            t_len = length(tval)
-            t_diff = 0
-            len_diff = t_len - orig_max
-
-            # Explicit clear before reuse: split() is supposed to reset its
-            # target array itself, but NParts[1] gets mutated in place by
-            # gsub() below on each pass through this code, and re-splitting
-            # into an array holding a gsub-touched (rather than freshly
-            # split) scalar has triggered a real gawk heap-corruption crash
-            # ("double free detected in tcache") -- see docs/wsl_test_failures.md.
-            delete NParts
-            split(tval, NParts, /\./)
-            dec_len = length(NParts[2])
-            DecimalMax[i] = dec_len
-            apply_decimal = (d != "z" && (d || DecimalMax[i]))
-
-            if (sn) {
-                if (!d) sn_len = 2 + dec_len + 4
-                sn_diff = sn_len - orig_max
-                field_diff = Max(sn_diff, 0)
-            }
-            else {
-                gsub(/[^0-9\-]/, "", NParts[1])
-                int_len = length(NParts[1])
-                if (int_len > 4) LargeVals[i] = 1
-
-                if (DecPush[i] && !(NParts[1] ~ /^($|-)/)) {
-                    int_len = Max(DecPush[i] + apply_decimal, int_len)
-                    dec_push = 1
-                    delete DecPush[i]
-                }
-                if (int_len > NumberMax[i]) NumberMax[i] = int_len
-                int_diff = int_len - t_len
-
-                if (int_len > IMax[i]) {
-                    IMax[i] = int_len
-                }
-                else {
-                    int_diff += IMax[i] - int_len
-                }
-
-                if (len_diff > 0) {
-                    if (apply_decimal) {
-                        dot = (fix_dec || dec_len ? 1 : 0)
-                        dec = (float || !dec_len ? dot : 0)
-                        decimal_diff = dec + (d ? fix_dec : dec_len)
-                    }
-
-                    field_diff = Max(len_diff + int_diff + decimal_diff - t_diff, 0)
-                }
-            }
-
-            if (debug) DebugPrint(2)
+            field_diff = ProcessFirstDecimalField(f, i, orig_max, len)
         }
 
         # Else if column confirmed as decimal and current field is decimal
         # handle field length adjustments
 
         else if (!no_tf_num && DecimalSet[i] && AnyFormatNumber(f)) {
-            float = f ~ float_re
-            tval = TruncVal(f, 0, LargeVals[i])
-
-            if (tval ~ /\.[0-9]+0+/) {
-                sub(/0*$/, "", tval) # Remove trailing zeros in decimal part
-            }
-            sub(/\.0*$/, "", tval) # Remove decimal part if equal to zero
-
-            t_len = length(tval)
-            t_diff = float ? 0 : Max(len - t_len, 0)
-            len_diff = t_len - orig_max
-
-            # See the matching comment above the other split(tval, NParts, ...)
-            # call in this file: explicit clear before reuse works around a
-            # real gawk heap-corruption crash triggered by re-splitting into
-            # an array whose element was last set via gsub() rather than a
-            # fresh split().
-            delete NParts
-            split(tval, NParts, /\./)
-            dec_len = length(NParts[2])
-
-            if (dec_len > DecimalMax[i]) {
-                decimal_max_diff = float ? dec_len - DecimalMax[i] : 0
-                DecimalMax[i] = dec_len
-            }
-
-            apply_decimal = (d != "z" && (d || DecimalMax[i]))
-
-            if (sn) {
-                if (!d) sn_len = 2 + DecimalMax[i] + 4
-                sn_diff = sn_len - orig_max
-                field_diff = Max(sn_diff, 0)
-            }
-            else {
-                gsub(/[^0-9\-]/, "", NParts[1])
-                int_len = length(int(NParts[1]))
-                if (int_len > 4) LargeVals[i] = 1
-
-                if (orig_max) {
-                    if (DecPush[i] && !(NParts[1] ~ /^($|-)/)) {
-                        int_len = Max(DecPush[i], int_len)
-                        dec_push = 1
-                        delete DecPush[i]
-                    }
-                    if (int_len > NumberMax[i]) NumberMax[i] = int_len
-                    int_diff = len - t_len
-
-                    if (int_len > IMax[i]) {
-                        IMax[i] = int_len
-                    }
-                    else if (!float) {
-                        int_diff += IMax[i] - int_len
-                    }
-
-                    if (apply_decimal) {
-                        dot = 1
-                        dec = (d ? fix_dec : DecimalMax[i])
-                        decimal_diff = (float || !dec_len ? dot : 0) + dec - dec_len
-                        field_diff = Max(len_diff + int_diff + decimal_diff + decimal_max_diff - t_diff, 0)
-                    }
-                    else {
-                        field_diff = Max(len_diff + int_diff + decimal_diff + decimal_max_diff - t_diff, 0)
-                    }
-                }
-
-                else {
-                    if (int_len > NumberMax[i]) NumberMax[i] = int_len
-                    field_diff = len_diff
-                }
-            }
-
-            if (debug && field_diff) DebugPrint(3)
+            field_diff = ProcessSubsequentDecimalField(f, i, orig_max, len)
         }
 
         # Otherwise just handle simple field length increases and store number
@@ -611,7 +696,10 @@ NR > FNR {
                         else {
                             dec = (d ? fix_dec : DecimalMax[i])
                             type_str = (sn ? "." dec "e" : "." dec "f")
-                            value = GetOrSetTruncVal(f, dec, LargeVals[i])
+                            # "+ 0" for the same gawk 5.2.x unassigned-array-
+                            # element-argument bug -- see the comment above
+                            # the TruncVal call in ProcessFirstDecimalField.
+                            value = GetOrSetTruncVal(f, dec, LargeVals[i] + 0)
                         }
                     }
                     else {

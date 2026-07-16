@@ -197,7 +197,7 @@ function PrintGridline(mode, max_nf) {
     print end_char
 }
 
-function DebugPrint(_case) {
+function DebugPrint(_case, msg) {
     # Switch statement not supported in all Awk implementations
     if (debug_col && i != debug_col) return
     if (_case == 1) {
@@ -205,13 +205,19 @@ function DebugPrint(_case) {
             printf "%-20s%5s%5s%5s%5s%5s%5s\n", "", "FNR", "i", "len", "ogmx", "fmxi", "ldf" }
         printf "%-20s%5s%5s%5s%5s%5s%5s", "max change: ", FNR, i, len, orig_max, FieldMax[i], len_diff }
     else if (_case == 2) {
+        # msg is a pre-formatted value string built by the caller (see
+        # ProcessFirstDecimalField in fit_columns_program.awk) -- that logic
+        # was moved into a function with its own local variables, so this
+        # can no longer read int_len/dec_len/etc. as globals directly.
         if (!debug2_title_printed) { debug2_title_printed=1
             printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s\n", "", "FNR", "i", "d", "i_ln", "d_ln", "t_ln", "nmax", "dmax", "omax", "len", "i_df", "d_df", "l_df", "t_df", "f_df", "tval" }
-        printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s", "decimal setting: ", FNR, i, d, int_len, dec_len, t_len, NumberMax[i], 0, orig_max, len, int_diff, decimal_diff, len_diff, t_diff, field_diff, tval }
+        printf "%-20s%s", "decimal setting: ", msg }
     else if (_case == 3) {
+        # See the case 2 comment -- msg is pre-formatted by
+        # ProcessSubsequentDecimalField for the same reason.
         if (!debug3_title_printed) { debug3_title_printed=1
             printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s\n", "", "FNR", "i", "d", "i_ln", "d_ln", "t_ln", "nmax", "dmax", "omax", "len", "i_df", "d_df", "l_df", "t_df", "f_df", "tval" }
-        printf "%-20s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s%5s %-s", "decimal adjustment: ", FNR, i, d, int_len, dec_len, t_len, NumberMax[i], DecimalMax[i], orig_max, len, int_diff, decimal_diff, len_diff, t_diff, field_diff, tval }
+        printf "%-20s%s", "decimal adjustment: ", msg }
     else if (_case == 4) {
         if (!s_title_printed) { s_title_printed=1
             printf "%-15s%5s%5s%5s%5s%5s%5s%5s\n", "", "i", "fmxi", "avfl", "mxnf", "rdsc", "tfl", "ttys" }
