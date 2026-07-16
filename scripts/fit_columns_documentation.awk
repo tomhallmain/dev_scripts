@@ -93,6 +93,11 @@
 #
 #         -v no_zero_blank=1
 #
+#       Strip currency symbols ($/£) from number fields, like the default
+#       comma normalization:
+#
+#         -v strip_currency=1
+#
 #       Run with no color or warning:
 #
 #         -v color=never
@@ -143,5 +148,6 @@
 ## TODO: Variant float output for normal sized nums
 ## TODO: SetType function checking field against relevant re one time at start
 ## TODO: Custom gridline corner characters (h/v overrides cover runs/separators today)
+## TODO: Optionally apply a currency/unit symbol to number column values (inverse of strip_currency, e.g. -v apply_currency=$)
 ## TODO: Implement parallel processing for very large files
 ## TODO: Add column-specific formatting rules

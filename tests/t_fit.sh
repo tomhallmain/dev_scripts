@@ -231,6 +231,23 @@ for fit_length in $(cat $tmp); do
     [ "$fit_length" -lt "$tty_width" ] || ds:fail 'fit failed endfit_col case'
 done
 
+expected='Spetnixvbi lej Bkapf Giawgg             $2166631  $114957
+Vgrrhfhb ul Wkuu                           $7563       $0
+Ivfubovmpm Svvsud                         $82809   $75629
+Brjtlras Tvgqicmq (xrmbi)                     $0       $0
+Kox-spetnixv Bilejbka (pfgia)                 $0       $0
+Xggvgrr Hfhbulv Luuiv                         $0       $0
+Fubovmp Nsvvsu & Dbrjtlrassv             $190142       $0
+Gqicmqx Smbiko                           $163178       $0
+YXJ                                       $26964       $0
+Vuspe Unixvbil Ejbkap Fgiawg                  $0       $0
+HVGS Shfhbulvkuuiv                            $0       $0
+Fubovmp Nsvvsud Brjtlras Tvgqicmqxrmbi    $16101       $0
+Kox Xivudrxflj Awcbqvxx                       $0     $962
+Ohbcabs Qetnix                          $2431044  $189624'
+actual="$(ds:fit tests/data/number_comma_format -v color=never)"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed number comma format case'
+
 expected='Spetnixvbi lej Bkapf Giawgg             2166631  114957
 Vgrrhfhb ul Wkuu                           7563       0
 Ivfubovmpm Svvsud                         82809   75629
@@ -245,8 +262,8 @@ HVGS Shfhbulvkuuiv                            0       0
 Fubovmp Nsvvsud Brjtlras Tvgqicmqxrmbi    16101       0
 Kox Xivudrxflj Awcbqvxx                       0     962
 Ohbcabs Qetnix                          2431044  189624'
-actual="$(ds:fit tests/data/number_comma_format -v color=never)"
-[ "$expected" = "$actual" ] || ds:fail 'fit failed number comma format case'
+actual="$(ds:fit tests/data/number_comma_format -v color=never -v strip_currency=1)"
+[ "$expected" = "$actual" ] || ds:fail 'fit failed number comma format currency strip case'
 
 if ds:awksafe; then
     ds:fit tests/data/emoji > $tmp

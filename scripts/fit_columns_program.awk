@@ -568,6 +568,22 @@ NR == FNR {
                 len -= commas
             }
 
+            # Optional currency normalization (-v strip_currency=1): remove
+            # a $/£ symbol from number fields, mirroring the comma
+            # normalization above. Width bookkeeping subtracts the removed
+            # byte count measured via length() rather than sub()'s return,
+            # since £ is multibyte under LC_ALL=C. DecPush keys off the
+            # pre-strip form, so capture that before stripping.
+            cur_prefix = (f ~ /^(\$|£|-)/)
+            if (strip_currency) {
+                cur_diff = length(f)
+                if (sub(/\$|£/, "", f)) {
+                    cur_diff -= length(f)
+                    len_diff -= cur_diff
+                    len -= cur_diff
+                }
+            }
+
             if (fitrows < 30) {
                 if (debug && !NumberSet[i]) DebugPrint(7)
                 NumberSet[i] = 1
@@ -577,7 +593,7 @@ NR == FNR {
                 if (f ~ int_re) {
                     if (len > IMax[i]) IMax[i] = len
 
-                    if (!DecimalSet[i] && len > DecPush[i] && f ~ /^(\$|£|-)/) {
+                    if (!DecimalSet[i] && len > DecPush[i] && cur_prefix) {
                         DecPush[i] = len
                     }
                 }
@@ -683,6 +699,9 @@ NR > FNR {
 
                 if (AnyFormatNumber(f)) {
                     gsub(",", "", f)
+                    # Keep in sync with the first-pass width bookkeeping --
+                    # see the strip_currency comment there.
+                    if (strip_currency) sub(/\$|£/, "", f)
 
                     if (DecimalSet[i]) {
                         if (zero_blank && f + 0 == 0) {
