@@ -6,6 +6,15 @@ Scripts and CLI commands to make development and data analysis workflows more ef
 All commands are namespaced to `ds:*` so there should be little to no clashing with any existing commands in your local shell environment.
 
 
+## Other Implementations
+
+This project is also being implemented in other languages:
+
+- [Python](https://github.com/tomhallmain/dev_scripts_py) — approximately 60% implemented
+- [C](https://github.com/tomhallmain/dev_scripts_c) — approximately 20% implemented
+- [Rust](https://github.com/tomhallmain/dev_scripts_rust) — scheduled, 0% implemented
+
+
 ## Installation
 
 ### Basic Install
