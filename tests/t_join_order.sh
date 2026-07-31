@@ -13,7 +13,7 @@ source commands.sh
 
 echo -n "Running join order tests..."
 
-odir=$(mktemp -d /tmp/ds_join_order.XXXXX) || ds:fail 'join order tmp dir failed'
+odir=$(mktemp -d /tmp/ds_join_order.XXXXXX) || ds:fail 'join order tmp dir failed'
 
 cat > "$odir/order1.csv" << 'EOD'
 id,value

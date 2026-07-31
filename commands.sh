@@ -371,7 +371,7 @@ ds:cp() { # ** Copy standard input in UTF-8: data | ds:cp
 }
 
 ds:tmp() { # Shortcut for quiet mktemp: ds:tmp filename
-    mktemp -q "/tmp/${1}.XXXXX"
+    mktemp -q "/tmp/${1}.XXXXXX"
 }
 
 ds:fail() { # Safe failure that kills parent: ds:fail [error_message]

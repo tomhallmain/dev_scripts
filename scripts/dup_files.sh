@@ -228,7 +228,7 @@ HASH_CMD=$(get_hash_command "$HASH_METHOD")
 resolve_strip_tools
 
 # Create temporary file
-tempdata=$(mktemp -q "$TEMP_DIR/filedata.XXXXX") || {
+tempdata=$(mktemp -q "$TEMP_DIR/filedata.XXXXXX") || {
     echo "Error: Failed to create temporary file"
     exit 1
 }
