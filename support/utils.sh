@@ -171,7 +171,19 @@ ds:pipe_clean() { # Remove tmpfile created via STDIN if piping detected: piped=0
 }
 
 ds:sh() { # Print the shell being used - works for sh, bash, zsh: ds:sh
-    ps -ef | awk 'NR==1 {for (f=4;f<=NF;f++) {if ($f=="CMD") pf=f}} $2==pid {print $pf}' pid=$$
+    # $BASH_VERSION/$ZSH_VERSION are shell builtins, so they cover the two
+    # most common cases without touching `ps` at all -- ps -ef output isn't
+    # consistent enough to parse portably (e.g. BusyBox's ps -ef has no CMD
+    # column and only 4 fields total, vs. the 8-field UID/PID/.../CMD form
+    # GNU and BSD/macOS ps -ef both use). The ps-based parse is kept as a
+    # fallback for sh/ksh, which don't set either of those variables.
+    if [ "$BASH_VERSION" ]; then
+        printf 'bash'
+    elif [ "$ZSH_VERSION" ]; then
+        printf 'zsh'
+    else
+        ps -ef | awk 'NR==1 {for (f=4;f<=NF;f++) {if ($f=="CMD") pf=f}} $2==pid {print $pf}' pid=$$
+    fi
 }
 
 ds:subsh() { # Detect if in a subshell: ds:subsh
