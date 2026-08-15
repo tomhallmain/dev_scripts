@@ -54,6 +54,7 @@ SECONDS=0
 
 $shell tests/t_basic.sh
 $shell tests/t_git.sh
+$shell tests/t_move.sh
 $shell tests/t_case.sh
 $shell tests/t_graph.sh
 $shell tests/t_shape.sh

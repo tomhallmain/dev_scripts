@@ -675,6 +675,15 @@ $msg_list
 }
 alias ds:gsq="ds:git_squash"
 
+ds:move() { # Move files/dirs, optionally filtered by [tag] or glob (alias ds:mv): ds:mv source target [filter]
+    bash "$DS_SCRIPT/move.sh" move "${@}"
+}
+alias ds:mv="ds:move"
+
+ds:copy() { # Copy files/dirs, optionally filtered by [tag] or glob: ds:copy source target [filter]
+    bash "$DS_SCRIPT/move.sh" copy "${@}"
+}
+
 ds:git_time_stat() { # Last local pull+change+commit times (alias ds:gts): cd repo; ds:gts
     ds:not_git && return 1
     local last_pull="$(stat -c %y "$(git rev-parse --show-toplevel)/.git/FETCH_HEAD" 2>/dev/null)"
