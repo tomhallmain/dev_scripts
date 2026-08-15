@@ -684,6 +684,11 @@ ds:copy() { # Copy files/dirs, optionally filtered by [tag] or glob: ds:copy sou
     bash "$DS_SCRIPT/move.sh" copy "${@}"
 }
 
+ds:kill_port() { # Kill the process on a port or matching a pattern, walking up to a wrapper parent when it makes sense (alias ds:kp): ds:kp port|pattern
+    bash "$DS_SCRIPT/kill_port.sh" "${@}"
+}
+alias ds:kp="ds:kill_port"
+
 ds:git_time_stat() { # Last local pull+change+commit times (alias ds:gts): cd repo; ds:gts
     ds:not_git && return 1
     local last_pull="$(stat -c %y "$(git rev-parse --show-toplevel)/.git/FETCH_HEAD" 2>/dev/null)"
