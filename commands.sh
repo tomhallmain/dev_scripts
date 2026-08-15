@@ -1,5 +1,5 @@
 #!/bin/bash
-
+ 
 DS_LOC="${DS_LOC//$'\r'/}"
 if [ ! "$DS_LOC" ]; then
     if [ -f "./commands.sh" ]; then
@@ -637,11 +637,39 @@ ds:git_squash() { # Squash last n commits (alias ds:gsq): ds:gsq [n_commits=1]
     ds:not_git && return 1
     local extent="${1:-1}"
     ! ds:is_int "$extent" && echo 'Squash commits to arg must be an integer' && ds:help ds:git_squash && return 1
-    local conf="$(ds:readp "Are you sure you want to squash the last $extent commit(s) on current branch?
+    local repo_name="$(basename "$(git rev-parse --show-toplevel)")"
 
-    Please confirm (y/n)")"
-    [ ! "$conf" = y ] && echo 'No change made' && return 1
     let local extent=$extent+1
+
+    # Squashing unrelated commits together is usually a mistake, so if the
+    # messages being squashed aren't all identical, replace the standard
+    # confirmation with a more severe warning instead of asking twice.
+    local -a msgs=()
+    while IFS= read -r line; do msgs+=("$line"); done < <(git log --format=%s -n "$extent" HEAD)
+    local first="${msgs[0]}" all_same=t m
+    for m in "${msgs[@]:1}"; do
+        [ "$m" = "$first" ] || { all_same=f; break; }
+    done
+
+    local prompt
+    if [ "$all_same" = f ]; then
+        local msg_list=""
+        for m in "${msgs[@]}"; do
+            msg_list="$msg_list
+      - $m"
+        done
+        prompt="WARNING: the last $extent commit(s) on current branch of repo '$repo_name' don't all have identical messages, so they may not be related:
+$msg_list
+
+    Squash anyway? (y/n)"
+    else
+        prompt="Are you sure you want to squash the last $extent commit(s) on current branch of repo '$repo_name'?
+
+    Please confirm (y/n)"
+    fi
+    local conf="$(ds:readp "$prompt")"
+    [ ! "$conf" = y ] && echo 'No change made' && return 1
+
     git reset --soft HEAD~$extent
     git commit --edit -m"$(git log --format=%B --reverse HEAD..HEAD@{1})"
 }
