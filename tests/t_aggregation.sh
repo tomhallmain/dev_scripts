@@ -152,21 +152,30 @@ goal 2 4 1 0.5 7 8 -7
 + 9 13 9 2.33334 31 62 -31'
 [ "$(ds:agg $tmp '/,+,*,-' '\-,/,*,+')" = "$expected" ]           || ds:fail 'agg failed all shortforms case'
 
-expected='Spetnixvbi lej Bkapf Giawgg  $2,166,631  $114,957  $2281588
-Vgrrhfhb ul Wkuu  $7,563  $0  $7563
-Ivfubovmpm Svvsud  $82,809  $75,629  $158438
-Brjtlras Tvgqicmq (xrmbi)  $0  $0  $0
-Kox-spetnixv Bilejbka (pfgia)  $0  $0  $0
-Xggvgrr Hfhbulv Luuiv  $0  $0  $0
-Fubovmp Nsvvsu & Dbrjtlrassv  $190,142  $0  $190142
-Gqicmqx Smbiko  $163,178  $0  $163178
-YXJ  $26,964  $0  $26964
-Vuspe Unixvbil Ejbkap Fgiawg  $0  $0  $0
-HVGS Shfhbulvkuuiv  $0  $0  $0
-Fubovmp Nsvvsud Brjtlras Tvgqicmqxrmbi  $16,101  $0  $16101
-Kox Xivudrxflj Awcbqvxx  $0  $962  $962
-Ohbcabs Qetnix  $2,431,044  $189,624  $2620668
-$1+$2+$3+$4+$5+$6+$7+$10-$11-$12-$13  $2431044  $189624  $2620668'
+# Computed totals (last field per row, and the whole bottom totals row) are
+# plain numbers with no "$" here. Field separation used to land on a custom
+# "  $" literal (every column here happens to start with "$"), which bled a
+# "$" into the join between fields, including before computed values -- not
+# a deliberate currency-preserving feature. inferfs now deterministically
+# prefers the whitespace-class separator over a coincidental one built from
+# a data character, so that no longer happens. Applying the source columns'
+# "$" formatting to computed totals could be a real feature later, but isn't
+# implemented today.
+expected='Spetnixvbi lej Bkapf Giawgg  $2,166,631  $114,957  2281588
+Vgrrhfhb ul Wkuu  $7,563  $0  7563
+Ivfubovmpm Svvsud  $82,809  $75,629  158438
+Brjtlras Tvgqicmq (xrmbi)  $0  $0  0
+Kox-spetnixv Bilejbka (pfgia)  $0  $0  0
+Xggvgrr Hfhbulv Luuiv  $0  $0  0
+Fubovmp Nsvvsu & Dbrjtlrassv  $190,142  $0  190142
+Gqicmqx Smbiko  $163,178  $0  163178
+YXJ  $26,964  $0  26964
+Vuspe Unixvbil Ejbkap Fgiawg  $0  $0  0
+HVGS Shfhbulvkuuiv  $0  $0  0
+Fubovmp Nsvvsud Brjtlras Tvgqicmqxrmbi  $16,101  $0  16101
+Kox Xivudrxflj Awcbqvxx  $0  $962  962
+Ohbcabs Qetnix  $2,431,044  $189,624  2620668
+$1+$2+$3+$4+$5+$6+$7+$10-$11-$12-$13  2431044  189624  2620668'
 [ "$(ds:agg tests/data/number_comma_format '+' '$1+$2+$3+$4+$5+$6+$7+$10-$11-$12-$13')" = "$expected" ] || ds:fail 'agg failed number comma format case'
 
 expected='one two three four three+two -
