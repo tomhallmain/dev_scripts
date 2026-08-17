@@ -23,7 +23,7 @@ function Trim(string)
 }
 function SetOFS(leave_escapes)
 {
-    if (OFS ~ /\[\:.+\:\]\{/)
+    if (OFS ~ /\[\:.+\:\]\]\{/)
         OFS = "  "
     else if (OFS ~ /\[\:.+\:\]/)
         OFS = " "
