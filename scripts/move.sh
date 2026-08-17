@@ -78,13 +78,18 @@ split_ext() {
     esac
 }
 
+# Bash <4 has no ${var,,}, so lowercase via tr instead.
+to_lower() {
+    printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
 matches_filter() {
     local filepath="$1" filename ext filter_lc tag_exts
     [ -z "$filter" ] && return 0
     filename="$(basename "$filepath")"
     ext="$(split_ext "$filename")"
-    ext="${ext,,}"
-    filter_lc="${filter,,}"
+    ext="$(to_lower "$ext")"
+    filter_lc="$(to_lower "$filter")"
 
     if [[ "$filter" == \[*\] ]]; then
         if tag_exts="$(tag_extensions "$filter_lc")"; then
@@ -101,37 +106,34 @@ matches_filter() {
     esac
 }
 
-# Populates the array named by $1 with the sorted, filtered files in scope.
+# Prints the sorted, filtered files in scope, NUL-separated on stdout.
+# Bash <4 has no namerefs (local -n), so results are streamed out rather
+# than written into a caller-named array; callers read them back with a
+# `while read -r -d ''` loop over `< <(collect_files)`.
 collect_files() {
-    local -n out_ref="$1"
-    out_ref=()
     local f
 
     if [ "$source_is_dir" = 0 ]; then
-        matches_filter "$source_path" && out_ref=("$source_path")
+        matches_filter "$source_path" && printf '%s\0' "$source_path"
         return
     fi
 
-    while IFS= read -r -d '' f; do
-        # Flatten-in-place: skip files already sitting directly in the source
-        # root, since that root is also the target when moving into itself.
-        if [ "$source_equals_target_dir" = 1 ] && [ "$(dirname "$f")" = "$source_path" ]; then
-            continue
-        fi
-        matches_filter "$f" && out_ref+=("$f")
-    done < <(
-        if [ "$FD" = true ]; then
-            fd . "$source_path" -H --type f -0
-        else
-            find "$source_path" -type f -print0
-        fi
-    )
-
-    if [ "${#out_ref[@]}" -gt 0 ]; then
-        local -a sorted
-        while IFS= read -r f; do sorted+=("$f"); done < <(printf '%s\n' "${out_ref[@]}" | sort)
-        out_ref=("${sorted[@]}")
-    fi
+    {
+        while IFS= read -r -d '' f; do
+            # Flatten-in-place: skip files already sitting directly in the source
+            # root, since that root is also the target when moving into itself.
+            if [ "$source_equals_target_dir" = 1 ] && [ "$(dirname "$f")" = "$source_path" ]; then
+                continue
+            fi
+            matches_filter "$f" && printf '%s\n' "$f"
+        done < <(
+            if [ "$FD" = true ]; then
+                fd . "$source_path" -H --type f -0
+            else
+                find "$source_path" -type f -print0
+            fi
+        )
+    } | sort | tr '\n' '\0'
 }
 
 # Prints the target path for a source file to stdout; on the
@@ -166,17 +168,16 @@ determine_target_path() {
 }
 
 # Prints a "  .ext: N" breakdown, sorted by count desc then extension name.
+# Bash <4 has no associative arrays, so counts are tallied via sort/uniq
+# instead. Takes the file list as positional args (not a nameref).
 print_summary() {
-    local -n files_ref="$1"
-    local -A counts
     local f ext
-    for f in "${files_ref[@]}"; do
+    for f in "$@"; do
         ext="$(split_ext "$(basename "$f")")"
         [ -z "$ext" ] && ext="(no extension)"
-        counts["$ext"]=$(( ${counts["$ext"]:-0} + 1 ))
-    done
-    for ext in "${!counts[@]}"; do
-        printf '%s\t%s\n' "${counts[$ext]}" "$ext"
+        printf '%s\n' "$ext"
+    done | sort | uniq -c | while read -r count ext; do
+        printf '%s\t%s\n' "$count" "$ext"
     done | sort -t $'\t' -k1,1nr -k2,2 | while IFS=$'\t' read -r count ext; do
         printf '  %s: %s\n' "$ext" "$count"
     done
@@ -229,8 +230,8 @@ safe_move() {
     return 0
 }
 
-declare -a all_files
-collect_files all_files
+declare -a all_files=()
+while IFS= read -r -d '' f; do all_files+=("$f"); done < <(collect_files)
 file_count="${#all_files[@]}"
 
 if [ "$file_count" = 0 ]; then
@@ -244,7 +245,7 @@ if [ "$file_count" = 0 ]; then
 fi
 
 echo "Files to be ${verb_past} (${file_count} total):"
-print_summary all_files
+print_summary "${all_files[@]}"
 
 confirm "\nConfirm $verb operation?" || { echo "${verb_cap} operation cancelled."; exit 1; }
 
@@ -257,8 +258,8 @@ fi
 # preview above, show what changed and require re-confirmation.
 baseline=("${all_files[@]}")
 while :; do
-    declare -a refreshed
-    collect_files refreshed
+    declare -a refreshed=()
+    while IFS= read -r -d '' f; do refreshed+=("$f"); done < <(collect_files)
     if [ "$(printf '%s\n' "${refreshed[@]}")" = "$(printf '%s\n' "${baseline[@]}")" ]; then
         all_files=("${refreshed[@]}")
         break
@@ -267,8 +268,9 @@ while :; do
     refreshed_count="${#refreshed[@]}"
     echo -e "\nFile list changed since preview: ${#baseline[@]} -> ${refreshed_count}. Please re-confirm."
 
-    mapfile -t removed < <(comm -23 <(printf '%s\n' "${baseline[@]}") <(printf '%s\n' "${refreshed[@]}"))
-    mapfile -t added < <(comm -13 <(printf '%s\n' "${baseline[@]}") <(printf '%s\n' "${refreshed[@]}"))
+    declare -a removed=() added=()
+    while IFS= read -r f; do removed+=("$f"); done < <(comm -23 <(printf '%s\n' "${baseline[@]}") <(printf '%s\n' "${refreshed[@]}"))
+    while IFS= read -r f; do added+=("$f"); done < <(comm -13 <(printf '%s\n' "${baseline[@]}") <(printf '%s\n' "${refreshed[@]}"))
 
     if [ "${#removed[@]}" -gt 0 ]; then
         echo "Removed from operation list:"
@@ -326,7 +328,7 @@ for source_file in "${all_files[@]}"; do
 done
 
 echo -e "\n${verb_cap} operation completed (${files_count} total):"
-print_summary all_files
+print_summary "${all_files[@]}"
 [ "$skipped" -gt 0 ] && echo "Skipped $skipped file(s) already at target path."
 if [ "${#failed_files[@]}" -gt 0 ]; then
     echo -e "\nFailed ${verb_past} (${#failed_files[@]}):"

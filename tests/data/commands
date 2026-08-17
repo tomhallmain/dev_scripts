@@ -7,6 +7,7 @@
 **@@@ds:color@@@@@@Get RGB from hex or hex from RGB@@@ds:color [hex|rgb|r] [g] [b]
 @@@ds:commands@@@@@@List dev_scripts commands@@@ds:commands [bufferchar] [utils] [re_source]
 **@@@ds:comps@@@@@@Get non-matching lines from two datasets@@@ds:comps file [file] [awkargs]
+@@@ds:copy@@@@@@Copy files/dirs, optionally filtered by [tag] or glob@@@ds:copy source target [filter]
 **@@@ds:cp@@@@@@Copy standard input in UTF-8@@@data | ds:cp
 **@@@ds:decap@@@@@@Remove up to n_lines from the start of a file@@@ds:decap [file] [n_lines=1]
 @@@ds:deps@@@@@@Identify dependencies of a shell function@@@ds:deps name [filter] [ntype=FUNC|ALIAS] [caller] [ndata]
@@ -54,9 +55,11 @@
 @@@ds:jira@@@@@@Open Jira at specified workspace issue / search@@@ds:jira workspace_subdomain [issue|query]
 **@@@ds:join@@@ds:jn@@@Join two datasets with any keyset@@@ds:join file [file*] [jointype] [k|merge] [k2] [prefield=f] [awkargs]
 **@@@ds:join_by@@@@@@Join a shell array by given delimiter@@@ds:join_by delimiter [join_array]
+@@@ds:kill_port@@@ds:kp@@@Kill the process on a port or matching a pattern, walking up to a wrapper parent when it makes sense@@@ds:kp port|pattern
 **@@@ds:line@@@@@@Execute commands on var line@@@ds:line [seed_cmds] line_cmds [IFS=\n]
 **@@@ds:matches@@@@@@Get match lines from two datasets@@@ds:matches file [file] [awkargs]
 **@@@ds:mini@@@@@@Crude minify, remove whitespace and newlines@@@ds:mini [file*] [newline_sep=;] [blank_only=f]
+@@@ds:move@@@ds:mv@@@Move files/dirs, optionally filtered by [tag] or glob@@@ds:mv source target [filter]
 @@@ds:new@@@@@@Refresh zsh or bash interactive session@@@ds:new
 **@@@ds:newfs@@@@@@Convert field separators - i.e. tsv -> csv@@@ds:newfs [file] [newfs=,] [awkargs]
 @@@ds:nset@@@@@@Test name (function/alias/variable) is defined@@@ds:nset name [search_vars=f]
