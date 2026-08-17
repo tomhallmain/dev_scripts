@@ -1,199 +1,205 @@
-┌──┬───────────────┬─────────┬───────────────────────────────┬──────────────────────────────────────────┐
-│  │  COMMAND      │  ALIAS  │  DESCRIPTION                  │  USAGE                                   │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │               │         │                               │                                          │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:agg       │         │  Aggregate by index/pattern   │  ds:agg [-h|file*] [r_aggs=+] [c_aggs=+] │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:asgn      │         │  Print lines matching assignme│  ds:asgn file                            │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:case      │         │  Recase text data globally or │  ds:case [string] [tocase=proper] [filter│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:cd        │         │  cd to higher or lower level d│  ds:cd [search]                          │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:color     │         │  Get RGB from hex or hex from │  ds:color [hex|rgb|r] [g] [b]            │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:commands  │         │  List dev_scripts commands    │  ds:commands [bufferchar] [utils] [re_sou│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:comps     │         │  Get non-matching lines from t│  ds:comps file [file] [awkargs]          │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:cp        │         │  Copy standard input in UTF-8 │  data | ds:cp                            │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:decap     │         │  Remove up to n_lines from the│  ds:decap [file] [n_lines=1]             │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:deps      │         │  Identify dependencies of a sh│  ds:deps name [filter] [ntype=FUNC|ALIAS]│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:deps2     │         │  Identify dependencies of C, J│  ds:deps2 file                           │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:diff      │         │  Diff shortcut for an easier t│  ds:diff file1|str1 [file2|str2] [suppres│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:diff_field│  ds:df  │  Get elementwise diff of two d│  ds:df file [file*] [op=-] [exc_fields=0]│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:dostounix │         │  Remove ^M / CR characters in │  ds:dostounix [file*]                    │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:dup_input │         │  Duplicate standard input in a│  data | ds:dup_input                     │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:dups      │         │  Report duplicate files with o│  ds:dups [dir] [confirm=f] [of_file] [try│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:embrace   │         │  Enclose a string on each side│  ds:embrace [str] [left={] [right=}]     │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:enti      │         │  Print text entities separated│  ds:enti [file] [sep= ] [min=1] [order=a]│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:fail      │         │  Safe failure that kills paren│  ds:fail [error_message]                 │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:field_repl│         │  Overwrite field val if matche│  ds:field_replace [file] val_replace_func│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:fieldcount│  ds:fc  │  Print value counts           │  ds:fc [file] [fields=1] [min=1] [order=a│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:filename_s│         │  Add string to filename, prese│  ds:filename_str file str [prepend|append│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:fit       │         │  Fit fielded data in columns w│  ds:fit [-h|file*] [prefield=t] [awkargs]│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:fsrc      │         │  Show the source of a shell fu│  ds:fsrc func                            │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:gexec     │         │  Generate script from parts of│  ds:gexec run=f srcfile outputdir reo_r_a│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_add_co│  ds:gacp│  Add, commit with message, pus│  ds:gacp commit_message [prompt=t]       │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_branch│  ds:gb  │  Run git branch for all repos │  ds:gb                                   │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_branch│  ds:gbr │  List branches merged to a bra│  ds:git_branch_refs [branch=develop] [inv│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_checko│  ds:gco │  Checkout branch matching patt│  ds:gco [branch_pattern] [new_branch=f]  │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_cross_│  ds:gcv │  Display table of git repos vs│  ds:gcv [:ab:Dfhmo:sv]                   │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_diff  │         │  Diff shortcut for exclusions │  ds:git_diff obj obj exclusions          │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_graph │  ds:gg  │  Print colorful git history gr│  ds:gg                                   │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_purge_│  ds:gpl │  Purge branches from local git│  ds:gpl [repos_dir=~]                    │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_recent│  ds:gr  │  Display commits sorted by rec│  ds:gr [refs=heads] [run_context=display]│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_recent│  ds:gra │  Display recent commits for lo│  ds:gra [refs=heads] [repos_dir=dirname o│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_refres│  ds:grf │  Pull latest for all repos, ru│  ds:grf [repos_dir=~]                    │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_squash│  ds:gsq │  Squash last n commits        │  ds:gsq [n_commits=1]                    │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_status│  ds:gs  │  Run git status for all repos │  ds:gs                                   │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_time_s│  ds:gts │  Last local pull+change+commit│  cd repo; ds:gts                         │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:git_word_d│  ds:gwdf│  Git word diff shortcut       │  ds:gwdf [git_diff_args]                 │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:goog      │         │  Search Google                │  ds:goog [search query]                  │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:graph     │         │  Extract graph relationships f│  ds:graph [file]                         │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:grepvi    │  ds:gvi │  Grep and open vim on match   │  ds:gvi search [file|dir] [edit_all_match│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:help      │         │  Print help for a given comman│  ds:help ds_command                      │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:hist      │         │  Print histograms for all numb│  ds:hist [file] [n_bins] [bar_len] [awkar│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:index     │  ds:i   │  Attach an index to lines from│  ds:i [file] [startline=1]               │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:inferfs   │         │  Infer field separator from da│  ds:inferfs file [reparse=f] [custom=t] [│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:inferh    │         │  Infer if headers present in a│  ds:inferh file [awkargs]                │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:inferk    │         │  Infer join fields in two text│  ds:inferk file1 file2 [awkargs]         │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:insert    │         │  Redirect input into a file at│  ds:insert file [lineno|pattern] [srcfile│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:iter      │         │  Repeat a string              │  ds:iter str [n=1] [fs]                  │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:jira      │         │  Open Jira at specified worksp│  ds:jira workspace_subdomain [issue|query│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:join      │  ds:jn  │  Join two datasets with any ke│  ds:join file [file*] [jointype] [k|merge│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:join_by   │         │  Join a shell array by given d│  ds:join_by delimiter [join_array]       │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:line      │         │  Execute commands on var line │  ds:line [seed_cmds] line_cmds [IFS=\n]  │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:matches   │         │  Get match lines from two data│  ds:matches file [file] [awkargs]        │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:mini      │         │  Crude minify, remove whitespa│  ds:mini [file*] [newline_sep=;] [blank_o│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:new       │         │  Refresh zsh or bash interacti│  ds:new                                  │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:newfs     │         │  Convert field separators - i.│  ds:newfs [file] [newfs=,] [awkargs]     │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:nset      │         │  Test name (function/alias/var│  ds:nset name [search_vars=f]            │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:ntype     │         │  Get name type - function, ali│  ds:ntype name                           │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:path_eleme│         │  Return dirname/filename/exten│  read -r dirpath filename extension <<< "│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:pipe_check│         │  Detect if pipe has data or ov│  data | ds:pipe_check [n_lines]          │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:pivot     │         │  Pivot tabular data           │  ds:pivot [file] [y_keys] [x_keys] [z_key│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:plot      │         │  Get a scatter plot of from tw│  ds:plot [file] [field_y=1] [field_x=inde│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:pow       │         │  Combinatorial frequency of da│  ds:pow [file] [min] [return_fields=f] [i│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:prod      │         │  Return product multiset of fi│  ds:prod file [file*] [awkargs]          │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:random    │         │  Generate a random number 0-1 │  ds:random [number|text]                 │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:recent    │         │  List files modified recently │  ds:recent [dir=.] [days=7] [recurse=f] [│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:reo       │         │  Reorder/repeat/slice data by │  ds:reo [-h|file*] [rows] [cols] [prefiel│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:rev       │         │  Reverse lines from standard i│  data | ds:rev                           │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:searchn   │         │  Search shell environment name│  ds:searchn name                         │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:searchx   │         │  Search for a C-lang/curly-bra│  ds:searchx file|dir [search] [q] [multil│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:sedi      │         │  Run global in place substitut│  ds:sedi file|dir search [replace]       │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:select    │         │  Select code by regex anchors │  ds:select file [startpattern endpattern]│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:shape     │         │  Print data shape by length or│  ds:shape [-h|file*] [patterns] [fields] │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:so        │         │  Search Stack Overflow        │  ds:so [search_query]                    │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:sort      │         │  Sort with inferred field sep │  ds:sort [unix_sort_args] [file]         │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:sortm     │  ds:s   │  Sort with inferred field sep │  ds:sortm [file] [keys] [order=a|d] [sort│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:space     │         │  Modify file space or tab coun│  ds:space [file] from=$'\t' target=4     │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:src       │         │  Source a piece of shell code │  ds:src file ["searchx" pattern] || [star│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:srg       │         │  Scope grep to files that cont│  ds:srg scope_pattern search_pattern [dir│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:stagger   │         │  Print tabular data in stagger│  ds:stagger [file] [stag_size]           │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:subsep    │         │  Extend fields by a common sub│  ds:subsep [-h|file] subsep_pattern [noma│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:substr    │         │  Extract a substring with rege│  ds:substr str [leftanc] [rightanc]      │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:test      │         │  Test input quietly with exten│  ds:test regex [str|file] [test_file=f]  │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:tmp       │         │  Shortcut for quiet mktemp    │  ds:tmp filename                         │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:todo      │         │  List todo items found in path│  ds:todo [searchpaths=.]                 │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:trace     │         │  Search shell trace for a patt│  ds:trace [command] [search] [strace] [st│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:transpose │  ds:t   │  Transpose field values       │  ds:transpose [file*] [prefield=t] [awkar│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:unicode   │         │  Get UTF-8 unicode for a chara│  ds:unicode [str] [out=codepoint|hex|octe│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│**│  ds:uniq      │  ds:u   │  Get unique values >= min     │  ds:u [file] [fields=1] [min=1] [order=a]│
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:vi        │         │  Search for files and open in │  ds:vi search [dir] [edit_all_match=f]   │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  ds:websel    │         │  Download and extract inner ht│  ds:websel url [tag_re] [attrs_re]       │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │               │         │                               │                                          │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │  COMMAND      │  ALIAS  │  DESCRIPTION                  │  USAGE                                   │
-├──┼───────────────┼─────────┼───────────────────────────────┼──────────────────────────────────────────┤
-│  │               │         │                               │                                          │
-└──┴───────────────┴─────────┴───────────────────────────────┴──────────────────────────────────────────┘
+┌──┬──────────┬─────────┬─────────────────────────────────────────┬──────────────────────────────────────┐
+│  │  COMMAND │  ALIAS  │  DESCRIPTION                            │  USAGE                               │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │          │         │                                         │                                      │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:agg  │         │  Aggregate by index/pattern             │  ds:agg [-h|file*] [r_aggs=+] [c_aggs│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:asgn │         │  Print lines matching assignment pattern│  ds:asgn file                        │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:case │         │  Recase text data globally or in part   │  ds:case [string] [tocase=proper] [fi│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:cd   │         │  cd to higher or lower level dirs       │  ds:cd [search]                      │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:color│         │  Get RGB from hex or hex from RGB       │  ds:color [hex|rgb|r] [g] [b]        │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:comma│         │  List dev_scripts commands              │  ds:commands [bufferchar] [utils] [re│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:comps│         │  Get non-matching lines from two dataset│  ds:comps file [file] [awkargs]      │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:copy │         │  Copy files/dirs, optionally filtered by│  ds:copy source target [filter]      │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:cp   │         │  Copy standard input in UTF-8           │  data | ds:cp                        │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:decap│         │  Remove up to n_lines from the start of │  ds:decap [file] [n_lines=1]         │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:deps │         │  Identify dependencies of a shell functi│  ds:deps name [filter] [ntype=FUNC|AL│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:deps2│         │  Identify dependencies of C, Java functi│  ds:deps2 file                       │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:diff │         │  Diff shortcut for an easier to read vie│  ds:diff file1|str1 [file2|str2] [sup│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:diff_│  ds:df  │  Get elementwise diff of two datasets   │  ds:df file [file*] [op=-] [exc_field│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:dosto│         │  Remove ^M / CR characters in place     │  ds:dostounix [file*]                │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:dup_i│         │  Duplicate standard input in aggregate  │  data | ds:dup_input                 │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:dups │         │  Report duplicate files with option for │  ds:dups [dir] [confirm=f] [of_file] │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:embra│         │  Enclose a string on each side by args  │  ds:embrace [str] [left={] [right=}] │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:enti │         │  Print text entities separated by patter│  ds:enti [file] [sep= ] [min=1] [orde│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:fail │         │  Safe failure that kills parent         │  ds:fail [error_message]             │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:field│         │  Overwrite field val if matches pattern │  ds:field_replace [file] val_replace_│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:field│  ds:fc  │  Print value counts                     │  ds:fc [file] [fields=1] [min=1] [ord│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:filen│         │  Add string to filename, preserving path│  ds:filename_str file str [prepend|ap│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:fit  │         │  Fit fielded data in columns with dynami│  ds:fit [-h|file*] [prefield=t] [awka│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:fsrc │         │  Show the source of a shell function    │  ds:fsrc func                        │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:gexec│         │  Generate script from parts of another a│  ds:gexec run=f srcfile outputdir reo│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_a│  ds:gacp│  Add, commit with message, push         │  ds:gacp commit_message [prompt=t]   │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_b│  ds:gb  │  Run git branch for all repos           │  ds:gb                               │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_b│  ds:gbr │  List branches merged to a branch       │  ds:git_branch_refs [branch=develop] │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_c│  ds:gco │  Checkout branch matching pattern       │  ds:gco [branch_pattern] [new_branch=│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_c│  ds:gcv │  Display table of git repos vs branches │  ds:gcv [:ab:Dfhmo:sv]               │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_d│         │  Diff shortcut for exclusions           │  ds:git_diff obj obj exclusions      │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_g│  ds:gg  │  Print colorful git history graph       │  ds:gg                               │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_p│  ds:gpl │  Purge branches from local git repos    │  ds:gpl [repos_dir=~]                │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_r│  ds:gr  │  Display commits sorted by recency      │  ds:gr [refs=heads] [run_context=disp│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_r│  ds:gra │  Display recent commits for local repos │  ds:gra [refs=heads] [repos_dir=dirna│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_r│  ds:grf │  Pull latest for all repos, run installs│  ds:grf [repos_dir=~]                │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_s│  ds:gsq │  Squash last n commits                  │  ds:gsq [n_commits=1]                │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_s│  ds:gs  │  Run git status for all repos           │  ds:gs                               │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_t│  ds:gts │  Last local pull+change+commit times    │  cd repo; ds:gts                     │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:git_w│  ds:gwdf│  Git word diff shortcut                 │  ds:gwdf [git_diff_args]             │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:goog │         │  Search Google                          │  ds:goog [search query]              │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:graph│         │  Extract graph relationships from DAG ba│  ds:graph [file]                     │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:grepv│  ds:gvi │  Grep and open vim on match             │  ds:gvi search [file|dir] [edit_all_m│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:help │         │  Print help for a given command         │  ds:help ds_command                  │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:hist │         │  Print histograms for all number fields │  ds:hist [file] [n_bins] [bar_len] [a│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:index│  ds:i   │  Attach an index to lines from a file or│  ds:i [file] [startline=1]           │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:infer│         │  Infer field separator from data        │  ds:inferfs file [reparse=f] [custom=│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:infer│         │  Infer if headers present in a file     │  ds:inferh file [awkargs]            │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:infer│         │  Infer join fields in two text data file│  ds:inferk file1 file2 [awkargs]     │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:inser│         │  Redirect input into a file at lineno or│  ds:insert file [lineno|pattern] [src│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:iter │         │  Repeat a string                        │  ds:iter str [n=1] [fs]              │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:jira │         │  Open Jira at specified workspace issue │  ds:jira workspace_subdomain [issue|q│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:join │  ds:jn  │  Join two datasets with any keyset      │  ds:join file [file*] [jointype] [k|m│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:join_│         │  Join a shell array by given delimiter  │  ds:join_by delimiter [join_array]   │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:kill_│  ds:kp  │  Kill the process on a port or matching │  ds:kp port|pattern                  │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:line │         │  Execute commands on var line           │  ds:line [seed_cmds] line_cmds [IFS=\│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:match│         │  Get match lines from two datasets      │  ds:matches file [file] [awkargs]    │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:mini │         │  Crude minify, remove whitespace and new│  ds:mini [file*] [newline_sep=;] [bla│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:move │  ds:mv  │  Move files/dirs, optionally filtered by│  ds:mv source target [filter]        │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:new  │         │  Refresh zsh or bash interactive session│  ds:new                              │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:newfs│         │  Convert field separators - i.e. tsv -> │  ds:newfs [file] [newfs=,] [awkargs] │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:nset │         │  Test name (function/alias/variable) is │  ds:nset name [search_vars=f]        │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:ntype│         │  Get name type - function, alias, variab│  ds:ntype name                       │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:path_│         │  Return dirname/filename/extension from │  read -r dirpath filename extension <│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:pipe_│         │  Detect if pipe has data or over [n_line│  data | ds:pipe_check [n_lines]      │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:pivot│         │  Pivot tabular data                     │  ds:pivot [file] [y_keys] [x_keys] [z│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:plot │         │  Get a scatter plot of from two fields  │  ds:plot [file] [field_y=1] [field_x=│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:pow  │         │  Combinatorial frequency of data field v│  ds:pow [file] [min] [return_fields=f│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:prod │         │  Return product multiset of filelines   │  ds:prod file [file*] [awkargs]      │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:rando│         │  Generate a random number 0-1 or randomi│  ds:random [number|text]             │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:recen│         │  List files modified recently           │  ds:recent [dir=.] [days=7] [recurse=│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:reo  │         │  Reorder/repeat/slice data by rows and c│  ds:reo [-h|file*] [rows] [cols] [pre│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:rev  │         │  Reverse lines from standard input      │  data | ds:rev                       │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:searc│         │  Search shell environment names         │  ds:searchn name                     │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:searc│         │  Search for a C-lang/curly-brace object │  ds:searchx file|dir [search] [q] [mu│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:sedi │         │  Run global in place substitutions      │  ds:sedi file|dir search [replace]   │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:selec│         │  Select code by regex anchors           │  ds:select file [startpattern endpatt│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:shape│         │  Print data shape by length or pattern  │  ds:shape [-h|file*] [patterns] [fiel│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:so   │         │  Search Stack Overflow                  │  ds:so [search_query]                │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:sort │         │  Sort with inferred field sep of 1 char │  ds:sort [unix_sort_args] [file]     │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:sortm│  ds:s   │  Sort with inferred field sep of >=1 cha│  ds:sortm [file] [keys] [order=a|d] [│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:space│         │  Modify file space or tab counts        │  ds:space [file] from=$'\t' target=4 │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:src  │         │  Source a piece of shell code           │  ds:src file ["searchx" pattern] || [│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:srg  │         │  Scope grep to files that contain a matc│  ds:srg scope_pattern search_pattern │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:stagg│         │  Print tabular data in staggered rows   │  ds:stagger [file] [stag_size]       │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:subse│         │  Extend fields by a common subseparator │  ds:subsep [-h|file] subsep_pattern [│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:subst│         │  Extract a substring with regex         │  ds:substr str [leftanc] [rightanc]  │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:test │         │  Test input quietly with extended regex │  ds:test regex [str|file] [test_file=│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:tmp  │         │  Shortcut for quiet mktemp              │  ds:tmp filename                     │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:todo │         │  List todo items found in paths         │  ds:todo [searchpaths=.]             │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:trace│         │  Search shell trace for a pattern       │  ds:trace [command] [search] [strace]│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:trans│  ds:t   │  Transpose field values                 │  ds:transpose [file*] [prefield=t] [a│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:unico│         │  Get UTF-8 unicode for a character seque│  ds:unicode [str] [out=codepoint|hex|│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│**│  ds:uniq │  ds:u   │  Get unique values >= min               │  ds:u [file] [fields=1] [min=1] [orde│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:vi   │         │  Search for files and open in vim       │  ds:vi search [dir] [edit_all_match=f│
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  ds:webse│         │  Download and extract inner html by rege│  ds:websel url [tag_re] [attrs_re]   │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │          │         │                                         │                                      │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │  COMMAND │  ALIAS  │  DESCRIPTION                            │  USAGE                               │
+├──┼──────────┼─────────┼─────────────────────────────────────────┼──────────────────────────────────────┤
+│  │          │         │                                         │                                      │
+└──┴──────────┴─────────┴─────────────────────────────────────────┴──────────────────────────────────────┘
