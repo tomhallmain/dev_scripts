@@ -38,6 +38,12 @@ echo -n "Running case tests..."
 # Alternating case
 [ "$(echo "test string" | ds:case ac)" = "tEsT StRiNg" ] || ds:fail "alternating case failed"
 
+# Dash case tests
+[ "$(echo "hello world" | ds:case dashc)" = "hello-world" ] || ds:fail "dash case failed"
+[ "$(echo "Hello World Test" | ds:case dashc)" = "hello-world-test" ] || ds:fail "dash case with uppercase failed"
+[ "$(echo "my_variable_name" | ds:case dashc)" = "my-variable-name" ] || ds:fail "dash case from snake failed"
+[ "$(echo "path/to/file.txt" | ds:case dashc)" = "path/to/file/txt" ] || ds:fail "dash case with paths failed"
+
 # Preservation tests
 # [ "$(echo "testing pH levels" | ds:case pc -v preserve="pH")" = "Testing pH Levels" ] || ds:fail "preserve case failed"
 # [ "$(echo "mySQL database" | ds:case tc -v preserve="MySQL")" = "MySQL Database" ] || ds:fail "preserve brand failed"

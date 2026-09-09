@@ -29,6 +29,9 @@
 #      UpperCamelCase uppercamel || ucc
 #                    example: "HelloWorld"
 #
+#      dash-case      d[ash][case] || dashc
+#                    example: "hello-world"
+#
 #      snake_case     s[nake][case] || sc
 #                    example: "hello_world"
 #
@@ -80,6 +83,8 @@ BEGIN {
         ucc = 1
     else if ("snakecase" ~ "^"tocase || tocase ~ "^sc(ase)?$")
         sc = 1
+    else if ("dashcase" ~ "^"tocase || tocase ~ "^dc(ase)?$")
+        dashc = 1
     else if ("varcase" ~ "^"tocase || "variablecase" ~ "^"tocase || tocase ~ "^vc(ase)?$")
         vc = 1
     else if ("objectcase" ~ "^"tocase || tocase ~ "^oc(ase)?$")
@@ -171,6 +176,12 @@ cc || ucc {
         }
     }
     print GenCC(Words[n_wds], n_wds); next
+}
+
+dashc {
+    for (i = 1; i < n_wds; i++)
+        printf "%s", L(Words[i]) "-"
+    print L(Words[n_wds]); next
 }
 
 sc {
